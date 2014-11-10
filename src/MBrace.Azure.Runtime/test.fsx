@@ -18,11 +18,12 @@ let config =
     { StorageConnectionString = conn.[0]
       ServiceBusConnectionString = conn.[1] } 
 
-let cp = new ClientProvider(config)
+ClientProvider.Activate config
+
 
 let p = Latch.GetUri "tmp"
-let l = Latch.Init(cp, p, 0)
-let l = Latch.Get(cp, p)
+let l = Latch.Init(p, 0)
+let l' = Latch.Get(p)
 
 [|1..10|]
 |> Array.map (fun _ -> async { l.Increment() })
@@ -32,10 +33,10 @@ let l = Latch.Get(cp, p)
 
 l.Value
 
-let c = BlobCell.Init(cp, BlobCell.GetUri "tmp", fun () -> 42)
+let c = BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
 c.GetValue<int>()
 
-let q = Queue.Init(cp, Queue.GetUri "tmp")
+let q = Queue.Init(Queue.GetUri "tmp")
 q.Enqueue(42)
 q.Enqueue(43)
 q.TryDequeue<int>()
@@ -43,13 +44,12 @@ q.TryDequeue<int>()
 q.Length
 
 
-let rs : ResultCell = ResultCell.Init(cp, ResultCell.GetUri "tmp" )
+let rs  = ResultCell.Init(ResultCell.GetUri "tmp")
 async { do! Async.Sleep 10000 
         rs.SetResult(42) }
 |> Async.Start
 
 rs.AwaitResult()
-
 
 
 //MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"
