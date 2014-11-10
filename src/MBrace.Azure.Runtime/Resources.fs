@@ -12,31 +12,26 @@ open Nessos.MBrace.Azure.Runtime.Common
 type Latch private (res : Uri) = 
     let table, id = toContainerId res
     let table = ClientProvider.TableClient.GetTableReference(table)
-    let result = table.Execute(TableOperation.Retrieve<LatchEntity>(id, String.Empty))
-    let entity = result.Result :?> LatchEntity
     
     let read() = 
-        let result = table.Execute(TableOperation.Retrieve<LatchEntity>(entity.PartitionKey, entity.RowKey))
-        let e = result.Result :?> LatchEntity
-        e
+        let result = table.Execute(TableOperation.Retrieve<LatchEntity>(id, String.Empty))
+        result.Result :?> LatchEntity
+      
+    member __.Value = let e = read() in e.Value
     
-    let rec update() = 
-        let e = read()
-        e.Value <- e.Value + 1
-        let r = 
-            try 
-                let result = table.Execute(TableOperation.Merge(e))
-                Some(result.Result :?> LatchEntity)
-            with :? StorageException as se when se.RequestInformation.HttpStatusCode = 412 -> None
-        match r with
-        | None -> update()
-        | Some v -> v
-    
-    member __.Value = 
-        let e = read()
-        e.Value
-    
-    member __.Increment() = update() |> ignore
+    member __.Increment() = 
+        let rec update() = 
+            let e = read()
+            e.Value <- e.Value + 1
+            let r = 
+                try 
+                    let result = table.Execute(TableOperation.Merge(e))
+                    Some(result.Result :?> LatchEntity)
+                with :? StorageException as se when se.RequestInformation.HttpStatusCode = 412 -> None
+            match r with
+            | None -> update()
+            | Some _ -> ()
+        update ()
     
     static member Init(res : Uri, ?value : int) = 
         let value = defaultArg value 0
@@ -89,7 +84,7 @@ type Queue private (res : Uri) =
     member __.Enqueue(t : 'T) = 
         let r = BlobCell.GetUri(queueName)
         let bc = BlobCell.Init(r, fun () -> t)
-        let msg = new BrokeredMessage(r)
+        let msg = new BrokeredMessage((bc :> IResource).Uri)
         queue.Send(msg)
     
     member __.TryDequeue() : 'T option = 
@@ -134,3 +129,47 @@ type ResultCell private (res : Uri) =
     static member Init(res : Uri) = 
         let q = Queue.Init(res)
         new ResultCell(res)
+//
+//type ResultAggregator private (res : Uri) = 
+//    let table, pk = toContainerId res
+//    let table = ClientProvider.TableClient.GetTableReference(table)
+//    
+//    let read() = 
+//        let result = table.Execute(TableOperation.Retrieve<LatchEntity>(pk, String.Empty))
+//        let e = result.Result :?> LatchEntity
+//        e
+//    
+//    let rec update() = 
+//        let e = read()
+//        e.Value <- e.Value + 1
+//        let r = 
+//            try 
+//                let result = table.Execute(TableOperation.Merge(e))
+//                Some(result.Result :?> LatchEntity)
+//            with :? StorageException as se when se.RequestInformation.HttpStatusCode = 412 -> None
+//        match r with
+//        | None -> update()
+//        | Some v -> v
+//    
+//    member __.SetResult(index : int, value : 'T) = 
+//        let e = read()
+//        e.Value
+//    
+//    member __.ToArray () : 'T [] = update() |> ignore
+//    
+//    static member Init(res : Uri, size : int) = 
+//        let value = defaultArg value 0
+//        let table, id = toContainerId res
+//        let table = ClientProvider.TableClient.GetTableReference(table)
+//        do table.CreateIfNotExists() |> ignore
+//        let e = new LatchEntity(id, value)
+//        let result = table.Execute(TableOperation.Insert(e))
+//        new Latch(res)
+//    
+//    static member Get(res : Uri) = new Latch(res)
+//    
+//    interface IResource with
+//        member __.Uri = res
+//    
+//    static member GetUri(container, id) = uri "aggregator:%s/%s" container id
+//    static member GetUri(container) = Latch.GetUri(container, guid())

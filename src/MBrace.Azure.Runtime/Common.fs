@@ -47,8 +47,19 @@ type ClientProvider private () =
     static member QueueClient(queue : string) = 
         check (fun _ -> QueueClient.CreateFromConnectionString(cfg.Value.Value.ServiceBusConnectionString, queue))
 
+//
+// Table storage entities
+//
 // Parameterless public ctor is needed.
+
 type LatchEntity(name : string, value : int) = 
     inherit TableEntity(name, String.Empty)
     member val Value = value with get, set
     new() = new LatchEntity(null, 0)
+
+type ResultAggregatorEntity(name : string, index : int, size : int) = 
+    inherit TableEntity(name, string index)
+    member val Size = size with get, set
+    member val Index = index with get, set
+    member val Result = null with get, set
+    new() = new ResultAggregatorEntity(null, -1, -1)
