@@ -50,7 +50,7 @@ type Latch private (cp : ClientProvider, path : AzureRef) =
 
     member __.Value with get () = let e = read () in e.Value
 
-    member __.Increment () = update
+    member __.Increment () = update () |> ignore
         
     static member Init(cp : ClientProvider, path : AzureRef, ?value : int) =
         let value = defaultArg value 0
