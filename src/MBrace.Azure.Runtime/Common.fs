@@ -94,6 +94,9 @@ type BlobCell<'T> private (cp : ClientProvider, path : AzureRef) =
 /// Queue implementation.
 type Queue<'T> private (cp : ClientProvider, path : AzureRef) =
     let queue = cp.QueueClientFactory(path.Container)
+    let ns = cp.NamespaceClient
+
+    member __.Length = ns.GetQueue(path.Container).MessageCount
 
     member __.Enqueue (t : 'T) =
         let p = { Container = path.Container; Id = System.Guid.NewGuid().ToString("N") }

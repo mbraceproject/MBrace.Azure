@@ -39,10 +39,13 @@ let c = BlobCell.Init(cp, p, fun () -> 42)
 c.Value
 
 let p = { Container = "tmpqueue"; Id = ""}
-let q = Queue.Init(cp, p)
+let q : Queue<int> = Queue.Init(cp, p)
 q.Enqueue(42)
 q.Enqueue(43)
 q.TryDequeue()
+
+q.Length
+
 
 let rs : ResultCell<int> = ResultCell.Init(cp, { Container = "resultqueue"; Id = ""} )
 async { do! Async.Sleep 10000 
