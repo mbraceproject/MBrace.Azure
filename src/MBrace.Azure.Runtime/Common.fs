@@ -3,11 +3,11 @@
 // Contains types used a table storage entities, service bus messages and blog objects.
 
 open System
+
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
-open System.IO
 
 type AzureConfig =
     {
@@ -15,11 +15,17 @@ type AzureConfig =
         ServiceBusConnectionString : string
     }
 
-type AzureRef =
-    {
-        Container : string
-        Id : string
-    }
+type IResource =
+    abstract Uri : Uri
+
+[<AutoOpen>]
+module UriUtils =
+    let guid() = Guid.NewGuid().ToString("N")
+    let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
+    let toContainerId(res : Uri) = 
+        let s = res.Segments.[0] 
+        s.Substring(0, s.Length - 1), res.Segments.[1]
+
 
 type ClientProvider(config : AzureConfig) =
     let sa = CloudStorageAccount.Parse(config.StorageConnectionString)
@@ -35,9 +41,10 @@ type LatchEntity(name : string, value : int) =
     new () = new LatchEntity (null, 0)     
 
 /// Named latch implementation.
-type Latch private (cp : ClientProvider, path : AzureRef) =
-    let table = cp.TableClient.GetTableReference(path.Container)
-    let result = table.Execute(TableOperation.Retrieve<LatchEntity>(path.Id, String.Empty))
+type Latch private (cp : ClientProvider, res : Uri) =
+    let table, id = toContainerId res
+    let table = cp.TableClient.GetTableReference(table)
+    let result = table.Execute(TableOperation.Retrieve<LatchEntity>(id, String.Empty))
     let entity = result.Result :?> LatchEntity
     
     let read () =
@@ -62,68 +69,90 @@ type Latch private (cp : ClientProvider, path : AzureRef) =
 
     member __.Increment () = update () |> ignore
         
-    static member Init(cp : ClientProvider, path : AzureRef, ?value : int) =
+    static member Init(cp : ClientProvider, res , ?value : int) =
         let value = defaultArg value 0
-        let table = cp.TableClient.GetTableReference(path.Container)
+        let table, id = toContainerId res
+        let table = cp.TableClient.GetTableReference(table)
         do table.CreateIfNotExists() |> ignore
-        let e = new LatchEntity(path.Id, value)
+        let e = new LatchEntity(id, value)
         let result = table.Execute(TableOperation.Insert(e))
-        new Latch(cp, path)
+        new Latch(cp, res)
 
-    static member Get(cp : ClientProvider, path : AzureRef) =
+    static member Get(cp : ClientProvider, path ) =
         new Latch(cp, path)
      
+    interface IResource with
+        member __.Uri = res
+
+    static member GetUri(container, id) = uri "latch:%s/%s" container id
+    static member GetUri(container) = Latch.GetUri(container, guid())
+
 /// Read-only blob.   
-type BlobCell<'T> private (cp : ClientProvider, path : AzureRef) =
-    let container = cp.BlobClient.GetContainerReference(path.Container)
+type BlobCell private (cp : ClientProvider, res : Uri) =
+    let container, id = toContainerId res
+    let container = cp.BlobClient.GetContainerReference(container)
 
-    member __.Value 
-        with get () = 
-            use s = container.GetBlockBlobReference(path.Id).OpenRead()
-            Config.serializer.Deserialize<'T>(s)
+    member __.GetValue<'T>() =  
+        use s = container.GetBlockBlobReference(id).OpenRead()
+        Config.serializer.Deserialize<'T>(s)
 
-    static member Init(cp : ClientProvider, path : AzureRef, f : unit -> 'T) =
-        let c = cp.BlobClient.GetContainerReference(path.Container)
+    interface IResource with
+        member __.Uri = res
+
+    static member Init(cp : ClientProvider, res , f : unit -> 'T) =
+        let container, id = toContainerId res
+        let c = cp.BlobClient.GetContainerReference(container)
         c.CreateIfNotExists() |> ignore
-        use s = c.GetBlockBlobReference(path.Id).OpenWrite()
+        use s = c.GetBlockBlobReference(id).OpenWrite()
         Config.serializer.Serialize<'T>(s, f ())
-        new BlobCell<'T>(cp, path)
+        new BlobCell(cp, res)
 
-    static member Get(cp : ClientProvider, path : AzureRef) = new BlobCell<'T>(cp, path)
+    static member Get(cp : ClientProvider, res ) = new BlobCell(cp, res)
+
+    static member GetUri(container, id) = uri "blobcell:%s/%s" container id
+    static member GetUri(container) = BlobCell.GetUri(container, guid())
 
 /// Queue implementation.
-type Queue<'T> private (cp : ClientProvider, path : AzureRef) =
-    let queue = cp.QueueClientFactory(path.Container)
+type Queue private (cp : ClientProvider, res : Uri) =
+    let queueName = res.Segments.[0]
+    let queue = cp.QueueClientFactory(queueName)
     let ns = cp.NamespaceClient
 
-    member __.Length = ns.GetQueue(path.Container).MessageCount
+    member __.Length = ns.GetQueue(queueName).MessageCount
 
     member __.Enqueue (t : 'T) =
-        let p = { Container = path.Container; Id = System.Guid.NewGuid().ToString("N") }
-        let bc = BlobCell.Init(cp, p, fun () -> t)
-        let msg = new BrokeredMessage(p)
+        let r = BlobCell.GetUri(queueName)
+        let bc = BlobCell.Init(cp, r, fun () -> t)
+        let msg = new BrokeredMessage(r)
         queue.Send(msg)
 
     member __.TryDequeue () : 'T option =
         let msg = queue.Receive()
         if msg = null then None
         else
-            let p = msg.GetBody<AzureRef>()
+            let p = msg.GetBody<Uri>()
             let t = BlobCell.Get(cp, p)
             msg.Complete()
-            Some t.Value
+            Some <| t.GetValue()
 
-    static member Get(cp, path) = new Queue<'T>(cp, path)
+    static member Get(cp, res) = new Queue(cp, res)
 
-    static member Init(cp : ClientProvider, path : AzureRef) =
+    static member Init(cp : ClientProvider, res : Uri) =
         let ns = cp.NamespaceClient
-        let qd = new QueueDescription(path.Container)
+        let container = res.Segments.[0]
+        let qd = new QueueDescription(container)
         qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
-        if not <| ns.QueueExists(path.Container) then
+        if not <| ns.QueueExists(container) then
             ns.CreateQueue(qd) |> ignore
-        new Queue<'T>(cp, path)
+        new Queue(cp, res)
 
-type ResultCell<'T> private (queue : Queue<'T>) =
+    interface IResource with
+        member __.Uri = res
+
+    static member GetUri(container) = uri "queue:%s" container
+
+type ResultCell private (cp : ClientProvider, res : Uri) =
+    let queue = Queue.Get(cp, Queue.GetUri(res.Segments.[0]))
 
     member __.SetResult(result : 'T) = queue.Enqueue(result)
 
@@ -134,10 +163,15 @@ type ResultCell<'T> private (queue : Queue<'T>) =
         | None -> __.AwaitResult()
         | Some r -> r
 
-    static member Get(cp : ClientProvider, path : AzureRef) =
-        new ResultCell<'T>(Queue.Get(cp,path))
+    interface IResource with
+        member __.Uri = res
 
-    static member Init(cp : ClientProvider, path : AzureRef) =
-        let q = Queue.Init(cp, path)
-        new ResultCell<'T>(q)
+    static member GetUri(container) = uri "resultcell:%s/" container
+
+    static member Get(cp : ClientProvider, res : Uri) =
+        new ResultCell(cp, res)
+
+    static member Init(cp : ClientProvider, res : Uri) =
+        let q = Queue.Init(cp, res)
+        new ResultCell(cp, res)
 

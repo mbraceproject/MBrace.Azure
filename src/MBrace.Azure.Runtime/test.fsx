@@ -20,10 +20,9 @@ let config =
 
 let cp = new ClientProvider(config)
 
-let path = { Container = "tmp"; Id = System.Guid.NewGuid().ToString("N") }
-
-let l = Latch.Init(cp, path, 0)
-let l = Latch.Get(cp, path)
+let p = Latch.GetUri "tmp"
+let l = Latch.Init(cp, p, 0)
+let l = Latch.Get(cp, p)
 
 [|1..10|]
 |> Array.map (fun _ -> async { l.Increment() })
@@ -33,21 +32,18 @@ let l = Latch.Get(cp, path)
 
 l.Value
 
+let c = BlobCell.Init(cp, BlobCell.GetUri "tmp", fun () -> 42)
+c.GetValue<int>()
 
-let p = { Container = "tmp"; Id = System.Guid.NewGuid().ToString("N") }
-let c = BlobCell.Init(cp, p, fun () -> 42)
-c.Value
-
-let p = { Container = "tmpqueue"; Id = ""}
-let q : Queue<int> = Queue.Init(cp, p)
+let q = Queue.Init(cp, Queue.GetUri "tmp")
 q.Enqueue(42)
 q.Enqueue(43)
-q.TryDequeue()
+q.TryDequeue<int>()
 
 q.Length
 
 
-let rs : ResultCell<int> = ResultCell.Init(cp, { Container = "resultqueue"; Id = ""} )
+let rs : ResultCell = ResultCell.Init(cp, ResultCell.GetUri "tmp" )
 async { do! Async.Sleep 10000 
         rs.SetResult(42) }
 |> Async.Start
