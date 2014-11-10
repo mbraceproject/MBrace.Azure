@@ -42,11 +42,18 @@ type Latch private (cp : ClientProvider, path : AzureRef) =
         let e = result.Result :?> LatchEntity
         e
 
-    let update () =
+    let rec update () =
         let e = read ()
         e.Value <- e.Value + 1
-        let result = table.Execute(TableOperation.Merge(e))
-        result.Result :?> LatchEntity
+        let r =        
+            try
+                let result = table.Execute(TableOperation.Merge(e))
+                Some(result.Result :?> LatchEntity)
+            with :? StorageException as se when se.RequestInformation.HttpStatusCode = 412 ->
+                None
+        match r with
+        | None -> update ()
+        | Some v -> v
 
     member __.Value with get () = let e = read () in e.Value
 

@@ -20,11 +20,19 @@ let config =
 
 let cp = new ClientProvider(config)
 
-let path = { Container = "tmp"; Id = "foo" }
+let path = { Container = "tmp"; Id = "latch0" }
+
 let l = Latch.Init(cp, path, 0)
 let l = Latch.Get(cp, path)
+
+[|1..100|]
+|> Array.map (fun _ -> async { l.Increment() })
+|> Async.Parallel
+|> Async.Ignore
+|> Async.RunSynchronously
+
 l.Value
-l.Increment()
+
 
 
 //MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"
