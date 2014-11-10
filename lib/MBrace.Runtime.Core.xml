@@ -1,0 +1,748 @@
+<?xml version="1.0" encoding="utf-8"?>
+<doc>
+<assembly><name>MBrace.Runtime.Core</name></assembly>
+<members>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Runtime.VagrantRegistry.Vagrant">
+<summary>
+ Gets the registered vagrant instance.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.VagrantRegistry.Pickler">
+<summary>
+ Gets the registered FsPickler serializer instance.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Core.FSharpFunc{System.Reflection.Assembly,System.Boolean}},Microsoft.FSharp.Core.FSharpOption{Nessos.Vagrant.AssemblyLoadPolicy})">
+ <summary>
+     Initializes vagrant using default settings.
+ </summary>
+ <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
+ <param name="loadPolicy">Specify a default assembly load policy.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Nessos.Vagrant.Vagrant})">
+ <summary>
+     Initializes the registry using provided factory.
+ </summary>
+ <param name="factory">Vagrant instance factory.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.VagrantRegistry.ComputeObjectDependencies(System.Object)">
+ <summary>
+     Computes assembly dependencies for given serializable object graph.
+ </summary>
+ <param name="graph">Object graph.</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.VagrantRegistry">
+<summary>
+ Vagrant state container
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.CloudCompiler.Compile``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Compiles a cloud computation into a cloud computation package.
+ </summary>
+ <param name="workflow">Cloud workflow.</param>
+ <param name="name">Optional computation name.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.CloudCompiler.Compile``1(Microsoft.FSharp.Quotations.FSharpExpr{Nessos.MBrace.Cloud{``0}},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Compiles a quoted cloud computation into a cloud computation package.
+ </summary>
+ <param name="expr">Quoted cloud computation.</param>
+ <param name="name">Optional computation name.</param>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Compiler.CloudCompiler">
+<summary>
+ Provides methods for static checks and metadata gathering on cloud computations.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.CloudComputation.Warnings">
+<summary>
+ Compiler warnings in cloud computation.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.CloudComputation.ReturnType">
+<summary>
+ Return type of the cloud computation.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.CloudComputation.Name">
+<summary>
+ Name given to the cloud computation.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.CloudComputation.Functions">
+<summary>
+ Function metadata for cloud computation.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.CloudComputation.Expr">
+<summary>
+ Quoted version of the cloud workflow.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.CloudComputation.Dependencies">
+<summary>
+ Assemblies which computation depends on.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.CloudComputation.GetPickle">
+<summary>
+ Creates a typed serialization for the cloud computation
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.CloudComputation.Consume``1(Nessos.MBrace.Runtime.Compiler.ICloudComputationConsumer{``0})">
+<summary>
+ Exitentially unpack the cloud contents.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Compiler.CloudComputation">
+<summary>
+ Defines an untyped container for a cloud workflow
+ and related metadata.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.CloudComputation`1.Workflow">
+<summary>
+ Cloud workflow
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Compiler.CloudComputation`1">
+<summary>
+ Defines a typed container for a cloud workflow
+ and related metadata.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.ExprMetadata.TryParse(Microsoft.FSharp.Quotations.FSharpExpr)">
+ <summary>
+     Parses an expression for its .CustomAttribute data. Returns None if not specified.
+ </summary>
+ <param name="expr">Input quotation.</param>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Compiler.ExprMetadata">
+<summary>
+ Parsed version of Expr.CustomAttributes
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.FunctionInfo.IsCloudExpression">
+<summary>
+ Is quoted cloud workflow.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.FunctionInfo.Expr">
+<summary>
+ Reflected definition.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.FunctionInfo.Metadata">
+<summary>
+ Expr custom attributes.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Runtime.Compiler.FunctionInfo.Source">
+<summary>
+ Source metadata.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Compiler.FunctionInfo">
+<summary>
+ Reflected method/property information.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Compiler.ICloudComputationConsumer`1">
+<summary>
+ Abstract cloud computation unpacker
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.CompilerImpl.compile``1(Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Quotations.FSharpExpr{Nessos.MBrace.Cloud{``0}})">
+<summary>
+ the main compiler method
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.CompilerImpl.isProhibitedMember(System.Reflection.MemberInfo)">
+<summary>
+ specifies if given MemberInfo is prohibited for use within cloud workflows
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Compiler.CompilerImpl">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.getFunctionInfo(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ gathers all quotation metadata from given expression
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudWhile|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes a monadic while loop
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudFor|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes a monadic for loop
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudTryFinally|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes monadic try/finally
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudTryWith|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes monadic try/with
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudUsing|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes monadic use bindings
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudDelay|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes monadic delay
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudCombine|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes monadic combine
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudBind|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes monadic bind
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudReturnFrom|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes monadic return!
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudReturn|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognized monadic return
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudBuilderExpr|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recognizes a top-level &apos;cloud { }&apos; expression
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudBuilder|_|(System.String,System.Reflection.MethodInfo)">
+<summary>
+ recognizes call to cloud builder
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|MemberInfo|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ matches against a method or property call
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudCall|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ matches against a cloud method or property call
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudMethod|_|(System.Reflection.MethodInfo)">
+<summary>
+ matches against a method whose return type contains cloud blocks
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|CloudProperty|_|(System.Reflection.PropertyInfo)">
+<summary>
+ matches against a property whose return type contains cloud blocks
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.|TypeOf|_|(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ matches against a `typeof` literal
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.isLackingCloudAttribute(System.Reflection.MemberInfo)">
+<summary>
+ checks if given member contains CloudAttribute
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.isCloudPrimitive(System.Type)">
+<summary>
+ checks if given type is part of the MBrace.Core library
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Compiler.Utils.yieldsCloudBlock(System.Type)">
+<summary>
+ checks if the given type or covariant type arguments are of type Cloud&lt;&apos;T&gt;
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Compiler.Utils">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Serialization.Pickle`1">
+<summary>
+ Represents a typed serialized value.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Serialization.Pickle.unpickle``1(Nessos.MBrace.Runtime.Serialization.Pickle{``0})">
+<summary>
+ Unpickles a value.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Serialization.Pickle.pickle``1(``0)">
+<summary>
+ Pickles a value.
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Serialization.Pickle">
+<summary>
+ Pickle methods
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Serialization">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.PrettyPrinters.Record.PrettyPrint``1(Microsoft.FSharp.Collections.FSharpList{Nessos.MBrace.Runtime.Utils.PrettyPrinters.Field{``0}},Microsoft.FSharp.Collections.FSharpList{``0},Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+<summary>
+ pretty print with no grouping
+ &lt;summary&gt;
+     Pretty print a collection of ungrouped records.
+ &lt;/summary&gt;
+ &lt;param name=&quot;template&quot;&gt;Template used for identifying record type fields.&lt;/param&gt;
+ &lt;param name=&quot;table&quot;&gt;Row Inputs.&lt;/param&gt;
+ &lt;param name=&quot;title&quot;&gt;Record title.&lt;/param&gt;
+ &lt;param name=&quot;useBorders&quot;&gt;Render ascii borders. Defaults to false.&lt;/param&gt;
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.PrettyPrinters.Record.PrettyPrint``1(Microsoft.FSharp.Collections.FSharpList{Nessos.MBrace.Runtime.Utils.PrettyPrinters.Field{``0}},Microsoft.FSharp.Collections.FSharpList{Microsoft.FSharp.Collections.FSharpList{``0}},Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Pretty print a collection of grouped records.
+ </summary>
+ <param name="template">Template used for identifying record type fields.</param>
+ <param name="table">Row Inputs.</param>
+ <param name="title">Record title.</param>
+ <param name="useBorders">Render ascii borders. Defaults to false.</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.PrettyPrinters.Field.create``2(System.String,Nessos.MBrace.Runtime.Utils.PrettyPrinters.Align,Microsoft.FSharp.Core.FSharpFunc{``0,``1})">
+ <summary>
+     Define a record field projection.
+ </summary>
+ <param name="label">Field label identifier.</param>
+ <param name="alignment">Field alignment.</param>
+ <param name="projection">Projection function.</param>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.PrettyPrinters.Field">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.PrettyPrinters.Type.prettyPrint(System.Type)">
+ <summary>
+   Pretty print a type name.  
+ </summary>
+ <param name="t">Type to be printed.</param>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.PrettyPrinters.Type">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.PrettyPrinters.Utils">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Runtime.Utils.Reflection.|FSharpFunc|_|">
+<summary>
+ matches against lambda types, returning a tuple ArgType [] * ResultType
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Reflection.|Named|Array|Ptr|Param|(System.Type)">
+<summary>
+ System.Type active pattern recognizer
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Reflection.Expr.getReflectedDefinitions(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ gathers all reflected definitions used within given expression tree
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Reflection.Expr.iter(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Quotations.FSharpExpr,Microsoft.FSharp.Core.Unit},Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ iterates through a quotation
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Reflection.Expr.substitute(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Quotations.FSharpExpr,Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Quotations.FSharpExpr}},Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ recursively substitutes the branches of a quotation based on given rule
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Reflection.Expr.var``1">
+<summary>
+ Define a unique variable name
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Reflection.Expr.erase(Microsoft.FSharp.Quotations.FSharpExpr)">
+<summary>
+ erases reflected type information from expression
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.Reflection.Expr">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.Reflection.Type">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.Reflection">
+<summary>
+ Reflection utilities
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Runtime.Utils.Retry.RetryPolicy.NoRetry">
+<summary>
+ no retries performed
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Retry.RetryPolicy.Retry(System.Int32,Microsoft.FSharp.Core.FSharpOption{System.Double})">
+<summary>
+ performs given number of retries
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Retry.RetryPolicy.Infinite(Microsoft.FSharp.Core.FSharpOption{System.Double})">
+<summary>
+ performs infinitely many retries until operation succeeds
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Retry.RetryPolicy.Filter``1(Microsoft.FSharp.Core.FSharpOption{System.Double})">
+<summary>
+ only perform retries while exception of given type is caught
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Retry.RetryPolicy.ExponentialDelay(System.Int32,System.Double)">
+<summary>
+ doubles the delay interval after every retry
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Retry.RetryPolicy.DelayMap(System.Int32,Microsoft.FSharp.Core.FSharpFunc{System.Int32,System.Double})">
+<summary>
+ maps delay time w.r.t number of performed retries
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Retry.retryAsync``1(Nessos.MBrace.Runtime.Utils.Retry.RetryPolicy,Microsoft.FSharp.Control.FSharpAsync{``0})">
+<summary>
+ retries given action based on given policy
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.Retry.retry``1(Nessos.MBrace.Runtime.Utils.Retry.RetryPolicy,Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,``0})">
+<summary>
+ retries given action based on policy
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.Retry">
+<summary>
+ Retry utilities
+</summary>
+</member>
+</members>
+</doc>
