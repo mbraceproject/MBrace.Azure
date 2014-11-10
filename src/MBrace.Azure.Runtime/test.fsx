@@ -20,12 +20,12 @@ let config =
 
 let cp = new ClientProvider(config)
 
-let path = { Container = "tmp"; Id = "latch0" }
+let path = { Container = "tmp"; Id = System.Guid.NewGuid().ToString("N") }
 
 let l = Latch.Init(cp, path, 0)
 let l = Latch.Get(cp, path)
 
-[|1..100|]
+[|1..10|]
 |> Array.map (fun _ -> async { l.Increment() })
 |> Async.Parallel
 |> Async.Ignore
@@ -34,6 +34,9 @@ let l = Latch.Get(cp, path)
 l.Value
 
 
+let p = { Container = "tmp"; Id = System.Guid.NewGuid().ToString("N") }
+let c = Cell.Init(cp, p, fun () -> 42)
+c.Value
 
 //MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"
 //

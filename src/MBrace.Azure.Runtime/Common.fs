@@ -69,4 +69,22 @@ type Latch private (cp : ClientProvider, path : AzureRef) =
 
     static member Get(cp : ClientProvider, path : AzureRef) =
         new Latch(cp, path)
-        
+     
+/// Read-only blob.   
+type Cell<'T> private (cp : ClientProvider, path : AzureRef) =
+    let container = cp.BlobClient.GetContainerReference(path.Container)
+
+    member __.Value 
+        with get () = 
+            use s = container.GetBlockBlobReference(path.Id).OpenRead()
+            Config.serializer.Deserialize<'T>(s)
+
+    static member Init(cp : ClientProvider, path : AzureRef, f : unit -> 'T) =
+        let c = cp.BlobClient.GetContainerReference(path.Container)
+        c.CreateIfNotExists() |> ignore
+        use s = c.GetBlockBlobReference(path.Id).OpenWrite()
+        Config.serializer.Serialize<'T>(s, f ())
+        new Cell<'T>(cp, path)
+
+    static member Get(cp : ClientProvider, path : AzureRef) =
+        new Cell<'T>(cp, path)
