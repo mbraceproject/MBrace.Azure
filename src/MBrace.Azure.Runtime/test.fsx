@@ -9,8 +9,8 @@
 
 open Nessos.MBrace
 open Nessos.MBrace.Library
-open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
+open Nessos.MBrace.Azure.Runtime.Resources
 
 let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
 

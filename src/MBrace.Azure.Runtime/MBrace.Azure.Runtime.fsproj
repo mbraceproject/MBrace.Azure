@@ -56,6 +56,7 @@
   <ItemGroup>
     <Compile Include="Config.fs" />
     <Compile Include="Common.fs" />
+    <Compile Include="Resources.fs" />
     <Compile Include="Actors.fs" />
     <Compile Include="Tasks.fs" />
     <Compile Include="Combinators.fs" />
