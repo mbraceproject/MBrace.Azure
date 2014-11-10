@@ -1,0 +1,59 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30723.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1CCF30B5-03E2-423A-85A9-98278969CAAF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64BD78-3886-4FC5-A6F9-2A71A99769B9}"
+	ProjectSection(SolutionItems) = preProject
+		build.cmd = build.cmd
+		build.fsx = build.fsx
+		build.sh = build.sh
+		LICENSE = LICENSE
+		README.md = README.md
+		RELEASE_NOTES.md = RELEASE_NOTES.md
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{C84D07FB-0C7F-4711-A6EE-4F31D1DDD71A}"
+	ProjectSection(SolutionItems) = preProject
+		lib\MBrace.Core.dll = lib\MBrace.Core.dll
+		lib\MBrace.Core.pdb = lib\MBrace.Core.pdb
+		lib\MBrace.Core.XML = lib\MBrace.Core.XML
+		lib\MBrace.Library.dll = lib\MBrace.Library.dll
+		lib\MBrace.Library.pdb = lib\MBrace.Library.pdb
+		lib\MBrace.Library.xml = lib\MBrace.Library.xml
+		lib\MBrace.Runtime.Core.dll = lib\MBrace.Runtime.Core.dll
+		lib\MBrace.Runtime.Core.pdb = lib\MBrace.Runtime.Core.pdb
+		lib\MBrace.Runtime.Core.xml = lib\MBrace.Runtime.Core.xml
+	EndProjectSection
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Runtime", "src\MBrace.Azure.Runtime\MBrace.Azure.Runtime.fsproj", "{C823708C-9DCF-407C-AA67-D41AB128F172}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Client", "src\MBrace.Azure.Client\MBrace.Azure.Client.fsproj", "{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C823708C-9DCF-407C-AA67-D41AB128F172}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C823708C-9DCF-407C-AA67-D41AB128F172}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C823708C-9DCF-407C-AA67-D41AB128F172}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C823708C-9DCF-407C-AA67-D41AB128F172}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{C823708C-9DCF-407C-AA67-D41AB128F172} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
+		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
+	EndGlobalSection
+EndGlobal

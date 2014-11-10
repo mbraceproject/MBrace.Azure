@@ -35,8 +35,23 @@ l.Value
 
 
 let p = { Container = "tmp"; Id = System.Guid.NewGuid().ToString("N") }
-let c = Cell.Init(cp, p, fun () -> 42)
+let c = BlobCell.Init(cp, p, fun () -> 42)
 c.Value
+
+let p = { Container = "tmpqueue"; Id = ""}
+let q = Queue.Init(cp, p)
+q.Enqueue(42)
+q.Enqueue(43)
+q.TryDequeue()
+
+let rs : ResultCell<int> = ResultCell.Init(cp, { Container = "resultqueue"; Id = ""} )
+async { do! Async.Sleep 10000 
+        rs.SetResult(42) }
+|> Async.Start
+
+rs.AwaitResult()
+
+
 
 //MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"
 //
