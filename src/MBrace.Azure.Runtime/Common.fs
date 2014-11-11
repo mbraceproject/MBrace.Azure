@@ -43,49 +43,61 @@ type ClientProvider private () =
 //
 // Parameterless public ctor is needed.
 
-type LatchEntity(name : string, value : int) = 
+type CounterEntity(name : string, value : int) = 
     inherit TableEntity(name, String.Empty)
     member val Value = value with get, set
-    new() = new LatchEntity(null, 0)
+    new () = new CounterEntity(null, 0)
+
+type LatchEntity(name : string, value : int, size : int) = 
+    inherit TableEntity(name, String.Empty)
+    member val Value = value with get, set
+    member val Size = size with get, set
+    new () = new LatchEntity(null, -1, -1)
 
 type LightCellEntity(name : string, uri : Uri) =
     inherit TableEntity(name, uri.ToString())
     member val Uri = uri with get, set
-    new() = LightCellEntity(null, null)
+    new () = LightCellEntity(null, null)
 
-type ResultAggregatorEntity(name : string, index : string, size : string) = 
-    inherit TableEntity(name, index)
-    member val Index = string index with get, set
-    member val Size = string size with get, set
-    member val BlobCellUri : string = null with get, set
-    new() = new ResultAggregatorEntity(null, null, null)
+type ResultAggregatorEntity(name : string, index : int, bloburi : string) = 
+    inherit TableEntity(name, string index)
+    member val Index = index with get, set
+    member val BlobCellUri = bloburi with get, set
+    new () = new ResultAggregatorEntity(null, -1, null)
 
 module Table =
-    let insert< 'T when 'T :> ITableEntity > table (e : 'T) : Async<unit>  =
-        async {
+    let insert<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
+        async { 
             let t = ClientProvider.TableClient.GetTableReference(table)
             let! _ = t.CreateIfNotExistsAsync()
             let! e = t.ExecuteAsync(TableOperation.Insert(e))
             return ()
         }
     
-    let read< 'T when 'T :> ITableEntity > table pk rk : Async<'T> = 
-      async {
-        let t = ClientProvider.TableClient.GetTableReference(table)
-        let! e = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk))
-        return e.Result :?> 'T
-      }
-
-    let merge< 'T when 'T :> ITableEntity > table (e : 'T) : Async<'T> = 
-      async {
-        let t = ClientProvider.TableClient.GetTableReference(table)
-        let! e = t.ExecuteAsync(TableOperation.Merge(e))
-        return e.Result :?> 'T
-      }
-
-    let replace< 'T when 'T :> ITableEntity > table (e : 'T) : Async<'T> = 
-      async {
-        let t = ClientProvider.TableClient.GetTableReference(table)
-        let! e = t.ExecuteAsync(TableOperation.Replace(e))
-        return e.Result :?> 'T
-      }
+    let read<'T when 'T :> ITableEntity> table pk rk : Async<'T> = 
+        async { 
+            let t = ClientProvider.TableClient.GetTableReference(table)
+            let! e = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk))
+            return e.Result :?> 'T
+        }
+    
+    let readBatch<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> table pk : Async<seq<'T>> = 
+        async {  
+            let t = ClientProvider.TableClient.GetTableReference(table)
+            let q = TableQuery<'T>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
+            return t.ExecuteQuery<'T>(q)
+        }
+    
+    let merge<'T when 'T :> ITableEntity> table (e : 'T) : Async<'T> = 
+        async { 
+            let t = ClientProvider.TableClient.GetTableReference(table)
+            let! U = t.ExecuteAsync(TableOperation.Merge(e))
+            return U.Result :?> 'T
+        }
+    
+    let replace<'T when 'T :> ITableEntity> table (e : 'T) : Async<'T> = 
+        async { 
+            let t = ClientProvider.TableClient.GetTableReference(table)
+            let! U = t.ExecuteAsync(TableOperation.Replace(e))
+            return U.Result :?> 'T
+        }

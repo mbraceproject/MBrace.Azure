@@ -8,10 +8,48 @@ open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime.Common
 
-/// Named latch implementation.
 type Latch private (res : Uri) = 
     member __.Value = 
         let e = Table.read<LatchEntity> res.Table res.PartitionKey "" 
+                |> Async.RunSynchronously
+        e.Value
+    
+    member __.Decrement() = 
+        async { 
+            let rec update () = 
+                async { 
+                    let! e = Table.read<LatchEntity> res.Table res.PartitionKey "" 
+                    e.Value <- e.Value - 1
+                    let r = ref None
+                    try 
+                        let! result = Table.merge res.Table e
+                        r := Some result
+                    with :? StorageException as se when se.RequestInformation.HttpStatusCode = 412 -> r := None
+                    match r.Value with
+                    | None -> return! update()
+                    | Some r -> return r.Value
+                }
+            return! update()
+        }
+    
+    static member Init(res : Uri, value : int) = 
+        async {
+            let e = new LatchEntity(res.PartitionKey, value, value)
+            do! Table.insert res.Table e
+            return new Latch(res)
+        }
+    
+    static member Get(res : Uri) = new Latch(res)
+    
+    interface IResource with
+        member __.Uri = res
+    
+    static member GetUri(container, id) = uri "latch:%s/%s" container id
+    static member GetUri(container) = Latch.GetUri(container, guid())
+
+type Counter private (res : Uri) = 
+    member __.Value = 
+        let e = Table.read<CounterEntity> res.Table res.PartitionKey "" 
                 |> Async.RunSynchronously
         e.Value
     
@@ -19,7 +57,7 @@ type Latch private (res : Uri) =
         async { 
             let rec update () = 
                 async { 
-                    let! e = Table.read<LatchEntity> res.Table res.PartitionKey "" 
+                    let! e = Table.read<CounterEntity> res.Table res.PartitionKey "" 
                     e.Value <- e.Value + 1
                     let r = ref None
                     try 
@@ -36,18 +74,18 @@ type Latch private (res : Uri) =
     static member Init(res : Uri, ?value : int) = 
         async {
             let value = defaultArg value 0
-            let e = new LatchEntity(res.PartitionKey, value)
+            let e = new CounterEntity(res.PartitionKey, value)
             do! Table.insert res.Table e
-            return new Latch(res)
+            return new Counter(res)
         }
     
-    static member Get(res : Uri) = new Latch(res)
+    static member Get(res : Uri) = new Counter(res)
     
     interface IResource with
         member __.Uri = res
     
-    static member GetUri(container, id) = uri "latch:%s/%s" container id
-    static member GetUri(container) = Latch.GetUri(container, guid())
+    static member GetUri(container, id) = uri "counter:%s/%s" container id
+    static member GetUri(container) = Counter.GetUri(container, guid())
 
 
 /// Read-only blob.   
@@ -174,32 +212,44 @@ type ResultAggregator private (res : Uri) =
     
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async {
-            let e = new ResultAggregatorEntity(res.PartitionKey, string index, null, ETag = "*")
+            let e = new ResultAggregatorEntity(res.PartitionKey,  index, null, ETag = "*")
             let bcu = BlobCell.GetUri(res.Container)
             let! bc = BlobCell.Init(bcu, fun () -> value)
             e.BlobCellUri <- bcu.ToString()
-            let! u = Table.merge res.Table e
-            let l = Latch.Get(Latch.GetUri(res.Table, res.PartitionKey))
-            let! curr = l.Increment() 
-            return curr = int u.Size
+            let! u = Table.replace res.Table e
+            let l = Latch.Get(Counter.GetUri(res.Table, res.PartitionKey))
+            let! curr = l.Decrement() 
+            return curr = 0
         }
           
-    member __.ToArray () : Async<'T []> = failwithf "Not implemented"
+    member __.ToArray () : Async<'T []> = 
+        async {
+            let! xs = Table.readBatch<ResultAggregatorEntity> res.Table res.PartitionKey
+            let xs = Seq.toArray xs
+            let a = Array.zeroCreate xs.Length
+            let bs = xs |> Seq.map (fun x -> x.BlobCellUri)
+                        |> Seq.map (fun u -> BlobCell.Get(new Uri(u)))
+                        |> Seq.toArray
+            let i = ref 0
+            for b in bs do
+                let! v = b.GetValue<'T>()
+                a.[!i] := v
+                incr i
+            return xs
+        }
     
-    member __.Completed () : Async<bool> = failwith "Not implemented"
-
     interface IResource with
         member __.Uri = res
     
     static member Get(res : Uri) = new ResultAggregator(res)
     static member GetUri(container, id) = uri "aggregator:%s/%s" container id
-    static member GetUri(container) = Latch.GetUri(container, guid())
+    static member GetUri(container) = Counter.GetUri(container, guid())
 
     static member Init(res : Uri, size : int) = 
         async {
-            let! l = Latch.Init(Latch.GetUri(res.Table, res.PartitionKey), 0)
+            let! l = Latch.Init(Counter.GetUri(res.Table, res.PartitionKey), size)
             for i = 0 to size-1 do
-                let e = new ResultAggregatorEntity(res.PartitionKey, string i, string size)
+                let e = new ResultAggregatorEntity(res.PartitionKey, i, "")
                 do! Table.insert res.Table e
             return new ResultAggregator(res)
         }
