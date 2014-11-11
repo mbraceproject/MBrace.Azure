@@ -20,13 +20,14 @@ let config =
 
 ClientProvider.Activate config
 
+#time "on"
 
 let p = Latch.GetUri "tmp"
 let l = Latch.Init(p, 0)
 let l' = Latch.Get(p)
 
 [|1..10|]
-|> Array.map (fun _ -> async { l.Increment() })
+|> Array.map (fun _ -> async { do! l.Increment() })
 |> Async.Parallel
 |> Async.Ignore
 |> Async.RunSynchronously
@@ -36,10 +37,14 @@ l.Value
 let c = BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
 c.GetValue<int>()
 
-let q = Queue.Init(Queue.GetUri "tmp")
+let q = Queue.Init(Queue.GetUri "tmp12")
+let p = Queue.Init(Queue.GetUri "tmp212")
+let r = Queue.Init(Queue.GetUri "tmp312")
 q.Enqueue(42)
-q.Enqueue(43)
-q.TryDequeue<int>()
+p.Enqueue(43)
+r.Enqueue(43)
+
+r.TryDequeue<int>()
 
 q.Length
 

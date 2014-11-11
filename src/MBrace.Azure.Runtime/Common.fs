@@ -14,15 +14,6 @@ type AzureConfig =
 type IResource = 
     abstract Uri : Uri
 
-[<AutoOpen>]
-module UriUtils = 
-    let guid() = Guid.NewGuid().ToString("N")
-    let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
-    
-    let toContainerId (res : Uri) = 
-        let s = res.Segments.[0]
-        s.Substring(0, s.Length - 1), res.Segments.[1]
-
 [<AbstractClass; Sealed>]
 type ClientProvider private () = 
     static let cfg = ref None
