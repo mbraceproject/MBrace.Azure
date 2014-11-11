@@ -76,9 +76,7 @@ type BlobCell private (res : Uri) =
     static member GetUri(container, id) = uri "blobcell:%s/%s" container id
     static member GetUri(container) = BlobCell.GetUri(container, guid())
 
-
-
-type LightCell private (res : Uri) = 
+type TableCell private (res : Uri) = 
     member __.GetValue() : Async<'T> =
         async { 
             let! e = Table.read<LightCellEntity> res.Table res.PartitionKey ""
@@ -88,20 +86,20 @@ type LightCell private (res : Uri) =
 
     static member Init(res : Uri, f : unit -> 'T) = 
         async {
-            let res' = BlobCell.GetUri(res.Segments.[0])
+            let res' = BlobCell.GetUri(res.Container)
             let! bc = BlobCell.Init(res', f)
             let e = new LightCellEntity(res.PartitionKey, res)
             do! Table.insert res.Table e
-            return new LightCell(res)
+            return new TableCell(res)
         }
     
-    static member Get(res : Uri) = new LightCell(res)
+    static member Get(res : Uri) = new TableCell(res)
     
     interface IResource with
         member __.Uri = res
     
-    static member GetUri(container, id) = uri "lightcell:%s/%s" container id
-    static member GetUri(container) = LightCell.GetUri(container, guid())
+    static member GetUri(container, id) = uri "tablecell:%s/%s" container id
+    static member GetUri(container) = TableCell.GetUri(container, guid())
 
 
 
