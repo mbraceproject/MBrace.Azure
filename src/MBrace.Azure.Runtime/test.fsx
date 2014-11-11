@@ -29,7 +29,7 @@ let l = ! Latch.Init(p, 0)
 let l' = Latch.Get(p)
 
 [|1..10|]
-|> Array.map (fun _ -> async { do! l.Increment() })
+|> Array.map (fun _ -> async { do! l.Increment() |> Async.Ignore })
 |> Async.Parallel
 |> Async.Ignore
 |> Async.RunSynchronously
