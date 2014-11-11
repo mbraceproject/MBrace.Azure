@@ -11,30 +11,26 @@ open Nessos.MBrace.Azure.Runtime.Common
 /// Named latch implementation.
 type Latch private (res : Uri) = 
     let table, id = toContainerId res
-    let table = ClientProvider.TableClient.GetTableReference(table)
-    
-    let read()  = 
-        async { 
-            let! result = table.ExecuteAsync(TableOperation.Retrieve<LatchEntity>(id, String.Empty))
-            return result.Result :?> LatchEntity
-        }
-      
-    member __.Value = let e = read() |> Async.RunSynchronously in e.Value
+
+    member __.Value = 
+        let e = Table.read<LatchEntity> table id "" 
+                |> Async.RunSynchronously
+        e.Value
     
     member __.Increment() = 
         async { 
-            let rec update() = 
+            let rec update () = 
                 async { 
-                    let! e = read()
+                    let! e = Table.read<LatchEntity> table id "" 
                     e.Value <- e.Value + 1
                     let r = ref None
-                    let! result = table.ExecuteAsync(TableOperation.Merge(e))
                     try 
-                        r := Some(result.Result :?> LatchEntity)
+                        let! result = Table.merge table e
+                        r := Some result
                     with :? StorageException as se when se.RequestInformation.HttpStatusCode = 412 -> r := None
                     match r.Value with
                     | None -> return! update()
-                    | Some _ -> return ()
+                    | Some r -> return r.Value
                 }
             return! update()
         }
@@ -43,10 +39,8 @@ type Latch private (res : Uri) =
         async {
             let value = defaultArg value 0
             let table, id = toContainerId res
-            let table = ClientProvider.TableClient.GetTableReference(table)
-            let! _ = table.CreateIfNotExistsAsync()
             let e = new LatchEntity(id, value)
-            let! result = table.ExecuteAsync(TableOperation.Insert(e))
+            do! Table.insert table e
             return new Latch(res)
         }
     
@@ -57,6 +51,7 @@ type Latch private (res : Uri) =
     
     static member GetUri(container, id) = uri "latch:%s/%s" container id
     static member GetUri(container) = Latch.GetUri(container, guid())
+
 
 /// Read-only blob.   
 type BlobCell private (res : Uri) = 
@@ -85,6 +80,40 @@ type BlobCell private (res : Uri) =
     static member Get(res : Uri) = new BlobCell(res)
     static member GetUri(container, id) = uri "blobcell:%s/%s" container id
     static member GetUri(container) = BlobCell.GetUri(container, guid())
+
+
+
+type LightCell private (res : Uri) = 
+    let table, id = toContainerId res
+    let table = ClientProvider.TableClient.GetTableReference(table)
+      
+    member __.GetValue() : Async<'T> =
+        async { 
+            let! result = table.ExecuteAsync(TableOperation.Retrieve<LightCellEntity>(id, String.Empty))
+            let e = result.Result :?> LightCellEntity
+            let bc = BlobCell.Get(e.Uri)
+            return! bc.GetValue<'T>()
+        }
+
+    static member Init(res : Uri, f : unit -> 'T) = 
+        async {
+            let res' = BlobCell.GetUri(res.Segments.[0])
+            let! bc = BlobCell.Init(res', f)
+            let table, id = toContainerId res
+            let e = new LightCellEntity(id, res)
+            do! Table.insert table e
+            return new LightCell(res)
+        }
+    
+    static member Get(res : Uri) = new LightCell(res)
+    
+    interface IResource with
+        member __.Uri = res
+    
+    static member GetUri(container, id) = uri "lightcell:%s/%s" container id
+    static member GetUri(container) = LightCell.GetUri(container, guid())
+
+
 
 /// Queue implementation.
 type Queue private (res : Uri) = 

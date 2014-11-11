@@ -22,8 +22,10 @@ ClientProvider.Activate config
 
 #time "on"
 
+let (!) (task : Async<'T>) = Async.RunSynchronously task
+
 let p = Latch.GetUri "tmp"
-let l = Latch.Init(p, 0)
+let l = ! Latch.Init(p, 0)
 let l' = Latch.Get(p)
 
 [|1..10|]
@@ -34,27 +36,25 @@ let l' = Latch.Get(p)
 
 l.Value
 
-let c = BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
-c.GetValue<int>()
+let c = !BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
+!c.GetValue<int>()
 
-let q = Queue.Init(Queue.GetUri "tmp12")
-let p = Queue.Init(Queue.GetUri "tmp212")
-let r = Queue.Init(Queue.GetUri "tmp312")
-q.Enqueue(42)
-p.Enqueue(43)
-r.Enqueue(43)
+let q = !Queue.Init(Queue.GetUri "tmp")
 
-r.TryDequeue<int>()
+!q.Enqueue(42)
+
+
+!q.TryDequeue<int>()
 
 q.Length
 
 
-let rs  = ResultCell.Init(ResultCell.GetUri "tmp")
+let rs  = !ResultCell.Init(ResultCell.GetUri "tmp")
 async { do! Async.Sleep 10000 
-        rs.SetResult(42) }
+        do! rs.SetResult(42) }
 |> Async.Start
 
-rs.AwaitResult()
+!rs.AwaitResult()
 
 
 //MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"

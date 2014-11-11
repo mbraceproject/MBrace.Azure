@@ -3,6 +3,7 @@ module Nessos.MBrace.Azure.Runtime.Utils
 
     open System
     open System.Threading.Tasks
+    open Microsoft.WindowsAzure.Storage.Table
 
     let guid() = Guid.NewGuid().ToString("N")
     let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
