@@ -12,6 +12,9 @@ open Nessos.MBrace.Library
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
 
+#time "on"
+let (!) (task : Async<'T>) = Async.RunSynchronously task
+
 let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
 
 let config = 
@@ -20,13 +23,14 @@ let config =
 
 ClientProvider.Activate config
 
-#time "on"
 
-let (!) (task : Async<'T>) = Async.RunSynchronously task
+
 
 let p = Latch.GetUri "tmp"
 let l = ! Latch.Init(p, 0)
 let l' = Latch.Get(p)
+
+!l.Increment()
 
 [|1..10|]
 |> Array.map (fun _ -> async { do! l.Increment() |> Async.Ignore })
@@ -56,6 +60,9 @@ async { do! Async.Sleep 10000
 
 !rs.AwaitResult()
 
+let ra = !ResultAggregator.Init(ResultAggregator.GetUri("tmp"), 10)
+
+!ra.SetResult(3, 42)
 
 //MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"
 //

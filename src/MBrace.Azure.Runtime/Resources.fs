@@ -170,46 +170,36 @@ type ResultCell private (res : Uri) =
             return new ResultCell(res)
         }
 
-//type ResultAggregator private (res : Uri) = 
-//    let table, pk = toContainerId res
-//    let table = ClientProvider.TableClient.GetTableReference(table)
-//    
-//    let read() = 
-//        let result = table.Execute(TableOperation.Retrieve<LatchEntity>(pk, String.Empty))
-//        let e = result.Result :?> LatchEntity
-//        e
-//    
-//    let rec update() = 
-//        let e = read()
-//        e.Value <- e.Value + 1
-//        let r = 
-//            try 
-//                let result = table.Execute(TableOperation.Merge(e))
-//                Some(result.Result :?> LatchEntity)
-//            with :? StorageException as se when se.RequestInformation.HttpStatusCode = 412 -> None
-//        match r with
-//        | None -> update()
-//        | Some v -> v
-//    
-//    member __.SetResult(index : int, value : 'T) = 
-//        let e = read()
-//        e.Value
-//    
-//    member __.ToArray () : 'T [] = update() |> ignore
-//    
-//    static member Init(res : Uri, size : int) = 
-//        let value = defaultArg value 0
-//        let table, id = toContainerId res
-//        let table = ClientProvider.TableClient.GetTableReference(table)
-//        do table.CreateIfNotExists() |> ignore
-//        let e = new LatchEntity(id, value)
-//        let result = table.Execute(TableOperation.Insert(e))
-//        new Latch(res)
-//    
-//    static member Get(res : Uri) = new Latch(res)
-//    
-//    interface IResource with
-//        member __.Uri = res
-//    
-//    static member GetUri(container, id) = uri "aggregator:%s/%s" container id
-//    static member GetUri(container) = Latch.GetUri(container, guid())
+type ResultAggregator private (res : Uri) = 
+    
+    member __.SetResult(index : int, value : 'T) : Async<bool> = 
+        async {
+            let e = new ResultAggregatorEntity(res.PartitionKey, string index, null, ETag = "*")
+            let bcu = BlobCell.GetUri(res.Container)
+            let! bc = BlobCell.Init(bcu, fun () -> value)
+            e.BlobCellUri <- bcu.ToString()
+            let! u = Table.merge res.Table e
+            let l = Latch.Get(Latch.GetUri(res.Table, res.PartitionKey))
+            let! curr = l.Increment() 
+            return curr = int u.Size
+        }
+          
+    member __.ToArray () : Async<'T []> = failwithf "Not implemented"
+    
+    member __.Completed () : Async<bool> = failwith "Not implemented"
+
+    interface IResource with
+        member __.Uri = res
+    
+    static member Get(res : Uri) = new ResultAggregator(res)
+    static member GetUri(container, id) = uri "aggregator:%s/%s" container id
+    static member GetUri(container) = Latch.GetUri(container, guid())
+
+    static member Init(res : Uri, size : int) = 
+        async {
+            let! l = Latch.Init(Latch.GetUri(res.Table, res.PartitionKey), 0)
+            for i = 0 to size-1 do
+                let e = new ResultAggregatorEntity(res.PartitionKey, string i, string size)
+                do! Table.insert res.Table e
+            return new ResultAggregator(res)
+        }
