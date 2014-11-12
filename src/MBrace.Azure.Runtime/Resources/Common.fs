@@ -49,8 +49,7 @@ type CounterEntity(name : string, value : int) =
     new () = new CounterEntity(null, 0)
 
 type LatchEntity(name : string, value : int, size : int) = 
-    inherit TableEntity(name, String.Empty)
-    member val Value = value with get, set
+    inherit CounterEntity(name, value)
     member val Size = size with get, set
     new () = new LatchEntity(null, -1, -1)
 
