@@ -3,7 +3,7 @@
 open System.Diagnostics
 open System.Threading
 
-open Nessos.MBrace.Azure.Runtime.Actors
+open Nessos.MBrace.Azure.Runtime.Resources
 open Nessos.MBrace.Azure.Runtime.Tasks
 open Nessos.MBrace.Azure.Runtime.RuntimeProvider
 
@@ -18,8 +18,8 @@ let printfn fmt = Printf.ksprintf System.Console.WriteLine fmt
 /// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
 let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
 
-    let localEndPoint = Nessos.MBrace.Azure.Runtime.Config.getLocalEndpoint()
-    printfn "MBrace worker initialized on %O." localEndPoint
+    //let localEndPoint = Nessos.MBrace.Azure.Runtime.Config.getLocalEndpoint()
+    //printfn "MBrace worker initialized on %O." localEndPoint
 
     let currentTaskCount = ref 0
     let runTask procId deps t =

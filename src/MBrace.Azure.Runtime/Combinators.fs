@@ -10,7 +10,7 @@ open Nessos.MBrace.Azure.Runtime.Tasks
 
 #nowarn "444"
 
-open Nessos.MBrace.Azure.Runtime.Actors
+open Nessos.MBrace.Azure.Runtime.Resources
 
 let inline private withCancellationToken (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
     let token = cts.GetLocalCancellationToken()
@@ -35,7 +35,7 @@ let Parallel (state : RuntimeState) procId dependencies (computations : seq<Clou
             let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource> ()
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource(parent = currentCts)
             let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length)
-            let! cancellationLatch = state.ResourceFactory.RequestLatch(0)
+            let! cancellationLatch = state.ResourceFactory.RequestCounter(0)
 
             let onSuccess i ctx (t : 'T) = 
                 async {
@@ -90,8 +90,8 @@ let Choice (state : RuntimeState) procId dependencies (computations : seq<Cloud<
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource>()
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource currentCts
-            let! completionLatch = state.ResourceFactory.RequestLatch(0)
-            let! cancellationLatch = state.ResourceFactory.RequestLatch(0)
+            let! completionLatch = state.ResourceFactory.RequestCounter(0)
+            let! cancellationLatch = state.ResourceFactory.RequestCounter(0)
 
             let onSuccess ctx (topt : 'T option) =
                 async {

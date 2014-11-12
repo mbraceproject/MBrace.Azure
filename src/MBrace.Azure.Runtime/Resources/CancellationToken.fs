@@ -36,7 +36,7 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     
     member __.IsCancellationRequested = check() |> Async.RunSynchronously
     
-    member __.Cancel() = cancel ()
+    member __.Cancel() = cancel () |> Async.RunSynchronously
     
     member __.GetLocalCancellationToken() = 
         let cts = new CancellationTokenSource()

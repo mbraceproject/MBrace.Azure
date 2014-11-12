@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.Azure.Runtime.Config
+﻿module Nessos.MBrace.Azure.Runtime.Config
 
 open System
 open System.Reflection
@@ -29,4 +29,4 @@ let serializer = FsPickler.CreateBinary()
 /// runtime configuration initializer function
 let initRuntimeState = runOnce _initRuntimeState
 /// returns the local ip endpoint used by Thespian
-let getLocalEndpoint () = initRuntimeState () ; //TcpListenerPool.GetListener().LocalEndPoint
+//let getLocalEndpoint () = initRuntimeState () ; //TcpListenerPool.GetListener().LocalEndPoint

@@ -58,4 +58,4 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
 
         member __.GetAvailableWorkers () = state.Workers.GetValue()
         member __.CurrentWorker = Worker.LocalWorker :> IWorkerRef
-        member __.Logger = state.Logger :> ICloudLogger
+        member __.Logger = Unchecked.defaultof<_> //state.Logger :> ICloudLogger

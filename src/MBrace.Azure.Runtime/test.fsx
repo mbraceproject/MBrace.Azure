@@ -88,20 +88,22 @@ Async.Start(t1, chain.GetLocalCancellationToken())
 chain.IsCancellationRequested
 
 
-//MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"
-//
-//let runtime = MBraceRuntime.InitLocal(4)
-//
-//let getWordCount inputSize =
-//    let map (text : string) = cloud { return text.Split(' ').Length }
-//    let reduce i i' = cloud { return i + i' }
-//    let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
-//    MapReduce.mapReduce map 0 reduce inputs
-//
-//
-//let t = runtime.RunAsTask(getWordCount 2000)
-//do System.Threading.Thread.Sleep 3000
-//runtime.KillAllWorkers() 
-//runtime.AppendWorkers 4
-//
-//t.Result
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
+
+Config.initRuntimeState()
+
+let runtime = MBraceRuntime.InitLocal(4)
+
+let getWordCount inputSize =
+    let map (text : string) = cloud { return text.Split(' ').Length }
+    let reduce i i' = cloud { return i + i' }
+    let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
+    MapReduce.mapReduce map 0 reduce inputs
+
+
+let t = runtime.RunAsTask(getWordCount 2000)
+do System.Threading.Thread.Sleep 3000
+runtime.KillAllWorkers() 
+runtime.AppendWorkers 4
+
+t.Result

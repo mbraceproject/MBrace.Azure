@@ -4,10 +4,23 @@ open System
 open Microsoft.WindowsAzure.Storage
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
+open Nessos.MBrace.Runtime
+
+/// Result value
+type Result<'T> =
+    | Completed of 'T
+    | Exception of ExceptionDispatchInfo
+    | Cancelled of ExceptionDispatchInfo<OperationCanceledException>
+with
+    member inline r.Value =
+        match r with
+        | Completed t -> t
+        | Exception e -> ExceptionDispatchInfo.raise true e
+        | Cancelled e -> ExceptionDispatchInfo.raise true e 
 
 type ResultCell<'T> internal (res : Uri) = 
     let queue = Queue.Get(Queue.GetUri(res.Queue))
-    member __.SetResult(result : 'T) = queue.Enqueue(result)
+    member __.SetResult(result : 'T) = async { do queue.Enqueue(result) }
     member __.TryGetResult() = queue.TryDequeue()
     
     member __.AwaitResult() : Async<'T> = 
@@ -77,3 +90,17 @@ type ResultAggregator<'T> internal (res : Uri) =
 type ResultAggregator =
     static member GetUri(container, id) = uri "aggregator:%s/%s" container id
     static member GetUri(container) = Counter.GetUri(container, guid())
+
+
+type ResourceFactory private () =
+    member __.RequestCounter(container, count) = Counter.Init(Counter.GetUri container, count)
+    member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Init(ResultAggregator.GetUri container, count)
+    member __.RequestCancellationTokenSource(container, ?parent) = DistributedCancellationTokenSource.Init(DistributedCancellationTokenSource.GetUri container, ?parent = parent)
+    member __.RequestResultCell<'T>(container) = ResultCell<Result<'T>>.Init(ResultCell.GetUri container)
+          
+    member __.RequestCounter(count) = Counter.Init(Counter.GetUri "tmp", count)
+    member __.RequestResultAggregator<'T>(count : int) = ResultAggregator<'T>.Init(ResultAggregator.GetUri "tmp", count)
+    member __.RequestCancellationTokenSource(?parent) = DistributedCancellationTokenSource.Init(DistributedCancellationTokenSource.GetUri "tmp", ?parent = parent)
+    member __.RequestResultCell<'T>() = ResultCell<Result<'T>>.Init(ResultCell.GetUri "tmp")
+
+    static member Init () = new ResourceFactory()

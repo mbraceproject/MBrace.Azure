@@ -18,9 +18,9 @@ type Queue<'T> internal (res : Uri) =
             let! bc = BlobCell.Init(r, fun () -> t)
             let msg = new BrokeredMessage((bc :> IResource).Uri)
             do! ofTask <| queue.SendAsync(msg)
-        }
+        } |> Async.RunSynchronously
     
-    member __.TryDequeue() : Async<'T option> = 
+    member __.TryDequeue() = 
         async { 
             let! msg = queue.ReceiveAsync()
             if msg = null then return None
@@ -30,7 +30,7 @@ type Queue<'T> internal (res : Uri) =
                 do! ofTask <| msg.CompleteAsync()
                 let! v = t.GetValue()
                 return Some v
-        }
+        } 
 
     interface IResource with member __.Uri = res
     

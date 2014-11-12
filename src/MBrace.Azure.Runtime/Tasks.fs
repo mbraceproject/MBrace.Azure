@@ -14,7 +14,7 @@ open Nessos.Vagrant
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Serialization
-open Nessos.MBrace.Azure.Runtime.Actors
+open Nessos.MBrace.Azure.Runtime.Resources
 
 // Tasks are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
@@ -107,19 +107,19 @@ type RuntimeState =
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
         /// returns a manifest of workers available to the cluster.
-        Workers : Cell<IWorkerRef []>
+        Workers : BlobCell<IWorkerRef []>
         /// Distributed logger facility
-        Logger : Logger
+        //Logger : Logger
     }
 with
     /// Initialize a new runtime state in the local process
     static member InitLocal (logger : string -> unit) (getWorkers : unit -> IWorkerRef []) =
         {
-            Workers = Cell.Init getWorkers
-            Logger = Logger.Init logger
-            TaskQueue = Queue<_>.Init ()
-            AssemblyExporter = AssemblyExporter.Init()
-            ResourceFactory = ResourceFactory.Init ()
+            Workers = BlobCell.Init(BlobCell.GetUri "tmp", getWorkers) |> Async.RunSynchronously
+            //Logger = Logger.Init logger
+            TaskQueue = Queue<_>.Init (Queue.GetUri "tmp") |> Async.RunSynchronously
+            AssemblyExporter = AssemblyExporter.Init() 
+            ResourceFactory = ResourceFactory.Init () 
         }
 
     /// <summary>
