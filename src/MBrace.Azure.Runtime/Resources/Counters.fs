@@ -10,20 +10,20 @@ type IntCell internal (res : Uri) =
         let e = Table.read<CounterEntity> res.Table res.PartitionKey "" |> Async.RunSynchronously
         e.Value
     
-    member __.Update(updatef : int -> int) = 
+    member internal __.Update(updatef : int -> int) = 
         async { 
             let rec update() = 
                 async { 
                     let! e = Table.read<CounterEntity> res.Table res.PartitionKey ""
                     e.Value <- updatef e.Value
                     let r = ref None
-                    try 
-                        let! result = Table.merge res.Table e
-                        r := Some result
-                    with :? StorageException as se when se.RequestInformation.HttpStatusCode = 412 -> r := None
-                    match r.Value with
-                    | None -> return! update()
-                    | Some r -> return r.Value
+                    let! result = Async.Catch <| Table.merge res.Table e
+                    match result with
+                    | Choice1Of2 r -> 
+                        return r.Value
+                    | Choice2Of2 e when Table.PreconditionFailed e -> 
+                        return! update()
+                    | Choice2Of2 e -> return raise e
                 }
             return! update()
         }
@@ -69,9 +69,8 @@ type Counter internal (res : Uri) =
     
     interface IResource with member __.Uri = res
 
-    static member Init(res : Uri, ?value : int) = 
+    static member Init(res : Uri, value : int) = 
         async { 
-            let value = defaultArg value 0
             let e = new CounterEntity(res.PartitionKey, value)
             do! Table.insert res.Table e
             return new Counter(res)

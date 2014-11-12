@@ -12,7 +12,7 @@ type AzureConfig =
       ServiceBusConnectionString : string }
 
 type IResource = 
-    abstract Uri : Uri
+    abstract Uri : Uri // TODO : IDisposable
 
 [<AbstractClass; Sealed>]
 type ClientProvider private () = 
@@ -65,6 +65,13 @@ type ResultAggregatorEntity(name : string, index : int, bloburi : string) =
     new () = new ResultAggregatorEntity(null, -1, null)
 
 module Table =
+    let PreconditionFailed (e : exn) =
+        match e with
+        | :? AggregateException as e ->
+            let e = e.InnerException
+            e :? StorageException && (e :?> StorageException).RequestInformation.HttpStatusCode = 412 
+        | _ -> false
+
     let insert<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
         async { 
             let t = ClientProvider.TableClient.GetTableReference(table)
