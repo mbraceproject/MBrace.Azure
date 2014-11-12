@@ -2,36 +2,34 @@
 
 open System
 open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Table
-open Microsoft.ServiceBus
-open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Counters
 open Nessos.MBrace.Azure.Runtime.Queues
 open Nessos.MBrace.Azure.Runtime.Cells
 
-
-type ResultCell internal (res : Uri) = 
+type ResultCell<'T> internal (res : Uri) = 
     let queue = Queue.Get(Queue.GetUri(res.Queue))
     member __.SetResult(result : 'T) = queue.Enqueue(result)
     member __.TryGetResult() = queue.TryDequeue()
     
-    member __.AwaitResult() = 
+    member __.AwaitResult() : Async<'T> = 
         async { 
             let! r = __.TryGetResult()
             match r with
             | None -> return! __.AwaitResult()
-            | Some r -> r
+            | Some r -> return r
         }
     
-    interface IResource with member __.Uri = res
+    interface IResource with
+        member __.Uri = res
     
-    static member Get(res : Uri) = new ResultCell(res)
+    static member Get<'T>(res : Uri) = new ResultCell<'T>(res)
+    static member Init<'T>(res : Uri) = async { let! q = Queue<'T>.Init(res)
+                                                return new ResultCell<'T>(res) }
+type ResultCell =
     static member GetUri(container) = uri "resultcell:%s/" container
-    static member Init(res : Uri) = async { let! q = Queue.Init(res)
-                                            return new ResultCell(res) }
 
-type ResultAggregator internal (res : Uri) = 
+type ResultAggregator<'T> internal (res : Uri) = 
     
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
@@ -68,15 +66,16 @@ type ResultAggregator internal (res : Uri) =
     
     interface IResource with member __.Uri = res
     
-    static member Get(res : Uri) = new ResultAggregator(res)
-    static member GetUri(container, id) = uri "aggregator:%s/%s" container id
-    static member GetUri(container) = Counter.GetUri(container, guid())
-    static member Init(res : Uri, size : int) = 
+    static member Get<'T>(res : Uri) = new ResultAggregator<'T>(res)
+    static member Init<'T>(res : Uri, size : int) = 
         async { 
             let! l = Latch.Init(Counter.GetUri(res.Table, res.PartitionKey), size)
             for i = 0 to size - 1 do
                 let e = new ResultAggregatorEntity(res.PartitionKey, i, "")
                 do! Table.insert res.Table e
-            return new ResultAggregator(res)
+            return new ResultAggregator<'T>(res)
         }
 
+type ResultAggregator =
+    static member GetUri(container, id) = uri "aggregator:%s/%s" container id
+    static member GetUri(container) = Counter.GetUri(container, guid())

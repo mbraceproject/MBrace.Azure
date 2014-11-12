@@ -3,9 +3,6 @@
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
 open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Table
-open Microsoft.ServiceBus
-open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime.Common
 
 type IntCell internal (res : Uri) = 

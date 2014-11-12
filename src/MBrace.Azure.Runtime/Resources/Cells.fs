@@ -1,16 +1,10 @@
 ﻿module Nessos.MBrace.Azure.Runtime.Cells
 
 open System
-open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Table
-open Microsoft.ServiceBus
-open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Azure.Runtime.Counters
-open Nessos.MBrace.Azure.Runtime.Counters
 
 /// Read-only blob.   
-type BlobCell internal (res : Uri) = 
+type BlobCell<'T> internal (res : Uri) = 
     member __.GetValue<'T>() = 
         async { 
             let container = ClientProvider.BlobClient.GetContainerReference(res.Container)
@@ -20,20 +14,24 @@ type BlobCell internal (res : Uri) =
     
     interface IResource with member __.Uri = res
     
-    static member Init(res : Uri, f : unit -> 'T) = 
+    static member Init<'Τ>(res : Uri, f : unit -> 'T) = 
         async { 
             let c = ClientProvider.BlobClient.GetContainerReference(res.Container)
             let! _ = c.CreateIfNotExistsAsync()
             use! s = c.GetBlockBlobReference(res.File).OpenWriteAsync()
             Config.serializer.Serialize<'T>(s, f())
-            return new BlobCell(res)
+            return new BlobCell<'T>(res)
         }
     
-    static member Get(res : Uri) = new BlobCell(res)
+    static member Get<'Τ>(res : Uri) = new BlobCell<'T>(res)
+
+type BlobCell =
     static member GetUri(container, id) = uri "blobcell:%s/%s" container id
     static member GetUri(container) = BlobCell.GetUri(container, guid())
 
-type TableCell internal (res : Uri) = 
+
+
+type TableCell<'Τ> internal (res : Uri) = 
     
     member __.GetValue() : Async<'T> = 
         async { 
@@ -50,9 +48,11 @@ type TableCell internal (res : Uri) =
             let! bc = BlobCell.Init(res', f)
             let e = new LightCellEntity(res.PartitionKey, res)
             do! Table.insert res.Table e
-            return new TableCell(res)
+            return new TableCell<'Τ>(res)
         }
     
-    static member Get(res : Uri) = new TableCell(res)
+    static member Get<'Τ>(res : Uri) = new TableCell<'Τ>(res)
+
+type TableCell =
     static member GetUri(container, id) = uri "tablecell:%s/%s" container id
     static member GetUri(container) = TableCell.GetUri(container, guid())
