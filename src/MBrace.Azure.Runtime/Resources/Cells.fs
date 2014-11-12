@@ -1,6 +1,7 @@
-﻿module Nessos.MBrace.Azure.Runtime.Cells
+﻿namespace Nessos.MBrace.Azure.Runtime.Resources
 
 open System
+open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 
 /// Read-only blob.   

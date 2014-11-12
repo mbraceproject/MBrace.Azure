@@ -10,6 +10,9 @@ module Nessos.MBrace.Azure.Runtime.Utils
     
     let inline ofTask (t : Task) : Task<unit> = t.ContinueWith ignore
 
+    type Async with
+        static member inline Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
+
     type AsyncBuilder with
         member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
             async { let! r = Async.AwaitTask(f) in return! g r }

@@ -1,8 +1,9 @@
-﻿module Nessos.MBrace.Azure.Runtime.Counters
+﻿namespace Nessos.MBrace.Azure.Runtime.Resources
 
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
 open Microsoft.WindowsAzure.Storage
+open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 
 type IntCell internal (res : Uri) = 

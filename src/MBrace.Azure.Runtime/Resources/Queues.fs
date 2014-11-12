@@ -1,8 +1,8 @@
-﻿module Nessos.MBrace.Azure.Runtime.Queues
+﻿namespace Nessos.MBrace.Azure.Runtime.Resources
 
 open System
 open Microsoft.ServiceBus.Messaging
-open Nessos.MBrace.Azure.Runtime.Cells
+open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 
 

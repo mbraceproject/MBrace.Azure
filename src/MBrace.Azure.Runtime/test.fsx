@@ -10,6 +10,7 @@ open Nessos.MBrace
 open Nessos.MBrace.Library
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
+open Nessos.MBrace.Azure.Runtime.Resources
 
 let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
 let config = 
@@ -19,10 +20,10 @@ ClientProvider.Activate config
 
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
-ClientProvider.TableClient.GetTableReference("tmp").Delete()
-ClientProvider.BlobClient.GetContainerReference("tmp").Delete()
+//ClientProvider.TableClient.GetTableReference("tmp").Delete()
+//ClientProvider.BlobClient.GetContainerReference("tmp").Delete()
 
-open Counters
+//-------------------------------------------------------------------
 
 let c = !Counter.Init(Counter.GetUri "tmp", 1)
 !c.Increment()
@@ -38,19 +39,20 @@ let l = !Latch.Init(Latch.GetUri "tmp", 11)
 
 l.Value
 
-open Cells 
+//-------------------------------------------------------------------
 
 let c = !BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
 !c.GetValue<int>()
 
-open Queues 
+
+//-------------------------------------------------------------------
 
 let q = !Queue.Init<int>(Queue.GetUri "tmp")
 !q.Enqueue(42)
 !q.TryDequeue()
 q.Length
 
-open Resources 
+//-------------------------------------------------------------------
 
 let rs  = !ResultCell.Init(ResultCell.GetUri "tmp")
 async { do! Async.Sleep 10000 
@@ -58,12 +60,32 @@ async { do! Async.Sleep 10000
 |> Async.Start
 !rs.AwaitResult()
 
-let ra = !ResultAggregator.Init(ResultAggregator.GetUri("tmp"), 10)
+let ra = !ResultAggregator.Init(ResultAggregator.GetUri "tmp", 10)
 for x in 0..9 do
     printfn "%b" <| !ra.SetResult(x, x * 10)
 ra.Complete
 
 let x = !ra.ToArray()
+
+//-------------------------------------------------------------------
+type DCTS = DistributedCancellationTokenSource
+
+let dcts0 = !DCTS.Init(DCTS.GetUri "tmp")
+let ct0 = dcts0.GetLocalCancellationToken()
+
+let t1 = async { while true do 
+                    do! Async.Sleep 2000
+                    printfn "t1" }
+
+Async.Start(t1, ct0)
+!dcts0.Cancel()
+
+let root = !DCTS.Init(DCTS.GetUri "tmp")
+let chain = Seq.fold (fun dcts _ -> let d = !DCTS.Init(DCTS.GetUri "tmp", dcts) in d.GetLocalCancellationToken() ; d ) root {1..10}
+
+Async.Start(t1, chain.GetLocalCancellationToken())
+!root.Cancel()
+chain.IsCancellationRequested
 
 
 //MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"

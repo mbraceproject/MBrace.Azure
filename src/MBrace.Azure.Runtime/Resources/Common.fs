@@ -1,4 +1,4 @@
-﻿module Nessos.MBrace.Azure.Runtime.Common
+﻿namespace Nessos.MBrace.Azure.Runtime.Common
 
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
@@ -6,6 +6,8 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
+open Nessos.MBrace.Azure.Runtime
+
 
 type AzureConfig = 
     { StorageConnectionString : string
@@ -64,6 +66,12 @@ type ResultAggregatorEntity(name : string, index : int, bloburi : string) =
     member val BlobCellUri = bloburi with get, set
     new () = new ResultAggregatorEntity(null, -1, null)
 
+type CancellationTokenSourceEntity(name : string, link : string) =
+    inherit TableEntity(name, String.Empty)
+    member val IsCancellationRequested = false with get, set
+    member val Link = link with get, set
+    new () = new CancellationTokenSourceEntity(null, null)
+
 module Table =
     let PreconditionFailed (e : exn) =
         match e with
@@ -72,13 +80,19 @@ module Table =
             e :? StorageException && (e :?> StorageException).RequestInformation.HttpStatusCode = 412 
         | _ -> false
 
-    let insert<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
-        async { 
+    let private exec<'U> table op : Async<obj> = 
+        async {
             let t = ClientProvider.TableClient.GetTableReference(table)
             let! _ = t.CreateIfNotExistsAsync()
-            let! e = t.ExecuteAsync(TableOperation.Insert(e))
-            return ()
+            let! e = t.ExecuteAsync(op)
+            return e.Result
         }
+
+    let insert<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
+        TableOperation.Insert(e) |> exec table |> Async.Ignore
+
+    let insertOrReplace<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
+        TableOperation.InsertOrReplace(e) |> exec table |> Async.Ignore
     
     let read<'T when 'T :> ITableEntity> table pk rk : Async<'T> = 
         async { 
@@ -95,15 +109,7 @@ module Table =
         }
     
     let merge<'T when 'T :> ITableEntity> table (e : 'T) : Async<'T> = 
-        async { 
-            let t = ClientProvider.TableClient.GetTableReference(table)
-            let! U = t.ExecuteAsync(TableOperation.Merge(e))
-            return U.Result :?> 'T
-        }
+        TableOperation.Merge(e) |> exec table |> Async.Cast
     
     let replace<'T when 'T :> ITableEntity> table (e : 'T) : Async<'T> = 
-        async { 
-            let t = ClientProvider.TableClient.GetTableReference(table)
-            let! U = t.ExecuteAsync(TableOperation.Replace(e))
-            return U.Result :?> 'T
-        }
+        TableOperation.Replace(e) |> exec table |> Async.Cast

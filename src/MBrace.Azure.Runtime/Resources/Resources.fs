@@ -1,11 +1,9 @@
-﻿module Nessos.MBrace.Azure.Runtime.Resources
+﻿namespace Nessos.MBrace.Azure.Runtime.Resources
 
 open System
 open Microsoft.WindowsAzure.Storage
+open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Azure.Runtime.Counters
-open Nessos.MBrace.Azure.Runtime.Queues
-open Nessos.MBrace.Azure.Runtime.Cells
 
 type ResultCell<'T> internal (res : Uri) = 
     let queue = Queue.Get(Queue.GetUri(res.Queue))
