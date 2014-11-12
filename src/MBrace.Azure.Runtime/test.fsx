@@ -18,18 +18,14 @@ let config =
 ClientProvider.Activate config
 
 let (!) (task : Async<'T>) = Async.RunSynchronously task
+ClientProvider.TableClient.GetTableReference("tmp").Delete()
+ClientProvider.BlobClient.GetContainerReference("tmp").Delete()
 
 
-
-
-let p = Latch.GetUri "tmp"
-let l = ! Latch.Init(p, 0)
-let l' = Latch.Get(p)
-
-!l.Increment()
+let l = !Latch.Init(Latch.GetUri "tmp", 11)
 
 [|1..10|]
-|> Array.map (fun _ -> async { do! l.Increment() |> Async.Ignore })
+|> Array.map (fun _ -> async { do! l.Decrement() |> Async.Ignore })
 |> Async.Parallel
 |> Async.Ignore
 |> Async.RunSynchronously
@@ -40,12 +36,8 @@ let c = !BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
 !c.GetValue<int>()
 
 let q = !Queue.Init(Queue.GetUri "tmp")
-
 !q.Enqueue(42)
-
-
 !q.TryDequeue<int>()
-
 q.Length
 
 
@@ -56,20 +48,14 @@ async { do! Async.Sleep 10000
 
 !rs.AwaitResult()
 
+
 let ra = !ResultAggregator.Init(ResultAggregator.GetUri("tmp"), 10)
+for x in 0..9 do
+    printfn "%b" <| !ra.SetResult(x, x * 10)
+ra.Complete
 
-!ra.SetResult(0, 42)
-!ra.SetResult(1, 43)
-!ra.SetResult(2, 44)
-!ra.SetResult(3, 45)
-!ra.SetResult(4, 46)
-!ra.SetResult(5, 47)
-!ra.SetResult(6, 48)
-!ra.SetResult(7, 49)
-!ra.SetResult(8, 50)
-!ra.SetResult(9, 51)
+let x : int [] = !ra.ToArray()
 
-!ra.ToArray()
 
 //MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Runtime.Azure.exe"
 //
