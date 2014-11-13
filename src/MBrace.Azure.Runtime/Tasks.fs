@@ -115,9 +115,9 @@ with
     /// Initialize a new runtime state in the local process
     static member InitLocal (logger : string -> unit) (getWorkers : unit -> IWorkerRef []) =
         {
-            Workers = BlobCell.Init(BlobCell.GetUri "tmp", getWorkers) |> Async.RunSynchronously
+            Workers = BlobCell.Init(BlobCell.GetUri defaultStorageId, getWorkers) |> Async.RunSynchronously
             //Logger = Logger.Init logger
-            TaskQueue = Queue<_>.Init (Queue.GetUri "tmp") |> Async.RunSynchronously
+            TaskQueue = Queue<_>.Init (Queue.GetUri defaultStorageId) |> Async.RunSynchronously
             AssemblyExporter = AssemblyExporter.Init() 
             ResourceFactory = ResourceFactory.Init () 
         }
@@ -157,7 +157,7 @@ with
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
     member rt.StartAsCell procId dependencies cts (wf : Cloud<'T>) = async {
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>()
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r

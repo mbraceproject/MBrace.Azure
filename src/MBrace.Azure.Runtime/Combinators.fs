@@ -32,10 +32,11 @@ let Parallel (state : RuntimeState) procId dependencies (computations : seq<Clou
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
+            let storageId = processIdToStorageId procId
             let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource> ()
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(parent = currentCts)
-            let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length)
-            let! cancellationLatch = state.ResourceFactory.RequestCounter(0)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts)
+            let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(storageId, computations.Length)
+            let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
 
             let onSuccess i ctx (t : 'T) = 
                 async {
@@ -87,11 +88,12 @@ let Choice (state : RuntimeState) procId dependencies (computations : seq<Cloud<
         | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
+            let storageId = processIdToStorageId procId
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource>()
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource currentCts
-            let! completionLatch = state.ResourceFactory.RequestCounter(0)
-            let! cancellationLatch = state.ResourceFactory.RequestCounter(0)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, currentCts)
+            let! completionLatch = state.ResourceFactory.RequestCounter(storageId, 0)
+            let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
 
             let onSuccess ctx (topt : 'T option) =
                 async {

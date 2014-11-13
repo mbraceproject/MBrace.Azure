@@ -4,6 +4,7 @@ open System
 open System.Runtime.Serialization
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
+open Nessos.MBrace.Azure.Runtime.Config
 
 type BlobCell<'T> internal (res : Uri) = 
     member __.GetValue() : Async<'T> = 

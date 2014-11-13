@@ -139,9 +139,4 @@ type ResourceFactory private () =
     member __.RequestCancellationTokenSource(container, ?parent) = DistributedCancellationTokenSource.Init(DistributedCancellationTokenSource.GetUri container, ?parent = parent)
     member __.RequestResultCell<'T>(container) = ResultCell<Result<'T>>.Init(ResultCell.GetUri container)
           
-    member __.RequestCounter(count) = Counter.Init(Counter.GetUri "tmp", count)
-    member __.RequestResultAggregator<'T>(count : int) = ResultAggregator<'T>.Init(ResultAggregator.GetUri "tmp", count)
-    member __.RequestCancellationTokenSource(?parent) = DistributedCancellationTokenSource.Init(DistributedCancellationTokenSource.GetUri "tmp", ?parent = parent)
-    member __.RequestResultCell<'T>() = ResultCell<Result<'T>>.Init(ResultCell.GetUri "tmp")
-
     static member Init () = new ResourceFactory()

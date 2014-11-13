@@ -10,6 +10,7 @@
 open Nessos.MBrace
 open Nessos.MBrace.Library
 open Nessos.MBrace.Azure.Runtime
+open Nessos.MBrace.Azure.Runtime.Config
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
 open System.Threading
@@ -18,7 +19,7 @@ let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
 let config = 
     { StorageConnectionString = conn.[0]
       ServiceBusConnectionString = conn.[1] }
-ClientProvider.Activate config
+//ClientProvider.Activate config
 
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
@@ -95,9 +96,10 @@ root.Cancel()
 chain.IsCancellationRequested
 
 
+
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
-Config.initRuntimeState()
-let runtime = MBraceRuntime.InitLocal(3)
+Config.initialize config
+let runtime = MBraceRuntime.InitLocal(5)
 
 //
 //let getWordCount inputSize =

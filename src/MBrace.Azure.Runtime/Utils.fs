@@ -10,6 +10,10 @@ module Nessos.MBrace.Azure.Runtime.Utils
     
     let inline ofTask (t : Task) : Task<unit> = t.ContinueWith ignore
 
+    let processIdToStorageId (pid : string) = sprintf "process%s" <| pid.Substring(0,10)
+    let defaultStorageId = "bootstrap"
+
+
     type Async with
         static member inline Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
 

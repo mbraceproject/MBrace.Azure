@@ -10,37 +10,9 @@ open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime
 
 
-type AzureConfig = 
-    { StorageConnectionString : string
-      ServiceBusConnectionString : string }
-
 type IResource = 
     inherit ISerializable
     abstract Uri : Uri // TODO : IDisposable
-
-[<AbstractClass; Sealed>]
-type ClientProvider private () = 
-    static let cfg = ref None
-    static let acc = ref Unchecked.defaultof<CloudStorageAccount>
-    
-    static let check f = 
-        lock cfg (fun () -> 
-            if cfg.Value.IsNone then failwith "No active configuration found."
-            else f())
-    
-    static member Activate(config : AzureConfig) = 
-        let sa = CloudStorageAccount.Parse(config.StorageConnectionString)
-        lock cfg (fun () -> 
-            cfg := Some config
-            acc := sa)
-    
-    static member ActiveConfiguration = check (fun _ -> cfg.Value.Value)
-    static member TableClient = check (fun _ -> acc.Value.CreateCloudTableClient())
-    static member BlobClient = check (fun _ -> acc.Value.CreateCloudBlobClient())
-    static member NamespaceClient = 
-        check (fun _ -> NamespaceManager.CreateFromConnectionString(cfg.Value.Value.ServiceBusConnectionString))
-    static member QueueClient(queue : string) = 
-        check (fun _ -> QueueClient.CreateFromConnectionString(cfg.Value.Value.ServiceBusConnectionString, queue))
 
 //
 // Table storage entities
@@ -79,6 +51,8 @@ type CancellationTokenSourceEntity(name : string) =
     new () = new CancellationTokenSourceEntity(null)
 
 module Table =
+    open Nessos.MBrace.Azure.Runtime.Config
+
     let PreconditionFailed (e : exn) =
         match e with
         | :? AggregateException as e ->

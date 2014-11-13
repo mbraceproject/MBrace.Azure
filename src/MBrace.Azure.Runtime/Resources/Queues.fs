@@ -5,6 +5,7 @@ open System.Runtime.Serialization
 open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
+open Nessos.MBrace.Azure.Runtime.Config
 
 
 /// Queue implementation.

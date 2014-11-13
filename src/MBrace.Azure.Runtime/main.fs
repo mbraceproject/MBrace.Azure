@@ -1,6 +1,6 @@
 ﻿module internal Nessos.MBrace.Azure.Runtime.Main
 
-    open Nessos.MBrace.Azure.Runtime.Common
+    open Nessos.MBrace.Azure.Runtime.Config
 
     let maxConcurrentTasks = 10
 
@@ -9,9 +9,8 @@
         try
             let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
             let config = { StorageConnectionString = conn.[0]; ServiceBusConnectionString = conn.[1] }
-            ClientProvider.Activate config
 
-            Nessos.MBrace.Azure.Runtime.Config.initRuntimeState()
+            Nessos.MBrace.Azure.Runtime.Config.initialize(config)
             let runtime = Argument.toRuntime args
             Async.RunSynchronously (Worker.initWorker runtime maxConcurrentTasks)
         with e ->

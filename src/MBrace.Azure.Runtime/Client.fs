@@ -42,7 +42,8 @@
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
             let computation = CloudCompiler.Compile workflow
             let processId = System.Guid.NewGuid().ToString()
-            let! cts = state.ResourceFactory.RequestCancellationTokenSource()
+            let storageId = processIdToStorageId processId
+            let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
             try
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 let! resultCell = state.StartAsCell processId computation.Dependencies cts computation.Workflow
