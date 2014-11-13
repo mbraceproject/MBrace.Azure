@@ -2,6 +2,7 @@
 
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
+open System.Runtime.Serialization
 open Microsoft.WindowsAzure.Storage
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
@@ -44,6 +45,14 @@ type IntCell internal (res : Uri) =
     static member GetUri(container, id) = uri "intcell:%s/%s" container id
     static member GetUri(container) = IntCell.GetUri(container, guid())
 
+    interface ISerializable with
+        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+            info.AddValue("uri", res, typeof<Uri>)
+
+    new(info: SerializationInfo, context: StreamingContext) =
+        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        new IntCell(res)
+
 
 type Latch internal (res : Uri) = 
     inherit IntCell(res)
@@ -80,3 +89,12 @@ type Counter internal (res : Uri) =
     static member Get(res : Uri) = new Counter(res)
     static member GetUri(container, id) = uri "counter:%s/%s" container id
     static member GetUri(container) = Counter.GetUri(container, guid())
+
+    interface ISerializable with
+        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+            info.AddValue("uri", res, typeof<Uri>)
+
+    new(info: SerializationInfo, context: StreamingContext) =
+        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        new Counter(res)
+

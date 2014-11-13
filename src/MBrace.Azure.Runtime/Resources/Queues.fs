@@ -1,6 +1,7 @@
 ﻿namespace Nessos.MBrace.Azure.Runtime.Resources
 
 open System
+open System.Runtime.Serialization
 open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
@@ -45,6 +46,14 @@ type Queue<'T> internal (res : Uri) =
         }
     
     static member Get<'T>(res) = new Queue<'T>(res)
+
+    interface ISerializable with
+        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+            info.AddValue("uri", res, typeof<Uri>)
+
+    new(info: SerializationInfo, context: StreamingContext) =
+        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        new Queue<'T>(res)
 
 type Queue =
     static member GetUri(container) = uri "queue:%s" container

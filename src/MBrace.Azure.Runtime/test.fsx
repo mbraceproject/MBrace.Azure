@@ -92,7 +92,7 @@ MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azur
 
 Config.initRuntimeState()
 
-let runtime = MBraceRuntime.InitLocal(4)
+let runtime = MBraceRuntime.InitLocal(3)
 
 let getWordCount inputSize =
     let map (text : string) = cloud { return text.Split(' ').Length }

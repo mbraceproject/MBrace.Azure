@@ -2,6 +2,7 @@
 
 open System
 open System.Threading
+open System.Runtime.Serialization
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 
@@ -69,3 +70,11 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     static member Get(res : Uri) = new DistributedCancellationTokenSource(res)
     static member GetUri(container, id) = uri "dcts:%s/%s" container id
     static member GetUri(container) = DistributedCancellationTokenSource.GetUri(container, guid())
+
+    interface ISerializable with
+        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+            info.AddValue("uri", res, typeof<Uri>)
+
+    new(info: SerializationInfo, context: StreamingContext) =
+        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        new DistributedCancellationTokenSource(res)

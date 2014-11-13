@@ -2,6 +2,7 @@
 
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
+open System.Runtime.Serialization
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.ServiceBus
@@ -14,6 +15,7 @@ type AzureConfig =
       ServiceBusConnectionString : string }
 
 type IResource = 
+    inherit ISerializable
     abstract Uri : Uri // TODO : IDisposable
 
 [<AbstractClass; Sealed>]

@@ -1,6 +1,7 @@
 ﻿namespace Nessos.MBrace.Azure.Runtime.Resources
 
 open System
+open System.Runtime.Serialization
 open Microsoft.WindowsAzure.Storage
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
@@ -19,9 +20,10 @@ with
         | Cancelled e -> ExceptionDispatchInfo.raise true e 
 
 type ResultCell<'T> internal (res : Uri) = 
-    let queue = Queue.Get(Queue.GetUri(res.Queue))
-    member __.SetResult(result : 'T) = async { do queue.Enqueue(result) }
-    member __.TryGetResult() = queue.TryDequeue()
+    let bc = BlobCell.Get<'T option>(res)
+
+    member __.SetResult(result : 'T) = bc.SetValue(Some result)
+    member __.TryGetResult() : Async<'T option> = bc.GetValue()
     
     member __.AwaitResult() : Async<'T> = 
         async { 
@@ -35,8 +37,19 @@ type ResultCell<'T> internal (res : Uri) =
         member __.Uri = res
     
     static member Get<'T>(res : Uri) = new ResultCell<'T>(res)
-    static member Init<'T>(res : Uri) = async { let! q = Queue<'T>.Init(res)
-                                                return new ResultCell<'T>(res) }
+    static member Init<'T>(res : Uri) = 
+        async { let! bc = BlobCell.Init<'T option>(res ,fun () -> None)
+                return new ResultCell<'T>(res) }
+
+    interface ISerializable with
+        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+            info.AddValue("uri", res, typeof<Uri>)
+
+    new(info: SerializationInfo, context: StreamingContext) =
+        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        new ResultCell<'T>(res)
+
+
 type ResultCell =
     static member GetUri(container) = uri "resultcell:%s/" container
 
@@ -86,6 +99,14 @@ type ResultAggregator<'T> internal (res : Uri) =
                 do! Table.insert res.Table e
             return new ResultAggregator<'T>(res)
         }
+
+    interface ISerializable with
+        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+            info.AddValue("uri", res, typeof<Uri>)
+
+    new(info: SerializationInfo, context: StreamingContext) =
+        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        new ResultAggregator<'T>(res)
 
 type ResultAggregator =
     static member GetUri(container, id) = uri "aggregator:%s/%s" container id
