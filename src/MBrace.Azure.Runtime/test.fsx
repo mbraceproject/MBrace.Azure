@@ -107,7 +107,7 @@ let getWordCount inputSize =
 //let t = runtime.RunAsTask(getWordCount 2000)
 //let t = runtime.Run(cloud { return 42 })
 
-let f x i = Cloud.Parallel  <| List.init i (fun x -> cloud { return x + i  })
+let f x i = Cloud.Parallel  <| List.init i (fun x -> cloud { return x + i })
 
 let t = runtime.Run(f 0 30)
 
