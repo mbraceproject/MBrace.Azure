@@ -1,6 +1,7 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
 #r "MBrace.Library.dll"
+#r "Thespian.dll"
 #r "MBrace.Azure.Runtime.exe"
 #r "Microsoft.WindowsAzure.Storage.dll"
 #r "Microsoft.ServiceBus.dll"
@@ -11,6 +12,7 @@ open Nessos.MBrace.Library
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
+open System.Threading
 
 let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
 let config = 
@@ -97,21 +99,25 @@ MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azur
 Config.initRuntimeState()
 let runtime = MBraceRuntime.InitLocal(3)
 
-let getWordCount inputSize =
-    let map (text : string) = cloud { return text.Split(' ').Length }
-    let reduce i i' = cloud { return i + i' }
-    let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
-    MapReduce.mapReduce map 0 reduce inputs
-
-
+//
+//let getWordCount inputSize =
+//    let map (text : string) = cloud { return text.Split(' ').Length }
+//    let reduce i i' = cloud { return i + i' }
+//    let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
+//    MapReduce.mapReduce map 0 reduce inputs
 //let t = runtime.RunAsTask(getWordCount 2000)
 //let t = runtime.Run(cloud { return 42 })
 
-let f x i = Cloud.Parallel  <| List.init i (fun x -> cloud { return x + i })
-
-let t = runtime.Run(f 0 30)
-
 runtime.Run(cloud { return 42 })
+
+let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })
+
+let t = runtime.Run(f 0 100)
+
+
+runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 0 then Some 42 else None } ))
+
+
 
 do System.Threading.Thread.Sleep 3000
 runtime.KillAllWorkers() 

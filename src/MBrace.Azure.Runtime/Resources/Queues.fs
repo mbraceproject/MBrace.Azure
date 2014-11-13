@@ -11,6 +11,14 @@ open Nessos.MBrace.Azure.Runtime.Common
 type Queue<'T> internal (res : Uri) = 
     let queue = ClientProvider.QueueClient(res.Queue)
     let ns = ClientProvider.NamespaceClient
+
+    do 
+        let rec f _ = async {
+            let! _ = queue.PeekAsync() 
+            return! f ()
+        }
+        Async.Start(f ())
+
     member __.Length = ns.GetQueue(res.Queue).MessageCount
     
     member __.Enqueue(t : 'T) = 

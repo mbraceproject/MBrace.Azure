@@ -72,12 +72,11 @@ type ResultAggregatorEntity(name : string, index : int, bloburi : string) =
     member val BlobCellUri = bloburi with get, set
     new () = new ResultAggregatorEntity(null, -1, null)
 
-type CancellationTokenSourceEntity(name : string, link : string) =
+type CancellationTokenSourceEntity(name : string) =
     inherit TableEntity(name, String.Empty)
     member val ResourceType = "dcts" with get, set
     member val IsCancellationRequested = false with get, set
-    member val Link = link with get, set
-    new () = new CancellationTokenSourceEntity(null, null)
+    new () = new CancellationTokenSourceEntity(null)
 
 module Table =
     let PreconditionFailed (e : exn) =
