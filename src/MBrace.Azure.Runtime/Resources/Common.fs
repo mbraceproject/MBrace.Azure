@@ -57,8 +57,8 @@ type LatchEntity(name : string, value : int, size : int) =
     member val Size = size with get, set
     new () = new LatchEntity(null, -1, -1)
 
-type LightCellEntity(name : string, uri : Uri) =
-    inherit TableEntity(name, uri.ToString())
+type LightCellEntity(name : string, uri : string) =
+    inherit TableEntity(name, String.Empty)
     member val Uri = uri with get, set
     new () = LightCellEntity(null, null)
 

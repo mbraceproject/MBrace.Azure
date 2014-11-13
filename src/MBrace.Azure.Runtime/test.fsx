@@ -42,7 +42,8 @@ l.Value
 //-------------------------------------------------------------------
 
 let c = !BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
-c.GetValue()
+!c.GetValue()
+
 
 
 //-------------------------------------------------------------------
@@ -54,10 +55,14 @@ q.Length
 
 //-------------------------------------------------------------------
 
-let rs  = !ResultCell.Init(ResultCell.GetUri "tmp")
+let rs : ResultCell<int> = !ResultCell.Init(ResultCell.GetUri "tmp")
+
 async { do! Async.Sleep 10000 
         do! rs.SetResult(42) }
 |> Async.Start
+
+!rs.TryGetResult()
+
 !rs.AwaitResult()
 
 let ra = !ResultAggregator.Init(ResultAggregator.GetUri "tmp", 10)
@@ -101,12 +106,16 @@ let getWordCount inputSize =
     MapReduce.mapReduce map 0 reduce inputs
 
 
-let t = runtime.RunAsTask(getWordCount 2000)
+//let t = runtime.RunAsTask(getWordCount 2000)
+//let t = runtime.Run(cloud { return 42 })
 
-let t = runtime.Run(cloud { return 42 })
+let f x i = Cloud.Parallel  <| List.init i (fun x -> cloud { return x + i  })
+
+let t = runtime.Run(f 0 30)
+
+runtime.Run(cloud { return 42 })
 
 do System.Threading.Thread.Sleep 3000
 runtime.KillAllWorkers() 
 runtime.AppendWorkers 4
 
-t.Result

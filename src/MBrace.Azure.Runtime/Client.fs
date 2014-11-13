@@ -70,7 +70,7 @@
             let newProcs = initWorkers state count
             lock procs (fun () -> procs <- Array.append procs newProcs)
 
-        /// Initialize a new local rutime instance with supplied worker count.
+        /// Initialize a new local runtime instance with supplied worker count.
         static member InitLocal(workerCount : int, ?logger : string -> unit) =
             let logger = defaultArg logger ignore
             let client = new MBraceRuntime(logger)

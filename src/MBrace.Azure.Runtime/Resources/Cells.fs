@@ -12,13 +12,6 @@ type BlobCell<'T> internal (res : Uri) =
             use! s = container.GetBlockBlobReference(res.File).OpenReadAsync()
             return Config.serializer.Deserialize<'T>(s) 
         }
-
-    member __.SetValue(value : 'T) : Async<unit> =
-        async {
-            let c = ClientProvider.BlobClient.GetContainerReference(res.Container)
-            use! s = c.GetBlockBlobReference(res.File).OpenWriteAsync()
-            Config.serializer.Serialize<'T>(s, value)
-        }
     
     interface IResource with member __.Uri = res
     

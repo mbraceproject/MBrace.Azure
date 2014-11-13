@@ -20,10 +20,25 @@ with
         | Cancelled e -> ExceptionDispatchInfo.raise true e 
 
 type ResultCell<'T> internal (res : Uri) = 
-    let bc = BlobCell.Get<'T option>(res)
 
-    member __.SetResult(result : 'T) : Async<unit> = bc.SetValue(Some result)
-    member __.TryGetResult() : Async<'T option> = bc.GetValue()
+    member __.SetResult(result : 'T) : Async<unit> =
+        async {
+            let uri = BlobCell.GetUri res.Container
+            let! bc = BlobCell.Init(uri, fun () -> result)
+            let e = new LightCellEntity(res.PartitionKey, uri.ToString(), ETag = "*")
+            let! u = Table.merge res.Table e
+            return ()
+        }
+
+    member __.TryGetResult() : Async<'T option> = 
+        async {
+            let! e = Table.read<LightCellEntity> res.Table res.PartitionKey ""
+            if e.Uri = null then return None
+            else
+                let bc = BlobCell.Get<'T>(new Uri(e.Uri))
+                let! v = bc.GetValue()
+                return Some v
+        }
     
     member __.AwaitResult() : Async<'T> = 
         async { 
@@ -38,8 +53,11 @@ type ResultCell<'T> internal (res : Uri) =
     
     static member Get<'T>(res : Uri) = new ResultCell<'T>(res)
     static member Init<'T>(res : Uri) : Async<ResultCell<'T>> = 
-        async { let! bc = BlobCell.Init(res ,fun () -> None : 'T option)
-                return new ResultCell<'T>(res) }
+        async { 
+            let e = new LightCellEntity(res.PartitionKey, null)
+            do! Table.insert<LightCellEntity> res.Table e
+            return new ResultCell<'T>(res)
+        }
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
