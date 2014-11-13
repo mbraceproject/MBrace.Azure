@@ -6,14 +6,14 @@ open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 
 type BlobCell<'T> internal (res : Uri) = 
-    member __.GetValue<'T>() = 
+    member __.GetValue() : Async<'T> = 
         async { 
             let container = ClientProvider.BlobClient.GetContainerReference(res.Container)
             use! s = container.GetBlockBlobReference(res.File).OpenReadAsync()
             return Config.serializer.Deserialize<'T>(s) 
         }
 
-    member __.SetValue<'T>(value : 'T) =
+    member __.SetValue(value : 'T) : Async<unit> =
         async {
             let c = ClientProvider.BlobClient.GetContainerReference(res.Container)
             use! s = c.GetBlockBlobReference(res.File).OpenWriteAsync()
@@ -22,7 +22,7 @@ type BlobCell<'T> internal (res : Uri) =
     
     interface IResource with member __.Uri = res
     
-    static member Init<'Τ>(res : Uri, f : unit -> 'T) = 
+    static member Init(res : Uri, f : unit -> 'T) = 
         async { 
             let c = ClientProvider.BlobClient.GetContainerReference(res.Container)
             let! _ = c.CreateIfNotExistsAsync()

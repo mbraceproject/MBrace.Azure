@@ -21,7 +21,7 @@ type Queue<'T> internal (res : Uri) =
             do! ofTask <| queue.SendAsync(msg)
         } |> Async.RunSynchronously
     
-    member __.TryDequeue() = 
+    member __.TryDequeue() : Async<'T option> = 
         async { 
             let! msg = queue.ReceiveAsync()
             if msg = null then return None

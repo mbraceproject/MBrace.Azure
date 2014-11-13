@@ -20,8 +20,8 @@ ClientProvider.Activate config
 
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
-//ClientProvider.TableClient.GetTableReference("tmp").Delete()
-//ClientProvider.BlobClient.GetContainerReference("tmp").Delete()
+ClientProvider.TableClient.GetTableReference("tmp").DeleteIfExists()
+ClientProvider.BlobClient.GetContainerReference("tmp").DeleteIfExists()
 
 //-------------------------------------------------------------------
 
@@ -42,13 +42,13 @@ l.Value
 //-------------------------------------------------------------------
 
 let c = !BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
-!c.GetValue<int>()
+c.GetValue()
 
 
 //-------------------------------------------------------------------
 
 let q = !Queue.Init<int>(Queue.GetUri "tmp")
-!q.Enqueue(42)
+q.Enqueue(42)
 !q.TryDequeue()
 q.Length
 
@@ -78,13 +78,13 @@ let t1 = async { while true do
                     printfn "t1" }
 
 Async.Start(t1, ct0)
-!dcts0.Cancel()
+dcts0.Cancel()
 
 let root = !DCTS.Init(DCTS.GetUri "tmp")
 let chain = Seq.fold (fun dcts _ -> let d = !DCTS.Init(DCTS.GetUri "tmp", dcts) in d.GetLocalCancellationToken() ; d ) root {1..10}
 
 Async.Start(t1, chain.GetLocalCancellationToken())
-!root.Cancel()
+root.Cancel()
 chain.IsCancellationRequested
 
 
@@ -102,6 +102,9 @@ let getWordCount inputSize =
 
 
 let t = runtime.RunAsTask(getWordCount 2000)
+
+let t = runtime.Run(cloud { return 42 })
+
 do System.Threading.Thread.Sleep 3000
 runtime.KillAllWorkers() 
 runtime.AppendWorkers 4

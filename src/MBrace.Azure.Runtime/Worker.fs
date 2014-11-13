@@ -35,7 +35,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                 let! task = runtime.TryDequeue()
                 match task with
                 | None -> do! Async.Sleep 500
-                | Some (task, procId, dependencies, leaseMonitor) ->
+                | Some (task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
                         printfn "Starting task %s of type '%O'." task.TaskId task.Type

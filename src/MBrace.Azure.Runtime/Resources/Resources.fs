@@ -22,7 +22,7 @@ with
 type ResultCell<'T> internal (res : Uri) = 
     let bc = BlobCell.Get<'T option>(res)
 
-    member __.SetResult(result : 'T) = bc.SetValue(Some result)
+    member __.SetResult(result : 'T) : Async<unit> = bc.SetValue(Some result)
     member __.TryGetResult() : Async<'T option> = bc.GetValue()
     
     member __.AwaitResult() : Async<'T> = 
@@ -37,8 +37,8 @@ type ResultCell<'T> internal (res : Uri) =
         member __.Uri = res
     
     static member Get<'T>(res : Uri) = new ResultCell<'T>(res)
-    static member Init<'T>(res : Uri) = 
-        async { let! bc = BlobCell.Init<'T option>(res ,fun () -> None)
+    static member Init<'T>(res : Uri) : Async<ResultCell<'T>> = 
+        async { let! bc = BlobCell.Init(res ,fun () -> None : 'T option)
                 return new ResultCell<'T>(res) }
 
     interface ISerializable with
@@ -51,7 +51,8 @@ type ResultCell<'T> internal (res : Uri) =
 
 
 type ResultCell =
-    static member GetUri(container) = uri "resultcell:%s/" container
+    static member GetUri(container, id) = uri "resultcell:%s/%s" container id
+    static member GetUri(container) = ResultCell.GetUri(container, guid())
 
 type ResultAggregator<'T> internal (res : Uri) = 
     
@@ -82,7 +83,7 @@ type ResultAggregator<'T> internal (res : Uri) =
             let re = Array.zeroCreate<'T> bs.Length
             let i = ref 0
             for b in bs do
-                let! v = b.GetValue<'T>()
+                let! v = b.GetValue()
                 re.[!i] <- v
                 incr i
             return re
