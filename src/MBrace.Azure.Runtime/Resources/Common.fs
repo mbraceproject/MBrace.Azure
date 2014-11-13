@@ -21,32 +21,27 @@ type IResource =
 
 type CounterEntity(name : string, value : int) = 
     inherit TableEntity(name, String.Empty)
-    member val ResourceType = "counter" with get, set
     member val Value = value with get, set
     new () = new CounterEntity(null, 0)
 
 type LatchEntity(name : string, value : int, size : int) = 
     inherit CounterEntity(name, value)
-    member val ResourceType = "latch" with get, set
     member val Size = size with get, set
     new () = new LatchEntity(null, -1, -1)
 
 type LightCellEntity(name : string, uri : string) =
     inherit TableEntity(name, String.Empty)
-    member val ResourceType = "lightcell" with get, set
     member val Uri = uri with get, set
     new () = LightCellEntity(null, null)
 
 type ResultAggregatorEntity(name : string, index : int, bloburi : string) = 
     inherit TableEntity(name, string index)
-    member val ResourceType = "aggregator" with get, set
     member val Index = index with get, set
-    member val BlobCellUri = bloburi with get, set
+    member val Uri = bloburi with get, set
     new () = new ResultAggregatorEntity(null, -1, null)
 
 type CancellationTokenSourceEntity(name : string) =
     inherit TableEntity(name, String.Empty)
-    member val ResourceType = "dcts" with get, set
     member val IsCancellationRequested = false with get, set
     new () = new CancellationTokenSourceEntity(null)
 

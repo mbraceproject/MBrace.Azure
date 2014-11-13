@@ -14,12 +14,48 @@ open Nessos.MBrace.Azure.Runtime.Config
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
 open System.Threading
+open System.Threading.Tasks
 
 let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
 let config = 
     { StorageConnectionString = conn.[0]
       ServiceBusConnectionString = conn.[1] }
-//ClientProvider.Activate config
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
+Config.initialize config
+let runtime = MBraceRuntime.InitLocal(3)
+
+runtime.Run(cloud { return 42 })
+
+let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })
+
+let t = runtime.Run(f 0 10)
+
+
+runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 12 then Some 42 else None } ))
+
+let cts = new CancellationTokenSource()
+
+let (t : Task<unit>) = runtime.RunAsTask(cloud { while true do do! Cloud.Sleep 1000 }, cts.Token)
+
+cts.Cancel()
+
+
+//
+//let getWordCount inputSize =
+//    let map (text : string) = cloud { return text.Split(' ').Length }
+//    let reduce i i' = cloud { return i + i' }
+//    let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
+//    MapReduce.mapReduce map 0 reduce inputs
+//let t = runtime.RunAsTask(getWordCount 2000)
+//let t = runtime.Run(cloud { return 42 })
+
+
+runtime.KillAllWorkers() 
+runtime.AppendWorkers 4
+
+
+
+
 
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
@@ -94,34 +130,3 @@ let chain = Seq.fold (fun dcts _ -> let d = !DCTS.Init(DCTS.GetUri "tmp", dcts) 
 Async.Start(t1, chain.GetLocalCancellationToken())
 root.Cancel()
 chain.IsCancellationRequested
-
-
-
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
-Config.initialize config
-let runtime = MBraceRuntime.InitLocal(5)
-
-//
-//let getWordCount inputSize =
-//    let map (text : string) = cloud { return text.Split(' ').Length }
-//    let reduce i i' = cloud { return i + i' }
-//    let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
-//    MapReduce.mapReduce map 0 reduce inputs
-//let t = runtime.RunAsTask(getWordCount 2000)
-//let t = runtime.Run(cloud { return 42 })
-
-runtime.Run(cloud { return 42 })
-
-let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })
-
-let t = runtime.Run(f 0 100)
-
-
-runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 0 then Some 42 else None } ))
-
-
-
-do System.Threading.Thread.Sleep 3000
-runtime.KillAllWorkers() 
-runtime.AppendWorkers 4
-

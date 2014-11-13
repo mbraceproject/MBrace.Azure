@@ -9,14 +9,14 @@ open Nessos.MBrace.Azure.Runtime.Common
 
 type IntCell internal (res : Uri) = 
     member __.Value = 
-        let e = Table.read<CounterEntity> res.Table res.PartitionKey "" |> Async.RunSynchronously
+        let e = Table.read<CounterEntity> res.Table res.PartitionWithScheme "" |> Async.RunSynchronously
         e.Value
     
     member internal __.Update(updatef : int -> int) = 
         async { 
             let rec update() = 
                 async { 
-                    let! e = Table.read<CounterEntity> res.Table res.PartitionKey ""
+                    let! e = Table.read<CounterEntity> res.Table res.PartitionWithScheme ""
                     e.Value <- updatef e.Value
                     let r = ref None
                     let! result = Async.Catch <| Table.merge res.Table e
@@ -32,7 +32,7 @@ type IntCell internal (res : Uri) =
     
     static member Init(res : Uri, value : int) = 
         async { 
-            let e = new CounterEntity(res.PartitionKey, value)
+            let e = new CounterEntity(res.PartitionWithScheme, value)
             do! Table.insert res.Table e
             return new IntCell(res)
         }
@@ -63,7 +63,7 @@ type Latch internal (res : Uri) =
     
     static member Init(res : Uri, value : int) = 
         async { 
-            let e = new LatchEntity(res.PartitionKey, value, value)
+            let e = new LatchEntity(res.PartitionWithScheme, value, value)
             do! Table.insert res.Table e
             return new Latch(res)
         }
@@ -81,7 +81,7 @@ type Counter internal (res : Uri) =
 
     static member Init(res : Uri, value : int) = 
         async { 
-            let e = new CounterEntity(res.PartitionKey, value)
+            let e = new CounterEntity(res.PartitionWithScheme, value)
             do! Table.insert res.Table e
             return new Counter(res)
         }

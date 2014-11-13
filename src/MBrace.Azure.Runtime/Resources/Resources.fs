@@ -25,14 +25,14 @@ type ResultCell<'T> internal (res : Uri) =
         async {
             let uri = BlobCell.GetUri res.Container
             let! bc = BlobCell.Init(uri, fun () -> result)
-            let e = new LightCellEntity(res.PartitionKey, uri.ToString(), ETag = "*")
+            let e = new LightCellEntity(res.PartitionWithScheme, uri.ToString(), ETag = "*")
             let! u = Table.merge res.Table e
             return ()
         }
 
     member __.TryGetResult() : Async<'T option> = 
         async {
-            let! e = Table.read<LightCellEntity> res.Table res.PartitionKey ""
+            let! e = Table.read<LightCellEntity> res.Table res.PartitionWithScheme ""
             if e.Uri = null then return None
             else
                 let bc = BlobCell.Get<'T>(new Uri(e.Uri))
@@ -54,7 +54,7 @@ type ResultCell<'T> internal (res : Uri) =
     static member Get<'T>(res : Uri) = new ResultCell<'T>(res)
     static member Init<'T>(res : Uri) : Async<ResultCell<'T>> = 
         async { 
-            let e = new LightCellEntity(res.PartitionKey, null)
+            let e = new LightCellEntity(res.PartitionWithScheme, null)
             do! Table.insert<LightCellEntity> res.Table e
             return new ResultCell<'T>(res)
         }
@@ -76,26 +76,26 @@ type ResultAggregator<'T> internal (res : Uri) =
     
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
-            let e = new ResultAggregatorEntity(res.PartitionKey, index, null, ETag = "*")
+            let e = new ResultAggregatorEntity(res.PartitionWithScheme, index, null, ETag = "*")
             let bcu = BlobCell.GetUri(res.Container)
             let! bc = BlobCell.Init(bcu, fun () -> value)
-            e.BlobCellUri <- bcu.ToString()
+            e.Uri <- bcu.ToString()
             let! u = Table.replace res.Table e
-            let l = Latch.Get(Counter.GetUri(res.Table, res.PartitionKey))
+            let l = Latch.Get(Latch.GetUri(res.Table, res.PartitionKey))
             let! curr = l.Decrement()
             return curr = 0
         }
     
-    member __.Complete = Latch.Get(Counter.GetUri(res.Table, res.PartitionKey)).Value = 0
+    member __.Complete = Latch.Get(Latch.GetUri(res.Table, res.PartitionKey)).Value = 0
     
     member __.ToArray() : Async<'T []> = 
         async { 
-            let! xs = Table.readBatch<ResultAggregatorEntity> res.Table res.PartitionKey
+            let! xs = Table.readBatch<ResultAggregatorEntity> res.Table res.PartitionWithScheme
             let bs = 
                 xs
                 |> Seq.filter (fun x -> x.RowKey <> "") // skip latch entity
                 |> Seq.sortBy (fun x -> x.Index)
-                |> Seq.map (fun x -> x.BlobCellUri)
+                |> Seq.map (fun x -> x.Uri)
                 |> Seq.map (fun x -> BlobCell.Get(new Uri(x)))
                 |> Seq.toArray
             
@@ -113,9 +113,9 @@ type ResultAggregator<'T> internal (res : Uri) =
     static member Get<'T>(res : Uri) = new ResultAggregator<'T>(res)
     static member Init<'T>(res : Uri, size : int) = 
         async { 
-            let! l = Latch.Init(Counter.GetUri(res.Table, res.PartitionKey), size)
+            let! l = Latch.Init(Latch.GetUri(res.Table, res.PartitionKey), size)
             for i = 0 to size - 1 do
-                let e = new ResultAggregatorEntity(res.PartitionKey, i, "")
+                let e = new ResultAggregatorEntity(res.PartitionWithScheme, i, "")
                 do! Table.insert res.Table e
             return new ResultAggregator<'T>(res)
         }

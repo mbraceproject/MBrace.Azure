@@ -13,14 +13,14 @@ open Nessos.MBrace.Azure.Runtime.Common
 type DistributedCancellationTokenSource internal (res : Uri) = 
     let cancel () =
        async { 
-            let e = new CancellationTokenSourceEntity(res.PartitionKey, IsCancellationRequested = true, ETag = "*")
+            let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, IsCancellationRequested = true, ETag = "*")
             let! u = Table.merge res.Table e
             return ()
         }
 
     let check() = 
         async { 
-            let! e = Table.read<CancellationTokenSourceEntity> res.Table res.PartitionKey ""
+            let! e = Table.read<CancellationTokenSourceEntity> res.Table res.PartitionWithScheme ""
             return e.IsCancellationRequested
         }
     
@@ -52,7 +52,7 @@ type DistributedCancellationTokenSource internal (res : Uri) =
             match parent with 
             | Some p -> return p
             | None ->
-                let e = new CancellationTokenSourceEntity(res.PartitionKey)
+                let e = new CancellationTokenSourceEntity(res.PartitionWithScheme)
                 do! Table.insert res.Table e
                 return new DistributedCancellationTokenSource(res)
         }

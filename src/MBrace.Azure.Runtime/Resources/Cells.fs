@@ -10,7 +10,7 @@ type BlobCell<'T> internal (res : Uri) =
     member __.GetValue() : Async<'T> = 
         async { 
             let container = ClientProvider.BlobClient.GetContainerReference(res.Container)
-            use! s = container.GetBlockBlobReference(res.File).OpenReadAsync()
+            use! s = container.GetBlockBlobReference(res.FileWithScheme).OpenReadAsync()
             return Config.serializer.Deserialize<'T>(s) 
         }
     
@@ -20,7 +20,7 @@ type BlobCell<'T> internal (res : Uri) =
         async { 
             let c = ClientProvider.BlobClient.GetContainerReference(res.Container)
             let! _ = c.CreateIfNotExistsAsync()
-            use! s = c.GetBlockBlobReference(res.File).OpenWriteAsync()
+            use! s = c.GetBlockBlobReference(res.FileWithScheme).OpenWriteAsync()
             Config.serializer.Serialize<'T>(s, f())
             return new BlobCell<'T>(res)
         }

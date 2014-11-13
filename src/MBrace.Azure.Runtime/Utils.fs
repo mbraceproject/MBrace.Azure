@@ -10,9 +10,9 @@ module Nessos.MBrace.Azure.Runtime.Utils
     
     let inline ofTask (t : Task) : Task<unit> = t.ContinueWith ignore
 
-    let processIdToStorageId (pid : string) = sprintf "process%s" <| pid.Substring(0,10)
+    let processIdToStorageId (pid : string) = 
+        sprintf "process%s" <| Guid.Parse(pid).ToString("N").Substring(0,7)
     let defaultStorageId = "bootstrap"
-
 
     type Async with
         static member inline Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
@@ -23,7 +23,9 @@ module Nessos.MBrace.Azure.Runtime.Utils
 
     type Uri with
         member u.ResourceId = u.Scheme
-        
+        member u.PartitionWithScheme = sprintf "%s:%s" u.Scheme u.PartitionKey
+        member u.FileWithScheme = sprintf "%s:%s" u.Scheme u.File
+
         // Primary
         member u.Container = 
             let s = u.Segments.[0] in if s.EndsWith("/") then s.Substring(0, s.Length-1) else s
