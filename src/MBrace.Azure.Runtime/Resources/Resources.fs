@@ -94,6 +94,7 @@ type ResultAggregator<'T> internal (res : Uri) =
             let bs = 
                 xs
                 |> Seq.filter (fun x -> x.RowKey <> "") // skip latch entity
+                |> Seq.sortBy (fun x -> x.Index)
                 |> Seq.map (fun x -> x.BlobCellUri)
                 |> Seq.map (fun x -> BlobCell.Get(new Uri(x)))
                 |> Seq.toArray

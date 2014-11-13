@@ -94,9 +94,7 @@ chain.IsCancellationRequested
 
 
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
-
 Config.initRuntimeState()
-
 let runtime = MBraceRuntime.InitLocal(3)
 
 let getWordCount inputSize =
