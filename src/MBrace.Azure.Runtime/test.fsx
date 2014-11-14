@@ -22,7 +22,7 @@ let config =
       ServiceBusConnectionString = conn.[1] }
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
 Config.initialize config
-let runtime = MBraceRuntime.InitLocal(3)
+let runtime = MBraceRuntime.InitLocal(5)
 
 runtime.Run(cloud { return 42 })
 

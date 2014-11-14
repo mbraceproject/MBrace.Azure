@@ -43,6 +43,7 @@
             let computation = CloudCompiler.Compile workflow
             let processId = System.Guid.NewGuid().ToString()
             let storageId = processIdToStorageId processId
+            do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
             let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
             try
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)

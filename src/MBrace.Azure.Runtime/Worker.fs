@@ -38,7 +38,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                 | Some (task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
-                        printfn "Starting task %s of type '%O'." task.TaskId task.Type
+                        printfn "Process %s\nStarting task %s of type '%O'." procId task.TaskId task.Type
 
                         //use hb = leaseMonitor.InitHeartBeat()
 
@@ -50,11 +50,11 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                         match result with
                         | Choice1Of2 () -> 
                             //leaseMonitor.Release()
-                            printfn "Task %s completed after %O." task.TaskId sw.Elapsed
+                            printfn "Process %s\nTask %s completed after %O." procId task.TaskId sw.Elapsed
                                 
                         | Choice2Of2 e -> 
                             //leaseMonitor.DeclareFault()
-                            printfn "Task %s faulted with:\n %O." task.TaskId e
+                            printfn "Process %s\nTask %s faulted with:\n %O." procId task.TaskId e
 
                         let _ = Interlocked.Decrement currentTaskCount
                         return ()

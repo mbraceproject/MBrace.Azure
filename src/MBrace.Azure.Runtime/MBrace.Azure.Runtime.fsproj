@@ -130,10 +130,6 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Xml" />
-    <Reference Include="Thespian">
-      <HintPath>..\..\packages\Thespian.Core.0.1.1-alpha\lib\net45\Thespian.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="Vagrant">
       <HintPath>..\..\packages\Vagrant.0.2.7\lib\net45\Vagrant.dll</HintPath>
       <Private>True</Private>
