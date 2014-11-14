@@ -632,6 +632,13 @@
  <param name="mapper">Continuation mapping function.</param>
  <param name="workflow">Input workflow.</param>
 </member>
+<member name="M:Nessos.MBrace.Runtime.Cloud.WithAppendedStackTrace``1(System.String,Nessos.MBrace.Cloud{``0})">
+ <summary>
+     Appends a function information entry to the symbolic stacktrace in the exception continuation.
+ </summary>
+ <param name="functionName">Function info string to be appended.</param>
+ <param name="workflow">Workflow to be wrapped.</param>
+</member>
 <member name="M:Nessos.MBrace.Runtime.Cloud.TryGetResource``1">
  <summary>
      Try Getting resource from current execution context.
