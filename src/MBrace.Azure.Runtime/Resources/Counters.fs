@@ -59,7 +59,8 @@ type Latch internal (res : Uri) =
 
     member __.Decrement() = base.Update(fun v -> v - 1)
 
-    interface IResource with member __.Uri = res
+    interface IResource with 
+        override __.Uri = res
     
     static member Init(res : Uri, value : int) = 
         async { 
@@ -72,12 +73,22 @@ type Latch internal (res : Uri) =
     static member GetUri(container, id) = uri "latch:%s/%s" container id
     static member GetUri(container) = Latch.GetUri(container, guid())
 
+    interface ISerializable with
+        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+            info.AddValue("uri", res, typeof<Uri>)
+
+    new(info: SerializationInfo, context: StreamingContext) =
+        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        new Latch(res)
+
+
 type Counter internal (res : Uri) = 
     inherit IntCell(res)
     
     member __.Increment() = base.Update(fun x -> x + 1)
     
-    interface IResource with member __.Uri = res
+    interface IResource with 
+        override __.Uri = res
 
     static member Init(res : Uri, value : int) = 
         async { 

@@ -40,10 +40,11 @@ type ResultAggregatorEntity(name : string, index : int, bloburi : string) =
     member val Uri = bloburi with get, set
     new () = new ResultAggregatorEntity(null, -1, null)
 
-type CancellationTokenSourceEntity(name : string) =
+type CancellationTokenSourceEntity(name : string, link : string) =
     inherit TableEntity(name, String.Empty)
     member val IsCancellationRequested = false with get, set
-    new () = new CancellationTokenSourceEntity(null)
+    member val Link = link with get, set
+    new () = new CancellationTokenSourceEntity(null, null)
 
 module Table =
     open Nessos.MBrace.Azure.Runtime.Config

@@ -1,18 +1,17 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
-#r "MBrace.Library.dll"
-#r "Thespian.dll"
 #r "MBrace.Azure.Runtime.exe"
 #r "Microsoft.WindowsAzure.Storage.dll"
 #r "Microsoft.ServiceBus.dll"
 #time "on"
 
 open Nessos.MBrace
-open Nessos.MBrace.Library
+open Nessos.MBrace.Runtime
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Config
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
+open System
 open System.Threading
 open System.Threading.Tasks
 
@@ -22,7 +21,72 @@ let config =
       ServiceBusConnectionString = conn.[1] }
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
 Config.initialize config
-let runtime = MBraceRuntime.InitLocal(5)
+let runtime = MBraceRuntime.InitLocal(3)
+
+
+let testContainer = "tests"
+let getUri () = Counter.GetUri testContainer
+
+let c =
+    let n = 20
+    cloud {
+        let! counter = Cloud.OfAsync <| Counter.Init(getUri(), 0)
+
+        let worker i = cloud { 
+            if i = 0 then
+                do! Cloud.Sleep 100
+                invalidOp "failure"
+            else
+                do! Cloud.Sleep 1000
+                let! x = Cloud.OfAsync <| counter.Increment()
+                return ()
+        }
+
+        try
+            let! _ = Array.init n worker |> Cloud.Parallel
+            return raise <| new exn("Cloud.Parallel should not have completed successfully.")
+        with :? InvalidOperationException ->
+            return counter.Value 
+    } 
+
+runtime.Run(c)
+
+
+
+runtime.Run 
+    <| cloud { 
+
+       }
+
+
+let m = 
+    cloud {    
+        let worker i =  cloud { 
+            if i = 0 then
+                do! Cloud.Sleep 100
+                invalidOp "failure"
+            else
+                do! Cloud.Sleep 1000
+                return ()
+        }
+        try
+            let! _ = Array.init 20 worker
+                     |> Cloud.Parallel
+            return 0
+        with :? InvalidOperationException -> return 1
+    }
+
+runtime.Run m
+
+
+
+
+
+
+
+
+
+
 
 runtime.Run(cloud { return 42 })
 

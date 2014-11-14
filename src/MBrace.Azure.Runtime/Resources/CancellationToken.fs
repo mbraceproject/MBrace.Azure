@@ -13,7 +13,7 @@ open Nessos.MBrace.Azure.Runtime.Common
 type DistributedCancellationTokenSource internal (res : Uri) = 
     let cancel () =
        async { 
-            let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, IsCancellationRequested = true, ETag = "*")
+            let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, null, IsCancellationRequested = true, ETag = "*")
             let! u = Table.merge res.Table e
             return ()
         }
@@ -21,7 +21,15 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     let check() = 
         async { 
             let! e = Table.read<CancellationTokenSourceEntity> res.Table res.PartitionWithScheme ""
-            return e.IsCancellationRequested
+            if e.IsCancellationRequested then return true
+            elif e.Link <> null then
+                let link = new Uri(e.Link)
+                let! p = Table.read<CancellationTokenSourceEntity> link.Table link.PartitionWithScheme ""
+                if p.IsCancellationRequested then
+                    do! cancel ()
+                    return true
+                else return false
+            else return false
         }
     
     interface IResource with
@@ -49,12 +57,14 @@ type DistributedCancellationTokenSource internal (res : Uri) =
 
     static member Init(res : Uri, ?parent : DistributedCancellationTokenSource) = 
         async { 
-            match parent with 
-            | Some p -> return p
-            | None ->
-                let e = new CancellationTokenSourceEntity(res.PartitionWithScheme)
-                do! Table.insert res.Table e
-                return new DistributedCancellationTokenSource(res)
+            let link = 
+                match parent with
+                | None -> null
+                | Some p -> (p :> IResource).Uri.ToString()
+            
+            let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, link)
+            do! Table.insert res.Table e
+            return new DistributedCancellationTokenSource(res)
         }
     
     static member Get(res : Uri) = new DistributedCancellationTokenSource(res)

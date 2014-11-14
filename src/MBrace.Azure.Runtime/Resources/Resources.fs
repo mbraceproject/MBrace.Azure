@@ -90,22 +90,25 @@ type ResultAggregator<'T> internal (res : Uri) =
     
     member __.ToArray() : Async<'T []> = 
         async { 
-            let! xs = Table.readBatch<ResultAggregatorEntity> res.Table res.PartitionWithScheme
-            let bs = 
-                xs
-                |> Seq.filter (fun x -> x.RowKey <> "") // skip latch entity
-                |> Seq.sortBy (fun x -> x.Index)
-                |> Seq.map (fun x -> x.Uri)
-                |> Seq.map (fun x -> BlobCell.Get(new Uri(x)))
-                |> Seq.toArray
+            if not __.Complete then 
+                return! Async.Raise <| new InvalidOperationException("Result aggregator incomplete.")
+            else
+                let! xs = Table.readBatch<ResultAggregatorEntity> res.Table res.PartitionWithScheme
+                let bs = 
+                    xs
+                    |> Seq.filter (fun x -> x.RowKey <> "") // skip latch entity
+                    |> Seq.sortBy (fun x -> x.Index)
+                    |> Seq.map (fun x -> x.Uri)
+                    |> Seq.map (fun x -> BlobCell.Get(new Uri(x)))
+                    |> Seq.toArray
             
-            let re = Array.zeroCreate<'T> bs.Length
-            let i = ref 0
-            for b in bs do
-                let! v = b.GetValue()
-                re.[!i] <- v
-                incr i
-            return re
+                let re = Array.zeroCreate<'T> bs.Length
+                let i = ref 0
+                for b in bs do
+                    let! v = b.GetValue()
+                    re.[!i] <- v
+                    incr i
+                return re
         }
     
     interface IResource with member __.Uri = res
