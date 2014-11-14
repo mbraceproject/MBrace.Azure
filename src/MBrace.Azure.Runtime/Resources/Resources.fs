@@ -51,12 +51,12 @@ type ResultCell<'T> internal (res : Uri) =
     
     interface IResource with
         member __.Uri = res
-        member __.Dispose () =
-            async {
-                let! e = Table.read<LightCellEntity> res.Table res.PartitionWithScheme ""
-                do! Table.delete res.Table e
-                (BlobCell.Get<'T>(new Uri(e.Uri)) :> IDisposable).Dispose()
-            } |> Async.RunSynchronously
+//        member __.Dispose () =
+//            async {
+//                let! e = Table.read<LightCellEntity> res.Table res.PartitionWithScheme ""
+//                do! Table.delete res.Table e
+//                (BlobCell.Get<'T>(new Uri(e.Uri)) :> IDisposable).Dispose()
+//            } |> Async.RunSynchronously
     
     static member Get<'T>(res : Uri) = new ResultCell<'T>(res)
     static member Init<'T>(res : Uri) : Async<ResultCell<'T>> = 
@@ -120,7 +120,7 @@ type ResultAggregator<'T> internal (res : Uri) =
     
     interface IResource with 
         member __.Uri = res
-        member __.Dispose () = raise <| NotImplementedException()
+//        member __.Dispose () = raise <| NotImplementedException()
     
     static member Get<'T>(res : Uri) = new ResultAggregator<'T>(res)
     static member Init<'T>(res : Uri, size : int) = 

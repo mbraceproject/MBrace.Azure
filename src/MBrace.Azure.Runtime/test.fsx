@@ -25,12 +25,10 @@ Config.initialize config
 
 let runtime = MBraceRuntime.InitLocal(3)
 
+runtime.Run(cloud { return 42 }, cleanup = true)
 
-runtime.Run <| Cloud.GetWorkerCount()
+//runtime.Run <| Cloud.GetWorkerCount()
 
-
-
-runtime.Run(cloud { return 42 })
 
 let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })
 

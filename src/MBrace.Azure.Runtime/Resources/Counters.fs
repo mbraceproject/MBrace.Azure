@@ -46,10 +46,10 @@ type IntCell internal (res : Uri) =
     static member GetUri(container, id) = uri "intcell:%s/%s" container id
     static member GetUri(container) = IntCell.GetUri(container, guid())
 
-    interface IDisposable with
-        member __.Dispose () = 
-            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
-            |> Async.RunSynchronously
+//    interface IDisposable with
+//        member __.Dispose () = 
+//            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
+//            |> Async.RunSynchronously
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
@@ -87,10 +87,10 @@ type Latch internal (res : Uri) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new Latch(res)
 
-    interface IDisposable with
-        member __.Dispose () = 
-            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
-            |> Async.RunSynchronously
+//    interface IDisposable with
+//        member __.Dispose () = 
+//            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
+//            |> Async.RunSynchronously
 
 type Counter internal (res : Uri) = 
     inherit IntCell(res)
@@ -119,7 +119,7 @@ type Counter internal (res : Uri) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new Counter(res)
 
-    interface IDisposable with
-        member __.Dispose () = 
-            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
-            |> Async.RunSynchronously
+//    interface IDisposable with
+//        member __.Dispose () = 
+//            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
+//            |> Async.RunSynchronously

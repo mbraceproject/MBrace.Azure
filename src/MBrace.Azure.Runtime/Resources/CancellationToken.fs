@@ -35,9 +35,9 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     
     interface IResource with
         member __.Uri = res
-        member __.Dispose () = 
-            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
-            |> Async.RunSynchronously
+//        member __.Dispose () = 
+//            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
+//            |> Async.RunSynchronously
     
     member __.IsCancellationRequested = check() |> Async.RunSynchronously
     

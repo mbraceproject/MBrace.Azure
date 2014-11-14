@@ -12,7 +12,7 @@ open Nessos.MBrace.Azure.Runtime
 
 type IResource = 
     inherit ISerializable
-    inherit IDisposable
+    //inherit IDisposable
     abstract Uri : Uri 
 
 //

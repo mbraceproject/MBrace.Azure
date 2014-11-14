@@ -52,18 +52,19 @@
                 let! result = resultCell.AwaitResult()
                 return result.Value
             finally
-                Async.RunSynchronously <| Storage.clearProcessFolder storageId
                 cts.Cancel ()
+                let cleanup = defaultArg cleanup false
+                if cleanup then Async.RunSynchronously <| Storage.clearProcessFolder storageId
         }
 
         /// Execute a workflow on the distributed runtime as task.
         member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) =
-            let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken)
+            let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?cleanup = cleanup)
             Async.StartAsTask(asyncwf)
 
         /// Execute a workflow on the distributed runtime synchronously
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) =
-            __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
+            __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?cleanup = cleanup) |> Async.RunSynchronously
 
         /// Violently kills all worker nodes in the runtime
         member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])

@@ -43,8 +43,8 @@ type Queue<'T> internal (res : Uri) =
         } 
 
     interface IResource with
-        member x.Dispose(): unit = 
-            ns.DeleteQueue(res.Queue)
+//        member x.Dispose(): unit = 
+//            ns.DeleteQueue(res.Queue)
 
          member __.Uri = res
     
