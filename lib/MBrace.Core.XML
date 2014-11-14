@@ -588,6 +588,12 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
 <member name="T:Nessos.MBrace.CloudBuilderUtils">
 
 </member>
@@ -619,12 +625,19 @@
  Contains common operators for cloud computation.
 </summary>
 </member>
+<member name="M:Nessos.MBrace.Runtime.Cloud.WithMappedContinuation``2(Microsoft.FSharp.Core.FSharpFunc{Nessos.MBrace.Runtime.Continuation{``0},Nessos.MBrace.Runtime.Continuation{``1}},Nessos.MBrace.Cloud{``1})">
+ <summary>
+     Wraps a workflow with a mapped continuation.
+ </summary>
+ <param name="mapper">Continuation mapping function.</param>
+ <param name="workflow">Input workflow.</param>
+</member>
 <member name="M:Nessos.MBrace.Runtime.Cloud.TryGetResource``1">
  <summary>
      Try Getting resource from current execution context.
  </summary>
 </member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.ToAsync``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.ResourceRegistry},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+<member name="M:Nessos.MBrace.Runtime.Cloud.ToAsync``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.ResourceRegistry})">
  <summary>
      Wraps a cloud workflow into an asynchronous workflow.
  </summary>
@@ -727,28 +740,27 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo`1.Reify(System.Boolean)">
+<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo.Reify(Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
  <summary>
-     Returns the source augmented with the remote stack trace.
+     Returns contained exception with restored stacktrace state.
+     This operation mutates exception contents, so should be used with care.
  </summary>
  <param name="useSeparator">Add a separator after remote stacktrace. Defaults to true.</param>
+ <param name="prepareForRaise">Prepare exception state for raise. Defaults to false.</param>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo`1.Capture(`0)">
+<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo.Capture(System.Exception)">
  <summary>
      Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
  </summary>
  <param name="exn">Captured exception</param>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo`1.AppendToStackTrace(System.Collections.Generic.IEnumerable{System.String})">
+<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo.AppendToStackTrace(System.Collections.Generic.IEnumerable{System.String})">
  <summary>
      Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
  </summary>
  <param name="line">Line to be appended.</param>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo`1.AppendToStackTrace(System.String)">
+<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo.AppendToStackTrace(System.String)">
  <summary>
      Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
  </summary>
@@ -760,10 +772,10 @@
 <member name="">
 
 </member>
-<member name="T:Nessos.MBrace.Runtime.ExceptionDispatchInfo`1">
+<member name="T:Nessos.MBrace.Runtime.ExceptionDispatchInfo">
 <summary>
  Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
- that is serializable and permits symbolic stacktrace appending
+ that is serializable and permits symbolic appending to stacktrace
 </summary>
 </member>
 <member name="P:Nessos.MBrace.Runtime.ExecutionContext.CancellationToken">
@@ -1088,18 +1100,12 @@
  <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
  <param name="exn">Input exception.</param>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoModule.raise``2(System.Boolean,Nessos.MBrace.Runtime.ExceptionDispatchInfo{``0})">
+<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoModule.raise``1(System.Boolean,Nessos.MBrace.Runtime.ExceptionDispatchInfo)">
  <summary>
      Raise provided exception dispatch info.
  </summary>
  <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
  <param name="edi">Exception dispatch info to be raised.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoModule.capture``1(``0)">
- <summary>
-     Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
- </summary>
- <param name="exn">Captured exception</param>
 </member>
 <member name="T:Nessos.MBrace.Runtime.ExceptionDispatchInfoModule">
 
@@ -1112,7 +1118,7 @@
  <param name="workflow">Workflow to be run.</param>
  <param name="cancellationToken">Optioncal cancellation token.</param>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoUtils.Async.Reraise``1(System.Exception)">
+<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoUtils.Async.Raise``1(System.Exception)">
  <summary>
      Efficiently reraise exception, without losing its existing stacktrace.
  </summary>
