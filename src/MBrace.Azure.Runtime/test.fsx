@@ -28,7 +28,7 @@ runtime.Run(cloud { return 42 })
 
 let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })
 
-let t = runtime.Run(f 0 10)
+let t = runtime.Run(f 0 100)
 
 
 runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 12 then Some 42 else None } ))

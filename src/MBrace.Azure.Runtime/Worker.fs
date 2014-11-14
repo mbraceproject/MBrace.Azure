@@ -34,7 +34,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
             try
                 let! task = runtime.TryDequeue()
                 match task with
-                | None -> do! Async.Sleep 500
+                | None -> ()
                 | Some (task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
@@ -61,8 +61,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
                     }
         
                     let! handle = Async.StartChild(runTask())
-                    do! Async.Sleep 200
-
+                    ()
             with e -> 
                 printfn "WORKER FAULT: %O" e
                 do! Async.Sleep 1000
