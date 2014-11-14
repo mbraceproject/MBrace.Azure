@@ -11,13 +11,13 @@ open Nessos.MBrace.Runtime
 type Result<'T> =
     | Completed of 'T
     | Exception of ExceptionDispatchInfo
-    | Cancelled of ExceptionDispatchInfo<OperationCanceledException>
+    | Cancelled of OperationCanceledException
 with
     member inline r.Value =
         match r with
         | Completed t -> t
-        | Exception e -> ExceptionDispatchInfo.raise true e
-        | Cancelled e -> ExceptionDispatchInfo.raise true e 
+        | Exception edi -> ExceptionDispatchInfo.raise true edi
+        | Cancelled c -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true c
 
 type ResultCell<'T> internal (res : Uri) = 
 
