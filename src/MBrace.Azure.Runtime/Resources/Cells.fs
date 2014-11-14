@@ -35,6 +35,11 @@ type BlobCell<'T> internal (res : Uri) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new BlobCell<'T>(res)
 
+    interface IDisposable with
+        member __.Dispose () = 
+            let container = ClientProvider.BlobClient.GetContainerReference(res.Container)
+            container.GetBlockBlobReference(res.FileWithScheme).DeleteIfExists() |> ignore
+
 type BlobCell =
     static member GetUri(container, id) = uri "blobcell:%s/%s" container id
     static member GetUri(container) = BlobCell.GetUri(container, guid())

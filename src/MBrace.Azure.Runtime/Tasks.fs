@@ -15,6 +15,7 @@ open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Serialization
 open Nessos.MBrace.Azure.Runtime.Resources
+open Nessos.MBrace.Azure.Runtime.Common.Storage
 
 // Tasks are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that

@@ -8,6 +8,7 @@ open Nessos.Vagrant
 open System
 open System.Runtime.Serialization
 open System.Threading
+open Nessos.MBrace.Azure.Runtime.Common.Storage
 
 type AssemblyExporter private (res : Uri) = 
     
@@ -56,9 +57,6 @@ type AssemblyExporter private (res : Uri) =
     static member Init(res : Uri) = new AssemblyExporter(res)
     //temporary
     static member Init() = new AssemblyExporter(AssemblyExporter.GetUri defaultStorageId)
-    
-    interface IResource with
-        member __.Uri = res
     
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 

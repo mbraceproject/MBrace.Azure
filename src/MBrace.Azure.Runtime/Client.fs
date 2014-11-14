@@ -6,6 +6,7 @@
 
     open Nessos.MBrace
     open Nessos.MBrace.Runtime
+    open Nessos.MBrace.Azure.Runtime.Common
     open Nessos.MBrace.Runtime.Compiler
     open Nessos.MBrace.Azure.Runtime.Tasks
     open Nessos.MBrace.Azure.Runtime.RuntimeProvider
@@ -39,10 +40,10 @@
         let state = RuntimeState.InitLocal logger getWorkerRefs
         
         /// Asynchronously execute a workflow on the distributed runtime.
-        member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
+        member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) = async {
             let computation = CloudCompiler.Compile workflow
             let processId = System.Guid.NewGuid().ToString()
-            let storageId = processIdToStorageId processId
+            let storageId = Storage.processIdToStorageId processId
             do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
             let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
             try
@@ -51,16 +52,17 @@
                 let! result = resultCell.AwaitResult()
                 return result.Value
             finally
+                Async.RunSynchronously <| Storage.clearProcessFolder storageId
                 cts.Cancel ()
         }
 
         /// Execute a workflow on the distributed runtime as task.
-        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
+        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) =
             let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken)
             Async.StartAsTask(asyncwf)
 
         /// Execute a workflow on the distributed runtime synchronously
-        member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
+        member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
 
         /// Violently kills all worker nodes in the runtime

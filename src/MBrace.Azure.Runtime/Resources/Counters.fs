@@ -6,6 +6,7 @@ open System.Runtime.Serialization
 open Microsoft.WindowsAzure.Storage
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
+open Microsoft.WindowsAzure.Storage.Table
 
 type IntCell internal (res : Uri) = 
     member __.Value = 
@@ -45,6 +46,11 @@ type IntCell internal (res : Uri) =
     static member GetUri(container, id) = uri "intcell:%s/%s" container id
     static member GetUri(container) = IntCell.GetUri(container, guid())
 
+    interface IDisposable with
+        member __.Dispose () = 
+            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
+            |> Async.RunSynchronously
+
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
@@ -81,6 +87,10 @@ type Latch internal (res : Uri) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new Latch(res)
 
+    interface IDisposable with
+        member __.Dispose () = 
+            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
+            |> Async.RunSynchronously
 
 type Counter internal (res : Uri) = 
     inherit IntCell(res)
@@ -109,3 +119,7 @@ type Counter internal (res : Uri) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new Counter(res)
 
+    interface IDisposable with
+        member __.Dispose () = 
+            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
+            |> Async.RunSynchronously

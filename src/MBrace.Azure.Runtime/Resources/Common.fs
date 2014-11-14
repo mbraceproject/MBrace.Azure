@@ -12,7 +12,8 @@ open Nessos.MBrace.Azure.Runtime
 
 type IResource = 
     inherit ISerializable
-    abstract Uri : Uri // TODO : IDisposable
+    inherit IDisposable
+    abstract Uri : Uri 
 
 //
 // Table storage entities
@@ -89,3 +90,6 @@ module Table =
     
     let replace<'T when 'T :> ITableEntity> table (e : 'T) : Async<'T> = 
         TableOperation.Replace(e) |> exec table |> Async.Cast
+
+    let delete<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> =
+        TableOperation.Delete(e) |> exec table |> Async.Ignore

@@ -5,6 +5,7 @@ open System.Threading
 open System.Runtime.Serialization
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
+open Microsoft.WindowsAzure.Storage.Table
 
 // Note : Each dcts checks for cancelation itself and parent dcts (but no other predecessors)
 // This works as long as all parent dcts run the GetLocalCancellationToken loop.
@@ -34,6 +35,9 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     
     interface IResource with
         member __.Uri = res
+        member __.Dispose () = 
+            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
+            |> Async.RunSynchronously
     
     member __.IsCancellationRequested = check() |> Async.RunSynchronously
     

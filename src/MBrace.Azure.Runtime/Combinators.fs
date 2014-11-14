@@ -11,6 +11,7 @@ open Nessos.MBrace.Azure.Runtime.Tasks
 #nowarn "444"
 
 open Nessos.MBrace.Azure.Runtime.Resources
+open Nessos.MBrace.Azure.Runtime.Common.Storage
 
 let inline private withCancellationToken (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
     let token = cts.GetLocalCancellationToken()

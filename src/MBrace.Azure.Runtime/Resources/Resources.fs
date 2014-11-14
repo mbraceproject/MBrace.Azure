@@ -6,6 +6,7 @@ open Microsoft.WindowsAzure.Storage
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Runtime
+open Microsoft.WindowsAzure.Storage.Table
 
 /// Result value
 type Result<'T> =
@@ -50,6 +51,12 @@ type ResultCell<'T> internal (res : Uri) =
     
     interface IResource with
         member __.Uri = res
+        member __.Dispose () =
+            async {
+                let! e = Table.read<LightCellEntity> res.Table res.PartitionWithScheme ""
+                do! Table.delete res.Table e
+                (BlobCell.Get<'T>(new Uri(e.Uri)) :> IDisposable).Dispose()
+            } |> Async.RunSynchronously
     
     static member Get<'T>(res : Uri) = new ResultCell<'T>(res)
     static member Init<'T>(res : Uri) : Async<ResultCell<'T>> = 
@@ -111,7 +118,9 @@ type ResultAggregator<'T> internal (res : Uri) =
                 return re
         }
     
-    interface IResource with member __.Uri = res
+    interface IResource with 
+        member __.Uri = res
+        member __.Dispose () = raise <| NotImplementedException()
     
     static member Get<'T>(res : Uri) = new ResultAggregator<'T>(res)
     static member Init<'T>(res : Uri, size : int) = 

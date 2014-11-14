@@ -42,7 +42,11 @@ type Queue<'T> internal (res : Uri) =
                 return Some v
         } 
 
-    interface IResource with member __.Uri = res
+    interface IResource with
+        member x.Dispose(): unit = 
+            ns.DeleteQueue(res.Queue)
+
+         member __.Uri = res
     
     static member Init<'T>(res : Uri) = 
         async { 

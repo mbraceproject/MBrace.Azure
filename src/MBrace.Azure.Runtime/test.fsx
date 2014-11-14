@@ -1,5 +1,6 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
+#r "MBrace.Library.dll"
 #r "MBrace.Azure.Runtime.exe"
 #r "Microsoft.WindowsAzure.Storage.dll"
 #r "Microsoft.ServiceBus.dll"
@@ -21,70 +22,11 @@ let config =
       ServiceBusConnectionString = conn.[1] }
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
 Config.initialize config
+
 let runtime = MBraceRuntime.InitLocal(3)
 
 
-let testContainer = "tests"
-let getUri () = Counter.GetUri testContainer
-
-let c =
-    let n = 20
-    cloud {
-        let! counter = Cloud.OfAsync <| Counter.Init(getUri(), 0)
-
-        let worker i = cloud { 
-            if i = 0 then
-                do! Cloud.Sleep 100
-                invalidOp "failure"
-            else
-                do! Cloud.Sleep 1000
-                let! x = Cloud.OfAsync <| counter.Increment()
-                return ()
-        }
-
-        try
-            let! _ = Array.init n worker |> Cloud.Parallel
-            return raise <| new exn("Cloud.Parallel should not have completed successfully.")
-        with :? InvalidOperationException ->
-            return counter.Value 
-    } 
-
-runtime.Run(c)
-
-
-
-runtime.Run 
-    <| cloud { 
-
-       }
-
-
-let m = 
-    cloud {    
-        let worker i =  cloud { 
-            if i = 0 then
-                do! Cloud.Sleep 100
-                invalidOp "failure"
-            else
-                do! Cloud.Sleep 1000
-                return ()
-        }
-        try
-            let! _ = Array.init 20 worker
-                     |> Cloud.Parallel
-            return 0
-        with :? InvalidOperationException -> return 1
-    }
-
-runtime.Run m
-
-
-
-
-
-
-
-
+runtime.Run <| Cloud.GetWorkerCount()
 
 
 
@@ -92,26 +34,25 @@ runtime.Run(cloud { return 42 })
 
 let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })
 
-let t = runtime.Run(f 0 100)
+let x = runtime.Run(f 0 100)
 
 
 runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 12 then Some 42 else None } ))
 
 let cts = new CancellationTokenSource()
 
-let (t : Task<unit>) = runtime.RunAsTask(cloud { while true do do! Cloud.Sleep 1000 }, cts.Token)
+let t  = runtime.RunAsTask(cloud { while true do do! Cloud.Sleep 1000 }, cts.Token)
 
 cts.Cancel()
 
+let wordCount size mapReduceAlgorithm : Cloud<int> =
+    let mapF (text : string) = cloud { return text.Split(' ').Length }
+    let reduceF i i' = cloud { return i + i' }
+    let inputs = Array.init size (fun i -> "lorem ipsum dolor sit amet")
+    mapReduceAlgorithm mapF 0 reduceF inputs
+wordCount 1000 Library.MapReduce.mapReduce 
+|> runtime.Run
 
-//
-//let getWordCount inputSize =
-//    let map (text : string) = cloud { return text.Split(' ').Length }
-//    let reduce i i' = cloud { return i + i' }
-//    let inputs = Array.init inputSize (fun i -> "lorem ipsum dolor sit amet")
-//    MapReduce.mapReduce map 0 reduce inputs
-//let t = runtime.RunAsTask(getWordCount 2000)
-//let t = runtime.Run(cloud { return 42 })
 
 
 runtime.KillAllWorkers() 
@@ -125,6 +66,16 @@ let (!) (task : Async<'T>) = Async.RunSynchronously task
 
 ClientProvider.TableClient.GetTableReference("tmp").DeleteIfExists()
 ClientProvider.BlobClient.GetContainerReference("tmp").DeleteIfExists()
+
+Config.ClientProvider.TableClient.ListTables("process")
+|> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
+|> Async.Parallel
+|> Async.RunSynchronously
+
+Config.ClientProvider.BlobClient.ListContainers("process")
+|> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
+|> Async.Parallel
+|> Async.RunSynchronously
 
 //-------------------------------------------------------------------
 
