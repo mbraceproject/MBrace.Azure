@@ -36,7 +36,7 @@ module ``Azure Runtime Tests`` =
         let config = 
             { StorageConnectionString = selectEnv "AzureStorageConn";
               ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
-
+        
         MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
         Config.initialize config
         runtime <- Some <| MBraceRuntime.InitLocal(4)

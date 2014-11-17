@@ -77,15 +77,20 @@ Target "Build" (fun _ ->
 
 let testAssemblies = 
     [
-        //yield "bin/MBrace.Core.Tests.dll"
+        yield "bin/MBrace.Azure.Runtime.Tests.dll"
         //if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->
+    let nunitVersion = GetPackageVersion "packages" "NUnit.Runners"
+    let nunitPath = sprintf "packages/NUnit.Runners.%s/tools" nunitVersion
+    ActivateFinalTarget "CloseTestRunner"
+
     testAssemblies
     |> NUnit (fun p -> 
         { p with
             DisableShadowCopy = true
+            ToolPath = nunitPath
             TimeOut = TimeSpan.FromMinutes 60.
             OutputFile = "TestResults.xml" })
 )
