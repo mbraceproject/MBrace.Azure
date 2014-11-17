@@ -27,7 +27,7 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
 let nugetVersion = release.NugetVersion
 
-let gitHome = "https://github.com/nessos"
+let gitHome = "https://github.com/mbraceproject"
 let gitName = "MBrace.Azure"
 
 // Generate assembly info files with the right version & up-to-date information

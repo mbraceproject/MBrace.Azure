@@ -1,4 +1,4 @@
 MBrace.Azure
 ============
 
-Windows Azure implementation of the MBrace.Core
+Windows Azure PaaS implementation of the MBrace.Core/Runtime
