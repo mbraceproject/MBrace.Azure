@@ -1,6 +1,7 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
 #r "MBrace.Library.dll"
+#r "Vagrant.dll"
 #r "MBrace.Azure.Runtime.exe"
 #r "Microsoft.WindowsAzure.Storage.dll"
 #r "Microsoft.ServiceBus.dll"
@@ -34,7 +35,6 @@ runtime.Run(cloud { return 42 }, cleanup = true)
 
 //runtime.Run <| Cloud.GetWorkerCount()
 
-
 let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })
 
 let x = runtime.Run(f 0 100)
@@ -43,9 +43,7 @@ let x = runtime.Run(f 0 100)
 runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 12 then Some 42 else None } ))
 
 let cts = new CancellationTokenSource()
-
 let t  = runtime.RunAsTask(cloud { while true do do! Cloud.Sleep 1000 }, cts.Token)
-
 cts.Cancel()
 
 let wordCount size mapReduceAlgorithm : Cloud<int> =
@@ -84,10 +82,10 @@ Config.ClientProvider.BlobClient.ListContainers("process")
 
 //-------------------------------------------------------------------
 
-let c = !Counter.Init(Counter.GetUri "tmp", 1)
+let c = !Counter.Init("tmp", 1)
 !c.Increment()
 
-let l = !Latch.Init(Latch.GetUri "tmp", 11)
+let l = !Latch.Init("tmp", 11)
 !l.Decrement()
 
 [|1..5|]
@@ -100,21 +98,19 @@ l.Value
 
 //-------------------------------------------------------------------
 
-let c = !BlobCell.Init(BlobCell.GetUri "tmp", fun () -> 42)
+let c = !BlobCell.Init("tmp", fun () -> 42)
 !c.GetValue()
-
-
 
 //-------------------------------------------------------------------
 
-let q = !Queue.Init<int>(Queue.GetUri "tmp")
+let q : Queue<int> = !Queue.Init("tmp")
 q.Enqueue(42)
 !q.TryDequeue()
 q.Length
 
 //-------------------------------------------------------------------
 
-let rs : ResultCell<int> = !ResultCell.Init(ResultCell.GetUri "tmp")
+let rs : ResultCell<int> = !ResultCell.Init("tmp")
 
 async { do! Async.Sleep 10000 
         do! rs.SetResult(42) }
@@ -124,7 +120,7 @@ async { do! Async.Sleep 10000
 
 !rs.AwaitResult()
 
-let ra = !ResultAggregator.Init(ResultAggregator.GetUri "tmp", 10)
+let ra : ResultAggregator<int> = !ResultAggregator.Init("tmp", 10)
 for x in 0..9 do
     printfn "%b" <| !ra.SetResult(x, x * 10)
 ra.Complete
@@ -134,7 +130,7 @@ let x = !ra.ToArray()
 //-------------------------------------------------------------------
 type DCTS = DistributedCancellationTokenSource
 
-let dcts0 = !DCTS.Init(DCTS.GetUri "tmp")
+let dcts0 = !DCTS.Init("tmp")
 let ct0 = dcts0.GetLocalCancellationToken()
 
 let t1 = async { while true do 
@@ -144,9 +140,18 @@ let t1 = async { while true do
 Async.Start(t1, ct0)
 dcts0.Cancel()
 
-let root = !DCTS.Init(DCTS.GetUri "tmp")
-let chain = Seq.fold (fun dcts _ -> let d = !DCTS.Init(DCTS.GetUri "tmp", dcts) in d.GetLocalCancellationToken() ; d ) root {1..10}
+let root = !DCTS.Init("tmp")
+let chain = Seq.fold (fun dcts _ -> let d = !DCTS.Init("tmp", dcts) in ignore(d.GetLocalCancellationToken()) ; d ) root {1..10}
 
 Async.Start(t1, chain.GetLocalCancellationToken())
 root.Cancel()
 chain.IsCancellationRequested
+
+
+//--------------------------------------------------------------------
+let exp = AssemblyExporter.Init("tmp")
+type Foo = Foo
+let xs = exp.ComputeDependencies Foo
+!exp.UploadDependencies(xs)
+!exp.LoadDependencies(xs)
+

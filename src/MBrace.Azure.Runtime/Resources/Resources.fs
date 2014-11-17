@@ -25,6 +25,7 @@ type ResultCell<'T> internal (res : Uri) =
     member __.SetResult(result : 'T) : Async<unit> =
         async {
             let! bc = BlobCell.Init(res.Container, fun () -> result)
+            let uri = (bc :> IResource).Uri
             let e = new LightCellEntity(res.PartitionWithScheme, uri.ToString(), ETag = "*")
             let! u = Table.merge res.Table e
             return ()
