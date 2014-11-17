@@ -28,13 +28,24 @@ module ``Azure Runtime Tests`` =
 
     [<TestFixtureSetUp>]
     let init () =
-        let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
+        let selectEnv name =
+            (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
+                Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine))
+            |> function | null, s | s, null | s, _ -> s
+
         let config = 
-            { StorageConnectionString = conn.[0]
-              ServiceBusConnectionString = conn.[1] }
+            { StorageConnectionString = selectEnv "AzureStorageConn";
+              ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
+
+        let print (s : string) = if s = null then "<null>" else sprintf "%s . . ." <| s.Substring(0,15)
+        printfn "config.Storage : %s" <| print config.StorageConnectionString
+        printfn "config.ServiceBus : %s" <| print config.ServiceBusConnectionString
         MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
+        printfn "WorkerExecutable : %s" MBraceRuntime.WorkerExecutable
         Config.initialize config
+        printfn "Configuration activated"
         runtime <- Some <| MBraceRuntime.InitLocal(4)
+        printfn "Runtime initilized"
 
     [<TestFixtureTearDown>]
     let fini () =
@@ -46,7 +57,7 @@ module ``Azure Runtime Tests`` =
     type Counter with
         member l.Incr() = l.Increment() |> Async.RunSync
 
-    let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync workflow |> Async.Catch |> Async.RunSynchronously
+    let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync(workflow) |> Async.Catch |> Async.RunSynchronously
     let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = Option.get runtime

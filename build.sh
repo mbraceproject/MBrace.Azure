@@ -1,33 +1,7 @@
 #!/bin/bash
-if [ "X$OS" = "XWindows_NT" ] ; then
-  # use .Net
 
-  .paket/paket.bootstrapper.exe
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-
-  .paket/paket.exe restore -v
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-
-  packages/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx 
-else
-
-  # use mono
-  mono .paket/paket.bootstrapper.exe
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-
-  mono .paket/paket.exe restore -v
-  exit_code=$?
-  if [ $exit_code -ne 0 ]; then
-  	exit $exit_code
-  fi
-  mono packages/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx 
+if [ ! -f packages/FAKE/tools/FAKE.exe ]; then
+  mono .nuget/NuGet.exe install FAKE -OutputDirectory packages -ExcludeVersion
 fi
+
+mono packages/FAKE/tools/FAKE.exe build.fsx $@

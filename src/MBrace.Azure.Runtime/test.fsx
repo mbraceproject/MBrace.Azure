@@ -16,12 +16,17 @@ open System
 open System.Threading
 open System.Threading.Tasks
 
-let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
+let selectEnv name =
+    (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
+        Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine))
+    |> function | null, s | s, null | s, _ -> s
+
 let config = 
-    { StorageConnectionString = conn.[0]
-      ServiceBusConnectionString = conn.[1] }
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
+    { StorageConnectionString = selectEnv "AzureStorageConn";
+        ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
+
 Config.initialize config
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
 
 let runtime = MBraceRuntime.InitLocal(3)
 
@@ -62,8 +67,9 @@ runtime.AppendWorkers 4
 
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
-ClientProvider.TableClient.GetTableReference("tmp").DeleteIfExists()
-ClientProvider.BlobClient.GetContainerReference("tmp").DeleteIfExists()
+ClientProvider.TableClient.GetTableReference("bootstap").DeleteIfExists()
+ClientProvider.BlobClient.GetContainerReference("bootstrap").DeleteIfExists()
+Config.ClientProvider.NamespaceClient.DeleteQueue("bootstrap")
 
 Config.ClientProvider.TableClient.ListTables("process")
 |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
@@ -74,6 +80,7 @@ Config.ClientProvider.BlobClient.ListContainers("process")
 |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
 |> Async.Parallel
 |> Async.RunSynchronously
+
 
 //-------------------------------------------------------------------
 

@@ -1,12 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30723.0
+VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1CCF30B5-03E2-423A-85A9-98278969CAAF}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64BD78-3886-4FC5-A6F9-2A71A99769B9}"
 	ProjectSection(SolutionItems) = preProject
+		appveyor.yml = appveyor.yml
 		build.cmd = build.cmd
 		build.fsx = build.fsx
 		build.sh = build.sh
@@ -35,6 +36,14 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Runtime.Tests", "tests\MBrace.Azure.Runtime.Tests\MBrace.Azure.Runtime.Tests.fsproj", "{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{F808F89E-BBEF-4636-AF35-B0256E4D54F3}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\NuGet.Config = .nuget\NuGet.Config
+		.nuget\NuGet.exe = .nuget\NuGet.exe
+		.nuget\NuGet.targets = .nuget\NuGet.targets
+		.nuget\packages.config = .nuget\packages.config
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

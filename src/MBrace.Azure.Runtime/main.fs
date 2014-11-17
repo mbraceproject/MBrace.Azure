@@ -1,5 +1,6 @@
 ﻿module internal Nessos.MBrace.Azure.Runtime.Main
 
+    open System
     open Nessos.MBrace.Azure.Runtime.Config
 
     let maxConcurrentTasks = 10
@@ -7,8 +8,14 @@
     [<EntryPoint>]
     let main (args : string []) =
         try
-            let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
-            let config = { StorageConnectionString = conn.[0]; ServiceBusConnectionString = conn.[1] }
+            let selectEnv name =
+                (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
+                    Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine))
+                |> function | null, s | s, null | s, _ -> s
+
+            let config = 
+                { StorageConnectionString = selectEnv "AzureStorageConn";
+                  ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
 
             Nessos.MBrace.Azure.Runtime.Config.initialize(config)
             let runtime = Argument.toRuntime args
