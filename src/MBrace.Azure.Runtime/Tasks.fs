@@ -116,11 +116,11 @@ with
     /// Initialize a new runtime state in the local process
     static member InitLocal (logger : string -> unit) (getWorkers : unit -> IWorkerRef []) =
         {
-            Workers = BlobCell.Init(BlobCell.GetUri defaultStorageId, getWorkers) |> Async.RunSynchronously
+            Workers = BlobCell.Init(defaultStorageId, getWorkers) |> Async.RunSynchronously
             //Logger = Logger.Init logger
-            TaskQueue = Queue<_>.Init (Queue.GetUri defaultStorageId) |> Async.RunSynchronously
-            AssemblyExporter = AssemblyExporter.Init() 
-            ResourceFactory = ResourceFactory.Init () 
+            TaskQueue = Queue<_>.Init (defaultStorageId) |> Async.RunSynchronously
+            AssemblyExporter = AssemblyExporter.Init(defaultStorageId) 
+            ResourceFactory = ResourceFactory.Init() 
         }
 
     /// <summary>

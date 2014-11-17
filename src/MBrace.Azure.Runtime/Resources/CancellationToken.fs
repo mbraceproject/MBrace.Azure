@@ -35,9 +35,6 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     
     interface IResource with
         member __.Uri = res
-//        member __.Dispose () = 
-//            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
-//            |> Async.RunSynchronously
     
     member __.IsCancellationRequested = check() |> Async.RunSynchronously
     
@@ -59,22 +56,6 @@ type DistributedCancellationTokenSource internal (res : Uri) =
 
         cts.Token
 
-    static member Init(res : Uri, ?parent : DistributedCancellationTokenSource) = 
-        async { 
-            let link = 
-                match parent with
-                | None -> null
-                | Some p -> (p :> IResource).Uri.ToString()
-            
-            let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, link)
-            do! Table.insert res.Table e
-            return new DistributedCancellationTokenSource(res)
-        }
-    
-    static member Get(res : Uri) = new DistributedCancellationTokenSource(res)
-    static member GetUri(container, id) = uri "dcts:%s/%s" container id
-    static member GetUri(container) = DistributedCancellationTokenSource.GetUri(container, guid())
-
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
@@ -82,3 +63,16 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new DistributedCancellationTokenSource(res)
+
+    static member private GetUri(container, id) = uri "dcts:%s/%s" container id
+    static member Init(container : string, ?parent : DistributedCancellationTokenSource) = 
+        async { 
+            let link = 
+                match parent with
+                | None -> null
+                | Some p -> (p :> IResource).Uri.ToString()
+            let res = DistributedCancellationTokenSource.GetUri(container, guid())
+            let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, link)
+            do! Table.insert res.Table e
+            return new DistributedCancellationTokenSource(res)
+        }

@@ -42,7 +42,6 @@ module ``Azure Runtime Tests`` =
         runtime <- None
 
     let testContainer = "tests"
-    let getUri () = Counter.GetUri testContainer
 
     type Counter with
         member l.Incr() = l.Increment() |> Async.RunSync
@@ -51,7 +50,7 @@ module ``Azure Runtime Tests`` =
     let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = Option.get runtime
-            let! dcts = DistributedCancellationTokenSource.Init(DistributedCancellationTokenSource.GetUri testContainer) 
+            let! dcts = DistributedCancellationTokenSource.Init(testContainer) 
             let ct = dcts.GetLocalCancellationToken()
             return! runtime.RunAsync(workflow dcts, cancellationToken = ct) |> Async.Catch
         } |> Async.RunSync
@@ -70,7 +69,7 @@ module ``Azure Runtime Tests`` =
 
     [<Test>]
     let ``1. Parallel : use binding`` () =
-        let counter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let counter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         cloud {
             use foo = { new ICloudDisposable with member __.Dispose () = async { return counter.Incr() |> ignore } }
             let! _ = cloud { return counter.Incr() } <||> cloud { return counter.Incr() }
@@ -92,7 +91,7 @@ module ``Azure Runtime Tests`` =
 
     [<Test>]
     let ``1. Parallel : finally`` () =
-        let counter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let counter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         cloud {
             try
                 let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
@@ -124,7 +123,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``1. Parallel : exception contention`` () =
-        let counter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let counter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         cloud {
             try
                 let! _ = Array.init 20 (fun _ -> cloud { return invalidOp "failure" }) |> Cloud.Parallel
@@ -142,7 +141,7 @@ module ``Azure Runtime Tests`` =
     [<Repeat(repeats)>]
     let ``1. Parallel : exception cancellation`` () =
         cloud {
-            let counter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+            let counter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
             let worker i = cloud { 
                 if i = 0 then
                     do! Cloud.Sleep 100
@@ -164,7 +163,7 @@ module ``Azure Runtime Tests`` =
     [<Repeat(repeats)>]
     let ``1. Parallel : nested exception cancellation`` () =
         cloud {
-            let counter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+            let counter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
             let worker i j = cloud {
                 if i = 0 && j = 0 then
                     do! Cloud.Sleep 100
@@ -187,7 +186,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``1. Parallel : simple cancellation`` () =
-        let counter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let counter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         runCts(fun cts -> cloud {
             let f i = cloud {
                 if i = 0 then cts.Cancel() 
@@ -274,7 +273,7 @@ module ``Azure Runtime Tests`` =
     [<Repeat(repeats)>]
     let ``2. Choice : all inputs 'None'`` () =
         cloud {
-            let count = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+            let count = Counter.Init(testContainer, 0) |> Async.RunSynchronously
             let worker _ = cloud {
                 let _ = count.Incr()
                 return None
@@ -289,7 +288,7 @@ module ``Azure Runtime Tests`` =
     [<Repeat(repeats)>]
     let ``2. Choice : one input 'Some'`` () =
         cloud {
-            let count = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+            let count = Counter.Init(testContainer, 0) |> Async.RunSynchronously
             let worker i = cloud {
                 if i = 0 then return Some i
                 else
@@ -306,7 +305,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``2. Choice : all inputs 'Some'`` () =
-        let successcounter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let successcounter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         cloud {
             let worker _ = cloud { return Some 42 }
             let! result = Array.init 20 worker |> Cloud.Choice
@@ -320,7 +319,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``2. Choice : simple nested`` () =
-        let counter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let counter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         cloud {
             let worker i j = cloud {
                 if i = 0 && j = 0 then
@@ -341,7 +340,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``2. Choice : nested exception cancellation`` () =
-        let counter = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let counter = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         cloud {
             let worker i j = cloud {
                 if i = 0 && j = 0 then
@@ -361,7 +360,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``2. Choice : simple cancellation`` () =
-        let taskCount = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let taskCount = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         runCts(fun cts ->
             cloud {
                 let worker i = cloud {
@@ -422,7 +421,7 @@ module ``Azure Runtime Tests`` =
     [<Repeat(repeats)>]
     let ``3. StartChild: task with success`` () =
         cloud {
-            let count = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+            let count = Counter.Init(testContainer, 0) |> Async.RunSynchronously
             let task = cloud {
                 do! Cloud.Sleep 100
                 return count.Incr()
@@ -436,7 +435,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``3. StartChild: task with exception`` () =
-        let count = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let count = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         cloud {
             let task = cloud {
                 do! Cloud.Sleep 100
@@ -458,7 +457,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``3. StartChild: task with cancellation`` () =
-        let count = Counter.Init(getUri(), 0) |> Async.RunSynchronously
+        let count = Counter.Init(testContainer, 0) |> Async.RunSynchronously
         runCts(fun cts ->
             cloud {
                 let task = cloud {

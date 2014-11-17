@@ -31,25 +31,8 @@ type IntCell internal (res : Uri) =
             return! update()
         }
     
-    static member Init(res : Uri, value : int) = 
-        async { 
-            let e = new CounterEntity(res.PartitionWithScheme, value)
-            do! Table.insert res.Table e
-            return new IntCell(res)
-        }
-    
-    static member Get(res : Uri) = new IntCell(res)
-    
     interface IResource with
         member __.Uri = res
-    
-    static member GetUri(container, id) = uri "intcell:%s/%s" container id
-    static member GetUri(container) = IntCell.GetUri(container, guid())
-
-//    interface IDisposable with
-//        member __.Dispose () = 
-//            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
-//            |> Async.RunSynchronously
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
@@ -58,6 +41,15 @@ type IntCell internal (res : Uri) =
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new IntCell(res)
+
+    static member GetUri(container, id) = uri "intcell:%s/%s" container id
+    static member Init(container : string, value : int) = 
+        async { 
+            let res = IntCell.GetUri(container, guid () )
+            let e = new CounterEntity(res.PartitionWithScheme, value)
+            do! Table.insert res.Table e
+            return new IntCell(res)
+        }
 
 
 type Latch internal (res : Uri) = 
@@ -68,17 +60,6 @@ type Latch internal (res : Uri) =
     interface IResource with 
         override __.Uri = res
     
-    static member Init(res : Uri, value : int) = 
-        async { 
-            let e = new LatchEntity(res.PartitionWithScheme, value, value)
-            do! Table.insert res.Table e
-            return new Latch(res)
-        }
-
-    static member Get(res : Uri) = new Latch(res)
-    static member GetUri(container, id) = uri "latch:%s/%s" container id
-    static member GetUri(container) = Latch.GetUri(container, guid())
-
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
@@ -87,10 +68,16 @@ type Latch internal (res : Uri) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new Latch(res)
 
-//    interface IDisposable with
-//        member __.Dispose () = 
-//            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
-//            |> Async.RunSynchronously
+    static member private GetUri(container, id) = uri "latch:%s/%s" container id
+    static member Init(container : string, id : string, value : int) = 
+        async { 
+            let res = Latch.GetUri(container, id)
+            let e = new LatchEntity(res.PartitionWithScheme, value, value)
+            do! Table.insert res.Table e
+            return new Latch(res)
+        }
+    static member Init(container : string, value : int) = 
+        Latch.Init(container, guid(), value)
 
 type Counter internal (res : Uri) = 
     inherit IntCell(res)
@@ -100,17 +87,6 @@ type Counter internal (res : Uri) =
     interface IResource with 
         override __.Uri = res
 
-    static member Init(res : Uri, value : int) = 
-        async { 
-            let e = new CounterEntity(res.PartitionWithScheme, value)
-            do! Table.insert res.Table e
-            return new Counter(res)
-        }
-
-    static member Get(res : Uri) = new Counter(res)
-    static member GetUri(container, id) = uri "counter:%s/%s" container id
-    static member GetUri(container) = Counter.GetUri(container, guid())
-
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
@@ -119,7 +95,11 @@ type Counter internal (res : Uri) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new Counter(res)
 
-//    interface IDisposable with
-//        member __.Dispose () = 
-//            Table.delete res.Table (new TableEntity(res.PartitionWithScheme, ""))
-//            |> Async.RunSynchronously
+    static member private GetUri(container, id) = uri "counter:%s/%s" container id
+    static member Init(container : string, value : int) = 
+        async { 
+            let res = Counter.GetUri(container, guid())
+            let e = new CounterEntity(res.PartitionWithScheme, value)
+            do! Table.insert res.Table e
+            return new Counter(res)
+        }

@@ -14,14 +14,13 @@ type AssemblyExporter private (res : Uri) =
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            let uri = BlobCell.GetUri(res.Container, pkg.FullName)
-            return! BlobCell.Init(uri, fun () -> pkg) |> Async.Ignore
+            return! BlobCell.Init(res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
         async { 
-            let uri = BlobCell.GetUri(res.Container, id.FullName)
-            let cell = BlobCell.Get(uri)
+            let uri = BlobCell<_>.GetUri(res.Container, id.FullName)
+            let cell = BlobCell.OfUri(uri)
             return! cell.GetValue()
         }
     
@@ -52,12 +51,7 @@ type AssemblyExporter private (res : Uri) =
     member __.ComputeDependencies(graph : 'T) = 
         VagrantRegistry.Vagrant.ComputeObjectDependencies(graph, permitCompilation = true) 
         |> List.map Utilities.ComputeAssemblyId
-    static member Get(res : Uri) = new AssemblyExporter(res)
-    static member GetUri(container) = uri "exporter:%s" container
-    static member Init(res : Uri) = new AssemblyExporter(res)
-    //temporary
-    static member Init() = new AssemblyExporter(AssemblyExporter.GetUri defaultStorageId)
-    
+
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
             info.AddValue("uri", res, typeof<Uri>)
@@ -65,3 +59,10 @@ type AssemblyExporter private (res : Uri) =
     new(info : SerializationInfo, context : StreamingContext) = 
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new AssemblyExporter(res)
+
+    static member private GetUri(container) = uri "exporter:%s" container
+    static member Init(container : string) = 
+        let res = AssemblyExporter.GetUri(container)
+        new AssemblyExporter(res)
+
+    

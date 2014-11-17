@@ -24,8 +24,7 @@ type ResultCell<'T> internal (res : Uri) =
 
     member __.SetResult(result : 'T) : Async<unit> =
         async {
-            let uri = BlobCell.GetUri res.Container
-            let! bc = BlobCell.Init(uri, fun () -> result)
+            let! bc = BlobCell.Init(res.Container, fun () -> result)
             let e = new LightCellEntity(res.PartitionWithScheme, uri.ToString(), ETag = "*")
             let! u = Table.merge res.Table e
             return ()
@@ -36,7 +35,7 @@ type ResultCell<'T> internal (res : Uri) =
             let! e = Table.read<LightCellEntity> res.Table res.PartitionWithScheme ""
             if e.Uri = null then return None
             else
-                let bc = BlobCell.Get<'T>(new Uri(e.Uri))
+                let bc = BlobCell.OfUri<'T>(new Uri(e.Uri))
                 let! v = bc.GetValue()
                 return Some v
         }
@@ -51,20 +50,6 @@ type ResultCell<'T> internal (res : Uri) =
     
     interface IResource with
         member __.Uri = res
-//        member __.Dispose () =
-//            async {
-//                let! e = Table.read<LightCellEntity> res.Table res.PartitionWithScheme ""
-//                do! Table.delete res.Table e
-//                (BlobCell.Get<'T>(new Uri(e.Uri)) :> IDisposable).Dispose()
-//            } |> Async.RunSynchronously
-    
-    static member Get<'T>(res : Uri) = new ResultCell<'T>(res)
-    static member Init<'T>(res : Uri) : Async<ResultCell<'T>> = 
-        async { 
-            let e = new LightCellEntity(res.PartitionWithScheme, null)
-            do! Table.insert<LightCellEntity> res.Table e
-            return new ResultCell<'T>(res)
-        }
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
@@ -74,26 +59,29 @@ type ResultCell<'T> internal (res : Uri) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         new ResultCell<'T>(res)
 
+    static member private GetUri(container, id) = uri "resultcell:%s/%s" container id
+    static member Init<'T>(container : string) : Async<ResultCell<'T>> = 
+        async { 
+            let res = ResultCell<_>.GetUri(container, guid())
+            let e = new LightCellEntity(res.PartitionWithScheme, null)
+            do! Table.insert<LightCellEntity> res.Table e
+            return new ResultCell<'T>(res)
+        }
 
-type ResultCell =
-    static member GetUri(container, id) = uri "resultcell:%s/%s" container id
-    static member GetUri(container) = ResultCell.GetUri(container, guid())
 
-type ResultAggregator<'T> internal (res : Uri) = 
+type ResultAggregator<'T> internal (res : Uri, latch : Latch) = 
     
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
             let e = new ResultAggregatorEntity(res.PartitionWithScheme, index, null, ETag = "*")
-            let bcu = BlobCell.GetUri(res.Container)
-            let! bc = BlobCell.Init(bcu, fun () -> value)
-            e.Uri <- bcu.ToString()
+            let! bc = BlobCell.Init(res.Container, fun () -> value)
+            e.Uri <- (bc :> IResource).Uri.ToString()
             let! u = Table.replace res.Table e
-            let l = Latch.Get(Latch.GetUri(res.Table, res.PartitionKey))
-            let! curr = l.Decrement()
+            let! curr = latch.Decrement()
             return curr = 0
         }
     
-    member __.Complete = Latch.Get(Latch.GetUri(res.Table, res.PartitionKey)).Value = 0
+    member __.Complete = latch.Value = 0
     
     member __.ToArray() : Async<'T []> = 
         async { 
@@ -106,7 +94,7 @@ type ResultAggregator<'T> internal (res : Uri) =
                     |> Seq.filter (fun x -> x.RowKey <> "") // skip latch entity
                     |> Seq.sortBy (fun x -> x.Index)
                     |> Seq.map (fun x -> x.Uri)
-                    |> Seq.map (fun x -> BlobCell.Get(new Uri(x)))
+                    |> Seq.map (fun x -> BlobCell<_>.OfUri(new Uri(x)))
                     |> Seq.toArray
             
                 let re = Array.zeroCreate<'T> bs.Length
@@ -120,35 +108,32 @@ type ResultAggregator<'T> internal (res : Uri) =
     
     interface IResource with 
         member __.Uri = res
-//        member __.Dispose () = raise <| NotImplementedException()
-    
-    static member Get<'T>(res : Uri) = new ResultAggregator<'T>(res)
-    static member Init<'T>(res : Uri, size : int) = 
-        async { 
-            let! l = Latch.Init(Latch.GetUri(res.Table, res.PartitionKey), size)
-            for i = 0 to size - 1 do
-                let e = new ResultAggregatorEntity(res.PartitionWithScheme, i, "")
-                do! Table.insert res.Table e
-            return new ResultAggregator<'T>(res)
-        }
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("latch", latch, typeof<Latch>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new ResultAggregator<'T>(res)
+        let latch = info.GetValue("latch", typeof<Latch>) :?> Latch
+        new ResultAggregator<'T>(res, latch)
 
-type ResultAggregator =
-    static member GetUri(container, id) = uri "aggregator:%s/%s" container id
-    static member GetUri(container) = Counter.GetUri(container, guid())
-
+    static member private GetUri<'T>(container, id) = uri "aggregator:%s/%s" container id
+    static member Init<'T>(container : string, size : int) = 
+        async { 
+            let res = ResultAggregator<_>.GetUri(container, guid())
+            let! l = Latch.Init(res.Container, res.PartitionKey, size)
+            for i = 0 to size - 1 do
+                let e = new ResultAggregatorEntity(res.PartitionWithScheme, i, "")
+                do! Table.insert res.Table e
+            return new ResultAggregator<'T>(res, l)
+        }
 
 type ResourceFactory private () =
-    member __.RequestCounter(container, count) = Counter.Init(Counter.GetUri container, count)
-    member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Init(ResultAggregator.GetUri container, count)
-    member __.RequestCancellationTokenSource(container, ?parent) = DistributedCancellationTokenSource.Init(DistributedCancellationTokenSource.GetUri container, ?parent = parent)
-    member __.RequestResultCell<'T>(container) = ResultCell<Result<'T>>.Init(ResultCell.GetUri container)
+    member __.RequestCounter(container, count) = Counter.Init(container, count)
+    member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Init(container, count)
+    member __.RequestCancellationTokenSource(container, ?parent) = DistributedCancellationTokenSource.Init(container, ?parent = parent)
+    member __.RequestResultCell<'T>(container) = ResultCell<Result<'T>>.Init(container)
           
     static member Init () = new ResourceFactory()
