@@ -28,10 +28,15 @@ module ``Azure Runtime Tests`` =
 
     [<TestFixtureSetUp>]
     let init () =
-        let conn = System.IO.File.ReadAllLines "/mbrace/conn.txt"
+        let selectEnv name =
+            (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
+                Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine))
+            |> function | null, s | s, null | s, _ -> s
+
         let config = 
-            { StorageConnectionString = conn.[0]
-              ServiceBusConnectionString = conn.[1] }
+            { StorageConnectionString = selectEnv "AzureStorageConn";
+              ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
+
         MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
         Config.initialize config
         runtime <- Some <| MBraceRuntime.InitLocal(4)
