@@ -52,7 +52,7 @@ module ``Azure Runtime Tests`` =
     type Counter with
         member l.Incr() = l.Increment() |> Async.RunSync
 
-    let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync workflow |> Async.Catch |> Async.RunSynchronously
+    let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync(workflow, cleanup = true) |> Async.Catch |> Async.RunSynchronously
     let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = Option.get runtime
