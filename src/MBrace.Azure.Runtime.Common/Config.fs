@@ -1,4 +1,4 @@
-﻿module Nessos.MBrace.Azure.Runtime.Config
+﻿namespace Nessos.MBrace.Azure.Runtime
 
 open System
 open System.Reflection
@@ -40,25 +40,24 @@ type ClientProvider private () =
     static member QueueClient(queue : string) = 
         check (fun _ -> QueueClient.CreateFromConnectionString(cfg.Value.Value.ServiceBusConnectionString, queue))
 
+[<Sealed;AbstractClass>]
+type Configuration private () =
+    static let runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
+    static let _initRuntimeState =
+     runOnce(fun () ->
+        let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
 
-let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
+        // vagrant initialization
+        let ignoredAssemblies =
+            let this = Assembly.GetExecutingAssembly()
+            let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
+            new System.Collections.Generic.HashSet<_>(dependencies)
 
-
-let private _initRuntimeState =
- runOnce(fun () ->
-    let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
-
-    // vagrant initialization
-    let ignoredAssemblies =
-        let this = Assembly.GetExecutingAssembly()
-        let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
-        new System.Collections.Generic.HashSet<_>(dependencies)
-
-    VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll))
+        VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll))
     
 
-let internal serializer = FsPickler.CreateBinary()
+    static member Serializer = VagrantRegistry.Pickler
 
-let initialize cfg = 
-    _initRuntimeState()
-    ClientProvider.Activate cfg
+    static member Initialize(config : AzureConfig) =
+        _initRuntimeState ()
+        ClientProvider.Activate config

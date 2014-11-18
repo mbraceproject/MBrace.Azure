@@ -64,9 +64,9 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
 /// BASE64 serialized argument parsing schema
 module Argument =
     let ofRuntime (runtime : RuntimeState) =
-        let pickle = Config.serializer.Pickle(runtime) 
+        let pickle = Configuration.Serializer.Pickle(runtime) 
         System.Convert.ToBase64String pickle
 
     let toRuntime (state : string) =
         let bytes = System.Convert.FromBase64String(state)
-        Config.serializer.UnPickle<RuntimeState> bytes
+        Configuration.Serializer.UnPickle<RuntimeState> bytes

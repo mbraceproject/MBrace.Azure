@@ -48,7 +48,7 @@ type CancellationTokenSourceEntity(name : string, link : string) =
     new () = new CancellationTokenSourceEntity(null, null)
 
 module Table =
-    open Nessos.MBrace.Azure.Runtime.Config
+    open Nessos.MBrace.Azure.Runtime
 
     let PreconditionFailed (e : exn) =
         match e with

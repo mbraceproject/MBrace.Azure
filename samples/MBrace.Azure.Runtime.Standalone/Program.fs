@@ -2,7 +2,6 @@
 
     open System
     open Nessos.MBrace.Azure.Runtime
-    open Nessos.MBrace.Azure.Runtime.Config
 
     [<EntryPoint>]
     let main (args : string []) =

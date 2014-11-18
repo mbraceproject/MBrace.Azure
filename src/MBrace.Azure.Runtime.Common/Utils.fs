@@ -39,7 +39,7 @@
             member u.RowKey = u.Segments.[2]
 
     module Storage =
-        open Nessos.MBrace.Azure.Runtime.Config
+        open Nessos.MBrace.Azure.Runtime
 
         let processIdToStorageId (pid : string) = 
             sprintf "process%s" <| Guid.Parse(pid).ToString("N").Substring(0,7) // change

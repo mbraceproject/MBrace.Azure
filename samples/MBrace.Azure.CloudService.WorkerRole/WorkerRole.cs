@@ -43,7 +43,7 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
             Trace.TraceInformation("MBrace.Azure.CloudService.WorkerRole has been started");
 
             Trace.TraceInformation("Activating configuration");
-            Service.Configuration = new Config.AzureConfig("", "");
+            Service.Configuration = new AzureConfig("", "");
 
             Trace.TraceInformation("Initializing state");
             _state = Tasks.RuntimeState.InitLocal();

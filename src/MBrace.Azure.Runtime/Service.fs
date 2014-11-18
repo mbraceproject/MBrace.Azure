@@ -2,7 +2,7 @@
 
 open System
 open System.Threading
-open Nessos.MBrace.Azure.Runtime.Config
+open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Tasks
 open System.Runtime.InteropServices
 
@@ -10,7 +10,7 @@ type Service private () =
 
     // TODO : change
     static let mutable cts : CancellationTokenSource = null
-    static member Configuration with set cfg = Config.initialize(cfg)
+    static member Configuration with set cfg = Configuration.Initialize(cfg)
 
     static member Start(state : RuntimeState, maxConcurrentTasks : int) =
         cts <- new CancellationTokenSource()

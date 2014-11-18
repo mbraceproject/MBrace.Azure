@@ -14,7 +14,7 @@
     #nowarn "40"
 
     /// MBrace Sample runtime client instance.
-    type MBraceRuntime private (logger : string -> unit) =
+    type MBraceRuntime private () =
         static let mutable exe = None
         static let initWorkers (target : RuntimeState) (count : int) =
             if count < 1 then invalidArg "workerCount" "must be positive."
@@ -60,17 +60,18 @@
         member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])
         /// Gets all worker processes in the runtime
         member __.Workers = procs
-        /// Appens count of new worker processes to the runtime.
+        /// Appends count of new worker processes to the runtime.
         member __.AppendWorkers (count : int) =
             let newProcs = initWorkers state count
             lock procs (fun () -> procs <- Array.append procs newProcs)
 
         /// Initialize a new local runtime instance with supplied worker count.
-        static member InitLocal(workerCount : int, ?logger : string -> unit) =
-            let logger = defaultArg logger ignore
-            let client = new MBraceRuntime(logger)
+        static member InitLocal(workerCount : int) =
+            let client = new MBraceRuntime()
             client.AppendWorkers(workerCount)
             client
+
+        static member GetHandle() = new MBraceRuntime()
 
         /// Gets or sets the worker executable location.
         static member WorkerExecutable
@@ -80,4 +81,4 @@
                 if File.Exists path then exe <- Some path
                 else raise <| FileNotFoundException(path)
 
-        static member Configuration with set cfg = Config.initialize(cfg)
+        static member Configuration with set cfg = Configuration.Initialize(cfg)

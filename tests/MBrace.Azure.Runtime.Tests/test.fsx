@@ -30,10 +30,14 @@ let config =
 MBraceRuntime.Configuration <- config
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
+let runtime = MBraceRuntime.GetHandle()
 let runtime = MBraceRuntime.InitLocal(3)
 
-runtime.Run(cloud { return 42 }, cleanup = true)
 
+runtime.Run(cloud { return 42 })
+
+
+    
 //runtime.Run <| Cloud.GetWorkerCount()
 
 let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })

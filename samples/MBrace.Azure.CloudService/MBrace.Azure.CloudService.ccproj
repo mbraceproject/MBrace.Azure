@@ -38,6 +38,7 @@
   </ItemGroup>
   <ItemGroup>
     <Folder Include="MBrace.Azure.CloudService.WorkerRoleContent\" />
+    <Folder Include="Profiles" />
   </ItemGroup>
   <ItemGroup>
     <DiagnosticsConfiguration Include="MBrace.Azure.CloudService.WorkerRoleContent\diagnostics.wadcfgx" />
