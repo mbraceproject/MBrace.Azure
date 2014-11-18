@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>c823708c-9dcf-407c-aa67-d41ab128f172</ProjectGuid>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
     <RootNamespace>MBrace.Azure.Runtime</RootNamespace>
     <AssemblyName>MBrace.Azure.Runtime</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
@@ -57,22 +57,8 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Config.fs" />
-    <Compile Include="Utils.fs" />
-    <Compile Include="Resources\Common.fs" />
-    <Compile Include="Resources\Counters.fs" />
-    <Compile Include="Resources\Cells.fs" />
-    <Compile Include="Resources\Queues.fs" />
-    <Compile Include="Resources\CancellationToken.fs" />
-    <Compile Include="Resources\AssemblyManager.fs" />
-    <Compile Include="Resources\Resources.fs" />
-    <Compile Include="Tasks.fs" />
-    <Compile Include="Combinators.fs" />
-    <Compile Include="RuntimeProvider.fs" />
     <Compile Include="Worker.fs" />
-    <Compile Include="Client.fs" />
-    <Compile Include="main.fs" />
-    <None Include="test.fsx" />
+    <Compile Include="Service.fs" />
     <None Include="App.config" />
     <Content Include="packages.config" />
   </ItemGroup>
@@ -137,6 +123,13 @@
       <HintPath>..\..\packages\Vagrant.0.2.7\lib\net45\Vagrant.dll</HintPath>
       <Private>True</Private>
     </Reference>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\MBrace.Azure.Runtime.Common\MBrace.Azure.Runtime.Common.fsproj">
+      <Name>MBrace.Azure.Runtime.Common</Name>
+      <Project>{5ed05ec2-a9a0-4247-bb66-4d4c866f43ad}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(SolutionDir)\.nuget\NuGet.targets" Condition="Exists('$(SolutionDir)\.nuget\NuGet.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">

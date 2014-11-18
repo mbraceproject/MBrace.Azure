@@ -1,9 +1,8 @@
 ﻿module internal Nessos.MBrace.Azure.Runtime.Main
 
     open System
+    open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Azure.Runtime.Config
-
-    let maxConcurrentTasks = 10
 
     [<EntryPoint>]
     let main (args : string []) =
@@ -17,9 +16,12 @@
                 { StorageConnectionString = selectEnv "AzureStorageConn";
                   ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
 
-            Nessos.MBrace.Azure.Runtime.Config.initialize(config)
-            let runtime = Argument.toRuntime args
-            Async.RunSynchronously (Worker.initWorker runtime maxConcurrentTasks)
+            Service.Configuration <- config
+            printfn "Configuration initialized..."
+            let state = Argument.toRuntime args.[0]
+            printfn "State initialized...\nStarting Runtime service..."
+            Service.StartSync(state, 10)
+            0
         with e ->
             printfn "Unhandled exception : %O" e
             let _ = System.Console.ReadKey()

@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.Azure.Runtime.RuntimeProvider
+﻿namespace Nessos.MBrace.Azure.Runtime
 
 //
 //  Implements the scheduling context for sample runtime.
@@ -59,3 +59,14 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
         member __.GetAvailableWorkers () = state.Workers.GetValue()
         member __.CurrentWorker = Worker.LocalWorker :> IWorkerRef
         member __.Logger = Unchecked.defaultof<_> //state.Logger :> ICloudLogger
+
+// TODO : remove
+/// BASE64 serialized argument parsing schema
+module Argument =
+    let ofRuntime (runtime : RuntimeState) =
+        let pickle = Config.serializer.Pickle(runtime) 
+        System.Convert.ToBase64String pickle
+
+    let toRuntime (state : string) =
+        let bytes = System.Convert.FromBase64String(state)
+        Config.serializer.UnPickle<RuntimeState> bytes

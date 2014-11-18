@@ -2,17 +2,18 @@
 #r "MBrace.Core.dll"
 #r "MBrace.Library.dll"
 #r "Vagrant.dll"
-#r "MBrace.Azure.Runtime.exe"
 #r "Microsoft.WindowsAzure.Storage.dll"
 #r "Microsoft.ServiceBus.dll"
+#r "MBrace.Azure.Runtime.Common.dll"
+#r "MBrace.Azure.Runtime.dll"
+#r "MBrace.Azure.Client.dll"
 #time "on"
 
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Config
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Azure.Runtime.Resources
+open Nessos.MBrace.Azure.Client
 open System
 open System.Threading
 open System.Threading.Tasks
@@ -26,8 +27,8 @@ let config =
     { StorageConnectionString = selectEnv "AzureStorageConn";
         ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
 
-Config.initialize config
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
+MBraceRuntime.Configuration <- config
+MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
 let runtime = MBraceRuntime.InitLocal(3)
 
@@ -61,6 +62,8 @@ runtime.AppendWorkers 4
 
 
 
+open Nessos.MBrace.Azure.Runtime.Common
+open Nessos.MBrace.Azure.Runtime.Resources
 
 
 let (!) (task : Async<'T>) = Async.RunSynchronously task

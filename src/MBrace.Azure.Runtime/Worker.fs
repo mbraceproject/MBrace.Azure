@@ -5,10 +5,10 @@ open System.Threading
 
 open Nessos.MBrace.Azure.Runtime.Resources
 open Nessos.MBrace.Azure.Runtime.Tasks
-open Nessos.MBrace.Azure.Runtime.RuntimeProvider
+open Nessos.MBrace.Azure.Runtime
 
 /// Thread-safe printfn
-let printfn fmt = Printf.ksprintf System.Console.WriteLine fmt
+let private printfn fmt = Printf.ksprintf System.Console.WriteLine fmt
 
 /// <summary>
 ///     Initializes a worker loop. Worker polls task queue of supplied
@@ -16,7 +16,7 @@ let printfn fmt = Printf.ksprintf System.Console.WriteLine fmt
 /// </summary>
 /// <param name="runtime">Runtime to subscribe to.</param>
 /// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
-let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) = async {
+let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) : Async<unit> = async {
 
     //let localEndPoint = Nessos.MBrace.Azure.Runtime.Config.getLocalEndpoint()
     //printfn "MBrace worker initialized on %O." localEndPoint

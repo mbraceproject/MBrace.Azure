@@ -10,6 +10,7 @@ open FsUnit
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Library
+open Nessos.MBrace.Azure.Client
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Config
 open Nessos.MBrace.Azure.Runtime.Resources
@@ -40,9 +41,9 @@ module ``Azure Runtime Tests`` =
         let print (s : string) = if s = null then "<null>" else sprintf "%s . . ." <| s.Substring(0,15)
         printfn "config.Storage : %s" <| print config.StorageConnectionString
         printfn "config.ServiceBus : %s" <| print config.ServiceBusConnectionString
-        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.exe"
+        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
         printfn "WorkerExecutable : %s" MBraceRuntime.WorkerExecutable
-        Config.initialize config
+        MBraceRuntime.Configuration <- config
         printfn "Configuration activated"
         runtime <- Some <| MBraceRuntime.InitLocal(4)
         printfn "Runtime initilized"

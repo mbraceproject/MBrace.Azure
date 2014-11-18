@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.Azure.Runtime.Combinators
+﻿module Nessos.MBrace.Azure.Runtime.Combinators
 
 //
 //  Provides distributed implementations for Cloud.Parallel, Cloud.Choice and Cloud.StartChild

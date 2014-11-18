@@ -1,4 +1,4 @@
-﻿module internal Nessos.MBrace.Azure.Runtime.Tasks
+﻿module Nessos.MBrace.Azure.Runtime.Tasks
 
 // Provides facility for the execution of tasks.
 // In this context, a task denotes a single work item to be sent

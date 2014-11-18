@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Runtime
+﻿namespace Nessos.MBrace.Azure.Client
 
     open System.IO
     open System.Diagnostics
@@ -6,22 +6,12 @@
 
     open Nessos.MBrace
     open Nessos.MBrace.Runtime
+    open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Azure.Runtime.Common
     open Nessos.MBrace.Runtime.Compiler
     open Nessos.MBrace.Azure.Runtime.Tasks
-    open Nessos.MBrace.Azure.Runtime.RuntimeProvider
 
     #nowarn "40"
-
-    /// BASE64 serialized argument parsing schema
-    module internal Argument =
-        let ofRuntime (runtime : RuntimeState) =
-            let pickle = VagrantRegistry.Pickler.Pickle(runtime)
-            System.Convert.ToBase64String pickle
-
-        let toRuntime (args : string []) =
-            let bytes = System.Convert.FromBase64String(args.[0])
-            VagrantRegistry.Pickler.UnPickle<RuntimeState> bytes
 
     /// MBrace Sample runtime client instance.
     type MBraceRuntime private (logger : string -> unit) =
@@ -89,3 +79,5 @@
                 let path = Path.GetFullPath path
                 if File.Exists path then exe <- Some path
                 else raise <| FileNotFoundException(path)
+
+        static member Configuration with set cfg = Config.initialize(cfg)
