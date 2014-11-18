@@ -51,6 +51,10 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5F24
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Runtime.Standalone", "samples\MBrace.Azure.Runtime.Standalone\MBrace.Azure.Runtime.Standalone.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
 EndProject
+Project("{CC5FD16D-436D-48AD-A40C-5A424C6E3E79}") = "MBrace.Azure.CloudService", "samples\MBrace.Azure.CloudService\MBrace.Azure.CloudService.ccproj", "{BD922B57-1C69-4667-A3C1-B3E114A76ACD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Azure.CloudService.WorkerRole", "samples\MBrace.Azure.CloudService.WorkerRole\MBrace.Azure.CloudService.WorkerRole.csproj", "{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -77,6 +81,14 @@ Global
 		{09891260-7D4E-431B-B714-2A13C412FD78}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{09891260-7D4E-431B-B714-2A13C412FD78}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{09891260-7D4E-431B-B714-2A13C412FD78}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BD922B57-1C69-4667-A3C1-B3E114A76ACD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BD922B57-1C69-4667-A3C1-B3E114A76ACD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BD922B57-1C69-4667-A3C1-B3E114A76ACD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BD922B57-1C69-4667-A3C1-B3E114A76ACD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -87,5 +99,7 @@ Global
 		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5} = {3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}
 		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 		{09891260-7D4E-431B-B714-2A13C412FD78} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
+		{BD922B57-1C69-4667-A3C1-B3E114A76ACD} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
+		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 	EndGlobalSection
 EndGlobal

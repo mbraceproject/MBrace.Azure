@@ -114,9 +114,9 @@ type RuntimeState =
     }
 with
     /// Initialize a new runtime state in the local process
-    static member InitLocal (logger : string -> unit) (getWorkers : unit -> IWorkerRef []) =
+    static member InitLocal () =
         {
-            Workers = BlobCell.Init(defaultStorageId, getWorkers) |> Async.RunSynchronously
+            Workers = BlobCell.Init(defaultStorageId, fun () -> Array.empty) |> Async.RunSynchronously
             //Logger = Logger.Init logger
             TaskQueue = Queue<_>.Init (defaultStorageId) |> Async.RunSynchronously
             AssemblyExporter = AssemblyExporter.Init(defaultStorageId) 

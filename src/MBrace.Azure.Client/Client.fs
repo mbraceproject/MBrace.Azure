@@ -27,7 +27,7 @@
 
         let mutable procs = [||]
         let getWorkerRefs () = procs |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
-        let state = RuntimeState.InitLocal logger getWorkerRefs
+        let state = RuntimeState.InitLocal ()
         
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) = async {
