@@ -7,16 +7,16 @@ open Nessos.MBrace.Azure.Runtime.Resources
 open Nessos.MBrace.Azure.Runtime.Tasks
 open Nessos.MBrace.Azure.Runtime
 
-/// Thread-safe printfn
-let private printfn fmt = Printf.ksprintf System.Console.WriteLine fmt
-
 /// <summary>
 ///     Initializes a worker loop. Worker polls task queue of supplied
 ///     runtime for available tasks and executes as appropriate.
 /// </summary>
 /// <param name="runtime">Runtime to subscribe to.</param>
 /// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
-let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) : Async<unit> = async {
+/// <param name="logf">Logger.</param>
+let initWorker (runtime : RuntimeState) 
+               (maxConcurrentTasks : int)
+               (logf : string -> unit) : Async<unit> = async {
 
     //let localEndPoint = Nessos.MBrace.Azure.Runtime.Config.getLocalEndpoint()
     //printfn "MBrace worker initialized on %O." localEndPoint
@@ -25,6 +25,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) : Async<unit>
     let runTask procId deps t =
         let provider = RuntimeProvider.FromTask runtime procId deps t
         Task.RunAsync provider deps t
+    let inline logfn fmt = Printf.ksprintf logf fmt
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then
@@ -38,7 +39,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) : Async<unit>
                 | Some (task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
-                        printfn "Process %s\nStarting task %s of type '%O'." procId task.TaskId task.Type
+                        logfn "Process %s\nStarting task %s of type '%O'." procId task.TaskId task.Type
 
                         //use hb = leaseMonitor.InitHeartBeat()
 
@@ -50,11 +51,11 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) : Async<unit>
                         match result with
                         | Choice1Of2 () -> 
                             //leaseMonitor.Release()
-                            printfn "Process %s\nTask %s completed after %O." procId task.TaskId sw.Elapsed
+                            logfn "Process %s\nTask %s completed after %O." procId task.TaskId sw.Elapsed
                                 
                         | Choice2Of2 e -> 
                             //leaseMonitor.DeclareFault()
-                            printfn "Process %s\nTask %s faulted with:\n %O." procId task.TaskId e
+                            logfn "Process %s\nTask %s faulted with:\n %O." procId task.TaskId e
 
                         let _ = Interlocked.Decrement currentTaskCount
                         return ()
@@ -63,7 +64,7 @@ let initWorker (runtime : RuntimeState) (maxConcurrentTasks : int) : Async<unit>
                     let! handle = Async.StartChild(runTask())
                     do! Async.Sleep 200
             with e -> 
-                printfn "WORKER FAULT: %O" e
+                logfn "WORKER FAULT: %O" e
                 do! Async.Sleep 1000
 
             return! loop ()

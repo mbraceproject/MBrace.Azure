@@ -1,23 +1,18 @@
 ﻿namespace Nessos.MBrace.Azure.Runtime
 
 open System
-open System.Threading
+open System.Threading.Tasks
 open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Tasks
 open System.Runtime.InteropServices
 
+[<Sealed; AbstractClass>]
 type Service private () =
 
-    // TODO : change
-    static let mutable cts : CancellationTokenSource = null
+    // TODO : locks, checks
     static member Configuration with set cfg = Configuration.Initialize(cfg)
 
-    static member Start(state : RuntimeState, maxConcurrentTasks : int) =
-        cts <- new CancellationTokenSource()
-        Async.Start(Worker.initWorker state maxConcurrentTasks, cts.Token)
-
-    // TODO : Change
-    static member StartSync(state : RuntimeState, maxConcurrentTasks : int) =
-        Async.RunSynchronously(Worker.initWorker state maxConcurrentTasks)
-
-    static member Stop () = cts.Cancel()
+    static member StartAsTask(state : Tasks.RuntimeState, logf : Action<string>, maxConcurrentTasks : int) : Task =
+        Async.StartAsTask(Service.AsyncStart(state, logf, maxConcurrentTasks)) :> _
+        
+    static member AsyncStart(state : Tasks.RuntimeState, logf : Action<string>, maxConcurrentTasks : int) =
+        Worker.initWorker state maxConcurrentTasks logf.Invoke

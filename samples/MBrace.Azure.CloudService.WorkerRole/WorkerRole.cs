@@ -15,22 +15,16 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
 {
     public class WorkerRole : RoleEntryPoint
     {
-        private readonly ManualResetEvent runCompleteEvent = new ManualResetEvent(false);
-        private Tasks.RuntimeState _state = null;
+        private Tasks.RuntimeState _state;
+        private Task _svc;
 
         public override void Run()
         {
             Trace.TraceInformation("MBrace.Azure.CloudService.WorkerRole is running");
 
-            try
-            {
-                Trace.TraceInformation("Starting MBraze.Azure.Runtime Service");
-                Service.StartSync(_state, 10);
-            }
-            finally
-            {
-                this.runCompleteEvent.Set();
-            }
+            Trace.TraceInformation("Starting MBraze.Azure.Runtime Service");
+            _svc = Service.StartAsTask(_state, msg => Trace.WriteLine(msg, "MBrace.Runtime.Worker"), 10);
+            _svc.Wait();
         }
 
         public override bool OnStart()
@@ -54,8 +48,6 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
         public override void OnStop()
         {
             Trace.TraceInformation("MBrace.Azure.CloudService.WorkerRole is stopping");
-
-            this.runCompleteEvent.WaitOne();
 
             base.OnStop();
 

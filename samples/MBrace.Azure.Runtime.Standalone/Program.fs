@@ -19,7 +19,7 @@
             printfn "Configuration initialized..."
             let state = Argument.toRuntime args.[0]
             printfn "State initialized...\nStarting Runtime service..."
-            Service.StartSync(state, 10)
+            Service.AsyncStart(state, (fun s -> Console.WriteLine s), 10) |> Async.RunSynchronously
             0
         with e ->
             printfn "Unhandled exception : %O" e
