@@ -24,7 +24,7 @@ module ``Azure Runtime Tests`` =
     let repeats = 1
 #endif
 
-    let mutable runtime : MBraceRuntime option = None
+    let mutable runtime : Runtime option = None
 
     [<TestFixtureSetUp>]
     let init () =
@@ -40,11 +40,11 @@ module ``Azure Runtime Tests`` =
         let print (s : string) = if s = null then "<null>" else sprintf "%s . . ." <| s.Substring(0,15)
         printfn "config.Storage : %s" <| print config.StorageConnectionString
         printfn "config.ServiceBus : %s" <| print config.ServiceBusConnectionString
-        MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-        printfn "WorkerExecutable : %s" MBraceRuntime.WorkerExecutable
-        MBraceRuntime.Configuration <- config
+        Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+        printfn "WorkerExecutable : %s" Runtime.WorkerExecutable
+        Runtime.Configuration <- config
         printfn "Configuration activated"
-        runtime <- Some <| MBraceRuntime.InitLocal(4)
+        runtime <- Some <| Runtime.InitLocal(4)
         printfn "Runtime initilized"
 
     [<TestFixtureTearDown>]
