@@ -12,7 +12,6 @@
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Config
 open Nessos.MBrace.Azure.Client
 open System
 open System.Threading
@@ -24,31 +23,33 @@ let selectEnv name =
     |> function | null, s | s, null | s, _ -> s
 
 let config = 
-    { StorageConnectionString = selectEnv "AzureStorageConn";
-        ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
+    { StorageConnectionString = selectEnv "AzureStorageConn"
+      ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
 
 MBraceRuntime.Configuration <- config
 MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
 let runtime = MBraceRuntime.GetHandle()
-let runtime = MBraceRuntime.InitLocal(3)
+//let runtime = MBraceRuntime.InitLocal(3)
 
 
-runtime.Run(cloud { return 42 })
+runtime.Run(cloud { return 42 }, cleanup = true)
 
 
     
 //runtime.Run <| Cloud.GetWorkerCount()
 
-let f x i = Cloud.Parallel <| List.init i (fun x -> cloud { return x + i })
+let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 
-let x = runtime.Run(f 0 100)
+let x = runtime.Run(f 200, cleanup = true)
 
 
-runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 12 then Some 42 else None } ))
+runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 82 then Some 42 else None } ), cleanup = true)
 
 let cts = new CancellationTokenSource()
 let t  = runtime.RunAsTask(cloud { while true do do! Cloud.Sleep 1000 }, cts.Token)
+t.IsCompleted
+t.Result
 cts.Cancel()
 
 let wordCount size mapReduceAlgorithm : Cloud<int> =
@@ -74,14 +75,14 @@ let (!) (task : Async<'T>) = Async.RunSynchronously task
 
 ClientProvider.TableClient.GetTableReference("bootstap").DeleteIfExists()
 ClientProvider.BlobClient.GetContainerReference("bootstrap").DeleteIfExists()
-Config.ClientProvider.NamespaceClient.DeleteQueue("bootstrap")
+ClientProvider.NamespaceClient.DeleteQueue("bootstrap")
 
-Config.ClientProvider.TableClient.ListTables("process")
+ClientProvider.TableClient.ListTables("process")
 |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
 |> Async.Parallel
 |> Async.RunSynchronously
 
-Config.ClientProvider.BlobClient.ListContainers("process")
+ClientProvider.BlobClient.ListContainers("process")
 |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
 |> Async.Parallel
 |> Async.RunSynchronously

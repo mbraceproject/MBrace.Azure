@@ -14,11 +14,11 @@
     #nowarn "40"
 
     /// MBrace Sample runtime client instance.
-    type MBraceRuntime private () =
+    type Runtime private () =
         static let mutable exe = None
         static let initWorkers (target : RuntimeState) (count : int) =
             if count < 1 then invalidArg "workerCount" "must be positive."
-            let exe = MBraceRuntime.WorkerExecutable    
+            let exe = Runtime.WorkerExecutable    
             let args = Argument.ofRuntime target
             let psi = new ProcessStartInfo(exe, args)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
@@ -67,11 +67,11 @@
 
         /// Initialize a new local runtime instance with supplied worker count.
         static member InitLocal(workerCount : int) =
-            let client = new MBraceRuntime()
+            let client = new Runtime()
             client.AppendWorkers(workerCount)
             client
 
-        static member GetHandle() = new MBraceRuntime()
+        static member GetHandle() = new Runtime()
 
         /// Gets or sets the worker executable location.
         static member WorkerExecutable

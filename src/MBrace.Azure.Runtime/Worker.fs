@@ -18,14 +18,13 @@ let initWorker (runtime : RuntimeState)
                (maxConcurrentTasks : int)
                (logf : string -> unit) : Async<unit> = async {
 
-    //let localEndPoint = Nessos.MBrace.Azure.Runtime.Config.getLocalEndpoint()
-    //printfn "MBrace worker initialized on %O." localEndPoint
-
     let currentTaskCount = ref 0
     let runTask procId deps t =
         let provider = RuntimeProvider.FromTask runtime procId deps t
         Task.RunAsync provider deps t
     let inline logfn fmt = Printf.ksprintf logf fmt
+
+    logfn "Worker initialized"
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then

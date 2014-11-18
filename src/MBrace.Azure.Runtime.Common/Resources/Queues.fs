@@ -14,6 +14,7 @@ type Queue<'T> internal (res : Uri) =
     do 
         let rec f _ = async {
             let! _ = queue.PeekAsync() 
+            do! Async.Sleep 500
             return! f ()
         }
         Async.Start(f ())
