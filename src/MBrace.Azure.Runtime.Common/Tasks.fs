@@ -148,7 +148,29 @@ with
             }
 
         let taskp = Pickle.pickle task
-        rt.TaskQueue.Enqueue(taskp, procId, dependencies)
+        rt.TaskQueue.Enqueue((taskp, procId, dependencies))
+
+    member rt.EnqueueTaskBatch procId dependencies cts scFactory ec cc (wfs : Cloud<'T> []) =
+        let tasks = Array.zeroCreate wfs.Length
+        for i = 0 to wfs.Length - 1 do
+            let taskId = System.Guid.NewGuid().ToString()
+            let startTask ctx =
+                let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
+                Cloud.StartWithContinuations(wfs.[i], cont, ctx)
+            let task = 
+                { 
+                    Type = typeof<'T>
+                    ProcessId = procId
+                    TaskId = taskId
+                    StartTask = startTask
+                    CancellationTokenSource = cts
+                }
+
+            let taskp = Pickle.pickle task
+            tasks.[i] <- (taskp, procId, dependencies)
+        rt.TaskQueue.EnqueueBatch(tasks)
+
+
 
     /// <summary>
     ///     Schedules a cloud workflow as a distributed result cell.

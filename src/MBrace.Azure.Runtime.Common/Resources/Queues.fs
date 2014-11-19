@@ -21,6 +21,17 @@ type Queue<'T> internal (res : Uri) =
 
     member __.Length = ns.GetQueue(res.Queue).MessageCount
     
+    member __.EnqueueBatch(xs : 'T []) =
+        async {
+            let ys = Array.zeroCreate<_> xs.Length
+            let i = ref 0
+            for x in xs do
+                let! bc = BlobCell.Init(res.Queue, fun () -> x)
+                let msg = new BrokeredMessage((bc :> IResource).Uri)
+                ys.[!i] <- msg
+            do! ofTask <| queue.SendBatchAsync(ys)
+        } |> Async.RunSynchronously
+
     member __.Enqueue(t : 'T) = 
         async { 
             let! bc = BlobCell.Init(res.Queue, fun () -> t)

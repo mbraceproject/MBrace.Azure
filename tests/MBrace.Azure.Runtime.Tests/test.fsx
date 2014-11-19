@@ -48,7 +48,7 @@ runtime.Run <| Cloud.CurrentWorker
 
 let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 
-let x = runtime.Run(f 100, cleanup = false)
+let x = runtime.Run(f 100, cleanup = true)
 
 
 runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 82 then Some 42 else None } ), cleanup = true)
@@ -117,6 +117,7 @@ let c = !BlobCell.Init("tmp", fun () -> 42)
 
 let q : Queue<int> = !Queue.Init("tmp")
 q.Enqueue(42)
+q.EnqueueBatch([|43;45|])
 !q.TryDequeue()
 q.Length
 
