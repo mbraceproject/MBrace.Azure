@@ -15,13 +15,12 @@ open Nessos.MBrace.Azure.Runtime.Resources
 /// <param name="logf">Logger.</param>
 let initWorker (runtime : RuntimeState) 
                (maxConcurrentTasks : int)
-               (logf : string -> unit) : Async<unit> = async {
+               (logger : Common.StorageLogger) : Async<unit> = async {
 
     let currentTaskCount = ref 0
     let runTask procId deps t =
         let provider = RuntimeProvider.FromTask runtime procId deps t
         Task.RunAsync provider deps t
-    let inline logfn fmt = Printf.ksprintf logf fmt
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then
@@ -35,7 +34,7 @@ let initWorker (runtime : RuntimeState)
                 | Some (task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
-                        logfn "Process %s\nStarting task %s of type '%O'." procId task.TaskId task.Type
+                        do! logger.AsyncLogf "Process %s\nStarting task %s of type '%O'." procId task.TaskId task.Type
 
                         //use hb = leaseMonitor.InitHeartBeat()
 
@@ -47,11 +46,11 @@ let initWorker (runtime : RuntimeState)
                         match result with
                         | Choice1Of2 () -> 
                             //leaseMonitor.Release()
-                            logfn "Process %s\nTask %s completed after %O." procId task.TaskId sw.Elapsed
+                            do! logger.AsyncLogf "Process %s\nTask %s completed after %O." procId task.TaskId sw.Elapsed
                                 
                         | Choice2Of2 e -> 
                             //leaseMonitor.DeclareFault()
-                            logfn "Process %s\nTask %s faulted with:\n %O." procId task.TaskId e
+                            do! logger.AsyncLogf "Process %s\nTask %s faulted with:\n %O." procId task.TaskId e
 
                         let _ = Interlocked.Decrement currentTaskCount
                         return ()
@@ -60,7 +59,7 @@ let initWorker (runtime : RuntimeState)
                     let! handle = Async.StartChild(runTask())
                     do! Async.Sleep 200
             with e -> 
-                logfn "WORKER FAULT: %O" e
+                do! logger.AsyncLogf "WORKER FAULT: %O" e
                 do! Async.Sleep 1000
 
             return! loop ()

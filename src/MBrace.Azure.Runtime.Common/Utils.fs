@@ -45,6 +45,7 @@
             sprintf "process%s" <| Guid.Parse(pid).ToString("N").Substring(0,7) // change
 
         let defaultStorageId = "bootstrap"
+        let defaultLogId = "mbracelogs"
 
         let clearProcessFolder (storageId : string) =
             async {

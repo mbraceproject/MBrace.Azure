@@ -24,18 +24,23 @@
             psi.UseShellExecute <- true
             Array.init count (fun _ -> Process.Start psi)
 
+        let id = guid()
         let wmon = WorkerMonitor.Activate(Storage.defaultStorageId)
+        let logger = StorageLogger.Activate(Storage.defaultLogId, "client", id)
         
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) = async {
             let computation = CloudCompiler.Compile workflow
             let processId = System.Guid.NewGuid().ToString()
+            do! logger.AsyncLogf "Creating process %s" processId
             let storageId = Storage.processIdToStorageId processId
+            do! logger.AsyncLogf "Uploading dependencies %O" computation.Dependencies
             do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
             let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
             try
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 let! resultCell = state.StartAsCell processId computation.Dependencies cts computation.Workflow
+                do! logger.AsyncLogf "Computation started"
                 let! result = resultCell.AwaitResult()
                 return result.Value
             finally
@@ -55,6 +60,7 @@
 
         member __.GetWorkers () = Async.RunSynchronously <| wmon.GetWorkers()
 
+        member __.GetLogs () = Async.RunSynchronously <| logger.AsyncGetLogs()
 
         /// Initialize a new local runtime instance with supplied worker count.
         static member InitLocal(workerCount : int) =

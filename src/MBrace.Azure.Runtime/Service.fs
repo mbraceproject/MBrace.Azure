@@ -18,13 +18,16 @@ type Service private () =
         
     static member AsyncStart(state : RuntimeState, logf : Action<string>, maxConcurrentTasks : int) =
         async {
-            let inline logfn fmt = Printf.ksprintf logf.Invoke fmt
-            logfn "Initializing worker monitor..."
+            let id = guid()
+            let logger = StorageLogger.Activate(Storage.defaultLogId, "worker", id)
+            logger.Attach logf.Invoke
+            do! logger.AsyncLogf "Logger initialized..."
+            do! logger.AsyncLogf "Initializing worker monitor..."
             let wmon = Common.WorkerMonitor.Activate(Storage.defaultStorageId)
-            let! e = wmon.DeclareCurrent()
-            logfn "Declared node %s %s..." e.Id e.Hostname
+            let! e = wmon.DeclareCurrent(id)
+            do! logger.AsyncLogf "Declared node %s %s..." e.Id e.Hostname
             Async.Start(wmon.HeartbeatLoop(e))
-            logfn "Started heartbeat loop..." 
-            logfn "Starting worker loop..."
-            return! Worker.initWorker state maxConcurrentTasks logf.Invoke
+            do! logger.AsyncLogf "Started heartbeat loop..." 
+            do! logger.AsyncLogf "Starting worker loop..."
+            return! Worker.initWorker state maxConcurrentTasks logger
         }

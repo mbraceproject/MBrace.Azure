@@ -55,11 +55,11 @@ type WorkerMonitor private (table : string) =
         return e
     }
 
-    member __.DeclareCurrent() = 
+    member __.DeclareCurrent(id : string) = 
         let ps = Process.GetCurrentProcess()
         let joined = DateTime.UtcNow
         async {
-            let! w = __.Declare(guid(), Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
+            let! w = __.Declare(id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
             current := Some w
             return w
         }

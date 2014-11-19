@@ -38,7 +38,9 @@ runtime.GetWorkers()
 
 runtime.Run(cloud { return 42 }, cleanup = true)
 
-
+runtime.GetLogs() 
+    |> Seq.sortBy (fun l -> l.Timestamp)
+    |> Seq.iter (fun l -> printfn "%A %s %s" l.Timestamp l.Type l.Message)
     
 runtime.Run <| Cloud.GetWorkerCount()
 runtime.Run <| Cloud.CurrentWorker
