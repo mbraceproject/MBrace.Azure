@@ -30,7 +30,6 @@ Runtime.Configuration <- config
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
 let runtime = Runtime.GetHandle()
-
 //let runtime = Runtime.InitLocal(3)
 
 runtime.GetWorkers()
@@ -117,7 +116,8 @@ let c = !BlobCell.Init("tmp", fun () -> 42)
 
 let q : Queue<int> = !Queue.Init("tmp")
 q.Enqueue(42)
-q.EnqueueBatch([|43;45|])
+q.EnqueueBatch([|0..10|])
+q.ReceiveBatch(10)
 !q.TryDequeue()
 q.Length
 

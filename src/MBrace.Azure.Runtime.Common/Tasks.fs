@@ -190,8 +190,19 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        rt.EnqueueTask procId dependencies cts scont econt ccont wf
+        do! rt.EnqueueTask procId dependencies cts scont econt ccont wf
         return resultCell
+    }
+
+    member rt.DequeueBatch(count : int) = async {
+        let! items = rt.TaskQueue.ReceiveBatch(count)
+        let ys = Array.zeroCreate items.Length
+        for i = 0 to items.Length - 1 do
+            let (tp, procId, deps) = items.[i]
+            do! rt.AssemblyExporter.LoadDependencies deps
+            let task = Pickle.unpickle tp
+            ys.[i] <- task, procId, deps
+        return ys
     }
 
     /// Attempt to dequeue a task from the runtime task queue

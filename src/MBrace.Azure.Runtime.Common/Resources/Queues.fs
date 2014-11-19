@@ -10,44 +10,51 @@ open Nessos.MBrace.Azure.Runtime.Common
 type Queue<'T> internal (res : Uri) = 
     let queue = ClientProvider.QueueClient(res.Queue)
     let ns = ClientProvider.NamespaceClient
-
-    do 
-        let rec f _ = async {
-            let! _ = queue.PeekAsync() 
-            do! Async.Sleep 500
-            return! f ()
+    let messageToValue (msg : BrokeredMessage) =
+        async {
+            let p = msg.GetBody<Uri>()
+            let t = BlobCell.OfUri<'T>(p)
+            do! ofTask <| msg.CompleteAsync()
+            return! t.GetValue()
         }
-        Async.Start(f ())
 
     member __.Length = ns.GetQueue(res.Queue).MessageCount
     
     member __.EnqueueBatch(xs : 'T []) =
         async {
-            let ys = Array.zeroCreate<_> xs.Length
-            let i = ref 0
-            for x in xs do
-                let! bc = BlobCell.Init(res.Queue, fun () -> x)
-                let msg = new BrokeredMessage((bc :> IResource).Uri)
-                ys.[!i] <- msg
+            let! ys = 
+                xs
+                |> Array.map (fun x -> async { 
+                    let! bc = BlobCell.Init(res.Queue, fun () -> x)
+                    return new BrokeredMessage((bc :> IResource).Uri) })
+                |> Async.Parallel
             do! ofTask <| queue.SendBatchAsync(ys)
-        } |> Async.RunSynchronously
+        }
+
+    member __.ReceiveBatch(count : int) = 
+        async {
+            let! xs = queue.ReceiveBatchAsync(count)
+            let xs = Seq.toArray xs
+            let ys = Array.zeroCreate<'T> xs.Length
+            for i = 0 to xs.Length - 1 do
+                let! v = messageToValue xs.[i]
+                ys.[i] <- v
+            return ys
+        }
 
     member __.Enqueue(t : 'T) = 
         async { 
             let! bc = BlobCell.Init(res.Queue, fun () -> t)
             let msg = new BrokeredMessage((bc :> IResource).Uri)
             do! ofTask <| queue.SendAsync(msg)
-        } |> Async.RunSynchronously
+        } 
     
     member __.TryDequeue() : Async<'T option> = 
         async { 
             let! msg = queue.ReceiveAsync()
             if msg = null then return None
             else 
-                let p = msg.GetBody<Uri>()
-                let t = BlobCell.OfUri<'T>(p)
-                do! ofTask <| msg.CompleteAsync()
-                let! v = t.GetValue()
+                let! v = messageToValue msg
                 return Some v
         } 
 

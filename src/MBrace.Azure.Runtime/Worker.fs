@@ -28,35 +28,37 @@ let initWorker (runtime : RuntimeState)
             return! loop ()
         else
             try
-                let! task = runtime.TryDequeue()
-                match task with
-                | None -> do! Async.Sleep 500
-                | Some (task, procId, dependencies) ->
-                    let _ = Interlocked.Increment currentTaskCount
-                    let runTask () = async {
-                        do! logger.AsyncLogf "Process %s\nStarting task %s of type '%O'." procId task.TaskId task.Type
+                let! tasks = runtime.DequeueBatch(maxConcurrentTasks - !currentTaskCount)
+                if Array.isEmpty tasks then
+                    do! Async.Sleep 500
+                else
+                    for (task, procId, dependencies) in tasks do
+                        let _ = Interlocked.Increment currentTaskCount
+                        let runTask () = async {
+                            do! logger.AsyncLogf "Process %s\nStarting task %s of type '%O'." procId task.TaskId task.Type
 
-                        //use hb = leaseMonitor.InitHeartBeat()
+                            //use hb = leaseMonitor.InitHeartBeat()
 
-                        let sw = new Stopwatch()
-                        sw.Start()
-                        let! result = runTask procId dependencies task |> Async.Catch
-                        sw.Stop()
+                            let sw = new Stopwatch()
+                            sw.Start()
+                            let! result = runTask procId dependencies task |> Async.Catch
+                            sw.Stop()
 
-                        match result with
-                        | Choice1Of2 () -> 
-                            //leaseMonitor.Release()
-                            do! logger.AsyncLogf "Process %s\nTask %s completed after %O." procId task.TaskId sw.Elapsed
+                            match result with
+                            | Choice1Of2 () -> 
+                                //leaseMonitor.Release()
+                                do! logger.AsyncLogf "Process %s\nTask %s completed after %O." procId task.TaskId sw.Elapsed
                                 
-                        | Choice2Of2 e -> 
-                            //leaseMonitor.DeclareFault()
-                            do! logger.AsyncLogf "Process %s\nTask %s faulted with:\n %O." procId task.TaskId e
+                            | Choice2Of2 e -> 
+                                //leaseMonitor.DeclareFault()
+                                do! logger.AsyncLogf "Process %s\nTask %s faulted with:\n %O." procId task.TaskId e
 
-                        let _ = Interlocked.Decrement currentTaskCount
-                        return ()
-                    }
+                            let _ = Interlocked.Decrement currentTaskCount
+                            return ()
+                        }
         
-                    let! handle = Async.StartChild(runTask())
+                        let! handle = Async.StartChild(runTask())
+                        ()
                     do! Async.Sleep 200
             with e -> 
                 do! logger.AsyncLogf "WORKER FAULT: %O" e
