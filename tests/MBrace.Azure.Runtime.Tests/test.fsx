@@ -26,10 +26,10 @@ let config =
     { StorageConnectionString = selectEnv "AzureStorageConn"
       ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
 
-MBraceRuntime.Configuration <- config
-MBraceRuntime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+Runtime.Configuration <- config
+Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
-let runtime = MBraceRuntime.GetHandle()
+let runtime = Runtime.GetHandle()
 //let runtime = MBraceRuntime.InitLocal(3)
 
 
