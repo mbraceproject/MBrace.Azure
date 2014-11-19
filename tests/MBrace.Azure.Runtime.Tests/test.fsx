@@ -30,7 +30,7 @@ Runtime.Configuration <- config
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
 let runtime = Runtime.GetHandle()
-//let runtime = MBraceRuntime.InitLocal(3)
+//let runtime = Runtime.InitLocal(3)
 
 
 runtime.Run(cloud { return 42 }, cleanup = true)
