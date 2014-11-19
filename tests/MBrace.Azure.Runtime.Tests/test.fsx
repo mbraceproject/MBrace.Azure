@@ -80,10 +80,13 @@ ClientProvider.TableClient.GetTableReference("bootstap").DeleteIfExists()
 ClientProvider.BlobClient.GetContainerReference("bootstrap").DeleteIfExists()
 ClientProvider.NamespaceClient.DeleteQueue("bootstrap")
 
-ClientProvider.TableClient.ListTables("process")
-|> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
-|> Async.Parallel
-|> Async.RunSynchronously
+let del x =
+    ClientProvider.TableClient.ListTables(x)
+    |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
+    |> Async.Parallel
+    |> Async.RunSynchronously
+del "process"
+del "mbracelogs"
 
 ClientProvider.BlobClient.ListContainers("process")
 |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)

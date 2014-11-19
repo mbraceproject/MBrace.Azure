@@ -24,13 +24,13 @@ let initWorker (runtime : RuntimeState)
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then
-            do! Async.Sleep 500
+            do! Async.Sleep 50
             return! loop ()
         else
             try
                 let! tasks = runtime.DequeueBatch(maxConcurrentTasks - !currentTaskCount)
                 if Array.isEmpty tasks then
-                    do! Async.Sleep 500
+                    do! Async.Sleep 50
                 else
                     for (task, procId, dependencies) in tasks do
                         let _ = Interlocked.Increment currentTaskCount
@@ -59,7 +59,6 @@ let initWorker (runtime : RuntimeState)
         
                         let! handle = Async.StartChild(runTask())
                         ()
-                    do! Async.Sleep 200
             with e -> 
                 do! logger.AsyncLogf "WORKER FAULT: %O" e
                 do! Async.Sleep 1000
