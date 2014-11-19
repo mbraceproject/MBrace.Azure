@@ -20,7 +20,7 @@ type Service private () =
         async {
             let inline logfn fmt = Printf.ksprintf logf.Invoke fmt
             logfn "Initializing worker monitor..."
-            let wmon = Common.WorkerMonitor.Init(Storage.defaultStorageId)
+            let wmon = Common.WorkerMonitor.Activate(Storage.defaultStorageId)
             let! e = wmon.DeclareCurrent()
             logfn "Declared node %s %s..." e.Id e.Hostname
             Async.Start(wmon.HeartbeatLoop(e))

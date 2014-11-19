@@ -24,7 +24,7 @@
             psi.UseShellExecute <- true
             Array.init count (fun _ -> Process.Start psi)
 
-        let wmon = WorkerMonitor.Init(Storage.defaultStorageId)
+        let wmon = WorkerMonitor.Activate(Storage.defaultStorageId)
         
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) = async {

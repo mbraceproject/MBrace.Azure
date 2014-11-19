@@ -109,7 +109,7 @@ type RuntimeState =
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
         /// returns a manifest of workers available to the cluster.
-        WorkerMonitor : WorkerMonitor
+        ///WorkerMonitor : WorkerMonitor
         /// Distributed logger facility
         //Logger : Logger
     }
@@ -118,7 +118,6 @@ with
     static member InitLocal () =
         {
             //Logger = Logger.Init logger
-            WorkerMonitor = WorkerMonitor.Init(defaultStorageId)
             TaskQueue = Queue<_>.Init (defaultStorageId) |> Async.RunSynchronously
             AssemblyExporter = AssemblyExporter.Init(defaultStorageId) 
             ResourceFactory = ResourceFactory.Init() 

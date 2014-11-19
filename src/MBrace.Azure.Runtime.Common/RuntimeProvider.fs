@@ -13,6 +13,7 @@ open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
 
 open Nessos.MBrace.Azure.Runtime
+open Nessos.MBrace.Azure.Runtime.Common
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies, context) =
@@ -48,11 +49,11 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
             | Sequential -> Sequential.StartChild computation
 
         member __.GetAvailableWorkers () = async { 
-            let! ws = state.WorkerMonitor.GetWorkers()
-            return ws |> Seq.cast<IWorkerRef>
+            let! ws = WorkerMonitor.Activated.GetWorkers()
+            return ws |> Seq.map (fun w -> w.AsWorkerRef() :> IWorkerRef)
                       |> Seq.toArray
             }
-        member __.CurrentWorker = state.WorkerMonitor.Current :> IWorkerRef
+        member __.CurrentWorker = WorkerMonitor.Activated.Current.AsWorkerRef() :> IWorkerRef
         member __.Logger = Unchecked.defaultof<_> //state.Logger :> ICloudLogger
 
 // TODO : remove

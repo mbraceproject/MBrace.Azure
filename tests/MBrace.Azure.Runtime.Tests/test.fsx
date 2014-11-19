@@ -30,6 +30,7 @@ Runtime.Configuration <- config
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
 let runtime = Runtime.GetHandle()
+
 //let runtime = Runtime.InitLocal(3)
 
 runtime.GetWorkers()
@@ -40,10 +41,12 @@ runtime.Run(cloud { return 42 }, cleanup = true)
 
     
 runtime.Run <| Cloud.GetWorkerCount()
+runtime.Run <| Cloud.CurrentWorker
+
 
 let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 
-let x = runtime.Run(f 200, cleanup = true)
+let x = runtime.Run(f 100, cleanup = false)
 
 
 runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 82 then Some 42 else None } ), cleanup = true)
@@ -63,9 +66,6 @@ wordCount 1000 Library.MapReduce.mapReduce
 |> runtime.Run
 
 
-
-runtime.KillAllWorkers() 
-runtime.AppendWorkers 4
 
 
 
