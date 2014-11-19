@@ -32,12 +32,14 @@ Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runt
 let runtime = Runtime.GetHandle()
 //let runtime = Runtime.InitLocal(3)
 
+runtime.GetWorkers()
+
 
 runtime.Run(cloud { return 42 }, cleanup = true)
 
 
     
-//runtime.Run <| Cloud.GetWorkerCount()
+runtime.Run <| Cloud.GetWorkerCount()
 
 let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 

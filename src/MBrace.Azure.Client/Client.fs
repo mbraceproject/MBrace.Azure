@@ -9,12 +9,11 @@
     open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Azure.Runtime.Common
     open Nessos.MBrace.Runtime.Compiler
-    open Nessos.MBrace.Azure.Runtime.Tasks
 
     #nowarn "40"
 
     /// MBrace Sample runtime client instance.
-    type Runtime private () =
+    type Runtime private (state) =
         static let mutable exe = None
         static let initWorkers (target : RuntimeState) (count : int) =
             if count < 1 then invalidArg "workerCount" "must be positive."
@@ -25,9 +24,7 @@
             psi.UseShellExecute <- true
             Array.init count (fun _ -> Process.Start psi)
 
-        let mutable procs = [||]
-        let getWorkerRefs () = procs |> Array.map (fun p -> new Worker(p) :> IWorkerRef)
-        let state = RuntimeState.InitLocal ()
+        let wmon = WorkerMonitor.Init(Storage.defaultStorageId)
         
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) = async {
@@ -56,22 +53,19 @@
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?cleanup = cleanup) |> Async.RunSynchronously
 
-        /// Violently kills all worker nodes in the runtime
-        member __.KillAllWorkers () = lock procs (fun () -> for p in procs do try p.Kill() with _ -> () ; procs <- [||])
-        /// Gets all worker processes in the runtime
-        member __.Workers = procs
-        /// Appends count of new worker processes to the runtime.
-        member __.AppendWorkers (count : int) =
-            let newProcs = initWorkers state count
-            lock procs (fun () -> procs <- Array.append procs newProcs)
+        member __.GetWorkers () = Async.RunSynchronously <| wmon.GetWorkers()
+
 
         /// Initialize a new local runtime instance with supplied worker count.
         static member InitLocal(workerCount : int) =
-            let client = new Runtime()
-            client.AppendWorkers(workerCount)
+            let state = RuntimeState.InitLocal ()
+            let client = new Runtime(state)
+            let newProcs = initWorkers state workerCount
             client
 
-        static member GetHandle() = new Runtime()
+        static member GetHandle() = 
+            let state = RuntimeState.InitLocal ()
+            new Runtime(state)
 
         /// Gets or sets the worker executable location.
         static member WorkerExecutable

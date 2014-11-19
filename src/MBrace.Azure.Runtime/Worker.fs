@@ -3,9 +3,8 @@
 open System.Diagnostics
 open System.Threading
 
-open Nessos.MBrace.Azure.Runtime.Resources
-open Nessos.MBrace.Azure.Runtime.Tasks
 open Nessos.MBrace.Azure.Runtime
+open Nessos.MBrace.Azure.Runtime.Resources
 
 /// <summary>
 ///     Initializes a worker loop. Worker polls task queue of supplied
@@ -23,8 +22,6 @@ let initWorker (runtime : RuntimeState)
         let provider = RuntimeProvider.FromTask runtime procId deps t
         Task.RunAsync provider deps t
     let inline logfn fmt = Printf.ksprintf logf fmt
-
-    logfn "Worker initialized"
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then

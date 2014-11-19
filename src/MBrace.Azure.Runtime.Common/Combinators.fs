@@ -6,7 +6,7 @@
 
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
-open Nessos.MBrace.Azure.Runtime.Tasks
+open Nessos.MBrace.Azure.Runtime
 
 #nowarn "444"
 

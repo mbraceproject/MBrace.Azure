@@ -1,4 +1,4 @@
-﻿module Nessos.MBrace.Azure.Runtime.Tasks
+﻿namespace Nessos.MBrace.Azure.Runtime
 
 // Provides facility for the execution of tasks.
 // In this context, a task denotes a single work item to be sent
@@ -13,6 +13,7 @@ open Nessos.Vagrant
 
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Runtime.Serialization
 open Nessos.MBrace.Azure.Runtime.Resources
 open Nessos.MBrace.Azure.Runtime.Common.Storage
@@ -108,7 +109,7 @@ type RuntimeState =
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
         /// returns a manifest of workers available to the cluster.
-        Workers : BlobCell<IWorkerRef []>
+        WorkerMonitor : WorkerMonitor
         /// Distributed logger facility
         //Logger : Logger
     }
@@ -116,8 +117,8 @@ with
     /// Initialize a new runtime state in the local process
     static member InitLocal () =
         {
-            Workers = BlobCell.Init(defaultStorageId, fun () -> Array.empty) |> Async.RunSynchronously
             //Logger = Logger.Init logger
+            WorkerMonitor = WorkerMonitor.Init(defaultStorageId)
             TaskQueue = Queue<_>.Init (defaultStorageId) |> Async.RunSynchronously
             AssemblyExporter = AssemblyExporter.Init(defaultStorageId) 
             ResourceFactory = ResourceFactory.Init() 

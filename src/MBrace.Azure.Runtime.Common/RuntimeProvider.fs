@@ -12,16 +12,7 @@ open Nessos.MBrace
 open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
 
-open Nessos.MBrace.Azure.Runtime.Tasks
-
-/// IWorkerRef implementation for the runtime
-type Worker(proc : Process) =
-    let id = sprintf "sample runtime worker (pid %d)" proc.Id
-    interface IWorkerRef with
-        member __.Id = id
-        member __.Type = "sample runtime worker node"
-
-    static member LocalWorker = new Worker(Process.GetCurrentProcess())
+open Nessos.MBrace.Azure.Runtime
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies, context) =
@@ -56,8 +47,12 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
 
-        member __.GetAvailableWorkers () = state.Workers.GetValue()
-        member __.CurrentWorker = Worker.LocalWorker :> IWorkerRef
+        member __.GetAvailableWorkers () = async { 
+            let! ws = state.WorkerMonitor.GetWorkers()
+            return ws |> Seq.cast<IWorkerRef>
+                      |> Seq.toArray
+            }
+        member __.CurrentWorker = state.WorkerMonitor.Current :> IWorkerRef
         member __.Logger = Unchecked.defaultof<_> //state.Logger :> ICloudLogger
 
 // TODO : remove

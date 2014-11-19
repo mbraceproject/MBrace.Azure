@@ -15,8 +15,8 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
 {
     public class WorkerRole : RoleEntryPoint
     {
-        private Tasks.RuntimeState _state;
-        private Task _svc;
+        private RuntimeState _state;
+        private System.Threading.Tasks.Task _svc;
 
         public override void Run()
         {
@@ -40,7 +40,7 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
             Service.Configuration = new AzureConfig("", "");
 
             Trace.TraceInformation("Initializing state");
-            _state = Tasks.RuntimeState.InitLocal();
+            _state = RuntimeState.InitLocal();
 
             return result;
         }
