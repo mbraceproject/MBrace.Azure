@@ -56,7 +56,8 @@ module Configuration =
                 let this = Assembly.GetExecutingAssembly()
                 let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
                 new System.Collections.Generic.HashSet<_>(dependencies)
-
+            let ignore assembly =
+                ignoredAssemblies.Contains(assembly) || assembly.FullName.StartsWith "MBrace.Azure.Client" // TODO : change
             VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll))
 
     let Serializer = init () ; VagrantRegistry.Pickler

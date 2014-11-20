@@ -133,7 +133,7 @@ with
     /// <param name="cc">Cancellation continuation</param>
     /// <param name="wf">Workflow</param>
     member rt.EnqueueTask procId dependencies cts sc ec cc (wf : Cloud<'T>) =
-        let taskId = System.Guid.NewGuid().ToString()
+        let taskId = guid()
         let startTask ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
             Cloud.StartWithContinuations(wf, cont, ctx)
@@ -153,7 +153,7 @@ with
     member rt.EnqueueTaskBatch procId dependencies cts scFactory ec cc (wfs : Cloud<'T> []) =
         let tasks = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
-            let taskId = System.Guid.NewGuid().ToString()
+            let taskId = guid()
             let startTask ctx =
                 let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
                 Cloud.StartWithContinuations(wfs.[i], cont, ctx)

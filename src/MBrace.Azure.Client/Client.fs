@@ -34,7 +34,7 @@
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) = async {
             let computation = CloudCompiler.Compile workflow
-            let processId = System.Guid.NewGuid().ToString()
+            let processId = guid()
             logger.Logf "Creating process %s" processId
             let storageId = Storage.processIdToStorageId processId
             logger.Logf "Uploading dependencies %O" computation.Dependencies
