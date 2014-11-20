@@ -13,21 +13,24 @@
     #nowarn "40"
 
     /// MBrace Sample runtime client instance.
-    type Runtime private (state) =
+    type Runtime private (config : Configuration) =
         static let mutable exe = None
         static let initWorkers (target : RuntimeState) (count : int) =
             if count < 1 then invalidArg "workerCount" "must be positive."
             let exe = Runtime.WorkerExecutable    
-            let args = Argument.ofRuntime target
-            let psi = new ProcessStartInfo(exe, args)
+            let psi = new ProcessStartInfo(exe)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
             psi.UseShellExecute <- true
             Array.init count (fun _ -> Process.Start psi)
 
         let id = guid()
-        let wmon = WorkerMonitor.Activate(Storage.defaultStorageId)
-        let logger = new StorageLogger(Storage.defaultLogId, "client", id)
+        do Configuration.Activate(config)
+        let wmon = WorkerMonitor.Activate(config.DefaultTable)
+        let logger = new StorageLogger(config.DefaultLogTable, "client", id)
+        let state = RuntimeState.FromConfiguration(config)
         
+        member private __.RuntimeState = state
+
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) = async {
             let computation = CloudCompiler.Compile workflow
@@ -63,15 +66,13 @@
         member __.GetLogs () = Async.RunSynchronously <| logger.AsyncGetLogs()
 
         /// Initialize a new local runtime instance with supplied worker count.
-        static member InitLocal(workerCount : int) =
-            let state = RuntimeState.InitLocal ()
-            let client = new Runtime(state)
-            let newProcs = initWorkers state workerCount
-            client
+        static member InitLocal(config, workerCount : int) =
+            let runtime = new Runtime(config)
+            let newProcs = initWorkers runtime.RuntimeState workerCount
+            runtime
 
-        static member GetHandle() = 
-            let state = RuntimeState.InitLocal ()
-            new Runtime(state)
+        static member GetHandle(config : Configuration) = 
+            new Runtime(config)
 
         /// Gets or sets the worker executable location.
         static member WorkerExecutable
@@ -80,5 +81,3 @@
                 let path = Path.GetFullPath path
                 if File.Exists path then exe <- Some path
                 else raise <| FileNotFoundException(path)
-
-        static member Configuration with set cfg = Configuration.Initialize(cfg)

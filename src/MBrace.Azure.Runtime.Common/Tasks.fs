@@ -115,11 +115,11 @@ type RuntimeState =
     }
 with
     /// Initialize a new runtime state in the local process
-    static member InitLocal () =
+    static member FromConfiguration (config : Configuration) =
         {
             //Logger = Logger.Init logger
-            TaskQueue = Queue<_>.Init (defaultStorageId) |> Async.RunSynchronously
-            AssemblyExporter = AssemblyExporter.Init(defaultStorageId) 
+            TaskQueue = Queue<_>.Init (config.DefaultQueue) |> Async.RunSynchronously
+            AssemblyExporter = AssemblyExporter.Init(config.DefaultContainer) 
             ResourceFactory = ResourceFactory.Init() 
         }
 

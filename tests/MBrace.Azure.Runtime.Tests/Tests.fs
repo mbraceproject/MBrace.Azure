@@ -34,18 +34,20 @@ module ``Azure Runtime Tests`` =
             |> function | null, s | s, null | s, _ -> s
 
         let config = 
-            { StorageConnectionString = selectEnv "AzureStorageConn";
-              ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
+            { StorageConnectionString = selectEnv "AzureStorageConn"
+              ServiceBusConnectionString = selectEnv "AzureServiceBusConn"
+              DefaultContainer = "bootstrap"
+              DefaultQueue = "bootstrap"
+              DefaultLogTable = "bootstrap"
+              DefaultTable = "bootstrap" }
 
         let print (s : string) = if s = null then "<null>" else sprintf "%s . . ." <| s.Substring(0,15)
         printfn "config.Storage : %s" <| print config.StorageConnectionString
         printfn "config.ServiceBus : %s" <| print config.ServiceBusConnectionString
         Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
         printfn "WorkerExecutable : %s" Runtime.WorkerExecutable
-        Runtime.Configuration <- config
-        printfn "Configuration activated"
-        runtime <- Some <| Runtime.InitLocal(4)
-        printfn "Runtime initilized"
+        runtime <- Some <| Runtime.InitLocal(config, 4)
+        printfn "Runtime initialized"
 
     [<TestFixtureTearDown>]
     let fini () =

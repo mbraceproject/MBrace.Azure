@@ -14,14 +14,15 @@
 
             let config = 
                 { StorageConnectionString = selectEnv "AzureStorageConn";
-                  ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
+                  ServiceBusConnectionString = selectEnv "AzureServiceBusConn"
+                  DefaultContainer = "bootstrap"
+                  DefaultLogTable = "mbracelogs"
+                  DefaultQueue = "bootstrap"
+                  DefaultTable = "bootstrap" }
 
-            Configuration.Initialize(config)
-            let state = Argument.toRuntime args.[0]
+            let svc = new Service(config, 10)
 
-            let svc = new Service(config, state, 10)
-
-            let slogger = new StorageLogger(Storage.defaultLogId, "worker", svc.Id)
+            let slogger = new StorageLogger(config.DefaultLogTable, "worker", svc.Id)
             let clogger = new ConsoleLogger() in slogger.Attach(clogger)
             svc.Logger <- slogger
             svc.Start() 

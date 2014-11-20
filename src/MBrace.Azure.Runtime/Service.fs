@@ -9,11 +9,13 @@ open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Runtime
 
 /// MBrace Runtime Service.
-type Service (config : Configuration, state : RuntimeState, maxTasks : int) =
+type Service (config : Configuration, maxTasks : int) =
     // TODO : locks, checks
     let id = guid ()
+    do Configuration.Activate(config)
     let mutable logger = NullLogger() :> ICloudLogger
     let logf fmt = Printf.ksprintf logger.Log fmt
+    let state = RuntimeState.FromConfiguration(config)
 
     member __.Configuration = config
     member __.Id = id
@@ -26,7 +28,7 @@ type Service (config : Configuration, state : RuntimeState, maxTasks : int) =
         async {
             logf "Starting Service %s . . ." id
             logf "Initializing worker monitor . . ."
-            let wmon = WorkerMonitor.Activate(Storage.defaultStorageId)
+            let wmon = WorkerMonitor.Activate(config.DefaultTable)
 
             let! e = wmon.DeclareCurrent(id)
             logf "Declared node %s/%s . . ." e.Id e.Hostname

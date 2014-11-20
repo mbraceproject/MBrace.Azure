@@ -25,13 +25,16 @@ let selectEnv name =
 
 let config = 
     { StorageConnectionString = selectEnv "AzureStorageConn"
-      ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
+      ServiceBusConnectionString = selectEnv "AzureServiceBusConn"
+      DefaultContainer = "bootstrap"
+      DefaultQueue = "bootstrap"
+      DefaultLogTable = "mbracelogs"
+      DefaultTable = "bootstrap"  }
 
-Runtime.Configuration <- config
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
-let runtime = Runtime.GetHandle()
-//let runtime = Runtime.InitLocal(4)
+let runtime = Runtime.GetHandle(config)
+//let runtime = Runtime.InitLocal(config, 4)
 
 runtime.GetWorkers()
 
@@ -48,7 +51,7 @@ runtime.Run <| Cloud.CurrentWorker
 
 let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 
-let x = runtime.Run(f 100, cleanup = true)
+let x = runtime.Run(f 10, cleanup = true)
 
 
 runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 82 then Some 42 else None } ), cleanup = true)

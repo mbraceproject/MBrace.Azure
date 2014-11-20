@@ -62,7 +62,7 @@ type NullLogger () =
 
 type ConsoleLogger () =
     interface ICloudLogger with
-        member x.Log(entry: string): unit = Console.WriteLine("{0} : {1}", DateTime.UtcNow.ToString("ddMMyyyy HHmmss"), entry)
+        member x.Log(entry: string): unit = Console.WriteLine("{0} : {1}", DateTime.UtcNow.ToString("ddMMyyyy HH:mm:ss"), entry)
 
 type CustomLogger (f : Action<string>) =
     interface ICloudLogger with

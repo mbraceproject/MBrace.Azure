@@ -14,23 +14,11 @@ open Microsoft.ServiceBus.Messaging
 
 type Configuration = 
     { StorageConnectionString : string
-      ServiceBusConnectionString : string }
-
-    static member Serializer = VagrantRegistry.Pickler
-
-    static member Initialize(config : Configuration) =
-        let runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
-        runOnce(fun () ->
-            let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
-
-            // vagrant initialization
-            let ignoredAssemblies =
-                let this = Assembly.GetExecutingAssembly()
-                let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
-                new System.Collections.Generic.HashSet<_>(dependencies)
-
-            VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll)) ()
-        ClientProvider.Activate config
+      ServiceBusConnectionString : string
+      DefaultContainer : string
+      DefaultTable : string
+      DefaultQueue : string
+      DefaultLogTable : string }
 
 and [<AbstractClass; Sealed>] ClientProvider private () = 
     static let cfg = ref None
@@ -55,3 +43,22 @@ and [<AbstractClass; Sealed>] ClientProvider private () =
     static member QueueClient(queue : string) = 
         check (fun _ -> QueueClient.CreateFromConnectionString(cfg.Value.Value.ServiceBusConnectionString, queue))
 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module Configuration =
+    let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
+
+    let private init =
+        runOnce(fun () ->
+            let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
+
+            // vagrant initialization
+            let ignoredAssemblies =
+                let this = Assembly.GetExecutingAssembly()
+                let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
+                new System.Collections.Generic.HashSet<_>(dependencies)
+
+            VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll))
+
+    let Serializer = init () ; VagrantRegistry.Pickler
+
+    let Activate(config : Configuration) = init (); ClientProvider.Activate config

@@ -55,14 +55,3 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
             }
         member __.CurrentWorker = WorkerMonitor.Activated.Current.AsWorkerRef() :> IWorkerRef
         member __.Logger = Unchecked.defaultof<_> //state.Logger :> ICloudLogger
-
-// TODO : remove
-/// BASE64 serialized argument parsing schema
-module Argument =
-    let ofRuntime (runtime : RuntimeState) =
-        let pickle = Configuration.Serializer.Pickle(runtime) 
-        System.Convert.ToBase64String pickle
-
-    let toRuntime (state : string) =
-        let bytes = System.Convert.FromBase64String(state)
-        Configuration.Serializer.UnPickle<RuntimeState> bytes

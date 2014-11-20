@@ -42,10 +42,7 @@
         open Nessos.MBrace.Azure.Runtime
 
         let processIdToStorageId (pid : string) = 
-            sprintf "process%s" <| Guid.Parse(pid).ToString("N").Substring(0,7) // change
-
-        let defaultStorageId = "bootstrap"
-        let defaultLogId = "mbracelogs"
+            sprintf "process%s" <| Guid.Parse(pid).ToString("N").Substring(0,7) // TODO : change
 
         let clearProcessFolder (storageId : string) =
             async {

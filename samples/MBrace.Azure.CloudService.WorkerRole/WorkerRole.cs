@@ -30,11 +30,9 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
 
             bool result = base.OnStart();
 
-            var config = new Configuration("", "");
-            Configuration.Initialize(config);
-            var state = RuntimeState.InitLocal();
-            _svc = new Service(config, state, 10);
-            var logger = new StorageLogger(Nessos.MBrace.Azure.Runtime.Common.Storage.defaultStorageId, "worker", _svc.Id);
+            var config = new Configuration("", "", "bootstrap", "bootstrap", "bootstrap", "mbracelogs");
+            _svc = new Service(config, 10);
+            var logger = new StorageLogger(config.DefaultLogTable, "worker", _svc.Id);
             logger.Attach(new CustomLogger(s => Trace.WriteLine(s)));
             _svc.Logger = logger;
             return result;
