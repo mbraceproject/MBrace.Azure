@@ -26,21 +26,21 @@
 
         let id = guid()
         let wmon = WorkerMonitor.Activate(Storage.defaultStorageId)
-        let logger = StorageLogger.Activate(Storage.defaultLogId, "client", id)
+        let logger = new StorageLogger(Storage.defaultLogId, "client", id)
         
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) = async {
             let computation = CloudCompiler.Compile workflow
             let processId = System.Guid.NewGuid().ToString()
-            do! logger.AsyncLogf "Creating process %s" processId
+            logger.Logf "Creating process %s" processId
             let storageId = Storage.processIdToStorageId processId
-            do! logger.AsyncLogf "Uploading dependencies %O" computation.Dependencies
+            logger.Logf "Uploading dependencies %O" computation.Dependencies
             do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
             let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
             try
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 let! resultCell = state.StartAsCell processId computation.Dependencies cts computation.Workflow
-                do! logger.AsyncLogf "Computation started"
+                logger.Logf "Computation started"
                 let! result = resultCell.AwaitResult()
                 return result.Value
             finally

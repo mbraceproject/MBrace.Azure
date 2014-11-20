@@ -12,12 +12,27 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
 
-type AzureConfig = 
+type Configuration = 
     { StorageConnectionString : string
       ServiceBusConnectionString : string }
 
-[<AbstractClass; Sealed>]
-type ClientProvider private () = 
+    static member Serializer = VagrantRegistry.Pickler
+
+    static member Initialize(config : Configuration) =
+        let runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
+        runOnce(fun () ->
+            let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
+
+            // vagrant initialization
+            let ignoredAssemblies =
+                let this = Assembly.GetExecutingAssembly()
+                let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
+                new System.Collections.Generic.HashSet<_>(dependencies)
+
+            VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll)) ()
+        ClientProvider.Activate config
+
+and [<AbstractClass; Sealed>] ClientProvider private () = 
     static let cfg = ref None
     static let acc = ref Unchecked.defaultof<CloudStorageAccount>
     
@@ -26,7 +41,7 @@ type ClientProvider private () =
             if cfg.Value.IsNone then failwith "No active configuration found."
             else f())
     
-    static member Activate(config : AzureConfig) = 
+    static member Activate(config : Configuration) = 
         let sa = CloudStorageAccount.Parse(config.StorageConnectionString)
         lock cfg (fun () -> 
             cfg := Some config
@@ -40,24 +55,3 @@ type ClientProvider private () =
     static member QueueClient(queue : string) = 
         check (fun _ -> QueueClient.CreateFromConnectionString(cfg.Value.Value.ServiceBusConnectionString, queue))
 
-[<Sealed;AbstractClass>]
-type Configuration private () =
-    static let runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
-    static let _initRuntimeState =
-     runOnce(fun () ->
-        let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
-
-        // vagrant initialization
-        let ignoredAssemblies =
-            let this = Assembly.GetExecutingAssembly()
-            let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
-            new System.Collections.Generic.HashSet<_>(dependencies)
-
-        VagrantRegistry.Initialize(ignoreAssembly = ignoredAssemblies.Contains, loadPolicy = AssemblyLoadPolicy.ResolveAll))
-    
-
-    static member Serializer = VagrantRegistry.Pickler
-
-    static member Initialize(config : AzureConfig) =
-        _initRuntimeState ()
-        ClientProvider.Activate config

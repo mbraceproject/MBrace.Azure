@@ -12,6 +12,7 @@ open System.Net
 open System.Diagnostics
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
+open System.Collections.Concurrent
 
 type LogEntity(pk : string, loggerType : string, message : string) =
     inherit TableEntity(pk, guid())
@@ -19,32 +20,52 @@ type LogEntity(pk : string, loggerType : string, message : string) =
     member val Message = message with get, set
     new () = new LogEntity(null, null, null)
 
-type StorageLogger private (table : string, loggerType : string, id : string) =
+type StorageLogger(table : string, loggerType : string, id : string) =
     let pk = "log"
+    let maxMessageCount = 100
 
-    // TODO :
-    static let monitor : StorageLogger option ref = ref None 
-    let func : (string -> unit) ref = ref ignore
+    let attached = new ConcurrentBag<ICloudLogger>()
 
-    static member Activated = monitor.Value.Value
+    let log = 
+        let logs = ConcurrentStack<string>()
+        fun msg ->
+            for l in attached do l.Log(msg)
+            logs.Push(msg)
+            let count = logs.Count
+            if count >= maxMessageCount then
+                let out = Array.zeroCreate count
+                let count = logs.TryPopRange(out)
+                let ys = Array.init count (fun i -> new LogEntity(pk, loggerType, out.[i]))
+                Table.insertBatch<LogEntity> table ys
+                |> Async.RunSynchronously
 
-    static member Activate(table : string, loggerType : string, id : string) = 
-        if monitor.Value.IsSome then monitor.Value.Value
-        else
-            let m = new StorageLogger(table, loggerType, id)
-            monitor := Some m
-            m
+    //static let monitor : StorageLogger option ref = ref None 
+    //static member Activated = monitor.Value.Value
+    //static member Activate(table : string, loggerType : string, id : string) = 
+        //if monitor.Value.IsSome then monitor.Value.Value
+        //else
+            //let m = new StorageLogger(table, loggerType, id)
+            //monitor := Some m
+            //m
 
     interface ICloudLogger with
-        member x.Log(entry: string) : unit = Async.RunSynchronously <| x.AsyncLog(entry)
+        member x.Log(entry: string) : unit = log entry
         
-
-    member __.AsyncLog(message : string) = 
-        func.Value message
-        Table.insert<LogEntity> table <| new LogEntity(pk, loggerType, message)
-
-    member __.AsyncLogf fmt = Printf.ksprintf (__.AsyncLog) fmt
+    member __.Logf fmt = Printf.ksprintf log fmt
 
     member __.AsyncGetLogs () = Table.readBatch<LogEntity> table pk
 
-    member __.Attach(f) = func := fun s -> f(s)
+    member __.Attach(logger : ICloudLogger) = attached.Add(logger)
+
+type NullLogger () =
+    interface ICloudLogger with
+        member x.Log(entry: string): unit = ()
+
+type ConsoleLogger () =
+    interface ICloudLogger with
+        member x.Log(entry: string): unit = Console.WriteLine("{0} : {1}", DateTime.UtcNow, entry)
+
+type CustomLogger (f : Action<string>) =
+    interface ICloudLogger with
+        member x.Log(entry: string): unit = f.Invoke(entry)
+        

@@ -3,7 +3,9 @@
 open System.Diagnostics
 open System.Threading
 
+open Nessos.MBrace.Runtime
 open Nessos.MBrace.Azure.Runtime
+open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
 
 /// <summary>
@@ -15,12 +17,13 @@ open Nessos.MBrace.Azure.Runtime.Resources
 /// <param name="logf">Logger.</param>
 let initWorker (runtime : RuntimeState) 
                (maxConcurrentTasks : int)
-               (logger : Common.StorageLogger) : Async<unit> = async {
+               (logger : ICloudLogger) : Async<unit> = async {
 
     let currentTaskCount = ref 0
     let runTask procId deps t =
         let provider = RuntimeProvider.FromTask runtime procId deps t
         Task.RunAsync provider deps t
+    let inline logf fmt = Printf.ksprintf logger.Log fmt
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then
@@ -35,9 +38,7 @@ let initWorker (runtime : RuntimeState)
                     for (task, procId, dependencies) in tasks do
                         let _ = Interlocked.Increment currentTaskCount
                         let runTask () = async {
-                            do! logger.AsyncLogf "Process %s\nStarting task %s of type '%O'." procId task.TaskId task.Type
-
-                            //use hb = leaseMonitor.InitHeartBeat()
+                            logf "Starting task %s/%s/%O." procId task.TaskId task.Type
 
                             let sw = new Stopwatch()
                             sw.Start()
@@ -46,12 +47,9 @@ let initWorker (runtime : RuntimeState)
 
                             match result with
                             | Choice1Of2 () -> 
-                                //leaseMonitor.Release()
-                                do! logger.AsyncLogf "Process %s\nTask %s completed after %O." procId task.TaskId sw.Elapsed
-                                
+                                logf "Completed task %s/%s/%O." procId task.TaskId sw.Elapsed
                             | Choice2Of2 e -> 
-                                //leaseMonitor.DeclareFault()
-                                do! logger.AsyncLogf "Process %s\nTask %s faulted with:\n %O." procId task.TaskId e
+                                logf "Task fault %s/%s with: \n%O." procId task.TaskId e
 
                             let _ = Interlocked.Decrement currentTaskCount
                             return ()
@@ -60,7 +58,7 @@ let initWorker (runtime : RuntimeState)
                         let! handle = Async.StartChild(runTask())
                         ()
             with e -> 
-                do! logger.AsyncLogf "WORKER FAULT: %O" e
+                logf "WORKER FAULT: %O" e
                 do! Async.Sleep 1000
 
             return! loop ()

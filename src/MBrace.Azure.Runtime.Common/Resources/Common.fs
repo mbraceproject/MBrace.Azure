@@ -48,8 +48,6 @@ type CancellationTokenSourceEntity(name : string, link : string) =
     new () = new CancellationTokenSourceEntity(null, null)
 
 module Table =
-    open Nessos.MBrace.Azure.Runtime
-
     let PreconditionFailed (e : exn) =
         match e with
         | :? AggregateException as e ->
@@ -67,6 +65,16 @@ module Table =
 
     let insert<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
         TableOperation.Insert(e) |> exec table |> Async.Ignore
+
+    let insertBatch<'T when 'T :> ITableEntity> table (e : seq<'T>) : Async<unit> =
+        async {
+            let batch = new TableBatchOperation()
+            e |> Seq.iter batch.Insert
+            let t = ClientProvider.TableClient.GetTableReference(table)
+            let! _ = t.CreateIfNotExistsAsync()
+            let! es = t.ExecuteBatchAsync(batch)
+            return ()
+        }
 
     let insertOrReplace<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
         TableOperation.InsertOrReplace(e) |> exec table |> Async.Ignore

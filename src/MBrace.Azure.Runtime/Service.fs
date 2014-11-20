@@ -6,28 +6,36 @@ open System.Threading.Tasks
 open Nessos.MBrace.Azure.Runtime
 open System.Runtime.InteropServices
 open Nessos.MBrace.Azure.Runtime.Common
+open Nessos.MBrace.Runtime
 
-[<Sealed; AbstractClass>]
-type Service private () =
-
+/// MBrace Runtime Service.
+type Service (config : Configuration, state : RuntimeState, maxTasks : int) =
     // TODO : locks, checks
-    static member Configuration with set cfg = Configuration.Initialize(cfg)
+    let id = guid ()
+    let mutable logger = NullLogger() :> ICloudLogger
+    let logf fmt = Printf.ksprintf logger.Log fmt
 
-    static member StartAsTask(state : RuntimeState, logf : Action<string>, maxConcurrentTasks : int) : Tasks.Task =
-        Async.StartAsTask(Service.AsyncStart(state, logf, maxConcurrentTasks)) :> _
+    member __.Configuration = config
+    member __.Id = id
+    member __.Logger with get () = logger and set l = logger <- l
+    member __.MaxConcurrentTasks = maxTasks
+
+    member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.AsyncStart()) :> _
         
-    static member AsyncStart(state : RuntimeState, logf : Action<string>, maxConcurrentTasks : int) =
+    member __.AsyncStart() =
         async {
-            let id = guid()
-            let logger = StorageLogger.Activate(Storage.defaultLogId, "worker", id)
-            logger.Attach logf.Invoke
-            do! logger.AsyncLogf "Logger initialized..."
-            do! logger.AsyncLogf "Initializing worker monitor..."
-            let wmon = Common.WorkerMonitor.Activate(Storage.defaultStorageId)
+            logf "Starting Service %s . . ." id
+            logf "Initializing worker monitor . . ."
+            let wmon = WorkerMonitor.Activate(Storage.defaultStorageId)
+
             let! e = wmon.DeclareCurrent(id)
-            do! logger.AsyncLogf "Declared node %s %s..." e.Id e.Hostname
+            logf "Declared node %O/%s/%s . . ." e.CreationTime e.Id e.Hostname
+
             Async.Start(wmon.HeartbeatLoop(e))
-            do! logger.AsyncLogf "Started heartbeat loop..." 
-            do! logger.AsyncLogf "Starting worker loop..."
-            return! Worker.initWorker state maxConcurrentTasks logger
+            logf "Started heartbeat loop . . ." 
+
+            logf "Starting worker loop . . ."
+            return! Worker.initWorker state maxTasks logger
         }
+
+    member __.Start() = Async.RunSynchronously(__.AsyncStart())

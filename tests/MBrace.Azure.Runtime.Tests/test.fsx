@@ -1,6 +1,7 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
 #r "MBrace.Library.dll"
+#r "FsPickler.dll"
 #r "Vagrant.dll"
 #r "Microsoft.WindowsAzure.Storage.dll"
 #r "Microsoft.ServiceBus.dll"

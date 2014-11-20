@@ -2,6 +2,7 @@
 
     open System
     open Nessos.MBrace.Azure.Runtime
+    open Nessos.MBrace.Azure.Runtime.Common
 
     [<EntryPoint>]
     let main (args : string []) =
@@ -15,11 +16,15 @@
                 { StorageConnectionString = selectEnv "AzureStorageConn";
                   ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
 
-            Service.Configuration <- config
-            printfn "Configuration initialized..."
+            Configuration.Initialize(config)
             let state = Argument.toRuntime args.[0]
-            printfn "State initialized...\nStarting Runtime service..."
-            Service.AsyncStart(state, (fun s -> Console.WriteLine s), 10) |> Async.RunSynchronously
+
+            let svc = new Service(config, state, 10)
+
+            let slogger = new StorageLogger(Storage.defaultLogId, "worker", svc.Id)
+            let clogger = new ConsoleLogger() in slogger.Attach(clogger)
+            svc.Logger <- slogger
+            svc.Start() 
             0
         with e ->
             printfn "Unhandled exception : %O" e
