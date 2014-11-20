@@ -29,7 +29,7 @@ type Service (config : Configuration, state : RuntimeState, maxTasks : int) =
             let wmon = WorkerMonitor.Activate(Storage.defaultStorageId)
 
             let! e = wmon.DeclareCurrent(id)
-            logf "Declared node %O/%s/%s . . ." e.CreationTime e.Id e.Hostname
+            logf "Declared node %s/%s . . ." e.Id e.Hostname
 
             Async.Start(wmon.HeartbeatLoop(e))
             logf "Started heartbeat loop . . ." 

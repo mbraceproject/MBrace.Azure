@@ -31,7 +31,7 @@ Runtime.Configuration <- config
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
 let runtime = Runtime.GetHandle()
-//let runtime = Runtime.InitLocal(3)
+//let runtime = Runtime.InitLocal(4)
 
 runtime.GetWorkers()
 

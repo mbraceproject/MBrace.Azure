@@ -22,31 +22,30 @@ type LogEntity(pk : string, loggerType : string, message : string) =
 
 type StorageLogger(table : string, loggerType : string, id : string) =
     let pk = "log"
-    let maxMessageCount = 100
 
+    let maxWaitTime = 5000
     let attached = new ConcurrentBag<ICloudLogger>()
+    let logs = ConcurrentStack<string>()
+    let flush () = async {
+        let count = logs.Count
+        if count > 0 then
+            let out = Array.zeroCreate count
+            let count = logs.TryPopRange(out)
+            let ys = Array.init count (fun i -> new LogEntity(pk, loggerType, out.[i]))
+            return! Table.insertBatch<LogEntity> table ys
+    }
 
-    let log = 
-        let logs = ConcurrentStack<string>()
-        fun msg ->
+    do  let rec loop _ = async {
+            do! Async.Sleep maxWaitTime
+            do! flush ()
+            return! loop ()
+        }
+        Async.Start(loop ())
+
+    let log msg = 
             for l in attached do l.Log(msg)
             logs.Push(msg)
-            let count = logs.Count
-            if count >= maxMessageCount then
-                let out = Array.zeroCreate count
-                let count = logs.TryPopRange(out)
-                let ys = Array.init count (fun i -> new LogEntity(pk, loggerType, out.[i]))
-                Table.insertBatch<LogEntity> table ys
-                |> Async.RunSynchronously
 
-    //static let monitor : StorageLogger option ref = ref None 
-    //static member Activated = monitor.Value.Value
-    //static member Activate(table : string, loggerType : string, id : string) = 
-        //if monitor.Value.IsSome then monitor.Value.Value
-        //else
-            //let m = new StorageLogger(table, loggerType, id)
-            //monitor := Some m
-            //m
 
     interface ICloudLogger with
         member x.Log(entry: string) : unit = log entry
@@ -63,7 +62,7 @@ type NullLogger () =
 
 type ConsoleLogger () =
     interface ICloudLogger with
-        member x.Log(entry: string): unit = Console.WriteLine("{0} : {1}", DateTime.UtcNow, entry)
+        member x.Log(entry: string): unit = Console.WriteLine("{0} : {1}", DateTime.UtcNow.ToString("ddMMyyyy HHmmss"), entry)
 
 type CustomLogger (f : Action<string>) =
     interface ICloudLogger with
