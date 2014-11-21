@@ -13,41 +13,42 @@ open System.Runtime.Serialization
 
 type ProcessState = 
     | Initialized
+    | Killed
     | Completed
     override this.ToString() = 
         match this with
         | Initialized -> "Initialized"
+        | Killed -> "Killed"
         | Completed -> "Completed"
 
-type ProcessEntity(pk : string, pid : string) = 
+type ProcessEntity(pk : string, pid : string, state, created, completed, resultUri) = 
     inherit TableEntity(pk, pid)
     member val ProcessId = pid with get, set
-    member val State : string = null with get, set
-    member val Created : DateTime = Unchecked.defaultof<_> with get, set
-    member val Completed : DateTime = Unchecked.defaultof<_> with get, set
-    member val ResultUri : string = null with get, set
-    new() = new ProcessEntity(null, null)
+    member val State : string = state with get, set
+    member val Created : DateTime = created with get, set
+    member val Completed : DateTime = completed with get, set
+    member val ResultUri : string = resultUri with get, set
+    new() = new ProcessEntity(null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, null)
 
-type ProcessMonitor private (table : string) = 
+type ProcessMonitor internal (table : string) = 
     let pk = "process"
-
-    static let monitor : ProcessMonitor option ref = ref None
-    static member Activated = monitor.Value.Value
-    
-    static member Activate(table : string) = 
-        if monitor.Value.IsSome then monitor.Value.Value
-        else 
-            let m = new ProcessMonitor(table)
-            monitor := Some m
-            m
     
     member this.Create(pid : string) = async { 
-        let e = new ProcessEntity(pk, pid, State = ProcessState.Initialized.ToString(), Created = DateTime.UtcNow)
+        let now = DateTime.UtcNow
+        let e = new ProcessEntity(pk, pid, ProcessState.Initialized.ToString(), now, now, null)
         do! Table.insert<ProcessEntity> table e
-        return e
+        return ()
     }
 
-    member this.Complete(pid : string, result : string) = async {
+    member this.SetKilled(pid : string) = async {
+        let! e = Table.read<ProcessEntity> table pk pid
+        e.State <- ProcessState.Killed.ToString()
+        e.Completed <- DateTime.UtcNow
+        let! e' = Table.merge table e
+        return ()
+    }
+
+    member this.SetCompleted(pid : string, result : string) = async {
         let! e = Table.read<ProcessEntity> table pk pid
         e.State <- ProcessState.Completed.ToString()
         e.Completed <- DateTime.UtcNow

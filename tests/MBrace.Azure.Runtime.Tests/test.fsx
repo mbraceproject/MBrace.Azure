@@ -82,9 +82,9 @@ open Nessos.MBrace.Azure.Runtime.Resources
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
 Configuration.Activate(config)
-ClientProvider.TableClient.GetTableReference(config.DefaultTable).DeleteIfExists()
+ClientProvider.TableClient.GetTableReference(config.DefaultTableOrContainer).DeleteIfExists()
 ClientProvider.TableClient.GetTableReference(config.DefaultLogTable).DeleteIfExists()
-ClientProvider.BlobClient.GetContainerReference(config.DefaultContainer).DeleteIfExists()
+ClientProvider.BlobClient.GetContainerReference(config.DefaultTableOrContainer).DeleteIfExists()
 ClientProvider.NamespaceClient.DeleteQueue(config.DefaultQueue)
 
 let del x =
@@ -175,4 +175,12 @@ type Foo = Foo
 let xs = exp.ComputeDependencies Foo
 !exp.UploadDependencies(xs)
 !exp.LoadDependencies(xs)
+
+//---------------------------------------------------------------------
+
+let rf = ResourceFactory.Init(config)
+let pmon = rf.RequestProcessMonitor()
+!pmon.Create("foobar")
+!pmon.GetProcesses()
+
 

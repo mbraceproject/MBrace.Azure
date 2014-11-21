@@ -36,12 +36,13 @@
             try
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 logger.Logf "Starting computation"
-                let! resultCell = state.StartAsCell processId computation.Dependencies cts computation.Workflow
+                let! resultCell = state.StartAsCellRoot processId computation.Dependencies cts computation.Workflow
                 logger.Logf "Waiting for result"
                 let! result = resultCell.AwaitResult()
                 return result.Value
             finally
                 cts.Cancel ()
+                // TODO : remove
                 let cleanup = defaultArg cleanup false
                 if cleanup then Async.RunSynchronously <| Storage.clearProcessFolder storageId
         }
@@ -59,6 +60,5 @@
 
         member __.GetLogs () = Async.RunSynchronously <| logger.AsyncGetLogs()
 
-        static member GetHandle(config : Configuration) = 
-            new Runtime(config)
+        static member GetHandle(config : Configuration) = new Runtime(config)
 

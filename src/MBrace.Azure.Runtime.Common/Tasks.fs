@@ -120,7 +120,7 @@ with
             //Logger = Logger.Init logger
             TaskQueue = Queue<_>.Init (config.DefaultQueue) |> Async.RunSynchronously
             AssemblyExporter = AssemblyExporter.Init(config.DefaultTableOrContainer) 
-            ResourceFactory = ResourceFactory.Init() 
+            ResourceFactory = ResourceFactory.Init(config) 
         }
 
     /// <summary>
@@ -174,7 +174,7 @@ with
 
     /// <summary>
     ///     Schedules a cloud workflow as a distributed result cell.
-    ///     Used for root-level workflows or child tasks.
+    ///     Used for child tasks.
     /// </summary>
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
@@ -184,6 +184,34 @@ with
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
+                TaskExecutionMonitor.TriggerCompletion ctx
+            } |> TaskExecutionMonitor.ProtectAsync ctx
+
+        let scont ctx t = setResult ctx (Completed t)
+        let econt ctx e = setResult ctx (Exception e)
+        let ccont ctx c = setResult ctx (Cancelled c)
+        do! rt.EnqueueTask procId dependencies cts scont econt ccont wf
+        return resultCell
+    }
+
+    /// <summary>
+    ///     Schedules a cloud workflow as a distributed result cell.
+    ///     Used for root-level workflows.
+    /// </summary>
+    /// <param name="dependencies">Declared workflow dependencies.</param>
+    /// <param name="cts">Cancellation token source bound to task.</param>
+    /// <param name="wf">Input workflow.</param>
+    member rt.StartAsCellRoot procId dependencies cts (wf : Cloud<'T>) = async {
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
+        do! rt.ResourceFactory.RequestProcessMonitor().Create(procId)
+        let setResult ctx r = 
+            async {
+                let! success = resultCell.SetResult r
+                let pmon = rt.ResourceFactory.RequestProcessMonitor()
+                match r with
+                | Completed _ 
+                | Exception _ -> do! pmon.SetCompleted(procId, (resultCell :> IResource).Uri.ToString())
+                | Cancelled _ -> do! pmon.SetKilled(procId)
                 TaskExecutionMonitor.TriggerCompletion ctx
             } |> TaskExecutionMonitor.ProtectAsync ctx
 
