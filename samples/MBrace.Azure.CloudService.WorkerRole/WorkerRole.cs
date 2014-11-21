@@ -32,8 +32,7 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
 
             var config = new Configuration(storageConnectionString : "", 
                                            serviceBusConnectionString : "",
-                                           defaultContainer : Configuration.Default.DefaultContainer,
-                                           defaultTable : Configuration.Default.DefaultTable,
+                                           defaultTableOrContainer : Configuration.Default.DefaultTableOrContainer,
                                            defaultQueue : Configuration.Default.DefaultQueue,
                                            defaultLogTable : Configuration.Default.DefaultLogTable);
 

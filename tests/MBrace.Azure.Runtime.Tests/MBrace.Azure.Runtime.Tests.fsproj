@@ -86,6 +86,11 @@
     <Content Include="app.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\samples\MBrace.Azure.Runtime.Standalone\MBrace.Azure.Runtime.Standalone.fsproj">
+      <Name>MBrace.Azure.Runtime.Standalone</Name>
+      <Project>{09891260-7d4e-431b-b714-2a13c412fd78}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Azure.Client\MBrace.Azure.Client.fsproj">
       <Name>MBrace.Azure.Client</Name>
       <Project>{5aae037c-f0c3-4a04-a5f4-46001ec513bf}</Project>

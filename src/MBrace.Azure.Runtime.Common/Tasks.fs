@@ -119,7 +119,7 @@ with
         {
             //Logger = Logger.Init logger
             TaskQueue = Queue<_>.Init (config.DefaultQueue) |> Async.RunSynchronously
-            AssemblyExporter = AssemblyExporter.Init(config.DefaultContainer) 
+            AssemblyExporter = AssemblyExporter.Init(config.DefaultTableOrContainer) 
             ResourceFactory = ResourceFactory.Init() 
         }
 

@@ -12,6 +12,7 @@ open Nessos.MBrace.Runtime
 open Nessos.MBrace.Library
 open Nessos.MBrace.Azure.Client
 open Nessos.MBrace.Azure.Runtime
+open Nessos.MBrace.Azure.Runtime.Standalone
 open Nessos.MBrace.Azure.Runtime.Resources
 
 [<TestFixture>]
@@ -34,12 +35,9 @@ module ``Azure Runtime Tests`` =
             |> function | null, s | s, null | s, _ -> s
 
         let config = 
-            { StorageConnectionString = selectEnv "AzureStorageConn"
-              ServiceBusConnectionString = selectEnv "AzureServiceBusConn"
-              DefaultContainer = "bootstrap"
-              DefaultQueue = "bootstrap"
-              DefaultLogTable = "bootstrap"
-              DefaultTable = "bootstrap" }
+            { Configuration.Default with
+                StorageConnectionString = selectEnv "AzureStorageConn"
+                ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
 
         let print (s : string) = if s = null then "<null>" else sprintf "%s . . ." <| s.Substring(0,15)
         printfn "config.Storage : %s" <| print config.StorageConnectionString

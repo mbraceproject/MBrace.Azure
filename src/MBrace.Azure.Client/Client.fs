@@ -14,19 +14,11 @@
 
     /// MBrace Sample runtime client instance.
     type Runtime private (config : Configuration) =
-        static let mutable exe = None
-        static let initWorkers (target : RuntimeState) (count : int) =
-            if count < 1 then invalidArg "workerCount" "must be positive."
-            let exe = Runtime.WorkerExecutable    
-            let psi = new ProcessStartInfo(exe)
-            psi.WorkingDirectory <- Path.GetDirectoryName exe
-            psi.UseShellExecute <- true
-            Array.init count (fun _ -> Process.Start psi)
-
         let id = guid()
         do Configuration.Activate(config)
-        let wmon = WorkerMonitor.Activate(config.DefaultTable)
+        let wmon = WorkerMonitor.Activate(config.DefaultTableOrContainer)
         let logger = new StorageLogger(config.DefaultLogTable, "client", id)
+        do logger.Attach(new ConsoleLogger()) // remove
         let state = RuntimeState.FromConfiguration(config)
         
         member private __.RuntimeState = state
@@ -39,11 +31,13 @@
             let storageId = Storage.processIdToStorageId processId
             logger.Logf "Uploading dependencies %O" computation.Dependencies
             do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
+            logger.Logf "Creating DistributedCancellationToken"
             let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
             try
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
+                logger.Logf "Starting computation"
                 let! resultCell = state.StartAsCell processId computation.Dependencies cts computation.Workflow
-                logger.Logf "Computation started"
+                logger.Logf "Waiting for result"
                 let! result = resultCell.AwaitResult()
                 return result.Value
             finally
@@ -65,19 +59,6 @@
 
         member __.GetLogs () = Async.RunSynchronously <| logger.AsyncGetLogs()
 
-        /// Initialize a new local runtime instance with supplied worker count.
-        static member InitLocal(config, workerCount : int) =
-            let runtime = new Runtime(config)
-            let newProcs = initWorkers runtime.RuntimeState workerCount
-            runtime
-
         static member GetHandle(config : Configuration) = 
             new Runtime(config)
 
-        /// Gets or sets the worker executable location.
-        static member WorkerExecutable
-            with get () = match exe with None -> invalidOp "unset executable path." | Some e -> e
-            and set path = 
-                let path = Path.GetFullPath path
-                if File.Exists path then exe <- Some path
-                else raise <| FileNotFoundException(path)

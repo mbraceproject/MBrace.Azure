@@ -16,7 +16,7 @@ open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Client
 open System
 open System.Threading
-open System.Threading.Tasks
+
 
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
@@ -28,12 +28,17 @@ let config =
         StorageConnectionString = selectEnv "AzureStorageConn"
         ServiceBusConnectionString = selectEnv "AzureServiceBusConn"  }
 
+// local only---
+#r "MBrace.Azure.Runtime.Standalone"
+open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+Runtime.Spawn(config, 4)
+//--------------
+
 
 let runtime = Runtime.GetHandle(config)
-//let runtime = Runtime.InitLocal(config, 4)
 
-runtime.GetWorkers()
+//runtime.GetWorkers()
 
 
 runtime.Run(cloud { return 42 }, cleanup = true)
@@ -74,12 +79,13 @@ wordCount 1000 Library.MapReduce.mapReduce
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
 
-
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
-ClientProvider.TableClient.GetTableReference("bootstap").DeleteIfExists()
-ClientProvider.BlobClient.GetContainerReference("bootstrap").DeleteIfExists()
-ClientProvider.NamespaceClient.DeleteQueue("bootstrap")
+Configuration.Activate(config)
+ClientProvider.TableClient.GetTableReference(config.DefaultTable).DeleteIfExists()
+ClientProvider.TableClient.GetTableReference(config.DefaultLogTable).DeleteIfExists()
+ClientProvider.BlobClient.GetContainerReference(config.DefaultContainer).DeleteIfExists()
+ClientProvider.NamespaceClient.DeleteQueue(config.DefaultQueue)
 
 let del x =
     ClientProvider.TableClient.ListTables(x)
@@ -87,7 +93,6 @@ let del x =
     |> Async.Parallel
     |> Async.RunSynchronously
 del "process"
-del "mbracelogs"
 
 ClientProvider.BlobClient.ListContainers("process")
 |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)

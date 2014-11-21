@@ -13,11 +13,15 @@ open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
 
 type Configuration = 
-    { StorageConnectionString : string
+    { /// Azure storage connection string.
+      StorageConnectionString : string
+      /// Service Bus connection string.
       ServiceBusConnectionString : string
-      DefaultContainer : string
-      DefaultTable : string
+      /// Default Blob/Table storage container and table name
+      DefaultTableOrContainer : string
+      /// Default Service Bus queue name.
       DefaultQueue : string
+      /// Default Table name for logging.
       DefaultLogTable : string }
 
     static member Default = 
@@ -25,10 +29,9 @@ type Configuration =
             "DefaultEndpointsProtocol=[https];AccountName=[myAccount];AccountKey=[myKey];"
           ServiceBusConnectionString = 
               "Endpoint=sb://[your namespace].servicebus.windows.net;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=[your secret]"
-          DefaultContainer = "MBraceRuntime"
-          DefaultTable = "MBraceRuntimeTable"
-          DefaultQueue = "MBraceRuntimeTaskQueue"
-          DefaultLogTable = "MBraceRuntimeLogsTable" }
+          DefaultTableOrContainer = "mbraceruntime"
+          DefaultQueue = "mbraceruntime"
+          DefaultLogTable = "mbraceruntimelogs" }
 
 and [<AbstractClass; Sealed>] ClientProvider private () = 
     static let cfg = ref None
@@ -72,4 +75,6 @@ module Configuration =
 
     let Serializer = init () ; VagrantRegistry.Pickler
 
+    let Initialize () = init ()
     let Activate(config : Configuration) = init (); ClientProvider.Activate config
+

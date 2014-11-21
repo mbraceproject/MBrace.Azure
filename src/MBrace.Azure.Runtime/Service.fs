@@ -28,7 +28,7 @@ type Service (config : Configuration, maxTasks : int) =
         async {
             logf "Starting Service %s . . ." id
             logf "Initializing worker monitor . . ."
-            let wmon = WorkerMonitor.Activate(config.DefaultTable)
+            let wmon = WorkerMonitor.Activate(config.DefaultTableOrContainer)
 
             let! e = wmon.DeclareCurrent(id)
             logf "Declared node %s/%s . . ." e.Id e.Hostname
