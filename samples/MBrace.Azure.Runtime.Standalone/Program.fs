@@ -13,12 +13,9 @@
                 |> function | null, s | s, null | s, _ -> s
 
             let config = 
-                { StorageConnectionString = selectEnv "AzureStorageConn";
-                  ServiceBusConnectionString = selectEnv "AzureServiceBusConn"
-                  DefaultContainer = "bootstrap"
-                  DefaultLogTable = "mbracelogs"
-                  DefaultQueue = "bootstrap"
-                  DefaultTable = "bootstrap" }
+                { Configuration.Default with
+                    StorageConnectionString = selectEnv "AzureStorageConn";
+                    ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
 
             let svc = new Service(config, 10)
 

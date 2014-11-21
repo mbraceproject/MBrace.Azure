@@ -24,12 +24,9 @@ let selectEnv name =
     |> function | null, s | s, null | s, _ -> s
 
 let config = 
-    { StorageConnectionString = selectEnv "AzureStorageConn"
-      ServiceBusConnectionString = selectEnv "AzureServiceBusConn"
-      DefaultContainer = "bootstrap"
-      DefaultQueue = "bootstrap"
-      DefaultLogTable = "mbracelogs"
-      DefaultTable = "bootstrap"  }
+    { Configuration.Default with
+        StorageConnectionString = selectEnv "AzureStorageConn"
+        ServiceBusConnectionString = selectEnv "AzureServiceBusConn"  }
 
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 
@@ -96,7 +93,6 @@ ClientProvider.BlobClient.ListContainers("process")
 |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
 |> Async.Parallel
 |> Async.RunSynchronously
-
 
 //-------------------------------------------------------------------
 

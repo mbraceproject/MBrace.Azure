@@ -20,6 +20,16 @@ type Configuration =
       DefaultQueue : string
       DefaultLogTable : string }
 
+    static member Default = 
+        { StorageConnectionString = 
+            "DefaultEndpointsProtocol=[https];AccountName=[myAccount];AccountKey=[myKey];"
+          ServiceBusConnectionString = 
+              "Endpoint=sb://[your namespace].servicebus.windows.net;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=[your secret]"
+          DefaultContainer = "MBraceRuntime"
+          DefaultTable = "MBraceRuntimeTable"
+          DefaultQueue = "MBraceRuntimeTaskQueue"
+          DefaultLogTable = "MBraceRuntimeLogsTable" }
+
 and [<AbstractClass; Sealed>] ClientProvider private () = 
     static let cfg = ref None
     static let acc = ref Unchecked.defaultof<CloudStorageAccount>
