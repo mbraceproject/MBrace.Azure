@@ -3,14 +3,21 @@
 open System
 open System.Reflection
 open System.Threading
+open System.Security.Cryptography
+open System.Text
 
 open Nessos.Vagrant
-
 open Nessos.MBrace.Runtime
 open Nessos.FsPickler
 open Microsoft.WindowsAzure.Storage
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
+
+module private Hashcode =
+    let private hashAlgorithm = SHA256Managed.Create() :> HashAlgorithm
+    let compute (txt : string) = hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes txt)
+
+type ConfigurationId = ConfigurationId of hashcode : byte []
 
 type Configuration = 
     { /// Azure storage connection string.
@@ -32,6 +39,15 @@ type Configuration =
           DefaultTableOrContainer = "mbraceruntime"
           DefaultQueue = "mbraceruntime"
           DefaultLogTable = "mbraceruntimelogs" }
+
+    member __.ConfigurationId = 
+        let s = // TODO : change
+            __.StorageConnectionString +
+            __.ServiceBusConnectionString +
+            __.DefaultTableOrContainer +
+            __.DefaultQueue +
+            __.DefaultLogTable 
+        ConfigurationId(Hashcode.compute s)
 
 and [<AbstractClass; Sealed>] ClientProvider private () = 
     static let cfg = ref None

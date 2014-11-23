@@ -150,6 +150,16 @@ with
         let taskp = Pickle.pickle task
         rt.TaskQueue.Enqueue((taskp, procId, dependencies))
 
+    /// <summary>
+    ///     Enqueue a batch of cloud workflows with supplied continuations to the runtime task queue.
+    ///     Used for Parallel and Choice combinators
+    /// </summary>
+    /// <param name="dependencies">Vagrant dependency manifest.</param>
+    /// <param name="cts">Distributed cancellation token source.</param>
+    /// <param name="scFactory">Success continuation factory.</param>
+    /// <param name="ec">Exception continuation.</param>
+    /// <param name="cc">Cancellation continuation.</param>
+    /// <param name="wfs">Workflows</param>
     member rt.EnqueueTaskBatch procId dependencies cts scFactory ec cc (wfs : Cloud<'T> []) =
         let tasks = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
@@ -224,6 +234,7 @@ with
         return resultCell
     }
 
+    
     member rt.DequeueBatch(count : int) = async {
         let! items = rt.TaskQueue.ReceiveBatch(count)
         let ys = Array.zeroCreate items.Length

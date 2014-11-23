@@ -9,7 +9,7 @@
             let config = Argument.toConfiguration args
 
             let svc = new Service(config, 10)
-            let slogger = new StorageLogger(config.DefaultLogTable, "worker", svc.Id)
+            let slogger = new StorageLogger(config.DefaultLogTable, Worker(id = svc.Id))
             let clogger = new ConsoleLogger() in slogger.Attach(clogger)
             svc.Logger <- slogger
             svc.Start() 

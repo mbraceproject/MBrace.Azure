@@ -40,10 +40,10 @@ let runtime = Runtime.GetHandle(config)
 runtime.GetAllProcesses()
 //runtime.GetWorkers()
 
-let ps = runtime.CreateProcess(cloud { return 42 })
+let ps = runtime.CreateProcess(cloud { return 42 }, name = "foo")
 ps.AwaitResult()
 
-runtime.Run(cloud { return 42 }, cleanup = true)
+runtime.Run(cloud { return 42 })
 
 runtime.GetLogs() 
     |> Seq.sortBy (fun l -> l.Timestamp)
@@ -55,10 +55,10 @@ runtime.Run <| Cloud.CurrentWorker
 
 let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 
-let x = runtime.Run(f 10, cleanup = true)
+let x = runtime.Run(f 10)
 
 
-runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 82 then Some 42 else None } ), cleanup = true)
+runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 82 then Some 42 else None } ))
 
 let cts = new CancellationTokenSource()
 let t  = runtime.RunAsTask(cloud { while true do do! Cloud.Sleep 1000 }, cts.Token)

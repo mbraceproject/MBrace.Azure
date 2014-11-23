@@ -10,7 +10,6 @@ open Nessos.MBrace.Runtime
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, maxTasks : int) =
-    // TODO : locks, checks
     let id = guid ()
     do Configuration.Activate(config)
     let mutable logger = NullLogger() :> ICloudLogger
@@ -26,17 +25,15 @@ type Service (config : Configuration, maxTasks : int) =
         
     member __.AsyncStart() =
         async {
-            logf "Starting Service %s . . ." id
-            logf "Initializing worker monitor . . ."
-            let wmon = WorkerMonitor.Activate(config.DefaultTableOrContainer)
+            logf "Starting Service %s" id
 
-            let! e = wmon.DeclareCurrent(id)
-            logf "Declared node %s/%s . . ." e.Id e.Hostname
+            let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(id)
+            logf "Declared node %s/%s" e.Id e.Hostname
 
-            Async.Start(wmon.HeartbeatLoop(e))
-            logf "Started heartbeat loop . . ." 
+            Async.Start(state.ResourceFactory.WorkerMonitor.HeartbeatLoop(e))
+            logf "Started heartbeat loop" 
 
-            logf "Starting worker loop . . ."
+            logf "Starting worker loop"
             return! Worker.initWorker state maxTasks logger
         }
 

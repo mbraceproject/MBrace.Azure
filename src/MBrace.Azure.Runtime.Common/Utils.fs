@@ -50,9 +50,11 @@
                 return ()
             }
 
-    type Cached<'T>(provider : unit -> Async<'T>, initial : Choice<'T,exn>, ?keepLast : bool, ?interval : int) =
+    type Live<'T>(provider : unit -> Async<'T>, initial : Choice<'T,exn>, ?keepLast : bool, ?interval : int, ?stopf : Choice<'T, exn> -> bool) =
         let interval = defaultArg interval 500
         let keepLast = defaultArg keepLast false
+        let stopf = defaultArg stopf (fun _ -> false)
+        let cts = new Threading.CancellationTokenSource()
         let mutable value = initial
 
         let rec update () = async {
@@ -65,7 +67,7 @@
             return! update ()
         }
 
-        do Async.Start(update ())
+        do Async.Start(update (), cts.Token)
 
         member __.TryGetValue () = 
             match value with
@@ -76,4 +78,3 @@
             match value with
             | Choice1Of2 v -> v
             | Choice2Of2 e -> raise e
-

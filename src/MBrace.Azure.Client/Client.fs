@@ -14,24 +14,26 @@
     /// MBrace Sample runtime client instance.
     [<AutoSerializable(false)>]
     type Runtime private (config : Configuration) =
-        let id = guid()
+        let clientId = guid()
         do Configuration.Activate(config)
-        let wmon = WorkerMonitor.Activate(config.DefaultTableOrContainer)
-        let logger = new StorageLogger(config.DefaultLogTable, "client", id)
-        do logger.Attach(new ConsoleLogger()) // remove
+        let logger = new StorageLogger(config.DefaultLogTable, Client(id = clientId))
+        do logger.Attach(new ConsoleLogger()) // TODO : move to Client settings
+        
         let state = RuntimeState.FromConfiguration(config)
+        let wmon = state.ResourceFactory.WorkerMonitor
         let pmon = state.ResourceFactory.ProcessMonitor
 
         member private __.RuntimeState = state
 
-        member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) : Process<'T> =
-            Async.RunSynchronously(__.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken))
+        member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Process<'T> =
+            Async.RunSynchronously(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken))
 
-        member __.CreateProcessAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) : Async<Process<'T>> =
+        member __.CreateProcessAsync(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Async<Process<'T>> =
             async {
                 let computation = CloudCompiler.Compile workflow
                 let processId = guid()
-                logger.Logf "Creating process %s" processId
+                let pname = defaultArg name computation.Name
+                logger.Logf "Creating process %s %s" processId pname
                 let storageId = Storage.processIdToStorageId processId
                 logger.Logf "Uploading dependencies %O" computation.Dependencies
                 do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
@@ -39,7 +41,7 @@
                 let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 logger.Logf "Starting process"
-                let! resultCell = state.StartAsProcess processId computation.Name computation.Dependencies cts computation.Workflow
+                let! resultCell = state.StartAsProcess processId pname computation.Dependencies cts computation.Workflow
                 logger.Logf "Created process %s" processId
                 return Process(processId, state.ResourceFactory.ProcessMonitor)
             }

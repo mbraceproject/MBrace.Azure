@@ -13,11 +13,12 @@
     [<AutoSerializable(false)>]
     type Process<'T> internal (pid : string, pmon : ProcessMonitor) =
 
-        let proc = new Cached<_>(
+        let proc = new Live<_>(
                     (fun () -> pmon.GetProcess(pid)), 
-                    Choice2Of2 <| exn("Uninitialied process"), 
-                    true,
-                    500)
+                    initial = Choice2Of2(exn("Uninitialized process")), 
+                    keepLast = true,
+                    interval = 500,
+                    stopf = function Choice1Of2 p when p.Completed -> true | _ -> false)
 
         member internal __.DistributedCancellationTokenSource = DistributedCancellationTokenSource.FromUri(new Uri(proc.Value.CancellationUri))
 

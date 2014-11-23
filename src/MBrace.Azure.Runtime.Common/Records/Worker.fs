@@ -34,34 +34,23 @@ type WorkerEntity(pk : string, id : string, hostname : string, pid : int, pname 
     member __.AsWorkerRef () = new WorkerRef(id, hostname, pid, pname, joined)
 
 
-type WorkerMonitor private (table : string) =
+type WorkerMonitor internal (table : string) =
     let pk = "worker"
 
-    // TODO :
-    static let monitor : WorkerMonitor option ref = ref None 
     let current = ref None
 
-    static member Activated = monitor.Value.Value
-
-    static member Activate(table : string) = 
-        if monitor.Value.IsSome then monitor.Value.Value
-        else
-            let m = new WorkerMonitor(table)
-            monitor := Some m
-            m
-    member private __.Declare(id, hostname, pid : int, pname : string, joined : DateTime, heartbeat : DateTime)  = async {
-        let e = new WorkerEntity(pk, id, hostname, pid, pname, joined, heartbeat)
-        do! Table.insert<WorkerEntity> table e
-        return e
-    }
-
-    member __.DeclareCurrent(id : string) = 
-        let ps = Process.GetCurrentProcess()
-        let joined = DateTime.UtcNow
+    member __.DeclareCurrent(id : string) : Async<WorkerEntity> = 
         async {
-            let! w = __.Declare(id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
-            current := Some w
-            return w
+            match current.Value with 
+            | Some w -> 
+                return failwithf "Worker %A is active" w
+            | None ->
+                let ps = Process.GetCurrentProcess()
+                let joined = DateTime.UtcNow
+                let w = new WorkerEntity(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
+                do! Table.insert<WorkerEntity> table w
+                current := Some w
+                return w
         }
 
     member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerEntity seq> = async {

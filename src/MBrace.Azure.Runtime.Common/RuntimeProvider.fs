@@ -49,9 +49,9 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
             | Sequential -> Sequential.StartChild computation
 
         member __.GetAvailableWorkers () = async { 
-            let! ws = WorkerMonitor.Activated.GetWorkers()
+            let! ws = state.ResourceFactory.WorkerMonitor.GetWorkers()
             return ws |> Seq.map (fun w -> w.AsWorkerRef() :> IWorkerRef)
                       |> Seq.toArray
             }
-        member __.CurrentWorker = WorkerMonitor.Activated.Current.AsWorkerRef() :> IWorkerRef
+        member __.CurrentWorker = state.ResourceFactory.WorkerMonitor.Current.AsWorkerRef() :> IWorkerRef
         member __.Logger = Unchecked.defaultof<_> //state.Logger :> ICloudLogger

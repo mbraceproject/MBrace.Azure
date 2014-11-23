@@ -14,13 +14,23 @@ open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open System.Collections.Concurrent
 
+type LoggerType =
+    | Worker of id : string
+    | Client of id : string
+    | Other of name : string * id : string with 
+        override this.ToString() = 
+            match this with
+            | Worker id -> sprintf "worker:%s" id
+            | Client id -> sprintf "client:%s" id
+            | Other(name, id) -> sprintf "%s:%s" name id
+
 type LogEntity(pk : string, loggerType : string, message : string) =
     inherit TableEntity(pk, guid())
     member val Type = loggerType with get, set
     member val Message = message with get, set
     new () = new LogEntity(null, null, null)
 
-type StorageLogger(table : string, loggerType : string, id : string) =
+type StorageLogger(table : string, loggerType : LoggerType) =
     let pk = "log"
 
     let maxWaitTime = 5000
@@ -31,7 +41,7 @@ type StorageLogger(table : string, loggerType : string, id : string) =
         if count > 0 then
             let out = Array.zeroCreate count
             let count = logs.TryPopRange(out)
-            let ys = Array.init count (fun i -> new LogEntity(pk, loggerType, out.[i]))
+            let ys = Array.init count (fun i -> new LogEntity(pk, string loggerType, out.[i]))
             return! Table.insertBatch<LogEntity> table ys
     }
 
