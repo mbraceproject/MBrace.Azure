@@ -61,6 +61,7 @@ type ResultCell<'T> internal (res : Uri) =
         new ResultCell<'T>(res)
 
     static member private GetUri(container, id) = uri "resultcell:%s/%s" container id
+    static member FromUri<'T>(uri) = new ResultCell<'T>(uri)
     static member Init<'T>(container : string) : Async<ResultCell<'T>> = 
         async { 
             let res = ResultCell<_>.GetUri(container, guid())
@@ -136,5 +137,6 @@ type ResourceFactory private (config) =
     member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Init(container, count)
     member __.RequestCancellationTokenSource(container, ?parent) = DistributedCancellationTokenSource.Init(container, ?parent = parent)
     member __.RequestResultCell<'T>(container) = ResultCell<Result<'T>>.Init(container)
-    member __.RequestProcessMonitor () = new ProcessMonitor(config.DefaultTableOrContainer)
+    member __.ProcessMonitor = new ProcessMonitor(config.DefaultTableOrContainer)
+    
     static member Init (config : Configuration) = new ResourceFactory(config)

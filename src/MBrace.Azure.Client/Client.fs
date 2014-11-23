@@ -20,48 +20,37 @@
         let logger = new StorageLogger(config.DefaultLogTable, "client", id)
         do logger.Attach(new ConsoleLogger()) // remove
         let state = RuntimeState.FromConfiguration(config)
-        
+        let pmon = state.ResourceFactory.ProcessMonitor
+
         member private __.RuntimeState = state
 
-//        member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) : Async<Process<'T>> =
-//            async {
-//                let computation = CloudCompiler.Compile workflow
-//                let processId = guid()
-//                logger.Logf "Creating process %s" processId
-//                let storageId = Storage.processIdToStorageId processId
-//                logger.Logf "Uploading dependencies %O" computation.Dependencies
-//                do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
-//                logger.Logf "Creating DistributedCancellationToken"
-//                let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
-//                try
-//                    cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-//                    logger.Logf "Starting computation"
-//                    let! resultCell = state.StartAsCellRoot processId computation.Dependencies cts computation.Workflow
-//                    let task = Async.StartAsTask(resultCell.AwaitResult())
-//                    return Process(processId, cts.GetLocalCancellationToken()., task, state.ResourceFactory.RequestProcessMonitor())
-//                finally
-//                    cts.Cancel ()
-//            }
+        member __.CreateProcess(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) : Process<'T> =
+            Async.RunSynchronously(__.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken))
+
+        member __.CreateProcessAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) : Async<Process<'T>> =
+            async {
+                let computation = CloudCompiler.Compile workflow
+                let processId = guid()
+                logger.Logf "Creating process %s" processId
+                let storageId = Storage.processIdToStorageId processId
+                logger.Logf "Uploading dependencies %O" computation.Dependencies
+                do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
+                logger.Logf "Creating DistributedCancellationToken"
+                let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
+                cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
+                logger.Logf "Starting process"
+                let! resultCell = state.StartAsProcess processId computation.Name computation.Dependencies cts computation.Workflow
+                logger.Logf "Created process %s" processId
+                return Process(processId, state.ResourceFactory.ProcessMonitor)
+            }
             
         /// Asynchronously execute a workflow on the distributed runtime.
         member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
-            let computation = CloudCompiler.Compile workflow
-            let processId = guid()
-            logger.Logf "Creating process %s" processId
-            let storageId = Storage.processIdToStorageId processId
-            logger.Logf "Uploading dependencies %O" computation.Dependencies
-            do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
-            logger.Logf "Creating DistributedCancellationToken"
-            let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
+            let! p = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken)
             try
-                cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-                logger.Logf "Starting computation"
-                let! resultCell = state.StartAsCellRoot processId computation.Dependencies cts computation.Workflow
-                logger.Logf "Waiting for result"
-                let! result = resultCell.AwaitResult()
-                return result.Value
+                return p.AwaitResult()
             finally
-                cts.Cancel ()
+                p.DistributedCancellationTokenSource.Cancel()
         }
 
         /// Execute a workflow on the distributed runtime as task.
@@ -70,12 +59,16 @@
             Async.StartAsTask(asyncwf)
 
         /// Execute a workflow on the distributed runtime synchronously
-        member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?cleanup : bool) =
+        member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
 
         member __.GetWorkers () = Async.RunSynchronously <| wmon.GetWorkers()
 
         member __.GetLogs () = Async.RunSynchronously <| logger.AsyncGetLogs()
+
+        member __.GetProcess(pid) = Async.RunSynchronously <| pmon.GetProcess(pid)
+
+        member __.GetAllProcesses () = Async.RunSynchronously <| pmon.GetProcesses()
 
         static member GetHandle(config : Configuration) = new Runtime(config)
 

@@ -201,13 +201,15 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCellRoot procId dependencies cts (wf : Cloud<'T>) = async {
+    /// <param name="name">Process name.</param>
+    /// <param name="procId">Process id.</param>
+    member rt.StartAsProcess procId name dependencies cts (wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
-        do! rt.ResourceFactory.RequestProcessMonitor().Create(procId)
+        let! _ = rt.ResourceFactory.ProcessMonitor.CreateRecord(procId, name, string (cts :> IResource).Uri)
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
-                let pmon = rt.ResourceFactory.RequestProcessMonitor()
+                let pmon = rt.ResourceFactory.ProcessMonitor
                 match r with
                 | Completed _ 
                 | Exception _ -> do! pmon.SetCompleted(procId, (resultCell :> IResource).Uri.ToString())

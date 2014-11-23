@@ -37,9 +37,11 @@ Runtime.Spawn(config, 4)
 
 
 let runtime = Runtime.GetHandle(config)
-
+runtime.GetAllProcesses()
 //runtime.GetWorkers()
 
+let ps = runtime.CreateProcess(cloud { return 42 })
+ps.AwaitResult()
 
 runtime.Run(cloud { return 42 }, cleanup = true)
 
@@ -179,8 +181,9 @@ let xs = exp.ComputeDependencies Foo
 //---------------------------------------------------------------------
 
 let rf = ResourceFactory.Init(config)
-let pmon = rf.RequestProcessMonitor()
-!pmon.Create("foobar")
+let pmon = rf.ProcessMonitor
+!pmon.CreateRecord("foo", "bar", "")
 !pmon.GetProcesses()
-
+!pmon.GetProcess("foo")
+!pmon.SetCompleted("foo", "")
 

@@ -1,20 +1,44 @@
 ﻿namespace Nessos.MBrace.Azure.Client
 
+    open System
     open System.IO
     open System.Threading
-
     open Nessos.MBrace
     open Nessos.MBrace.Runtime
     open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Azure.Runtime.Common
+    open Nessos.MBrace.Azure.Runtime.Resources
     open Nessos.MBrace.Runtime.Compiler
 
-    #nowarn "40"
-
     [<AutoSerializable(false)>]
-    type Process<'T> internal (procId : string, cts : CancellationTokenSource, task : Tasks.Task<'T>, pmon : ProcessMonitor) =
-        member __.Id = procId
-        member __.Kill () = cts.Cancel()
-        member __.AsTask() = task
-        member __.AwaitResult () = task.Wait() 
+    type Process<'T> internal (pid : string, pmon : ProcessMonitor) =
+
+        let proc = new Cached<_>(
+                    (fun () -> pmon.GetProcess(pid)), 
+                    Choice2Of2 <| exn("Uninitialied process"), 
+                    true,
+                    500)
+
+        member internal __.DistributedCancellationTokenSource = DistributedCancellationTokenSource.FromUri(new Uri(proc.Value.CancellationUri))
+
+        member __.Id = pid
+        member __.Name = proc.Value.Name
         
+        member __.Created = proc.Value.TimeCreated
+        
+        member __.ExecutionTime =
+            let s = if proc.Value.Completed 
+                    then proc.Value.TimeCompleted 
+                    else DateTime.UtcNow 
+            s - proc.Value.TimeCreated
+        member __.Completed = proc.Value.Completed
+        
+        member __.Kill () =__.DistributedCancellationTokenSource.Cancel()
+
+        member __.AwaitResult () : 'T = __.AwaitResultAsync() |> Async.RunSynchronously
+        member __.AwaitResultAsync () : Async<'T> = 
+            async { 
+                let rs : ResultCell<Result<'T>> = ResultCell.FromUri<_>(new Uri (proc.Value.ResultUri))
+                let! r = rs.AwaitResult()
+                return r.Value }
+

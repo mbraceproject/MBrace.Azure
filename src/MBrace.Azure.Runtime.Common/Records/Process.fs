@@ -21,29 +21,33 @@ type ProcessState =
         | Killed -> "Killed"
         | Completed -> "Completed"
 
-type ProcessEntity(pk : string, pid : string, state, created, completed, resultUri) = 
+type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri) = 
     inherit TableEntity(pk, pid)
-    member val ProcessId = pid with get, set
+    member val Id  : string = pid with get, set
+    member val Name : string = pname with get, set
     member val State : string = state with get, set
-    member val Created : DateTime = created with get, set
-    member val Completed : DateTime = completed with get, set
+    member val TimeCreated : DateTime = createdt with get, set
+    member val TimeCompleted : DateTime = completedt with get, set
+    member val Completed : bool = completed with get, set
     member val ResultUri : string = resultUri with get, set
-    new() = new ProcessEntity(null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, null)
+    member val CancellationUri : string = cancellationUri with get, set
+    new () = new ProcessEntity(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null)
 
 type ProcessMonitor internal (table : string) = 
     let pk = "process"
     
-    member this.Create(pid : string) = async { 
+    member this.CreateRecord(pid : string, name, ctsUri) = async { 
         let now = DateTime.UtcNow
-        let e = new ProcessEntity(pk, pid, ProcessState.Initialized.ToString(), now, now, null)
+        let e = new ProcessEntity(pk, pid, name, ctsUri, ProcessState.Initialized.ToString(), now, now, false, null)
         do! Table.insert<ProcessEntity> table e
-        return ()
+        return e
     }
 
     member this.SetKilled(pid : string) = async {
         let! e = Table.read<ProcessEntity> table pk pid
         e.State <- ProcessState.Killed.ToString()
-        e.Completed <- DateTime.UtcNow
+        e.TimeCompleted <- DateTime.UtcNow
+        e.Completed <- true
         let! e' = Table.merge table e
         return ()
     }
@@ -51,14 +55,15 @@ type ProcessMonitor internal (table : string) =
     member this.SetCompleted(pid : string, result : string) = async {
         let! e = Table.read<ProcessEntity> table pk pid
         e.State <- ProcessState.Completed.ToString()
-        e.Completed <- DateTime.UtcNow
+        e.TimeCompleted <- DateTime.UtcNow
+        e.Completed <- true
         e.ResultUri <- result
         let! e' = Table.merge table e
         return ()
     }
 
     member this.GetProcess(pid : string) = async {
-        return! Table.read<ProcessEntity> table pid String.Empty
+        return! Table.read<ProcessEntity> table pk pid
     }
 
     member this.GetProcesses () = async {

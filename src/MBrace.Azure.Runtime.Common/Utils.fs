@@ -12,7 +12,6 @@
     
         let inline ofTask (t : Task) : Task<unit> = t.ContinueWith ignore
 
-
         type Async with
             static member inline Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
 
@@ -51,4 +50,30 @@
                 return ()
             }
 
-            
+    type Cached<'T>(provider : unit -> Async<'T>, initial : Choice<'T,exn>, ?keepLast : bool, ?interval : int) =
+        let interval = defaultArg interval 500
+        let keepLast = defaultArg keepLast false
+        let mutable value = initial
+
+        let rec update () = async {
+            let! choice = Async.Catch <| provider ()
+            match choice with
+            | Choice1Of2 _ as v -> value <- v
+            | Choice2Of2 _ when keepLast -> ()
+            | Choice2Of2 _ as v -> value <- v
+            do! Async.Sleep interval
+            return! update ()
+        }
+
+        do Async.Start(update ())
+
+        member __.TryGetValue () = 
+            match value with
+            | Choice1Of2 v -> Some v
+            | Choice2Of2 _ -> None
+
+        member __.Value =
+            match value with
+            | Choice1Of2 v -> v
+            | Choice2Of2 e -> raise e
+

@@ -33,6 +33,8 @@ type DistributedCancellationTokenSource internal (res : Uri) =
             else return false
         }
     
+    let cts = lazy new CancellationTokenSource()
+    
     interface IResource with
         member __.Uri = res
     
@@ -41,12 +43,10 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     member __.Cancel() = cancel () |> Async.RunSynchronously
     
     member __.GetLocalCancellationToken() = 
-        let cts = new CancellationTokenSource()
-
         let rec loop () = async {
             let! isCancelled = check ()
             if isCancelled then
-                cts.Cancel()
+                cts.Value.Cancel()
             else
                 do! Async.Sleep 500
                 return! loop ()
@@ -54,7 +54,7 @@ type DistributedCancellationTokenSource internal (res : Uri) =
 
         Async.Start(loop())
 
-        cts.Token
+        cts.Value.Token
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
@@ -65,6 +65,7 @@ type DistributedCancellationTokenSource internal (res : Uri) =
         new DistributedCancellationTokenSource(res)
 
     static member private GetUri(container, id) = uri "dcts:%s/%s" container id
+    static member FromUri(uri) = new DistributedCancellationTokenSource(uri)
     static member Init(container : string, ?parent : DistributedCancellationTokenSource) = 
         async { 
             let link = 
