@@ -38,7 +38,7 @@ Runtime.Spawn(config, 4)
 
 let runtime = Runtime.GetHandle(config)
 runtime.GetAllProcesses()
-//runtime.GetWorkers()
+runtime.GetWorkers()
 
 let ps = runtime.CreateProcess(cloud { return 42 }, name = "foo")
 ps.AwaitResult()

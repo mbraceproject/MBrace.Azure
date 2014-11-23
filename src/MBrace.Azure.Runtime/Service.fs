@@ -7,6 +7,7 @@ open Nessos.MBrace.Azure.Runtime
 open System.Runtime.InteropServices
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Runtime
+open Nessos.MBrace
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, maxTasks : int) =
@@ -28,9 +29,9 @@ type Service (config : Configuration, maxTasks : int) =
             logf "Starting Service %s" id
 
             let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(id)
-            logf "Declared node %s/%s" e.Id e.Hostname
+            logf "Declared node %s (%d)/%s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
 
-            Async.Start(state.ResourceFactory.WorkerMonitor.HeartbeatLoop(e))
+            Async.Start(state.ResourceFactory.WorkerMonitor.HeartbeatLoop())
             logf "Started heartbeat loop" 
 
             logf "Starting worker loop"

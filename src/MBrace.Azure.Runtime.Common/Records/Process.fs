@@ -36,9 +36,9 @@ type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt,
 type ProcessMonitor internal (table : string) = 
     let pk = "process"
     
-    member this.CreateRecord(pid : string, name, ctsUri) = async { 
+    member this.CreateRecord(pid : string, name, ctsUri, resultUri) = async { 
         let now = DateTime.UtcNow
-        let e = new ProcessEntity(pk, pid, name, ctsUri, ProcessState.Initialized.ToString(), now, now, false, null)
+        let e = new ProcessEntity(pk, pid, name, ctsUri, ProcessState.Initialized.ToString(), now, now, false, resultUri)
         do! Table.insert<ProcessEntity> table e
         return e
     }
@@ -52,12 +52,11 @@ type ProcessMonitor internal (table : string) =
         return ()
     }
 
-    member this.SetCompleted(pid : string, result : string) = async {
+    member this.SetCompleted(pid : string) = async {
         let! e = Table.read<ProcessEntity> table pk pid
         e.State <- ProcessState.Completed.ToString()
         e.TimeCompleted <- DateTime.UtcNow
         e.Completed <- true
-        e.ResultUri <- result
         let! e' = Table.merge table e
         return ()
     }

@@ -14,7 +14,7 @@ open Nessos.MBrace
 type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTime) =    
     interface Nessos.MBrace.IWorkerRef with
         member __.Id = id
-        member __.Type = "MBrace.Azure worker"
+        member __.Type = "MBrace.Azure.Worker"
     member __.Hostname = hostname 
     member __.ProcessId = pid 
     member __.ProcessName = pname 
@@ -31,7 +31,8 @@ type WorkerEntity(pk : string, id : string, hostname : string, pid : int, pname 
 
     new () = new WorkerEntity(null, null, null, -1, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>)
 
-    member __.AsWorkerRef () = new WorkerRef(id, hostname, pid, pname, joined)
+    member __.AsWorkerRef () = 
+        new WorkerRef(__.Id, __.Hostname, __.ProcessId, __.ProcessName, __.CreationTime)
 
 
 type WorkerMonitor internal (table : string) =
@@ -39,7 +40,7 @@ type WorkerMonitor internal (table : string) =
 
     let current = ref None
 
-    member __.DeclareCurrent(id : string) : Async<WorkerEntity> = 
+    member __.DeclareCurrent(id : string) : Async<WorkerRef> = 
         async {
             match current.Value with 
             | Some w -> 
@@ -50,18 +51,22 @@ type WorkerMonitor internal (table : string) =
                 let w = new WorkerEntity(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
                 do! Table.insert<WorkerEntity> table w
                 current := Some w
-                return w
+                return w.AsWorkerRef()
         }
 
-    member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerEntity seq> = async {
+    member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerRef seq> = async {
         let timespan = defaultArg timespan <| TimeSpan.FromSeconds 30.
         let now = DateTime.UtcNow
         let! ws = Table.readBatch<WorkerEntity> table pk
         return ws |> Seq.filter (fun w -> now - w.Heartbeat < timespan)
+                  |> Seq.map (fun w -> w.AsWorkerRef())
     }
 
-    member __.HeartbeatLoop(worker : WorkerEntity, ?timespan : TimeSpan) : Async<unit> = async {
+    member __.Current = current.Value.Value
+
+    member __.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
         let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
+        let worker = __.Current
         worker.ETag <- "*"
         let rec loop () = async {
             worker.Heartbeat <- DateTime.UtcNow
@@ -72,4 +77,3 @@ type WorkerMonitor internal (table : string) =
         return! loop ()
     }
 
-    member __.Current = current.Value.Value

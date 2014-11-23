@@ -50,7 +50,7 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
 
         member __.GetAvailableWorkers () = async { 
             let! ws = state.ResourceFactory.WorkerMonitor.GetWorkers()
-            return ws |> Seq.map (fun w -> w.AsWorkerRef() :> IWorkerRef)
+            return ws |> Seq.map (fun w -> w :> IWorkerRef)
                       |> Seq.toArray
             }
         member __.CurrentWorker = state.ResourceFactory.WorkerMonitor.Current.AsWorkerRef() :> IWorkerRef

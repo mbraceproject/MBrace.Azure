@@ -54,20 +54,28 @@
         let interval = defaultArg interval 500
         let keepLast = defaultArg keepLast false
         let stopf = defaultArg stopf (fun _ -> false)
-        let cts = new Threading.CancellationTokenSource()
         let mutable value = initial
 
-        let rec update () = async {
+        let runOnce () = async {
             let! choice = Async.Catch <| provider ()
             match choice with
             | Choice1Of2 _ as v -> value <- v
             | Choice2Of2 _ when keepLast -> ()
             | Choice2Of2 _ as v -> value <- v
-            do! Async.Sleep interval
-            return! update ()
+            return choice
         }
 
-        do Async.Start(update (), cts.Token)
+        let rec update () = async {
+            let! choice = runOnce()
+            if stopf choice then 
+                return ()
+            else
+                do! Async.Sleep interval
+                return! update ()
+        }
+
+        do runOnce() |> Async.Ignore |> Async.RunSynchronously
+           update () |> Async.Start
 
         member __.TryGetValue () = 
             match value with

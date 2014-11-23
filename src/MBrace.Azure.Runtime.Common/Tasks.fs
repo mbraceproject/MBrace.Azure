@@ -215,14 +215,18 @@ with
     /// <param name="procId">Process id.</param>
     member rt.StartAsProcess procId name dependencies cts (wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
-        let! _ = rt.ResourceFactory.ProcessMonitor.CreateRecord(procId, name, string (cts :> IResource).Uri)
+        let! _ = rt.ResourceFactory.ProcessMonitor
+                   .CreateRecord(
+                        procId, name, 
+                        string (cts :> IResource).Uri, 
+                        string (resultCell :> IResource).Uri)
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
                 let pmon = rt.ResourceFactory.ProcessMonitor
                 match r with
                 | Completed _ 
-                | Exception _ -> do! pmon.SetCompleted(procId, (resultCell :> IResource).Uri.ToString())
+                | Exception _ -> do! pmon.SetCompleted(procId)
                 | Cancelled _ -> do! pmon.SetKilled(procId)
                 TaskExecutionMonitor.TriggerCompletion ctx
             } |> TaskExecutionMonitor.ProtectAsync ctx

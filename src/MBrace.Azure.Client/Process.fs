@@ -15,7 +15,7 @@
 
         let proc = new Live<_>(
                     (fun () -> pmon.GetProcess(pid)), 
-                    initial = Choice2Of2(exn("Uninitialized process")), 
+                    initial = Choice2Of2(exn("Process not initialized")), 
                     keepLast = true,
                     interval = 500,
                     stopf = function Choice1Of2 p when p.Completed -> true | _ -> false)
