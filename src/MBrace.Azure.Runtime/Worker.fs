@@ -35,10 +35,13 @@ let initWorker (runtime : RuntimeState)
                 match task with
                 | None ->
                     do! Async.Sleep 50
-                | Some (task, procId, dependencies) ->
+                | Some (msg, task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
                         logf "Starting task %s/%s/%O" procId task.TaskId task.Type
+                        
+                        let! renew = Async.StartChild(msg.RenewLoopAsync())
+                        logf "Started task renew loop"
 
                         let sw = new Stopwatch()
                         sw.Start()
@@ -47,8 +50,10 @@ let initWorker (runtime : RuntimeState)
 
                         match result with
                         | Choice1Of2 () -> 
+                            do! msg.CompleteAsync()
                             logf "Completed task %s/%s/%O" procId task.TaskId sw.Elapsed
                         | Choice2Of2 e -> 
+                            do! msg.AbandonAsync()
                             logf "Task fault %s/%s with: \n%O" procId task.TaskId e
 
                         let _ = Interlocked.Decrement currentTaskCount

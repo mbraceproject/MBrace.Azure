@@ -239,24 +239,25 @@ with
     }
 
     
-    member rt.DequeueBatch(count : int) = async {
-        let! items = rt.TaskQueue.ReceiveBatch(count)
-        let ys = Array.zeroCreate items.Length
-        for i = 0 to items.Length - 1 do
-            let (tp, procId, deps) = items.[i]
-            do! rt.AssemblyExporter.LoadDependencies deps
-            let task = Pickle.unpickle tp
-            ys.[i] <- task, procId, deps
-        return ys
-    }
+//    member rt.DequeueBatch(count : int) = async {
+//        let! items = rt.TaskQueue.ReceiveBatch(count)
+//        let ys = Array.zeroCreate items.Length
+//        for i = 0 to items.Length - 1 do
+//            let (tp, procId, deps) = items.[i]
+//            do! rt.AssemblyExporter.LoadDependencies deps
+//            let task = Pickle.unpickle tp
+//            ys.[i] <- task, procId, deps
+//        return ys
+//    }
 
     /// Attempt to dequeue a task from the runtime task queue
     member rt.TryDequeue () = async {
         let! item = rt.TaskQueue.TryDequeue()
         match item with
         | None -> return None
-        | Some ((tp, procId, deps)) -> 
+        | Some msg -> 
+            let! (tp, procId, deps) = msg.GetPayloadAsync()
             do! rt.AssemblyExporter.LoadDependencies deps
             let task = Pickle.unpickle tp
-            return Some (task, procId, deps)
+            return Some (msg, task, procId, deps)
     }
