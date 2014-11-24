@@ -16,16 +16,17 @@
     type Runtime private (config : Configuration) =
         let clientId = guid()
         do Configuration.Activate(config)
-        let logger = new StorageLogger(config.DefaultLogTable, Client(id = clientId))
-        do logger.Attach(new ConsoleLogger()) // TODO : move to Client settings
-        
         let state = RuntimeState.FromConfiguration(config)
+        let logger = new StorageLogger(config.DefaultLogTable, Client(id = clientId))
+        do logger.Attach(new ConsoleLogger()) // TODO : move to Client settings        
         do state.ResourceFactory.Logger.Attach(logger)
         let wmon = state.ResourceFactory.WorkerMonitor
         let pmon = state.ResourceFactory.ProcessMonitor
         do logger.Logf "Client %s created" clientId
 
         member private __.RuntimeState = state
+
+        member __.ClientId = clientId
 
         member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Process<'T> =
             Async.RunSynchronously(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken))
@@ -76,7 +77,7 @@
         member __.GetLogs () = Async.RunSynchronously <| __.GetLogsAsync()
         member __.GetLogsAsync () = logger.AsyncGetLogs()
         member __.ShowLogs () =
-            let ls = __.GetLogs() |> List.ofSeq
+            let ls = __.GetLogs() |> Seq.sortBy (fun l -> l.Timestamp, l.Type) |> List.ofSeq
             printf "%s" <| LogReporter.Report(ls, "Logs", false)
 
         member __.GetProcess(pid) = Async.RunSynchronously <| __.GetProcessAsync(pid)
