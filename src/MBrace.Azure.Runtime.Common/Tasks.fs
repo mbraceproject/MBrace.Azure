@@ -108,16 +108,11 @@ type RuntimeState =
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
-        /// returns a manifest of workers available to the cluster.
-        ///WorkerMonitor : WorkerMonitor
-        /// Distributed logger facility
-        //Logger : Logger
     }
 with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration) =
         {
-            //Logger = Logger.Init logger
             TaskQueue = Queue<_>.Init (config.DefaultQueue) |> Async.RunSynchronously
             AssemblyExporter = AssemblyExporter.Init(config.DefaultTableOrContainer) 
             ResourceFactory = ResourceFactory.Init(config) 

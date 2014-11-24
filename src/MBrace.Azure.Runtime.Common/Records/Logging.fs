@@ -14,6 +14,10 @@ open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open System.Collections.Concurrent
 
+type ILogger =
+    inherit ICloudLogger
+    abstract Attach : ILogger -> unit
+
 type LoggerType =
     | Worker of id : string
     | Client of id : string
@@ -30,51 +34,66 @@ type LogEntity(pk : string, loggerType : string, message : string) =
     member val Message = message with get, set
     new () = new LogEntity(null, null, null)
 
-type StorageLogger(table : string, loggerType : LoggerType) =
-    let pk = "log"
-
-    let maxWaitTime = 5000
+type LoggerBase () =
     let attached = new ConcurrentBag<ICloudLogger>()
-    let logs = ConcurrentStack<string>()
-    let flush () = async {
-        let count = logs.Count
-        if count > 0 then
-            let out = Array.zeroCreate count
-            let count = logs.TryPopRange(out)
-            let ys = Array.init count (fun i -> new LogEntity(pk, string loggerType, out.[i]))
-            return! Table.insertBatch<LogEntity> table ys
-    }
 
-    do  let rec loop _ = async {
-            do! Async.Sleep maxWaitTime
-            do! flush ()
-            return! loop ()
+    abstract member Log : string -> unit
+    override __.Log(msg) = 
+        for l in attached do
+            l.Log(msg)
+
+    abstract member Attach : ILogger -> unit
+    override __.Attach(logger) = attached.Add(logger)
+
+    interface ILogger with
+        member __.Attach(arg1: ILogger): unit = __.Attach(arg1)
+        member __.Log entry = __.Log entry
+  
+
+type StorageLogger(table : string, loggerType : LoggerType) =
+    inherit LoggerBase () with
+    
+        let pk = "log"
+
+        let maxWaitTime = 5000
+        let logs = ConcurrentStack<string>()
+        let flush () = async {
+            let count = logs.Count
+            if count > 0 then
+                let out = Array.zeroCreate count
+                let count = logs.TryPopRange(out)
+                let ys = Array.init count (fun i -> new LogEntity(pk, string loggerType, out.[i]))
+                return! Table.insertBatch<LogEntity> table ys
         }
-        Async.Start(loop ())
 
-    let log msg = 
-            for l in attached do l.Log(msg)
-            logs.Push(msg)
+        do  let rec loop _ = async {
+                do! Async.Sleep maxWaitTime
+                do! flush ()
+                return! loop ()
+            }
+            Async.Start(loop ())
 
+        let log msg = logs.Push(msg)
 
-    interface ICloudLogger with
-        member x.Log(entry: string) : unit = log entry
-        
-    member __.Logf fmt = Printf.ksprintf log fmt
+        override x.Log(entry: string) : unit = log entry; base.Log(entry)
 
-    member __.AsyncGetLogs () = Table.readBatch<LogEntity> table pk
+        member __.Logf fmt = Printf.ksprintf log fmt
 
-    member __.Attach(logger : ICloudLogger) = attached.Add(logger)
+        member __.AsyncGetLogs () = Table.readBatch<LogEntity> table pk
+
 
 type NullLogger () =
-    interface ICloudLogger with
-        member x.Log(entry: string): unit = ()
+    inherit LoggerBase () 
 
 type ConsoleLogger () =
-    interface ICloudLogger with
-        member x.Log(entry: string): unit = Console.WriteLine("{0} : {1}", DateTime.UtcNow.ToString("ddMMyyyy HH:mm:ss"), entry)
+    inherit LoggerBase () with
+        override x.Log(entry: string): unit = 
+            Console.WriteLine("{0} : {1}", DateTime.UtcNow.ToString("ddMMyyyy HH:mm:ss"), entry)
+            base.Log(entry)
 
 type CustomLogger (f : Action<string>) =
-    interface ICloudLogger with
-        member x.Log(entry: string): unit = f.Invoke(entry)
+    inherit LoggerBase () with
+        override x.Log(entry: string): unit = 
+            f.Invoke(entry)
+            base.Log(entry)
         

@@ -54,4 +54,4 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
                       |> Seq.toArray
             }
         member __.CurrentWorker = state.ResourceFactory.WorkerMonitor.Current.AsWorkerRef() :> IWorkerRef
-        member __.Logger = Unchecked.defaultof<_> //state.Logger :> ICloudLogger
+        member __.Logger = state.ResourceFactory.Logger :> ICloudLogger

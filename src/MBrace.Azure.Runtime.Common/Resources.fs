@@ -14,16 +14,17 @@ type Registry private () =
     static let registry = ConcurrentDictionary<ConfigurationId * Type, obj>()
 
     static member Register<'T>(config : ConfigurationId, item : 'T) =
-        if not <| registry.TryAdd((config, typeof<'T>), item) then
-            failwith "Resource of type %O is activated"
+        registry.TryAdd((config, typeof<'T>), item :> obj)
+        |> ignore
 
     static member Resolve<'T>(config) =
         registry.[config, typeof<'T>] :?> 'T
 
 type ResourceFactory private (config : Configuration) =
-
-    do Registry.Register<_>(config.ConfigurationId, ProcessMonitor(config.DefaultTableOrContainer))
-    do Registry.Register<_>(config.ConfigurationId, WorkerMonitor(config.DefaultTableOrContainer))
+  
+    do Registry.Register<_>(config.ConfigurationId, new WorkerMonitor(config.DefaultTableOrContainer))
+    do Registry.Register<_>(config.ConfigurationId, new ProcessMonitor(config.DefaultTableOrContainer))
+    do Registry.Register<_>(config.ConfigurationId, new NullLogger() :> ILogger)
 
     member __.RequestCounter(container, count) = Counter.Init(container, count)
     member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Init(container, count)
@@ -31,5 +32,6 @@ type ResourceFactory private (config : Configuration) =
     member __.RequestResultCell<'T>(container) = ResultCell<Result<'T>>.Init(container)
     member __.ProcessMonitor = Registry.Resolve<ProcessMonitor>(config.ConfigurationId)
     member __.WorkerMonitor = Registry.Resolve<WorkerMonitor>(config.ConfigurationId)
+    member __.Logger = Registry.Resolve<ILogger>(config.ConfigurationId)
 
-    static member Init (config : Configuration) = new ResourceFactory(config)
+    static member Init (config : Configuration) =  new ResourceFactory(config)

@@ -16,14 +16,13 @@ open Nessos.MBrace.Azure.Runtime.Resources
 /// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
 /// <param name="logf">Logger.</param>
 let initWorker (runtime : RuntimeState) 
-               (maxConcurrentTasks : int)
-               (logger : ICloudLogger) : Async<unit> = async {
+               (maxConcurrentTasks : int) : Async<unit> = async {
 
     let currentTaskCount = ref 0
     let runTask procId deps t =
         let provider = RuntimeProvider.FromTask runtime procId deps t
         Task.RunAsync provider deps t
-    let inline logf fmt = Printf.ksprintf logger.Log fmt
+    let inline logf fmt = Printf.ksprintf runtime.ResourceFactory.Logger.Log fmt
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then

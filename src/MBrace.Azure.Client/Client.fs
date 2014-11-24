@@ -20,6 +20,7 @@
         do logger.Attach(new ConsoleLogger()) // TODO : move to Client settings
         
         let state = RuntimeState.FromConfiguration(config)
+        do state.ResourceFactory.Logger.Attach(logger)
         let wmon = state.ResourceFactory.WorkerMonitor
         let pmon = state.ResourceFactory.ProcessMonitor
         do logger.Logf "Client %s created" clientId

@@ -39,18 +39,23 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
-let ps = runtime.CreateProcess(
-            cloud {
-                while true do
-                    printf "hello"
-                    do! Cloud.Sleep 1000
-            })
+let rec loop i = cloud {
+    printfn "%d" i
+    do! Cloud.Sleep 1000
+    if i > 100 then return ()
+    else return! loop(i + 2)
+}
+
+
+runtime.Run(Cloud.Parallel [| loop 0; loop 1|])
 
 let ps = runtime.CreateProcess(cloud { return 42 }, name = "foo")
 ps.AwaitResult()
 
 let p = runtime.GetProcess(ps.Id)
 p
+
+runtime.Run <| Cloud.Log "FOOO"
 
 runtime.Run(cloud { return failwith<int> "foo" })
 runtime.Run <| Cloud.GetWorkerCount()

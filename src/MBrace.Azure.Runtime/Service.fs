@@ -13,19 +13,19 @@ open Nessos.MBrace
 type Service (config : Configuration, maxTasks : int) =
     let id = guid ()
     do Configuration.Activate(config)
-    let mutable logger = NullLogger() :> ICloudLogger
-    let logf fmt = Printf.ksprintf logger.Log fmt
     let state = RuntimeState.FromConfiguration(config)
 
     member __.Configuration = config
     member __.Id = id
-    member __.Logger with get () = logger and set l = logger <- l
+    member __.AttachLogger(logger) = state.ResourceFactory.Logger.Attach(logger)
     member __.MaxConcurrentTasks = maxTasks
 
     member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.AsyncStart()) :> _
         
     member __.AsyncStart() =
         async {
+            let logf fmt = Printf.ksprintf state.ResourceFactory.Logger.Log fmt
+
             logf "Starting Service %s" id
 
             let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(id)
@@ -35,7 +35,7 @@ type Service (config : Configuration, maxTasks : int) =
             logf "Started heartbeat loop" 
 
             logf "Starting worker loop"
-            return! Worker.initWorker state maxTasks logger
+            return! Worker.initWorker state maxTasks
         }
 
     member __.Start() = Async.RunSynchronously(__.AsyncStart())

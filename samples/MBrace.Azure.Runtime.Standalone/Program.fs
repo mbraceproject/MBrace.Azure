@@ -15,8 +15,8 @@
             Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
 
             let slogger = new StorageLogger(config.DefaultLogTable, Worker(id = svc.Id))
-            let clogger = new ConsoleLogger() in slogger.Attach(clogger)
-            svc.Logger <- slogger
+            slogger.Attach(new ConsoleLogger())
+            svc.AttachLogger(slogger)
             svc.Start() 
             0
         with e ->
