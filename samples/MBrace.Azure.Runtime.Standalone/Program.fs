@@ -2,13 +2,18 @@
     open System
     open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Azure.Runtime.Common
+    open System.Diagnostics
 
     [<EntryPoint>]
     let main (args : string []) =
         try
+            let ps = Process.GetCurrentProcess()
             let config = Argument.toConfiguration args
 
             let svc = new Service(config, 10)
+            
+            Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
+
             let slogger = new StorageLogger(config.DefaultLogTable, Worker(id = svc.Id))
             let clogger = new ConsoleLogger() in slogger.Attach(clogger)
             svc.Logger <- slogger

@@ -29,7 +29,7 @@ type Service (config : Configuration, maxTasks : int) =
             logf "Starting Service %s" id
 
             let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(id)
-            logf "Declared node %s (%d)/%s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
+            logf "Declared node %s : %d : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
 
             Async.Start(state.ResourceFactory.WorkerMonitor.HeartbeatLoop())
             logf "Started heartbeat loop" 
