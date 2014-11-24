@@ -27,8 +27,8 @@ type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
     member val State : string = state with get, set
-    member val TimeCreated : DateTime = createdt with get, set
-    member val TimeCompleted : DateTime = completedt with get, set
+    member val InitializationTime : DateTime = createdt with get, set
+    member val CompletionTime : DateTime = completedt with get, set
     member val Completed : bool = completed with get, set
     member val ResultUri : string = resultUri with get, set
     member val CancellationUri : string = cancellationUri with get, set
@@ -50,7 +50,7 @@ type ProcessMonitor internal (table : string) =
     member this.SetKilled(pid : string) = async {
         let! e = Table.read<ProcessEntity> table pk pid
         e.State <- string ProcessState.Killed
-        e.TimeCompleted <- DateTime.UtcNow
+        e.CompletionTime <- DateTime.UtcNow
         e.Completed <- true
         let! e' = Table.merge table e
         return ()
@@ -59,7 +59,7 @@ type ProcessMonitor internal (table : string) =
     member this.SetCompleted(pid : string) = async {
         let! e = Table.read<ProcessEntity> table pk pid
         e.State <- string ProcessState.Completed
-        e.TimeCompleted <- DateTime.UtcNow
+        e.CompletionTime <- DateTime.UtcNow
         e.Completed <- true
         let! e' = Table.merge table e
         return ()

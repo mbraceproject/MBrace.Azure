@@ -18,7 +18,7 @@ type WorkerRef (id : string, hostname : string, pid : int, pname : string, joine
     member __.Hostname = hostname 
     member __.ProcessId = pid 
     member __.ProcessName = pname 
-    member __.CreationTime = joined 
+    member __.InitializationTime = joined 
 
 type WorkerEntity(pk : string, id : string, hostname : string, pid : int, pname : string, joined : DateTime, heartbeat : DateTime) =
     inherit TableEntity(pk, id)
@@ -26,13 +26,13 @@ type WorkerEntity(pk : string, id : string, hostname : string, pid : int, pname 
     member val Id = id with get, set
     member val ProcessId = pid with get, set
     member val ProcessName = pname with get, set
-    member val CreationTime = joined with get, set
+    member val InitializationTime = joined with get, set
     member val Heartbeat = heartbeat with get, set
 
     new () = new WorkerEntity(null, null, null, -1, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>)
 
     member __.AsWorkerRef () = 
-        new WorkerRef(__.Id, __.Hostname, __.ProcessId, __.ProcessName, __.CreationTime)
+        new WorkerRef(__.Id, __.Hostname, __.ProcessId, __.ProcessName, __.InitializationTime)
 
 
 type WorkerMonitor internal (table : string) =

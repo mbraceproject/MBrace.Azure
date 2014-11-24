@@ -6,12 +6,12 @@ open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Runtime.Compiler
+open Nessos.MBrace.Runtime.Utils.PrettyPrinters
 open System
 open System.IO
 open System.Threading
 
 // TODO : Untyped AwaitResult, Vagrant dependencies.
-
 [<AutoSerializable(false)>]
 type Process internal (pid : string, pmon : ProcessMonitor) = 
     
@@ -28,13 +28,13 @@ type Process internal (pid : string, pmon : ProcessMonitor) =
     member __.Id = pid
     member __.Name = proc.Value.Name
     member __.Type = proc.Value.UnpickleType()
-    member __.Created = proc.Value.TimeCreated
+    member __.InitializationTime = proc.Value.InitializationTime
     
     member __.ExecutionTime = 
         let s = 
-            if proc.Value.Completed then proc.Value.TimeCompleted
+            if proc.Value.Completed then proc.Value.CompletionTime
             else DateTime.UtcNow
-        s - proc.Value.TimeCreated
+        s - proc.Value.InitializationTime
     
     member __.Completed = proc.Value.Completed
     member __.Kill() = __.DistributedCancellationTokenSource.Cancel()
@@ -49,4 +49,3 @@ type Process<'T> internal (pid : string, pmon : ProcessMonitor) =
             let! r = rc.AwaitResult()
             return r.Value
         }
-

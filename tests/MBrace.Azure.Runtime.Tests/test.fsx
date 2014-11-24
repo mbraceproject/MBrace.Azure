@@ -34,10 +34,10 @@ Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runt
 Runtime.Spawn(config, 4)
 //--------------
 
-
 let runtime = Runtime.GetHandle(config)
-runtime.GetAllProcesses()
-runtime.GetWorkers()
+runtime.ShowProcesses()
+runtime.ShowWorkers()
+runtime.ShowLogs()
 
 let ps = runtime.CreateProcess(cloud { return 42 }, name = "foo")
 ps.AwaitResult()
@@ -46,11 +46,6 @@ let p = runtime.GetProcess(ps.Id)
 p
 
 runtime.Run(cloud { return 42 })
-
-runtime.GetLogs() 
-    |> Seq.sortBy (fun l -> l.Timestamp)
-    |> Seq.iter (fun l -> printfn "%A %s %s" l.Timestamp l.Type l.Message)
-    
 runtime.Run <| Cloud.GetWorkerCount()
 runtime.Run <| Cloud.CurrentWorker
 
