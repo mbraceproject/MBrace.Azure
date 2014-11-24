@@ -22,6 +22,7 @@
         let state = RuntimeState.FromConfiguration(config)
         let wmon = state.ResourceFactory.WorkerMonitor
         let pmon = state.ResourceFactory.ProcessMonitor
+        do logger.Logf "Client %s created" clientId
 
         member private __.RuntimeState = state
 
@@ -43,7 +44,7 @@
                 logger.Logf "Starting process"
                 let! resultCell = state.StartAsProcess processId pname computation.Dependencies cts computation.Workflow
                 logger.Logf "Created process %s" processId
-                return Process(processId, state.ResourceFactory.ProcessMonitor)
+                return Process<'T>(processId, state.ResourceFactory.ProcessMonitor)
             }
             
         /// Asynchronously execute a workflow on the distributed runtime.
@@ -64,13 +65,26 @@
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
 
-        member __.GetWorkers () = Async.RunSynchronously <| wmon.GetWorkers()
 
-        member __.GetLogs () = Async.RunSynchronously <| logger.AsyncGetLogs()
+        member __.GetWorkers () = Async.RunSynchronously <| __.GetWorkersAsync()
+        member __.GetWorkersAsync () = wmon.GetWorkers()
 
-        member __.GetProcess(pid) = Async.RunSynchronously <| pmon.GetProcess(pid)
+        member __.GetLogs () = Async.RunSynchronously <| __.GetLogsAsync()
+        member __.GetLogsAsync () = logger.AsyncGetLogs()
 
-        member __.GetAllProcesses () = Async.RunSynchronously <| pmon.GetProcesses()
+        member __.GetProcess(pid) = Async.RunSynchronously <| __.GetProcessAsync(pid)
+        member __.GetProcessAsync(pid) = 
+            async {
+                let! e = pmon.GetProcess(pid)
+                return Process(pid, pmon)
+            }
+
+        member __.GetAllProcesses () = Async.RunSynchronously <| __.GetAllProcessesAsync()
+        member __.GetAllProcessesAsync () = 
+            async {
+                let! ps = pmon.GetProcesses()
+                return ps |> Seq.map (fun p -> Process(p.Id, pmon))
+            }
 
         static member GetHandle(config : Configuration) = new Runtime(config)
 

@@ -17,7 +17,6 @@ open Nessos.MBrace.Azure.Client
 open System
 open System.Threading
 
-
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
         Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine))
@@ -42,6 +41,9 @@ runtime.GetWorkers()
 
 let ps = runtime.CreateProcess(cloud { return 42 }, name = "foo")
 ps.AwaitResult()
+
+let p = runtime.GetProcess(ps.Id)
+p
 
 runtime.Run(cloud { return 42 })
 

@@ -217,7 +217,7 @@ with
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
         let! _ = rt.ResourceFactory.ProcessMonitor
                    .CreateRecord(
-                        procId, name, 
+                        procId, name, typeof<'T>,
                         string (cts :> IResource).Uri, 
                         string (resultCell :> IResource).Uri)
         let setResult ctx r = 
