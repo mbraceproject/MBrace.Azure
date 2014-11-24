@@ -32,7 +32,7 @@ type LogEntity(pk : string, loggerType : string, message : string) =
     inherit TableEntity(pk, guid())
     member val Type = loggerType with get, set
     member val Message = message with get, set
-    new () = new LogEntity(null, null, null, -1)
+    new () = new LogEntity(null, null, null)
 
 type LoggerBase () =
     let attached = new ConcurrentBag<ILogger>()
