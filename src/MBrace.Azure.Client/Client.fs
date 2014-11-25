@@ -43,7 +43,7 @@
                 logger.Logf "Creating DistributedCancellationToken"
                 let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-                logger.Logf "Starting process"
+                logger.Logf "Starting process %s" processId
                 let! resultCell = state.StartAsProcess processId pname computation.Dependencies cts computation.Workflow
                 logger.Logf "Created process %s" processId
                 return Process<'T>(processId, state.ResourceFactory.ProcessMonitor)
@@ -77,7 +77,7 @@
         member __.GetLogs () = Async.RunSynchronously <| __.GetLogsAsync()
         member __.GetLogsAsync () = logger.AsyncGetLogs()
         member __.ShowLogs () =
-            let ls = __.GetLogs() |> Seq.sortBy (fun l -> l.Timestamp, l.Type) |> List.ofSeq
+            let ls = __.GetLogs() |> Seq.sortBy (fun l -> l.Time, l.Type) |> List.ofSeq
             printf "%s" <| LogReporter.Report(ls, "Logs", false)
 
         member __.GetProcess(pid) = Async.RunSynchronously <| __.GetProcessAsync(pid)
