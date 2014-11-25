@@ -46,7 +46,6 @@ let rec loop i = cloud {
     else return! loop(i + 2)
 }
 
-
 runtime.Run(Cloud.Parallel [| loop 0; loop 1|])
 
 let ps = runtime.CreateProcess(cloud { return 42 }, name = "foo")

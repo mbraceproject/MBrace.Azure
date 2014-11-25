@@ -14,7 +14,6 @@ open Nessos.MBrace.Azure.Runtime.Resources
 /// </summary>
 /// <param name="runtime">Runtime to subscribe to.</param>
 /// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
-/// <param name="logf">Logger.</param>
 let initWorker (runtime : RuntimeState) 
                (maxConcurrentTasks : int) : Async<unit> = async {
 
@@ -37,8 +36,8 @@ let initWorker (runtime : RuntimeState)
                 | Some (msg, task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
-                        logf "Starting task %s/%s/%O" procId task.TaskId task.Type
-                        
+                        logf "Starting task %s/%s/%d/%O" procId task.TaskId msg.DeliveryCount task.Type
+
                         let! renew = Async.StartChild(msg.RenewLoopAsync())
                         logf "Started task renew loop"
 

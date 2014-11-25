@@ -16,6 +16,8 @@ type QueueMessage<'T> (msg : BrokeredMessage) =
     let completed = ref false
     let value = ref None
 
+    member __.DeliveryCount = msg.DeliveryCount
+
     member __.CompleteAsync () = 
         async {
             completed := true
