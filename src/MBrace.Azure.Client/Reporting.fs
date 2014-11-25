@@ -18,7 +18,7 @@ type internal ProcessReporter() =
           Field.create "Process Id" Right (fun p -> p.Id)
           Field.create "State" Right (fun p -> p.ProcessEntity.Value.State)
           Field.create "Completed" Left (fun p -> p.Completed)
-          Field.create "Start Time" Left (fun p -> p.InitializationTime)
+          Field.create "Start Time" Left (fun p -> p.InitializationTime.ToLocalTime())
           Field.create "Execution Time" Left (fun p -> p.ExecutionTime)
           Field.create "Result Type" Left (fun p -> p.Type) ]
     
@@ -28,7 +28,7 @@ type internal WorkerReporter() =
     
     static let template : Field<WorkerRef> list = 
         [ Field.create "Id" Left (fun p -> (p :> IWorkerRef).Id)
-          Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
+          Field.create "Initialization Time" Left (fun p -> p.InitializationTime.ToLocalTime()) 
           Field.create "Hostname" Left (fun p -> p.Hostname)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Process Name" Right (fun p -> p.ProcessName) ]
@@ -39,7 +39,7 @@ type internal LogReporter() =
     
     static let template : Field<LogEntity> list = 
         [ Field.create "Source" Left (fun p -> p.Type)
-          Field.create "Timestamp" Right (fun p -> p.Timestamp)
+          Field.create "Timestamp" Right (fun p -> p.Time.ToLocalTime())
           Field.create "Message" Left (fun p -> p.Message) ]
     
     static member Report(processes : LogEntity list, title, borders) = Record.PrettyPrint(template, processes, title, borders)

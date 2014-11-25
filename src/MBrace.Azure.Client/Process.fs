@@ -28,7 +28,7 @@ type Process internal (pid : string, pmon : ProcessMonitor) =
     member __.Id = pid
     member __.Name = proc.Value.Name
     member __.Type = proc.Value.UnpickleType()
-    member __.InitializationTime = proc.Value.InitializationTime
+    member __.InitializationTime = proc.Value.InitializationTime.ToLocalTime()
     
     member __.ExecutionTime = 
         let s = 

@@ -28,11 +28,12 @@ type LoggerType =
             | Client id -> sprintf "client:%s" id
             | Other(name, id) -> sprintf "%s:%s" name id
 
-type LogEntity(pk : string, loggerType : string, message : string) =
+type LogEntity(pk : string, loggerType : string, message : string, time : DateTime) =
     inherit TableEntity(pk, guid())
     member val Type = loggerType with get, set
     member val Message = message with get, set
-    new () = new LogEntity(null, null, null)
+    member val Time = time with get, set
+    new () = new LogEntity(null, null, null, Unchecked.defaultof<_>)
 
 type LoggerBase () =
     let attached = new ConcurrentBag<ILogger>()
@@ -56,14 +57,13 @@ type StorageLogger(table : string, loggerType : LoggerType) =
         let pk = "log"
 
         let maxWaitTime = 5000
-        let logs = ConcurrentStack<string>()
+        let logs = ConcurrentStack<LogEntity>()
         let flush () = async {
             let count = logs.Count
             if count > 0 then
                 let out = Array.zeroCreate count
                 let count = logs.TryPopRange(out)
-                let ys = Array.init count (fun i -> new LogEntity(pk, string loggerType, out.[i]))
-                return! Table.insertBatch<LogEntity> table ys
+                return! Table.insertBatch<LogEntity> table out
         }
 
         do  let rec loop _ = async {
@@ -73,7 +73,9 @@ type StorageLogger(table : string, loggerType : LoggerType) =
             }
             Async.Start(loop ())
 
-        let log msg = logs.Push(msg)
+        let log msg = 
+            let e = new LogEntity(pk, string loggerType, msg, DateTime.UtcNow)
+            logs.Push(e)
 
         override __.Log(entry: string) : unit = log entry; base.Log(entry)
 
@@ -87,13 +89,13 @@ type NullLogger () =
 
 type ConsoleLogger () =
     inherit LoggerBase () with
-        override x.Log(entry: string): unit = 
-            Console.WriteLine("{0} : {1}", DateTime.UtcNow.ToString("ddMMyyyy HH:mm:ss"), entry)
+        override x.Log(entry : string): unit = 
+            Console.WriteLine("{0} : {1}", DateTime.UtcNow.ToString("ddMMyyyy HH:mm:ss.fff zzz"), entry)
             base.Log(entry)
 
 type CustomLogger (f : Action<string>) =
     inherit LoggerBase () with
-        override x.Log(entry: string): unit = 
+        override x.Log(entry : string): unit = 
             f.Invoke(entry)
             base.Log(entry)
         
