@@ -12,7 +12,9 @@
     #nowarn "40"
     open System
 
-    /// MBrace Sample runtime client instance.
+    /// <summary>
+    /// Windows Azure Runtime client.
+    /// </summary>
     [<AutoSerializable(false)>]
     type Runtime private (config : Configuration) =
         let clientId = guid()
@@ -27,6 +29,7 @@
 
         member private __.RuntimeState = state
 
+        /// Instance identifier.
         member __.ClientId = clientId
 
         member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Process<'T> =
@@ -100,14 +103,31 @@
                 let! ps = pmon.GetProcesses()
                 let rs = new ResizeArray<Process>()
                 for p in ps do
-                    let deps = p.UnpickleDependencies()
-                    do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
-                    rs.Add(Process.Create(p.Id, p.UnpickleType(), pmon))
+                    let! proc = __.GetProcessAsync(p.Id)
+                    rs.Add(proc)
                 return rs :> seq<_>
             }
         member __.ShowProcesses () = 
             let ps = __.GetProcesses() |> Seq.toList
             printf "%s" <| ProcessReporter.Report(ps, "Processes", true)
 
-        static member GetHandle(config : Configuration) = new Runtime(config)
+        /// <summary>
+        /// Gets a handle for a remote runtime.
+        /// </summary>
+        /// <param name="config">Runtime configuration.</param>
+        /// <param name="waitWorkerCount">Wait until the specified number of workers join the runtime.</param>
+        static member GetHandle(config : Configuration, ?waitWorkerCount : int) : Runtime = 
+            let waitWorkerCount = defaultArg waitWorkerCount 0
+            if waitWorkerCount < 0 then invalidArg "waitWorkerCount" "Must be greater than 0"
 
+            let runtime = new Runtime(config)
+            let rec loop () = async {
+                let! ws = runtime.GetWorkersAsync()
+                if Seq.length ws >= waitWorkerCount then return ()
+                else
+                    do! Async.Sleep 500
+                    return! loop ()
+            }
+
+            Async.RunSynchronously(loop ())
+            runtime

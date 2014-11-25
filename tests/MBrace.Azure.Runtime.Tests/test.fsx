@@ -31,7 +31,7 @@ let config =
 #r "MBrace.Azure.Runtime.Standalone"
 open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 4)
+Runtime.Spawn(config, 10)
 //--------------
 
 let runtime = Runtime.GetHandle(config)
@@ -186,9 +186,9 @@ chain.IsCancellationRequested
 
 
 //--------------------------------------------------------------------
-let exp = AssemblyExporter.Init("tmp")
-type Foo = Foo
-let xs = exp.ComputeDependencies Foo
+let exp = AssemblyManager.Init("tmp")
+type Fo = Fo
+let xs = exp.ComputeDependencies Fo
 !exp.UploadDependencies(xs)
 !exp.LoadDependencies(xs)
 
