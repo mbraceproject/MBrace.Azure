@@ -10,6 +10,7 @@ open System
 open System.Diagnostics
 open System.Net
 open System.Runtime.Serialization
+open Nessos.Vagrant
 
 type ProcessState = 
     | Initialized
@@ -21,8 +22,8 @@ type ProcessState =
         | Killed -> "Killed"
         | Completed -> "Completed"
 
-// TODO : add vagrant dependencies
-type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty) = 
+// TODO : Vagrant dependencies on blob storage?
+type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, deps) = 
     inherit TableEntity(pk, pid)
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
@@ -33,16 +34,19 @@ type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member val ResultUri : string = resultUri with get, set
     member val CancellationUri : string = cancellationUri with get, set
     member val Type : byte [] = ty with get, set
+    member val Dependencies : byte [] = deps with get, set
     member __.UnpickleType () = Configuration.Serializer.UnPickle<Type> __.Type
-    new () = new ProcessEntity(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null)
+    member __.UnpickleDependencies () = Configuration.Serializer.UnPickle<AssemblyId list> __.Dependencies
+    new () = new ProcessEntity(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null)
 
 type ProcessMonitor internal (table : string) = 
     let pk = "process"
     
-    member this.CreateRecord(pid : string, name, ty, ctsUri, resultUri) = async { 
+    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
         let now = DateTime.UtcNow
         let ty = Configuration.Serializer.Pickle(ty)
-        let e = new ProcessEntity(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, ty)
+        let deps = Configuration.Serializer.Pickle(deps)
+        let e = new ProcessEntity(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, ty, deps)
         do! Table.insert<ProcessEntity> table e
         return e
     }

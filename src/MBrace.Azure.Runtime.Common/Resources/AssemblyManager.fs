@@ -10,7 +10,7 @@ open System.Runtime.Serialization
 open System.Threading
 open Nessos.MBrace.Azure.Runtime.Common.Storage
 
-type AssemblyExporter private (res : Uri) = 
+type AssemblyManager private (res : Uri) = 
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
@@ -58,11 +58,11 @@ type AssemblyExporter private (res : Uri) =
     
     new(info : SerializationInfo, context : StreamingContext) = 
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new AssemblyExporter(res)
+        new AssemblyManager(res)
 
     static member private GetUri(container) = uri "exporter:%s" container
     static member Init(container : string) = 
-        let res = AssemblyExporter.GetUri(container)
-        new AssemblyExporter(res)
+        let res = AssemblyManager.GetUri(container)
+        new AssemblyManager(res)
 
     

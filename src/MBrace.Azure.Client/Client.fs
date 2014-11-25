@@ -10,6 +10,7 @@
     open Nessos.MBrace.Runtime.Compiler
 
     #nowarn "40"
+    open System
 
     /// MBrace Sample runtime client instance.
     [<AutoSerializable(false)>]
@@ -39,14 +40,14 @@
                 logger.Logf "Creating process %s %s" processId pname
                 let storageId = Storage.processIdToStorageId processId
                 logger.Logf "Uploading dependencies %O" computation.Dependencies
-                do! state.AssemblyExporter.UploadDependencies(computation.Dependencies)
+                do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
                 logger.Logf "Creating DistributedCancellationToken"
                 let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 logger.Logf "Starting process %s" processId
                 let! resultCell = state.StartAsProcess processId pname computation.Dependencies cts computation.Workflow
                 logger.Logf "Created process %s" processId
-                return Process<'T>(processId, state.ResourceFactory.ProcessMonitor)
+                return Process<'T>(processId, pmon)
             }
             
         /// Asynchronously execute a workflow on the distributed runtime.
@@ -84,7 +85,9 @@
         member __.GetProcessAsync(pid) = 
             async {
                 let! e = pmon.GetProcess(pid)
-                return Process(pid, pmon)
+                let deps = e.UnpickleDependencies()
+                do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
+                return Process.Create(pid, e.UnpickleType(), pmon)
             }
         member __.ShowProcess(pid) =
             let ps = __.GetProcess(pid)
@@ -92,12 +95,16 @@
 
 
         member __.GetProcesses () = Async.RunSynchronously <| __.GetProcessesAsync()
-        member __.GetProcessesAsync () = 
+        member __.GetProcessesAsync () : Async<seq<Process>> = 
             async {
                 let! ps = pmon.GetProcesses()
-                return ps |> Seq.map (fun p -> Process(p.Id, pmon))
+                let rs = new ResizeArray<Process>()
+                for p in ps do
+                    let deps = p.UnpickleDependencies()
+                    do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
+                    rs.Add(Process.Create(p.Id, p.UnpickleType(), pmon))
+                return rs :> seq<_>
             }
-
         member __.ShowProcesses () = 
             let ps = __.GetProcesses() |> Seq.toList
             printf "%s" <| ProcessReporter.Report(ps, "Processes", true)

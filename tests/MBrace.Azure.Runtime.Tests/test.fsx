@@ -83,8 +83,14 @@ wordCount 1000 Library.MapReduce.mapReduce
 |> runtime.Run
 
 
+type Foo = { Value : int }
 
+let ps = runtime.CreateProcess(cloud { return { Value = 42 } })
+ps.AwaitResult()
 
+runtime.ShowProcesses()
+let p = runtime.GetProcess("6043e2f52ffe4c888636b3efdc6c7f3f")
+p.AwaitResultBoxed()
 
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources

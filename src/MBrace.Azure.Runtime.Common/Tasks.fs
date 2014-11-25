@@ -104,7 +104,7 @@ type RuntimeState =
         /// Queue contains pickled task and its vagrant dependency manifest
         TaskQueue : Queue<Pickle<Task> * (*ProcessId*) string * AssemblyId list>
         /// Reference to a Vagrant assembly exporting actor.
-        AssemblyExporter : AssemblyExporter
+        AssemblyManager : AssemblyManager
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
@@ -114,7 +114,7 @@ with
     static member FromConfiguration (config : Configuration) =
         {
             TaskQueue = Queue<_>.Init (config.DefaultQueue) |> Async.RunSynchronously
-            AssemblyExporter = AssemblyExporter.Init(config.DefaultTableOrContainer) 
+            AssemblyManager = AssemblyManager.Init(config.DefaultTableOrContainer) 
             ResourceFactory = ResourceFactory.Init(config) 
         }
 
@@ -212,7 +212,7 @@ with
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
         let! _ = rt.ResourceFactory.ProcessMonitor
                    .CreateRecord(
-                        procId, name, typeof<'T>,
+                        procId, name, typeof<'T>, dependencies,
                         string (cts :> IResource).Uri, 
                         string (resultCell :> IResource).Uri)
         let setResult ctx r = 
@@ -252,7 +252,7 @@ with
         | None -> return None
         | Some msg -> 
             let! (tp, procId, deps) = msg.GetPayloadAsync()
-            do! rt.AssemblyExporter.LoadDependencies deps
+            do! rt.AssemblyManager.LoadDependencies deps
             let task = Pickle.unpickle tp
             return Some (msg, task, procId, deps)
     }
