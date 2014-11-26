@@ -36,7 +36,7 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
                                            defaultQueue : Configuration.Default.DefaultQueue,
                                            defaultLogTable : Configuration.Default.DefaultLogTable);
 
-            _svc = new Service(config, maxTasks : 10);
+            _svc = new Service(config, maxTasks : 10, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
             var logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, LoggerType.NewWorker(_svc.Id));
             logger.Attach(new CustomLogger(s => Trace.WriteLine(s)));
             _svc.AttachLogger(logger);

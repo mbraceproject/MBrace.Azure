@@ -10,14 +10,15 @@ open Nessos.MBrace.Runtime
 open Nessos.MBrace
 
 /// MBrace Runtime Service.
-type Service (config : Configuration, maxTasks : int) =
-    let id = guid ()
+type Service (config : Configuration, maxTasks : int, serviceId : string) =
     do Configuration.Activate(config)
     let state = RuntimeState.FromConfiguration(config)
     let logf fmt = Printf.ksprintf state.ResourceFactory.Logger.Log fmt
 
+    new(config : Configuration, maxTasks : int) = new Service (config, maxTasks, guid())
+
     member __.Configuration = config
-    member __.Id = id
+    member __.Id = serviceId
     member __.AttachLogger(logger) = state.ResourceFactory.Logger.Attach(logger)
     member __.MaxConcurrentTasks = maxTasks
 
@@ -26,9 +27,9 @@ type Service (config : Configuration, maxTasks : int) =
     member __.AsyncStart() : Async<unit> =
         async {
             try
-                logf "Starting Service %s" id
+                logf "Starting Service %s" serviceId
 
-                let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(id)
+                let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(serviceId)
                 logf "Declared node %s : %d : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
                 Async.Start(state.ResourceFactory.WorkerMonitor.HeartbeatLoop())

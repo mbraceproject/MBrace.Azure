@@ -140,11 +140,18 @@ let c' = Configuration.Serializer.UnPickle<BlobCell<int>>(c')
 
 //-------------------------------------------------------------------
 
-let q : Queue<int> = !Queue.Init(config.ConfigurationId, "tmp")
-!q.Enqueue(42)
-!q.EnqueueBatch([|0..10|])
+let q : Queue<int> = !Queue.Init(config.ConfigurationId, "foobar")
+
+!(async {
+    for i = 0 to 100 do
+        printfn "%d" i
+        do! q.Enqueue(42)
+})
+
+!q.EnqueueBatch([|0..100|])
 
 let m = !q.TryDequeue()
+
 !m.Value.GetPayloadAsync()
 !m.Value.CompleteAsync()
 

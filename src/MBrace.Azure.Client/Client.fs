@@ -32,6 +32,9 @@
         /// Instance identifier.
         member __.ClientId = clientId
 
+        /// Gets the runtime associated configuration.
+        member __.Configuration = config
+
         member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Process<'T> =
             Async.RunSynchronously(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken))
 
