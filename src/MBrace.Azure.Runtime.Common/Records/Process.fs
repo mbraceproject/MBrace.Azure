@@ -74,5 +74,5 @@ type ProcessMonitor internal (config, table : string) =
     }
 
     member this.GetProcesses () = async {
-        return! Table.readBatch<ProcessEntity> config table pk
+        return! Table.queryPK<ProcessEntity> config table pk
     }

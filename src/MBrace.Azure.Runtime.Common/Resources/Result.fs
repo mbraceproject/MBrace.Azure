@@ -94,7 +94,7 @@ type ResultAggregator<'T> internal (config, res : Uri, latch : Latch) =
             if not __.Complete then 
                 return! Async.Raise <| new InvalidOperationException("Result aggregator incomplete.")
             else
-                let! xs = Table.readBatch<ResultAggregatorEntity> config res.Table res.PartitionWithScheme
+                let! xs = Table.queryPK<ResultAggregatorEntity> config res.Table res.PartitionWithScheme
                 let bs = 
                     xs
                     |> Seq.filter (fun x -> x.RowKey <> "") // skip latch entity

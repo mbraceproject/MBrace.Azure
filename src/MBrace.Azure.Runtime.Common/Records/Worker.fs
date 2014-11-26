@@ -49,7 +49,7 @@ type WorkerMonitor internal (config, table : string) =
                 let ps = Process.GetCurrentProcess()
                 let joined = DateTime.UtcNow
                 let w = new WorkerEntity(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
-                do! Table.insert<WorkerEntity> config table w
+                do! Table.insertOrReplace<WorkerEntity> config table w //Worker might restart but keep id.
                 current := Some w
                 return w.AsWorkerRef()
         }
@@ -57,7 +57,7 @@ type WorkerMonitor internal (config, table : string) =
     member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerRef seq> = async {
         let timespan = defaultArg timespan <| TimeSpan.FromSeconds 30.
         let now = DateTime.UtcNow
-        let! ws = Table.readBatch<WorkerEntity> config table pk
+        let! ws = Table.queryPK<WorkerEntity> config table pk
         return ws |> Seq.filter (fun w -> now - w.Heartbeat < timespan)
                   |> Seq.map (fun w -> w.AsWorkerRef())
     }

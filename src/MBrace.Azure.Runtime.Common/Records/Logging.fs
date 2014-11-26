@@ -81,7 +81,7 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
 
         member __.Logf fmt = Printf.ksprintf __.Log fmt
 
-        member __.AsyncGetLogs () = Table.readBatch<LogEntity> config table pk
+        member __.AsyncGetLogs () = Table.queryPK<LogEntity> config table pk
 
 
 type NullLogger () =

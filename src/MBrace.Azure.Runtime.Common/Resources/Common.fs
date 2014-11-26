@@ -86,7 +86,7 @@ module Table =
             return e.Result :?> 'T
         }
     
-    let readBatch<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table pk : Async<'T seq> = 
+    let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table pk : Async<'T seq> = 
         async {  
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let q = TableQuery<'T>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
