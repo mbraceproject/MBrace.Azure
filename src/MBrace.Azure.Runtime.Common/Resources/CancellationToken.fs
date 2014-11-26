@@ -11,21 +11,21 @@ open Microsoft.WindowsAzure.Storage.Table
 // This works as long as all parent dcts run the GetLocalCancellationToken loop.
 // Fault tolerance?
 
-type DistributedCancellationTokenSource internal (res : Uri) = 
+type DistributedCancellationTokenSource internal (config, res : Uri) = 
     let cancel () =
        async { 
             let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, null, IsCancellationRequested = true, ETag = "*")
-            let! u = Table.merge res.Table e
+            let! u = Table.merge config res.Table e
             return ()
         }
 
     let check() = 
         async { 
-            let! e = Table.read<CancellationTokenSourceEntity> res.Table res.PartitionWithScheme ""
+            let! e = Table.read<CancellationTokenSourceEntity> config res.Table res.PartitionWithScheme ""
             if e.IsCancellationRequested then return true
             elif e.Link <> null then
                 let link = new Uri(e.Link)
-                let! p = Table.read<CancellationTokenSourceEntity> link.Table link.PartitionWithScheme ""
+                let! p = Table.read<CancellationTokenSourceEntity> config link.Table link.PartitionWithScheme ""
                 if p.IsCancellationRequested then
                     do! cancel ()
                     return true
@@ -59,14 +59,16 @@ type DistributedCancellationTokenSource internal (res : Uri) =
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new DistributedCancellationTokenSource(res)
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new DistributedCancellationTokenSource(config, res)
 
     static member private GetUri(container, id) = uri "dcts:%s/%s" container id
-    static member FromUri(uri) = new DistributedCancellationTokenSource(uri)
-    static member Init(container : string, ?parent : DistributedCancellationTokenSource) = 
+    static member FromUri(config : ConfigurationId, uri) = new DistributedCancellationTokenSource(config, uri)
+    static member Init(config, container : string, ?parent : DistributedCancellationTokenSource) = 
         async { 
             let link = 
                 match parent with
@@ -74,6 +76,6 @@ type DistributedCancellationTokenSource internal (res : Uri) =
                 | Some p -> (p :> IResource).Uri.ToString()
             let res = DistributedCancellationTokenSource.GetUri(container, guid())
             let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, link)
-            do! Table.insert res.Table e
-            return new DistributedCancellationTokenSource(res)
+            do! Table.insert config res.Table e
+            return new DistributedCancellationTokenSource(config, res)
         }

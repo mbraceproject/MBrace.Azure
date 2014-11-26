@@ -35,7 +35,7 @@ type WorkerEntity(pk : string, id : string, hostname : string, pid : int, pname 
         new WorkerRef(__.Id, __.Hostname, __.ProcessId, __.ProcessName, __.InitializationTime)
 
 
-type WorkerMonitor internal (table : string) =
+type WorkerMonitor internal (config, table : string) =
     let pk = "worker"
 
     let current = ref None
@@ -49,7 +49,7 @@ type WorkerMonitor internal (table : string) =
                 let ps = Process.GetCurrentProcess()
                 let joined = DateTime.UtcNow
                 let w = new WorkerEntity(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
-                do! Table.insert<WorkerEntity> table w
+                do! Table.insert<WorkerEntity> config table w
                 current := Some w
                 return w.AsWorkerRef()
         }
@@ -57,7 +57,7 @@ type WorkerMonitor internal (table : string) =
     member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerRef seq> = async {
         let timespan = defaultArg timespan <| TimeSpan.FromSeconds 30.
         let now = DateTime.UtcNow
-        let! ws = Table.readBatch<WorkerEntity> table pk
+        let! ws = Table.readBatch<WorkerEntity> config table pk
         return ws |> Seq.filter (fun w -> now - w.Heartbeat < timespan)
                   |> Seq.map (fun w -> w.AsWorkerRef())
     }
@@ -70,7 +70,7 @@ type WorkerMonitor internal (table : string) =
         worker.ETag <- "*"
         let rec loop () = async {
             worker.Heartbeat <- DateTime.UtcNow
-            let! _ = Table.merge<WorkerEntity> table worker
+            let! _ = Table.merge<WorkerEntity> config table worker
             do! Async.Sleep (int ts.TotalMilliseconds)
             return! loop ()
         }

@@ -51,7 +51,7 @@ type LoggerBase () =
         member __.Log entry = __.Log entry
   
 
-type StorageLogger(table : string, loggerType : LoggerType) =
+type StorageLogger(config, table : string, loggerType : LoggerType) =
     inherit LoggerBase () with
     
         let pk = "log"
@@ -63,7 +63,7 @@ type StorageLogger(table : string, loggerType : LoggerType) =
             if count > 0 then
                 let out = Array.zeroCreate count
                 let count = logs.TryPopRange(out)
-                return! Table.insertBatch<LogEntity> table out
+                return! Table.insertBatch<LogEntity> config table out
         }
 
         do  let rec loop _ = async {
@@ -81,7 +81,7 @@ type StorageLogger(table : string, loggerType : LoggerType) =
 
         member __.Logf fmt = Printf.ksprintf __.Log fmt
 
-        member __.AsyncGetLogs () = Table.readBatch<LogEntity> table pk
+        member __.AsyncGetLogs () = Table.readBatch<LogEntity> config table pk
 
 
 type NullLogger () =

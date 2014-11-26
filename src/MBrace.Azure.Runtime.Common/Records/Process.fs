@@ -39,7 +39,7 @@ type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member __.UnpickleDependencies () = Configuration.Serializer.UnPickle<AssemblyId list> __.Dependencies
     new () = new ProcessEntity(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null)
 
-type ProcessMonitor internal (table : string) = 
+type ProcessMonitor internal (config, table : string) = 
     let pk = "process"
     
     member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
@@ -47,32 +47,32 @@ type ProcessMonitor internal (table : string) =
         let ty = Configuration.Serializer.Pickle(ty)
         let deps = Configuration.Serializer.Pickle(deps)
         let e = new ProcessEntity(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, ty, deps)
-        do! Table.insert<ProcessEntity> table e
+        do! Table.insert<ProcessEntity> config table e
         return e
     }
 
     member this.SetKilled(pid : string) = async {
-        let! e = Table.read<ProcessEntity> table pk pid
+        let! e = Table.read<ProcessEntity> config table pk pid
         e.State <- string ProcessState.Killed
         e.CompletionTime <- DateTime.UtcNow
         e.Completed <- true
-        let! e' = Table.merge table e
+        let! e' = Table.merge config table e
         return ()
     }
 
     member this.SetCompleted(pid : string) = async {
-        let! e = Table.read<ProcessEntity> table pk pid
+        let! e = Table.read<ProcessEntity> config table pk pid
         e.State <- string ProcessState.Completed
         e.CompletionTime <- DateTime.UtcNow
         e.Completed <- true
-        let! e' = Table.merge table e
+        let! e' = Table.merge config table e
         return ()
     }
 
     member this.GetProcess(pid : string) = async {
-        return! Table.read<ProcessEntity> table pk pid
+        return! Table.read<ProcessEntity> config table pk pid
     }
 
     member this.GetProcesses () = async {
-        return! Table.readBatch<ProcessEntity> table pk
+        return! Table.readBatch<ProcessEntity> config table pk
     }

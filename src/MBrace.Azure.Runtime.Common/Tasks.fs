@@ -113,8 +113,8 @@ with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration) =
         {
-            TaskQueue = Queue<_>.Init (config.DefaultQueue) |> Async.RunSynchronously
-            AssemblyManager = AssemblyManager.Init(config.DefaultTableOrContainer) 
+            TaskQueue = Queue<_>.Init (config.ConfigurationId, config.DefaultQueue) |> Async.RunSynchronously
+            AssemblyManager = AssemblyManager.Init(config.ConfigurationId, config.DefaultTableOrContainer) 
             ResourceFactory = ResourceFactory.Init(config) 
         }
 

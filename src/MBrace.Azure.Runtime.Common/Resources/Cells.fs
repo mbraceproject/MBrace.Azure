@@ -6,10 +6,10 @@ open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 
 
-type BlobCell<'T> internal (res : Uri) = 
+type BlobCell<'T> internal (config : ConfigurationId, res : Uri) = 
     member __.GetValue() : Async<'T> = 
         async { 
-            let container = ClientProvider.BlobClient.GetContainerReference(res.Container)
+            let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
             use! s = container.GetBlockBlobReference(res.FileWithScheme).OpenReadAsync()
             return Configuration.Serializer.Deserialize<'T>(s) 
         }
@@ -20,21 +20,23 @@ type BlobCell<'T> internal (res : Uri) =
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new BlobCell<'T>(res)
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new BlobCell<'T>(config, res)
 
-    static member OfUri<'T>(res : Uri) = new BlobCell<'T>(res)
+    static member OfUri<'T>(config, res : Uri) = new BlobCell<'T>(config, res)
     static member GetUri(container, id) = uri "blobcell:%s/%s" container id
-    static member Init(container : string, id : string, f : unit -> 'T) = 
+    static member Init(config, container : string, id : string, f : unit -> 'T) = 
         async { 
             let res = BlobCell<_>.GetUri(container, id)
-            let c = ClientProvider.BlobClient.GetContainerReference(res.Container)
+            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
             let! _ = c.CreateIfNotExistsAsync()
             use! s = c.GetBlockBlobReference(res.FileWithScheme).OpenWriteAsync()
             Configuration.Serializer.Serialize<'T>(s, f())
-            return new BlobCell<'T>(res)
+            return new BlobCell<'T>(config, res)
         }
-    static member Init(container : string, f : unit -> 'T) = 
-        BlobCell.Init(container, guid(), f)
+    static member Init(config, container : string, f : unit -> 'T) = 
+        BlobCell.Init(config, container, guid(), f)

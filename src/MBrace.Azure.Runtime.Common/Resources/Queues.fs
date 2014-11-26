@@ -12,7 +12,7 @@ module private Constants =
     let MaxLockDuration   = 3 * RenewLockInverval
     let MaxTTL            = TimeSpan.MaxValue
 
-type QueueMessage<'T> (msg : BrokeredMessage) =
+type QueueMessage<'T> (config, msg : BrokeredMessage) =
     let completed = ref false
     let value = ref None
 
@@ -46,7 +46,7 @@ type QueueMessage<'T> (msg : BrokeredMessage) =
             match !value with
             | None ->
                 let p = msg.GetBody<Uri>()
-                let t = BlobCell.OfUri<'T>(p)
+                let t = BlobCell.OfUri<'T>(config, p)
                 let! v = t.GetValue()
                 value := Some v
                 return v
@@ -54,9 +54,9 @@ type QueueMessage<'T> (msg : BrokeredMessage) =
         }
 
 /// Queue implementation.
-type Queue<'T> internal (res : Uri) = 
-    let queue = ClientProvider.QueueClient(res.Queue)
-    let ns = ClientProvider.NamespaceClient
+type Queue<'T> internal (config : ConfigurationId, res : Uri) = 
+    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Queue)
+    let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
 
     member __.Length = ns.GetQueue(res.Queue).MessageCount
 
@@ -66,7 +66,7 @@ type Queue<'T> internal (res : Uri) =
                 xs
                 |> Array.map (fun x -> 
                     async { 
-                        let! bc = BlobCell.Init(res.Queue, fun () -> x)
+                        let! bc = BlobCell.Init(config, res.Queue, fun () -> x)
                         return new BrokeredMessage((bc :> IResource).Uri) 
                     })
                 |> Async.Parallel
@@ -75,7 +75,7 @@ type Queue<'T> internal (res : Uri) =
 
     member __.Enqueue(t : 'T) = 
         async { 
-            let! bc = BlobCell.Init(res.Queue, fun () -> t)
+            let! bc = BlobCell.Init(config, res.Queue, fun () -> t)
             let msg = new BrokeredMessage((bc :> IResource).Uri)
             do! ofTask <| queue.SendAsync(msg)
         } 
@@ -85,7 +85,7 @@ type Queue<'T> internal (res : Uri) =
             let! msg = queue.ReceiveAsync()
             if msg = null then return None
             else 
-                return Some(QueueMessage<'T>(msg))
+                return Some(QueueMessage<'T>(config, msg))
         } 
 
 //    member __.ReceiveBatch(count : int) = 
@@ -105,16 +105,18 @@ type Queue<'T> internal (res : Uri) =
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new Queue<'T>(res)
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new Queue<'T>(config, res)
     
     static member private GetUri(container) = uri "queue:%s" container
-    static member Init<'T>(container : string) = 
+    static member Init<'T>(config, container : string) = 
         async { 
             let res = Queue<_>.GetUri container
-            let ns = ClientProvider.NamespaceClient
+            let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
             let qd = new QueueDescription(res.Queue)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true
@@ -122,5 +124,5 @@ type Queue<'T> internal (res : Uri) =
             qd.LockDuration <- TimeSpan.FromMilliseconds(float MaxLockDuration)
             let! exists = ns.QueueExistsAsync(res.Queue)
             if not exists then do! ofTask <| ns.CreateQueueAsync(qd)
-            return new Queue<'T>(res)
+            return new Queue<'T>(config, res)
         }

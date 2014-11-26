@@ -43,13 +43,6 @@
         let processIdToStorageId (pid : string) = 
             sprintf "process%s" <| Guid.Parse(pid).ToString("N").Substring(0,7) // TODO : change
 
-        let clearProcessFolder (storageId : string) =
-            async {
-                let! _ = ClientProvider.TableClient.GetTableReference(storageId).DeleteIfExistsAsync()
-                let! _ = ClientProvider.BlobClient.GetContainerReference(storageId).DeleteIfExistsAsync()
-                return ()
-            }
-
     type Live<'T>(provider : unit -> Async<'T>, initial : Choice<'T,exn>, ?keepLast : bool, ?interval : int, ?stopf : Choice<'T, exn> -> bool) =
         let interval = defaultArg interval 500
         let keepLast = defaultArg keepLast false

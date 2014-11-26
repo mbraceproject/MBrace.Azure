@@ -14,7 +14,7 @@ open System.Reflection
 
 // TODO : Untyped AwaitResult, Vagrant dependencies.
 [<AutoSerializable(false); AbstractClass>]
-type Process internal (pid : string, ty : Type, pmon : ProcessMonitor) = 
+type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) = 
     
     let proc = 
         new Live<_>((fun () -> pmon.GetProcess(pid)), initial = Choice2Of2(exn ("Process not initialized")), 
@@ -28,7 +28,7 @@ type Process internal (pid : string, ty : Type, pmon : ProcessMonitor) =
 
     member internal __.ProcessEntity = proc
     member internal __.DistributedCancellationTokenSource = 
-        DistributedCancellationTokenSource.FromUri(new Uri(proc.Value.CancellationUri))
+        DistributedCancellationTokenSource.FromUri(config, new Uri(proc.Value.CancellationUri))
         
     member __.Id = pid
     member __.Name = proc.Value.Name
@@ -46,13 +46,13 @@ type Process internal (pid : string, ty : Type, pmon : ProcessMonitor) =
     member __.Kill() = __.DistributedCancellationTokenSource.Cancel()
 
 [<AutoSerializable(false)>]
-type Process<'T> internal (pid : string, pmon : ProcessMonitor) = 
-    inherit Process(pid, typeof<'T>, pmon) 
+type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) = 
+    inherit Process(config, pid, typeof<'T>, pmon) 
 
     override __.AwaitResultBoxed () : obj =__.AwaitResultBoxedAsync() |> Async.RunSynchronously 
     override __.AwaitResultBoxedAsync () : Async<obj> =
         async {
-            let rc : ResultCell<Result<'T>> = ResultCell.FromUri<_>(new Uri(__.ProcessEntity.Value.ResultUri))
+            let rc : ResultCell<Result<'T>> = ResultCell.FromUri<_>(config, new Uri(__.ProcessEntity.Value.ResultUri))
             let! r = rc.AwaitResult()
             return r.Value :> obj
         }
@@ -61,14 +61,14 @@ type Process<'T> internal (pid : string, pmon : ProcessMonitor) =
     member __.AwaitResult() : 'T = __.AwaitResultAsync() |> Async.RunSynchronously
     member __.AwaitResultAsync() : Async<'T> = 
         async {
-            let rc : ResultCell<Result<'T>> = ResultCell.FromUri<_>(new Uri(__.ProcessEntity.Value.ResultUri))
+            let rc : ResultCell<Result<'T>> = ResultCell.FromUri<_>(config, new Uri(__.ProcessEntity.Value.ResultUri))
             let! r = rc.AwaitResult()
             return r.Value
         }
 
-    static member internal Create(pid : string, ty : Type, pmon : ProcessMonitor) : Process =
+    static member internal Create(config : ConfigurationId, pid : string, ty : Type, pmon : ProcessMonitor) : Process =
         let processT = typeof<Process<_>>.GetGenericTypeDefinition().MakeGenericType [| ty |]
         let flags = BindingFlags.NonPublic ||| BindingFlags.Instance
         let culture = System.Globalization.CultureInfo.InvariantCulture
-        Activator.CreateInstance(processT, flags, null, [|pid :> obj ; pmon :> obj |], culture) :?> Process
+        Activator.CreateInstance(processT, flags, null, [|config :> obj; pid :> obj ; pmon :> obj |], culture) :?> Process
         //Activator.CreateInstance(processT, [|pid :> obj ; pmon :> obj |]) :?> Process

@@ -55,49 +55,49 @@ module Table =
             e :? StorageException && (e :?> StorageException).RequestInformation.HttpStatusCode = 412 
         | _ -> false
 
-    let private exec<'U> table op : Async<obj> = 
+    let private exec<'U> config table op : Async<obj> = 
         async {
-            let t = ClientProvider.TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let! _ = t.CreateIfNotExistsAsync()
             let! e = t.ExecuteAsync(op)
             return e.Result
         }
 
-    let insert<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
-        TableOperation.Insert(e) |> exec table |> Async.Ignore
+    let insert<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
+        TableOperation.Insert(e) |> exec config table |> Async.Ignore
 
-    let insertBatch<'T when 'T :> ITableEntity> table (e : seq<'T>) : Async<unit> =
+    let insertBatch<'T when 'T :> ITableEntity> config table (e : seq<'T>) : Async<unit> =
         async {
             let batch = new TableBatchOperation()
             e |> Seq.iter batch.Insert
-            let t = ClientProvider.TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let! _ = t.CreateIfNotExistsAsync()
             let! es = t.ExecuteBatchAsync(batch)
             return ()
         }
 
-    let insertOrReplace<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> = 
-        TableOperation.InsertOrReplace(e) |> exec table |> Async.Ignore
+    let insertOrReplace<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
+        TableOperation.InsertOrReplace(e) |> exec config table |> Async.Ignore
     
-    let read<'T when 'T :> ITableEntity> table pk rk : Async<'T> = 
+    let read<'T when 'T :> ITableEntity> config table pk rk : Async<'T> = 
         async { 
-            let t = ClientProvider.TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let! e = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk))
             return e.Result :?> 'T
         }
     
-    let readBatch<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> table pk : Async<'T seq> = 
+    let readBatch<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table pk : Async<'T seq> = 
         async {  
-            let t = ClientProvider.TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let q = TableQuery<'T>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
             return t.ExecuteQuery<'T>(q)
         }
     
-    let merge<'T when 'T :> ITableEntity> table (e : 'T) : Async<'T> = 
-        TableOperation.Merge(e) |> exec table |> Async.Cast
+    let merge<'T when 'T :> ITableEntity> config table (e : 'T) : Async<'T> = 
+        TableOperation.Merge(e) |> exec config table |> Async.Cast
     
-    let replace<'T when 'T :> ITableEntity> table (e : 'T) : Async<'T> = 
-        TableOperation.Replace(e) |> exec table |> Async.Cast
+    let replace<'T when 'T :> ITableEntity> config table (e : 'T) : Async<'T> = 
+        TableOperation.Replace(e) |> exec config table |> Async.Cast
 
-    let delete<'T when 'T :> ITableEntity> table (e : 'T) : Async<unit> =
-        TableOperation.Delete(e) |> exec table |> Async.Ignore
+    let delete<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> =
+        TableOperation.Delete(e) |> exec config table |> Async.Ignore

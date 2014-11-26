@@ -20,7 +20,7 @@
         let clientId = guid()
         do Configuration.Activate(config)
         let state = RuntimeState.FromConfiguration(config)
-        let logger = new StorageLogger(config.DefaultLogTable, Client(id = clientId))
+        let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         do logger.Attach(new ConsoleLogger()) // TODO : move to Client settings        
         do state.ResourceFactory.Logger.Attach(logger)
         let wmon = state.ResourceFactory.WorkerMonitor
@@ -50,7 +50,7 @@
                 logger.Logf "Starting process %s" processId
                 let! resultCell = state.StartAsProcess processId pname computation.Dependencies cts computation.Workflow
                 logger.Logf "Created process %s" processId
-                return Process<'T>(processId, pmon)
+                return Process<'T>(config.ConfigurationId, processId, pmon)
             }
             
         /// Asynchronously execute a workflow on the distributed runtime.
@@ -90,7 +90,7 @@
                 let! e = pmon.GetProcess(pid)
                 let deps = e.UnpickleDependencies()
                 do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
-                return Process.Create(pid, e.UnpickleType(), pmon)
+                return Process.Create(config.ConfigurationId, pid, e.UnpickleType(), pmon)
             }
         member __.ShowProcess(pid) =
             let ps = __.GetProcess(pid)

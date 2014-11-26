@@ -8,19 +8,19 @@ open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open Microsoft.WindowsAzure.Storage.Table
 
-type IntCell internal (res : Uri) = 
+type IntCell internal (config : ConfigurationId, res : Uri) = 
     member __.Value = 
-        let e = Table.read<CounterEntity> res.Table res.PartitionWithScheme "" |> Async.RunSynchronously
+        let e = Table.read<CounterEntity> config res.Table res.PartitionWithScheme "" |> Async.RunSynchronously
         e.Value
     
     member internal __.Update(updatef : int -> int) = 
         async { 
             let rec update() = 
                 async { 
-                    let! e = Table.read<CounterEntity> res.Table res.PartitionWithScheme ""
+                    let! e = Table.read<CounterEntity> config res.Table res.PartitionWithScheme ""
                     e.Value <- updatef e.Value
                     let r = ref None
-                    let! result = Async.Catch <| Table.merge res.Table e
+                    let! result = Async.Catch <| Table.merge config res.Table e
                     match result with
                     | Choice1Of2 r -> 
                         return r.Value
@@ -37,23 +37,25 @@ type IntCell internal (res : Uri) =
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new IntCell(res)
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new IntCell(config, res)
 
     static member GetUri(container, id) = uri "intcell:%s/%s" container id
-    static member Init(container : string, value : int) = 
+    static member Init(config, container : string, value : int) = 
         async { 
             let res = IntCell.GetUri(container, guid () )
             let e = new CounterEntity(res.PartitionWithScheme, value)
-            do! Table.insert res.Table e
-            return new IntCell(res)
+            do! Table.insert config res.Table e
+            return new IntCell(config, res)
         }
 
 
-type Latch internal (res : Uri) = 
-    inherit IntCell(res)
+type Latch internal (config, res : Uri) = 
+    inherit IntCell(config, res)
 
     member __.Decrement() = base.Update(fun v -> v - 1)
 
@@ -63,24 +65,26 @@ type Latch internal (res : Uri) =
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new Latch(res)
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new Latch(config, res)
 
     static member private GetUri(container, id) = uri "latch:%s/%s" container id
-    static member Init(container : string, id : string, value : int) = 
+    static member Init(config, container : string, id : string, value : int) = 
         async { 
             let res = Latch.GetUri(container, id)
             let e = new LatchEntity(res.PartitionWithScheme, value, value)
-            do! Table.insert res.Table e
-            return new Latch(res)
+            do! Table.insert config res.Table e
+            return new Latch(config, res)
         }
-    static member Init(container : string, value : int) = 
-        Latch.Init(container, guid(), value)
+    static member Init(config, container : string, value : int) = 
+        Latch.Init(config, container, guid(), value)
 
-type Counter internal (res : Uri) = 
-    inherit IntCell(res)
+type Counter internal (config, res : Uri) = 
+    inherit IntCell(config, res)
     
     member __.Increment() = base.Update(fun x -> x + 1)
     
@@ -90,16 +94,18 @@ type Counter internal (res : Uri) =
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new Counter(res)
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new Counter(config, res)
 
     static member private GetUri(container, id) = uri "counter:%s/%s" container id
-    static member Init(container : string, value : int) = 
+    static member Init(config, container : string, value : int) = 
         async { 
             let res = Counter.GetUri(container, guid())
             let e = new CounterEntity(res.PartitionWithScheme, value)
-            do! Table.insert res.Table e
-            return new Counter(res)
+            do! Table.insert config res.Table e
+            return new Counter(config, res)
         }

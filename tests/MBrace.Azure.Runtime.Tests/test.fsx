@@ -31,7 +31,7 @@ let config =
 #r "MBrace.Azure.Runtime.Standalone"
 open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 10)
+Runtime.Spawn(config, 4)
 //--------------
 
 let runtime = Runtime.GetHandle(config)
@@ -98,10 +98,7 @@ open Nessos.MBrace.Azure.Runtime.Resources
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
 Configuration.Activate(config)
-ClientProvider.TableClient.GetTableReference(config.DefaultTableOrContainer).DeleteIfExists()
-ClientProvider.TableClient.GetTableReference(config.DefaultLogTable).DeleteIfExists()
-ClientProvider.BlobClient.GetContainerReference(config.DefaultTableOrContainer).DeleteIfExists()
-ClientProvider.NamespaceClient.DeleteQueue(config.DefaultQueue)
+Configuration.DeleteConfigurationResources(config)
 
 let del x =
     ClientProvider.TableClient.ListTables(x)
@@ -133,17 +130,29 @@ l.Value
 
 //-------------------------------------------------------------------
 
-let c = !BlobCell.Init("tmp", fun () -> 42)
+let c = !BlobCell.Init(config.ConfigurationId, "tmp", fun () -> 42)
+
 !c.GetValue()
+
+let c' = Configuration.Serializer.Pickle(c)
+let c' = Configuration.Serializer.UnPickle<BlobCell<int>>(c')
+!c'.GetValue()
 
 //-------------------------------------------------------------------
 
-let q : Queue<int> = !Queue.Init("tmp")
-q.Enqueue(42)
-q.EnqueueBatch([|0..10|])
-q.ReceiveBatch(10)
-!q.TryDequeue()
+let q : Queue<int> = !Queue.Init(config.ConfigurationId, "tmp")
+!q.Enqueue(42)
+!q.EnqueueBatch([|0..10|])
+
+let m = !q.TryDequeue()
+!m.Value.GetPayloadAsync()
+!m.Value.CompleteAsync()
+
 q.Length
+
+let b = Configuration.Serializer.Pickle(q)
+let b' = Configuration.Serializer.UnPickle<Queue<int>>(b)
+!b'.Enqueue(12)
 
 //-------------------------------------------------------------------
 

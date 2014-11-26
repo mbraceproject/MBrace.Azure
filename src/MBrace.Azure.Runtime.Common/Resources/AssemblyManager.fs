@@ -10,17 +10,17 @@ open System.Runtime.Serialization
 open System.Threading
 open Nessos.MBrace.Azure.Runtime.Common.Storage
 
-type AssemblyManager private (res : Uri) = 
+type AssemblyManager private (config : ConfigurationId, res : Uri) = 
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            return! BlobCell.Init(res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
+            return! BlobCell.Init(config, res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
         async { 
             let uri = BlobCell<_>.GetUri(res.Container, id.FullName)
-            let cell = BlobCell.OfUri(uri)
+            let cell = BlobCell.OfUri(config, uri)
             return! cell.GetValue()
         }
     
@@ -55,14 +55,16 @@ type AssemblyManager private (res : Uri) =
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
     
     new(info : SerializationInfo, context : StreamingContext) = 
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        new AssemblyManager(res)
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new AssemblyManager(config, res)
 
     static member private GetUri(container) = uri "exporter:%s" container
-    static member Init(container : string) = 
+    static member Init(config, container : string) = 
         let res = AssemblyManager.GetUri(container)
-        new AssemblyManager(res)
+        new AssemblyManager(config, res)
 
     
