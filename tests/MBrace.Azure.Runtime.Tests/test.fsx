@@ -27,6 +27,9 @@ let config =
         StorageConnectionString = selectEnv "AzureStorageConn"
         ServiceBusConnectionString = selectEnv "AzureServiceBusConn"  }
 
+//Configuration.Activate(config)
+//Configuration.DeleteConfigurationResources(config)
+
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
 open Nessos.MBrace.Azure.Runtime.Standalone
