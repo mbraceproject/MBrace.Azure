@@ -99,7 +99,7 @@ module Configuration =
                 let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
                 new System.Collections.Generic.HashSet<_>(dependencies)
             let ignore assembly =
-                ignoredAssemblies.Contains(assembly) || assembly.FullName.StartsWith "MBrace.Azure.Client" // TODO : change
+                ignoredAssemblies.Contains(assembly) // TODO : change
             VagrantRegistry.Initialize(ignoreAssembly = ignore, loadPolicy = AssemblyLoadPolicy.ResolveAll))
 
     /// Default serializer.
