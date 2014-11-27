@@ -21,7 +21,6 @@
         do Configuration.Activate(config)
         let state = RuntimeState.FromConfiguration(config)
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
-        do logger.Attach(new ConsoleLogger()) // TODO : move to Client settings        
         do state.ResourceFactory.Logger.Attach(logger)
         let wmon = state.ResourceFactory.WorkerMonitor
         let pmon = state.ResourceFactory.ProcessMonitor
@@ -34,6 +33,9 @@
 
         /// Gets the runtime associated configuration.
         member __.Configuration = config
+
+        /// Client logger.
+        member __.ClientLogger = logger
 
         member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Process<'T> =
             Async.RunSynchronously(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken))

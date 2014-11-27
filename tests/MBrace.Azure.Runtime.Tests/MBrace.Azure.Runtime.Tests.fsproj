@@ -82,6 +82,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Tests.fs" />
     <None Include="test.fsx" />
+    <None Include="demo.fsx" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>

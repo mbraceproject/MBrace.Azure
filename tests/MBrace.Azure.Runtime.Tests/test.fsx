@@ -38,6 +38,8 @@ Runtime.Spawn(config, 4)
 //--------------
 
 let runtime = Runtime.GetHandle(config)
+//runtime.ClientLogger.Attach(new Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger()) 
+
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
