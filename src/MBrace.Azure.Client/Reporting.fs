@@ -22,7 +22,11 @@ type internal ProcessReporter() =
           Field.create "Execution Time" Left (fun p -> p.ExecutionTime)
           Field.create "Result Type" Left (fun p -> p.Type) ]
     
-    static member Report(processes : Process list, title, borders) = Record.PrettyPrint(template, processes, title, borders)
+    static member Report(processes : Process seq, title, borders) = 
+        let ps = processes 
+                 |> Seq.sortBy (fun p -> p.InitializationTime)
+                 |> Seq.toList
+        Record.PrettyPrint(template, ps, title, borders)
 
 type internal WorkerReporter() = 
     
@@ -33,7 +37,11 @@ type internal WorkerReporter() =
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Process Name" Right (fun p -> p.ProcessName) ]
     
-    static member Report(processes : WorkerRef list, title, borders) = Record.PrettyPrint(template, processes, title, borders)
+    static member Report(workers : WorkerRef seq, title, borders) = 
+        let ws = workers
+                 |> Seq.sortBy (fun w -> w.InitializationTime)
+                 |> Seq.toList
+        Record.PrettyPrint(template, ws, title, borders)
 
 type internal LogReporter() = 
     
@@ -42,4 +50,8 @@ type internal LogReporter() =
           Field.create "Timestamp" Right (fun p -> p.Time)
           Field.create "Message" Left (fun p -> p.Message) ]
     
-    static member Report(processes : LogEntity list, title, borders) = Record.PrettyPrint(template, processes, title, borders)
+    static member Report(logs : LogEntity seq, title, borders) = 
+        let ls = logs 
+                 |> Seq.sortBy (fun l -> l.Time)
+                 |> Seq.toList
+        Record.PrettyPrint(template, ls, title, borders)

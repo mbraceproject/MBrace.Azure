@@ -3,8 +3,6 @@
 #r "MBrace.Library.dll"
 #r "FsPickler.dll"
 #r "Vagrant.dll"
-#r "Microsoft.WindowsAzure.Storage.dll"
-#r "Microsoft.ServiceBus.dll"
 #r "MBrace.Azure.Runtime.Common.dll"
 #r "MBrace.Azure.Runtime.dll"
 #r "MBrace.Azure.Client.dll"
@@ -27,11 +25,23 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn"  }
 
+//Configuration.Activate(config)
+//Configuration.DeleteConfigurationResources(config)
+
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
 open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 Runtime.Spawn(config, 4)
+// inmemory-----
+[1..4]
+|> List.map(fun _ -> 
+    let svc = Service(config, 10)
+    svc.AttachLogger(Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger())
+    svc.AsyncStart())
+|> Async.Parallel
+|> Async.Ignore
+|> Async.Start
 //--------------
 
 let runtime = Runtime.GetHandle(config)
