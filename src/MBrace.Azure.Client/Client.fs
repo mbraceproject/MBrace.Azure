@@ -81,7 +81,7 @@
         member __.GetWorkersAsync () = wmon.GetWorkers()
         member __.ShowWorkers () = 
             let ws = __.GetWorkers() |> List.ofSeq
-            printf "%s" <| WorkerReporter.Report(ws, "Workers", true)
+            printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
         member __.GetLogs () = Async.RunSynchronously <| __.GetLogsAsync()
         member __.GetLogsAsync () = logger.AsyncGetLogs()
