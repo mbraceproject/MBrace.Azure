@@ -38,6 +38,16 @@ module ``Azure Runtime Tests`` =
             { Configuration.Default with
                 StorageConnectionString = selectEnv "AzureStorageConn"
                 ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
+        
+        let printall target =
+            printfn "%O ------------------------" target
+            for kvp in Environment.GetEnvironmentVariables(target) do
+                let kvp = kvp :?> System.Collections.DictionaryEntry
+                printfn "%O : %O" kvp.Key kvp.Value
+
+        printall EnvironmentVariableTarget.Machine
+        printall EnvironmentVariableTarget.User
+        printall EnvironmentVariableTarget.Process
 
         let print (s : string) = if s = null then "<null>" else sprintf "%s . . ." <| s.Substring(0,15)
         printfn "config.Storage : %s" <| print cfg.StorageConnectionString
