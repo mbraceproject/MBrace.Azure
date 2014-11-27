@@ -24,8 +24,8 @@ let selectEnv name =
 
 let config = 
     { Configuration.Default with
-        StorageConnectionString = selectEnv "AzureStorageConn"
-        ServiceBusConnectionString = selectEnv "AzureServiceBusConn"  }
+        StorageConnectionString = selectEnv "azurestorageconn"
+        ServiceBusConnectionString = selectEnv "azureservicebusconn"  }
 
 //Configuration.Activate(config)
 //Configuration.DeleteConfigurationResources(config)

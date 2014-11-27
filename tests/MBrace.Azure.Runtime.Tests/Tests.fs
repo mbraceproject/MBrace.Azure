@@ -29,25 +29,10 @@ module ``Azure Runtime Tests`` =
     let mutable config : ConfigurationId = Unchecked.defaultof<_>
     [<TestFixtureSetUp>]
     let init () =
-        let selectEnv name =
-            (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
-                Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine))
-            |> function | null, s | s, null | s, _ -> s
-
         let cfg = 
             { Configuration.Default with
-                StorageConnectionString = selectEnv "AzureStorageConn"
-                ServiceBusConnectionString = selectEnv "AzureServiceBusConn" }
-        
-        let printall target =
-            printfn "%O ------------------------" target
-            for kvp in Environment.GetEnvironmentVariables(target) do
-                let kvp = kvp :?> System.Collections.DictionaryEntry
-                printfn "%O : %O" kvp.Key kvp.Value
-
-        printall EnvironmentVariableTarget.Machine
-        printall EnvironmentVariableTarget.User
-        printall EnvironmentVariableTarget.Process
+                StorageConnectionString = Utils.selectEnv "azurestorageconn"
+                ServiceBusConnectionString = Utils.selectEnv "azureservicebusconn" }
 
         let print (s : string) = if s = null then "<null>" else sprintf "%s . . ." <| s.Substring(0,15)
         printfn "config.Storage : %s" <| print cfg.StorageConnectionString

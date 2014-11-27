@@ -8,6 +8,19 @@ open FsUnit
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
 
+module Utils =
+    open System
+
+    let selectEnv name =
+        (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
+          Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
+            Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Process))
+        |> function 
+           | s, null, null 
+           | null, s, null 
+           | null, null, s -> s
+           | _ -> failwith "Variable not found"
+
 module Choice =
 
     let shouldEqual (value : 'T) (input : Choice<'T, exn>) = 
