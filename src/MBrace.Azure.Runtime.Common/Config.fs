@@ -70,6 +70,12 @@ type internal ClientProvider (config : Configuration) =
         let _ = __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).DeleteIfExists()
         let _ = __.NamespaceClient.DeleteQueue(config.DefaultQueue)
         ()
+    member __.InitAll() =
+        let _ = __.TableClient.GetTableReference(config.DefaultTableOrContainer).CreateIfNotExists()
+        let _ = __.TableClient.GetTableReference(config.DefaultLogTable).CreateIfNotExists()
+        let _ = __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).CreateIfNotExists()
+        let _ = __.NamespaceClient.CreateQueue(config.DefaultQueue)
+        ()
 
 [<Sealed;AbstractClass>]
 /// Holds configuration specific resources.
@@ -112,6 +118,7 @@ module Configuration =
     let Activate(config : Configuration) : unit = 
         init ()
         let cp = new ClientProvider(config)
+        cp.InitAll()
         ConfigurationRegistry.Register<ClientProvider>(config.ConfigurationId, cp)
 
     /// Warning : Deletes all queues, tables and containers described in the given configuration.
