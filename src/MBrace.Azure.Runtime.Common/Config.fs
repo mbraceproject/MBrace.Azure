@@ -74,7 +74,6 @@ type internal ClientProvider (config : Configuration) =
         let _ = __.TableClient.GetTableReference(config.DefaultTableOrContainer).CreateIfNotExists()
         let _ = __.TableClient.GetTableReference(config.DefaultLogTable).CreateIfNotExists()
         let _ = __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).CreateIfNotExists()
-        let _ = __.NamespaceClient.CreateQueue(config.DefaultQueue)
         ()
 
 [<Sealed;AbstractClass>]
