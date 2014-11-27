@@ -22,14 +22,13 @@ type ProcessState =
         | Killed -> "Killed"
         | Completed -> "Completed"
 
-// TODO : Vagrant dependencies on blob storage?
 type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, deps) = 
     inherit TableEntity(pk, pid)
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
     member val State : string = state with get, set
-    member val InitializationTime : DateTime = createdt with get, set
-    member val CompletionTime : DateTime = completedt with get, set
+    member val InitializationTime : DateTimeOffset = createdt with get, set
+    member val CompletionTime : DateTimeOffset = completedt with get, set
     member val Completed : bool = completed with get, set
     member val ResultUri : string = resultUri with get, set
     member val CancellationUri : string = cancellationUri with get, set
@@ -43,7 +42,7 @@ type ProcessMonitor internal (config, table : string) =
     let pk = "process"
     
     member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
-        let now = DateTime.UtcNow
+        let now = DateTimeOffset.UtcNow
         let ty = Configuration.Serializer.Pickle(ty)
         let deps = Configuration.Serializer.Pickle(deps)
         let e = new ProcessEntity(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, ty, deps)
@@ -54,7 +53,7 @@ type ProcessMonitor internal (config, table : string) =
     member this.SetKilled(pid : string) = async {
         let! e = Table.read<ProcessEntity> config table pk pid
         e.State <- string ProcessState.Killed
-        e.CompletionTime <- DateTime.UtcNow
+        e.CompletionTime <- DateTimeOffset.Now
         e.Completed <- true
         let! e' = Table.merge config table e
         return ()
@@ -63,7 +62,7 @@ type ProcessMonitor internal (config, table : string) =
     member this.SetCompleted(pid : string) = async {
         let! e = Table.read<ProcessEntity> config table pk pid
         e.State <- string ProcessState.Completed
-        e.CompletionTime <- DateTime.UtcNow
+        e.CompletionTime <- DateTimeOffset.UtcNow
         e.Completed <- true
         let! e' = Table.merge config table e
         return ()

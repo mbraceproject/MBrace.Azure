@@ -28,11 +28,11 @@ type LoggerType =
             | Client id -> sprintf "client:%s" id
             | Other(name, id) -> sprintf "%s:%s" name id
 
-type LogEntity(pk : string, loggerType : string, message : string, time : DateTime) =
+type LogEntity(pk, loggerType, message, time) =
     inherit TableEntity(pk, guid())
-    member val Type = loggerType with get, set
-    member val Message = message with get, set
-    member val Time = time with get, set
+    member val Type : string = loggerType with get, set
+    member val Message : string = message with get, set
+    member val Time : DateTimeOffset = time with get, set
     new () = new LogEntity(null, null, null, Unchecked.defaultof<_>)
 
 type LoggerBase () =
@@ -74,7 +74,7 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
             Async.Start(loop ())
 
         let log msg = 
-            let e = new LogEntity(pk, string loggerType, msg, DateTime.UtcNow)
+            let e = new LogEntity(pk, string loggerType, msg, DateTimeOffset.UtcNow)
             logs.Push(e)
 
         override __.Log(entry: string) : unit = log entry; base.Log(entry)
@@ -90,7 +90,7 @@ type NullLogger () =
 type ConsoleLogger () =
     inherit LoggerBase () with
         override x.Log(entry : string): unit = 
-            Console.WriteLine("{0} : {1}", DateTime.UtcNow.ToString("ddMMyyyy HH:mm:ss.fff zzz"), entry)
+            Console.WriteLine("{0} : {1}", DateTimeOffset.UtcNow.ToString("ddMMyyyy HH:mm:ss.fff zzz"), entry)
             base.Log(entry)
 
 type CustomLogger (f : Action<string>) =

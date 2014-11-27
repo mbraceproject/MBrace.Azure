@@ -39,7 +39,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
     member __.ExecutionTime = 
         let s = 
             if proc.Value.Completed then proc.Value.CompletionTime
-            else DateTime.UtcNow
+            else DateTimeOffset.UtcNow
         s - proc.Value.InitializationTime
     
     member __.Completed = proc.Value.Completed
@@ -71,4 +71,3 @@ type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) =
         let flags = BindingFlags.NonPublic ||| BindingFlags.Instance
         let culture = System.Globalization.CultureInfo.InvariantCulture
         Activator.CreateInstance(processT, flags, null, [|config :> obj; pid :> obj ; pmon :> obj |], culture) :?> Process
-        //Activator.CreateInstance(processT, [|pid :> obj ; pmon :> obj |]) :?> Process
