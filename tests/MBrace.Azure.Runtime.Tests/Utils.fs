@@ -16,9 +16,9 @@ module Utils =
           Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
             Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Process))
         |> function 
-           | s, null, null 
-           | null, s, null 
-           | null, null, s -> s
+           | s, _, _ when not <| String.IsNullOrEmpty(s) -> s
+           | _, s, _ when not <| String.IsNullOrEmpty(s) -> s
+           | _, _, s when not <| String.IsNullOrEmpty(s) -> s
            | _ -> failwith "Variable not found"
 
 module Choice =

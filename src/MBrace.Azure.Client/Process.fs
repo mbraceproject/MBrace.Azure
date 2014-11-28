@@ -51,6 +51,8 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
     member __.GetLogs () = Async.RunSynchronously(__.GetLogsAsync())
     member __.ShowLogs () = printf "%s" <| LogReporter.Report(__.GetLogs(), sprintf "Process %s logs" pid, false)
 
+    member __.ShowInfo () = printf "%s" <| ProcessReporter.Report([proc.Value], "Process", false)
+
 [<AutoSerializable(false)>]
 type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) = 
     inherit Process(config, pid, typeof<'T>, pmon) 
