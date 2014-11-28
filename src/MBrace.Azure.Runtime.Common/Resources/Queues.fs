@@ -53,6 +53,40 @@ type QueueMessage<'T> (config, msg : BrokeredMessage) =
             | Some v -> return v
         }
 
+type Subscription(config, topic, affinityId : string) =
+    let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
+    //do
+        //if not <| ns.SubscriptionExists(topic, affinityId) then
+        //ns.CreateSubscription() |> ignore
+    let sub = ns.GetSubscription(topic, affinityId)
+
+    member __.EnqueueBatch<'T>(xs : 'T []) : Async<unit> =
+        failwith "Not implemented"
+
+    member __.Enqueue<'T>(t : 'T) : Async<unit> =
+        failwith "Not implemented"
+
+    member __.TryDequeue<'T>() : Async<QueueMessage<'T> option> = 
+        failwith "Not implemented"
+
+
+type Topic (config, topic) = 
+    member __.GetSubscription(affinityId) : Subscription =
+        new Subscription(config, topic, affinityId)
+
+    static member Init(config, name) =
+        async {
+            let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
+            if not <| ns.TopicExists(name) then
+                let td = new TopicDescription(name)
+                td.EnableBatchedOperations <- true
+                td.EnablePartitioning <- true
+                td.DefaultMessageTimeToLive <- MaxTTL
+                do! ofTask <| ns.CreateTopicAsync(td)
+            return new Topic(config, name)
+        }
+
+
 /// Queue implementation.
 type Queue<'T> internal (config : ConfigurationId, res : Uri) = 
     let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Queue)
@@ -87,17 +121,6 @@ type Queue<'T> internal (config : ConfigurationId, res : Uri) =
             else 
                 return Some(QueueMessage<'T>(config, msg))
         } 
-
-//    member __.ReceiveBatch(count : int) = 
-//        async {
-//            let! xs = queue.ReceiveBatchAsync(count)
-//            let xs = Seq.toArray xs
-//            let ys = Array.zeroCreate<'T> xs.Length
-//            for i = 0 to xs.Length - 1 do
-//                let! v = messageToValue xs.[i]
-//                ys.[i] <- v
-//            return ys
-//        }
 
     interface IResource with
          member __.Uri = res

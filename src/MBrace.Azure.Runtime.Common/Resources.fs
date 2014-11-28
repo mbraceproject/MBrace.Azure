@@ -14,6 +14,7 @@ type ResourceFactory private (config : Configuration) =
     do ConfigurationRegistry.Register<_>(config.ConfigurationId, new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer))
     do ConfigurationRegistry.Register<_>(config.ConfigurationId, new ProcessMonitor(config.ConfigurationId, config.DefaultTableOrContainer))
     do ConfigurationRegistry.Register<_>(config.ConfigurationId, new NullLogger() :> ILogger)
+    //do ConfigurationRegistry.Register<_>(config.ConfigurationId, new Topic(config.ConfigurationId))
 
     member __.RequestCounter(container, count) = Counter.Init(config.ConfigurationId, container, count)
     member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Init(config.ConfigurationId, container, count)
@@ -27,5 +28,6 @@ type ResourceFactory private (config : Configuration) =
     member __.ProcessMonitor = ConfigurationRegistry.Resolve<ProcessMonitor>(config.ConfigurationId)
     member __.WorkerMonitor = ConfigurationRegistry.Resolve<WorkerMonitor>(config.ConfigurationId)
     member __.Logger = ConfigurationRegistry.Resolve<ILogger>(config.ConfigurationId)
+    //member __.Topic = ConfigurationRegistry.Resolve<Topic>(config.ConfigurationId)
 
     static member Init (config : Configuration) = new ResourceFactory(config)
