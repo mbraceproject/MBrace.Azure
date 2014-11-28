@@ -15,6 +15,7 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
     let state = RuntimeState.FromConfiguration(config)
     let logf fmt = Printf.ksprintf state.ResourceFactory.Logger.Log fmt
 
+    /// MBrace Runtime Service.
     new(config : Configuration, maxTasks : int) = new Service (config, maxTasks, guid())
 
     member __.Configuration = config
@@ -23,6 +24,7 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
     member __.MaxConcurrentTasks = maxTasks
 
     member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
+    member __.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(__.StartAsync(), cancellationToken = ct) :> _
         
     member __.StartAsync() : Async<unit> =
         async {
