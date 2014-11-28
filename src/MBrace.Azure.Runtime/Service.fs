@@ -22,9 +22,9 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
     member __.AttachLogger(logger) = state.ResourceFactory.Logger.Attach(logger)
     member __.MaxConcurrentTasks = maxTasks
 
-    member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.AsyncStart()) :> _
+    member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
         
-    member __.AsyncStart() : Async<unit> =
+    member __.StartAsync() : Async<unit> =
         async {
             try
                 logf "Starting Service %s" serviceId
@@ -45,4 +45,4 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
                 return! Async.Raise ex
         }
 
-    member __.Start() = Async.RunSynchronously(__.AsyncStart())
+    member __.Start() = Async.RunSynchronously(__.StartAsync())

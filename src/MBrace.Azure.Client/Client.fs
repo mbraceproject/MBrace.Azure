@@ -84,7 +84,7 @@
             printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
         member __.GetLogs () = Async.RunSynchronously <| __.GetLogsAsync()
-        member __.GetLogsAsync () = logger.AsyncGetLogs()
+        member __.GetLogsAsync () = logger.GetLogsAsync()
         member __.ShowLogs () =
             let ls = __.GetLogs()
             printf "%s" <| LogReporter.Report(ls, "Logs", false)

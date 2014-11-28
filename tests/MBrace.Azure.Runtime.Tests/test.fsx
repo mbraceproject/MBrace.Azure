@@ -38,7 +38,7 @@ Runtime.Spawn(config, 4)
 |> List.map(fun _ -> 
     let svc = Service(config, 10)
     svc.AttachLogger(Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger())
-    svc.AsyncStart())
+    svc.StartAsync())
 |> Async.Parallel
 |> Async.Ignore
 |> Async.Start
@@ -116,8 +116,8 @@ let f =
             return 42
 } 
 
-let ps = runtime.CreateProcess f
-
-ps.AwaitResult()
+while true do
+    let ps = runtime.CreateProcess f
+    ps.AwaitResult()
 
 
