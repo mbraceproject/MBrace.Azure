@@ -21,19 +21,21 @@ type ILogger =
 type LoggerType =
     | Worker of id : string
     | Client of id : string
+    | ProcessLog of id : string
     | Other of name : string * id : string with 
         override this.ToString() = 
             match this with
             | Worker id -> sprintf "worker:%s" id
             | Client id -> sprintf "client:%s" id
+            | ProcessLog id -> sprintf "process:%s" id
             | Other(name, id) -> sprintf "%s:%s" name id
 
-type LogEntity(pk, loggerType, message, time) =
+type LogRecord(pk, loggerType, message, time) =
     inherit TableEntity(pk, guid())
     member val Type : string = loggerType with get, set
     member val Message : string = message with get, set
     member val Time : DateTimeOffset = time with get, set
-    new () = new LogEntity(null, null, null, Unchecked.defaultof<_>)
+    new () = new LogRecord(null, null, null, Unchecked.defaultof<_>)
 
 type LoggerBase () =
     let attached = new ConcurrentBag<ILogger>()
@@ -57,13 +59,13 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
         let pk = "log"
 
         let maxWaitTime = 5000
-        let logs = ConcurrentStack<LogEntity>()
+        let logs = ConcurrentStack<LogRecord>()
         let flush () = async {
             let count = logs.Count
             if count > 0 then
                 let out = Array.zeroCreate count
                 let count = logs.TryPopRange(out)
-                return! Table.insertBatch<LogEntity> config table out
+                return! Table.insertBatch<LogRecord> config table out
         }
 
         do  let rec loop _ = async {
@@ -74,28 +76,43 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
             Async.Start(loop ())
 
         let log msg = 
-            let e = new LogEntity(pk, string loggerType, msg, DateTimeOffset.UtcNow)
+            let e = new LogRecord(pk, string loggerType, msg, DateTimeOffset.UtcNow)
             logs.Push(e)
 
         override __.Log(entry: string) : unit = log entry; base.Log(entry)
 
         member __.Logf fmt = Printf.ksprintf __.Log fmt
 
-        member __.AsyncGetLogs () = Table.queryPK<LogEntity> config table pk
-
+        member __.AsyncGetLogs () = Table.queryPK<LogRecord> config table pk
 
 type NullLogger () =
     inherit LoggerBase () 
 
 type ConsoleLogger () =
     inherit LoggerBase () with
-        override x.Log(entry : string): unit = 
+        override x.Log(entry : string) : unit = 
             Console.WriteLine("{0} : {1}", DateTimeOffset.UtcNow.ToString("ddMMyyyy HH:mm:ss.fff zzz"), entry)
             base.Log(entry)
 
 type CustomLogger (f : Action<string>) =
     inherit LoggerBase () with
-        override x.Log(entry : string): unit = 
+        override x.Log(entry : string) : unit = 
             f.Invoke(entry)
             base.Log(entry)
-        
+ 
+ // TODO : Remove?       
+type ProcessLogger(config, table : string, loggerType : LoggerType) =
+    inherit LoggerBase () with
+        do match loggerType with
+           | ProcessLog _ -> ()
+           | _ -> failwith "Invalid logger type %A" loggerType
+
+        let pk = "log"
+
+        override __.Log(entry : string) : unit = 
+            let e = new LogRecord(pk, string loggerType, entry, DateTimeOffset.UtcNow)
+            Async.RunSynchronously(Table.insert<LogRecord> config table e)
+            base.Log(entry)
+
+        member __.GetLogs () =
+            Table.queryPK<LogRecord> config table pk

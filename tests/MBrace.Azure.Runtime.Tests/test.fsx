@@ -72,6 +72,8 @@ runtime.Run(cloud { return failwith<int> "foo" })
 runtime.Run <| Cloud.GetWorkerCount()
 runtime.Run <| Cloud.CurrentWorker
 
+let ps = runtime.CreateProcess <| Cloud.Log "FOO"
+ps.ShowLogs()
 
 let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 

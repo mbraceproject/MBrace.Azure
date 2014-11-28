@@ -19,6 +19,11 @@ type ResourceFactory private (config : Configuration) =
     member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Init(config.ConfigurationId, container, count)
     member __.RequestCancellationTokenSource(container, ?parent) = DistributedCancellationTokenSource.Init(config.ConfigurationId, container, ?parent = parent)
     member __.RequestResultCell<'T>(container) = ResultCell<Result<'T>>.Init(config.ConfigurationId, container)
+    member __.RequestProcessLogger(container, pid) = 
+        // TODO : change
+        let logger = new ProcessLogger(config.ConfigurationId, container, ProcessLog(id = pid)) 
+        logger.Attach(new ConsoleLogger())
+        logger 
     member __.ProcessMonitor = ConfigurationRegistry.Resolve<ProcessMonitor>(config.ConfigurationId)
     member __.WorkerMonitor = ConfigurationRegistry.Resolve<WorkerMonitor>(config.ConfigurationId)
     member __.Logger = ConfigurationRegistry.Resolve<ILogger>(config.ConfigurationId)

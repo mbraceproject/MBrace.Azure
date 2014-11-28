@@ -23,6 +23,8 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
                             | Choice1Of2 p when p.Completed -> true
                             | _ -> false)
 
+    let logger = new ProcessLogger(config, Storage.processIdToStorageId pid, ProcessLog(id = pid))
+
     abstract AwaitResultBoxed : unit -> obj
     abstract AwaitResultBoxedAsync : unit -> Async<obj>
 
@@ -34,7 +36,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
     member __.Name = proc.Value.Name
     member __.Type = ty
 
-    member __.InitializationTime = proc.Value.InitializationTime.ToLocalTime()
+    member __.InitializationTime = let init = proc.Value.InitializationTime in init.ToLocalTime()
     
     member __.ExecutionTime = 
         let s = 
@@ -44,6 +46,10 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
     
     member __.Completed = proc.Value.Completed
     member __.Kill() = __.DistributedCancellationTokenSource.Cancel()
+
+    member __.GetLogsAsync () = logger.GetLogs()
+    member __.GetLogs () = Async.RunSynchronously(__.GetLogsAsync())
+    member __.ShowLogs () = printf "%s" <| LogReporter.Report(__.GetLogs(), sprintf "Process %s logs" pid, false)
 
 [<AutoSerializable(false)>]
 type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) = 

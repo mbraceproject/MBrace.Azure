@@ -22,7 +22,7 @@ type ProcessState =
         | Killed -> "Killed"
         | Completed -> "Completed"
 
-type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, deps) = 
+type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, deps) = 
     inherit TableEntity(pk, pid)
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
@@ -36,7 +36,7 @@ type ProcessEntity(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member val Dependencies : byte [] = deps with get, set
     member __.UnpickleType () = Configuration.Serializer.UnPickle<Type> __.Type
     member __.UnpickleDependencies () = Configuration.Serializer.UnPickle<AssemblyId list> __.Dependencies
-    new () = new ProcessEntity(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null)
+    new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null)
 
 type ProcessMonitor internal (config, table : string) = 
     let pk = "process"
@@ -45,13 +45,13 @@ type ProcessMonitor internal (config, table : string) =
         let now = DateTimeOffset.UtcNow
         let ty = Configuration.Serializer.Pickle(ty)
         let deps = Configuration.Serializer.Pickle(deps)
-        let e = new ProcessEntity(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, ty, deps)
-        do! Table.insert<ProcessEntity> config table e
+        let e = new ProcessRecord(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, ty, deps)
+        do! Table.insert<ProcessRecord> config table e
         return e
     }
 
     member this.SetKilled(pid : string) = async {
-        let! e = Table.read<ProcessEntity> config table pk pid
+        let! e = Table.read<ProcessRecord> config table pk pid
         e.State <- string ProcessState.Killed
         e.CompletionTime <- DateTimeOffset.Now
         e.Completed <- true
@@ -60,7 +60,7 @@ type ProcessMonitor internal (config, table : string) =
     }
 
     member this.SetCompleted(pid : string) = async {
-        let! e = Table.read<ProcessEntity> config table pk pid
+        let! e = Table.read<ProcessRecord> config table pk pid
         e.State <- string ProcessState.Completed
         e.CompletionTime <- DateTimeOffset.UtcNow
         e.Completed <- true
@@ -69,9 +69,9 @@ type ProcessMonitor internal (config, table : string) =
     }
 
     member this.GetProcess(pid : string) = async {
-        return! Table.read<ProcessEntity> config table pk pid
+        return! Table.read<ProcessRecord> config table pk pid
     }
 
     member this.GetProcesses () = async {
-        return! Table.queryPK<ProcessEntity> config table pk
+        return! Table.queryPK<ProcessRecord> config table pk
     }

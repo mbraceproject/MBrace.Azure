@@ -71,8 +71,8 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Process.fs" />
     <Compile Include="Reporting.fs" />
+    <Compile Include="Process.fs" />
     <Compile Include="Client.fs" />
     <Content Include="app.config" />
     <Content Include="packages.config" />

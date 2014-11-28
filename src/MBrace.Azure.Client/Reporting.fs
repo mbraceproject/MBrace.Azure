@@ -13,16 +13,16 @@ open System.Threading
 
 type internal ProcessReporter() = 
     
-    static let template : Field<Process> list = 
+    static let template : Field<ProcessRecord> list = 
         [ Field.create "Name" Left (fun p -> p.Name)
           Field.create "Process Id" Right (fun p -> p.Id)
-          Field.create "State" Right (fun p -> p.ProcessEntity.Value.State)
+          Field.create "State" Right (fun p -> p.State)
           Field.create "Completed" Left (fun p -> p.Completed)
           Field.create "Start Time" Left (fun p -> p.InitializationTime)
-          Field.create "Execution Time" Left (fun p -> p.ExecutionTime)
+          Field.create "Execution Time" Left (fun p -> DateTimeOffset.UtcNow - p.InitializationTime)
           Field.create "Result Type" Left (fun p -> p.Type) ]
     
-    static member Report(processes : Process seq, title, borders) = 
+    static member Report(processes : ProcessRecord seq, title, borders) = 
         let ps = processes 
                  |> Seq.sortBy (fun p -> p.InitializationTime)
                  |> Seq.toList
@@ -45,13 +45,13 @@ type internal WorkerReporter() =
 
 type internal LogReporter() = 
     
-    static let template : Field<LogEntity> list = 
+    static let template : Field<LogRecord> list = 
         [ Field.create "Source" Left (fun p -> p.Type)
           Field.create "Timestamp" Right (fun p -> p.Time)
           Field.create "Message" Left (fun p -> p.Message) ]
     
-    static member Report(logs : LogEntity seq, title, borders) = 
+    static member Report(logs : LogRecord seq, title, borders) = 
         let ls = logs 
-                 |> Seq.sortBy (fun l -> l.Time)
+                 |> Seq.sortBy (fun l -> l.Time, l.Type)
                  |> Seq.toList
         Record.PrettyPrint(template, ls, title, borders)

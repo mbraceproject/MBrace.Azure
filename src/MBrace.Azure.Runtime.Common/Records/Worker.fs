@@ -20,7 +20,7 @@ type WorkerRef (id : string, hostname : string, pid : int, pname : string, joine
     member __.ProcessName = pname 
     member __.InitializationTime = joined 
 
-type WorkerEntity(pk, id, hostname, pid, pname, joined, heartbeat) =
+type WorkerRecord(pk, id, hostname, pid, pname, joined, heartbeat) =
     inherit TableEntity(pk, id)
     member val Hostname : string = hostname with get, set
     member val Id = id : string with get, set
@@ -29,7 +29,7 @@ type WorkerEntity(pk, id, hostname, pid, pname, joined, heartbeat) =
     member val InitializationTime : DateTimeOffset = joined with get, set
     member val Heartbeat : DateTimeOffset = heartbeat with get, set
 
-    new () = new WorkerEntity(null, null, null, -1, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>)
+    new () = new WorkerRecord(null, null, null, -1, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>)
 
     member __.AsWorkerRef () = 
         new WorkerRef(__.Id, __.Hostname, __.ProcessId, __.ProcessName, __.InitializationTime)
@@ -48,15 +48,15 @@ type WorkerMonitor internal (config, table : string) =
             | None ->
                 let ps = Process.GetCurrentProcess()
                 let joined = DateTimeOffset.UtcNow
-                let w = new WorkerEntity(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
-                do! Table.insertOrReplace<WorkerEntity> config table w //Worker might restart but keep id.
+                let w = new WorkerRecord(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, joined)
+                do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
                 current := Some w
                 return w.AsWorkerRef()
         }
 
     member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerRef seq> = async {
         let timespan = defaultArg timespan <| TimeSpan.FromSeconds 60.
-        let! ws = Table.queryPK<WorkerEntity> config table pk
+        let! ws = Table.queryPK<WorkerRecord> config table pk
         return ws |> Seq.filter (fun w ->  DateTimeOffset.UtcNow - w.Heartbeat < timespan)
                   |> Seq.map (fun w -> w.AsWorkerRef())
     }
@@ -69,7 +69,7 @@ type WorkerMonitor internal (config, table : string) =
         worker.ETag <- "*"
         let rec loop () = async {
             worker.Heartbeat <- DateTimeOffset.UtcNow
-            let! _ = Table.merge<WorkerEntity> config table worker
+            let! _ = Table.merge<WorkerRecord> config table worker
             do! Async.Sleep (int ts.TotalMilliseconds)
             return! loop ()
         }

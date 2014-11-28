@@ -80,13 +80,13 @@
         member __.GetWorkers () = Async.RunSynchronously <| __.GetWorkersAsync()
         member __.GetWorkersAsync () = wmon.GetWorkers()
         member __.ShowWorkers () = 
-            let ws = __.GetWorkers() |> List.ofSeq
+            let ws = __.GetWorkers() 
             printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
         member __.GetLogs () = Async.RunSynchronously <| __.GetLogsAsync()
         member __.GetLogsAsync () = logger.AsyncGetLogs()
         member __.ShowLogs () =
-            let ls = __.GetLogs() |> Seq.sortBy (fun l -> l.Time, l.Type) |> List.ofSeq
+            let ls = __.GetLogs()
             printf "%s" <| LogReporter.Report(ls, "Logs", false)
 
         member __.GetProcess(pid) = Async.RunSynchronously <| __.GetProcessAsync(pid)
@@ -98,9 +98,8 @@
                 return Process.Create(config.ConfigurationId, pid, e.UnpickleType(), pmon)
             }
         member __.ShowProcess(pid) =
-            let ps = __.GetProcess(pid)
+            let ps = __.GetProcess(pid).ProcessEntity.Value
             printf "%s" <| ProcessReporter.Report([ps], "Process", false)
-
 
         member __.GetProcesses () = Async.RunSynchronously <| __.GetProcessesAsync()
         member __.GetProcessesAsync () : Async<seq<Process>> = 
@@ -113,7 +112,7 @@
                 return rs :> seq<_>
             }
         member __.ShowProcesses () = 
-            let ps = __.GetProcesses() |> Seq.toList
+            let ps = __.GetProcesses() |> Seq.map (fun ps -> ps.ProcessEntity.Value)
             printf "%s" <| ProcessReporter.Report(ps, "Processes", true)
 
         /// <summary>
