@@ -148,11 +148,13 @@ module ``Azure Runtime Tests`` =
     [<Repeat(repeats)>]
     let ``1. Parallel : exception cancellation`` () =
         cloud {
-            let counter = Counter.Init(config, testContainer, 0) |> Async.RunSynchronously
+        let counter = Counter.Init(config, testContainer, 0) |> Async.RunSynchronously
             let worker i = cloud { 
                 if i = 0 then
+                    do! Cloud.Sleep 100
                     invalidOp "failure"
                 else
+                    do! Cloud.Sleep 1000
                     let _ = counter.Incr()
                     return ()
             }
@@ -162,7 +164,7 @@ module ``Azure Runtime Tests`` =
                 return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
             with :? InvalidOperationException ->
                 return counter.Value
-        } |> run |> Choice.shouldMatch(fun i -> i < 20)
+        } |> run |> Choice.shouldMatch(fun i -> i < 5)
 
     [<Test>]
     [<Repeat(repeats)>]
@@ -263,7 +265,7 @@ module ``Azure Runtime Tests`` =
     [<Test>]
     [<Repeat(repeats)>]
     let ``1. Parallel : balanced map/reduce`` () =
-        wordCount 1000 MapReduce.mapReduce |> run |> Choice.shouldEqual 5000
+        wordCount 100 MapReduce.mapReduce |> run |> Choice.shouldEqual 500
 
     [<Test>]
     let ``2. Choice : empty input`` () =
