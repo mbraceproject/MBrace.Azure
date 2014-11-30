@@ -53,7 +53,7 @@ module ``Azure Runtime Tests`` =
     type Counter with
         member l.Incr() = l.Increment() |> Async.RunSync
 
-    let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync(workflow) |> Async.Catch |> Async.RunSynchronously
+    let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync(workflow) |> Async.Catch |> Async.RunSync
     let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = Option.get runtime
@@ -134,7 +134,7 @@ module ``Azure Runtime Tests`` =
         cloud {
             try
                 let! _ = Array.init 20 (fun _ -> cloud { return invalidOp "failure" }) |> Cloud.Parallel
-                return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
+                return raise <| new exn("Cloud.Parallel should not have completed succesfully.")
             with :? InvalidOperationException ->
                 counter.Incr() |> ignore
                 return ()
@@ -149,6 +149,7 @@ module ``Azure Runtime Tests`` =
     let ``1. Parallel : exception cancellation`` () =
         cloud {
             let counter = Counter.Init(config, testContainer, 0) |> Async.RunSynchronously
+
             let worker i = cloud { 
                 if i = 0 then
                     do! Cloud.Sleep 100
@@ -161,7 +162,7 @@ module ``Azure Runtime Tests`` =
 
             try
                 let! _ = Array.init 20 worker |> Cloud.Parallel
-                return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
+                return raise <| new exn("Cloud.Parallel should not have completed succesfully.")
             with :? InvalidOperationException ->
                 return counter.Value
         } |> run |> Choice.shouldMatch(fun i -> i < 5)
@@ -182,7 +183,7 @@ module ``Azure Runtime Tests`` =
             try
                 let cluster i = Array.init 10 (worker i) |> Cloud.Parallel |> Cloud.Ignore
                 do! Array.init 10 cluster |> Cloud.Parallel |> Cloud.Ignore
-                return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
+                return raise <| new exn("Cloud.Parallel should not have completed succesfully.")
             with :? InvalidOperationException ->
                 return counter.Value
         } |> run |> Choice.shouldMatch(fun i -> i < 100)

@@ -250,7 +250,7 @@ with
         // TODO : revise
         let! item = async {
             let currentId = rt.ResourceFactory.WorkerMonitor.Current.Id
-            let! item = rt.AffinedTaskQueue.GetSubscription(currentId).TryDequeue() 
+            let! item = rt.ResourceFactory.LocalSubscription.TryDequeue() 
             match item with
             | None -> return! rt.TaskQueue.TryDequeue()
             | item -> return item

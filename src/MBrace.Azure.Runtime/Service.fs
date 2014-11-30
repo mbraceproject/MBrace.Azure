@@ -31,7 +31,8 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
             try
                 logf "Starting Service %s" serviceId
 
-                let _ = state.AffinedTaskQueue.GetSubscription(serviceId)
+                let subscription = state.AffinedTaskQueue.GetSubscription(serviceId)
+                state.ResourceFactory.RegisterLocalSubscription(subscription)
                 logf "Subscription for %s created" serviceId
 
                 let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(serviceId)
@@ -44,6 +45,7 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
                 let! handle = Async.StartChild(Worker.initWorker state maxTasks)
                 logf "Worker loop started"
                 
+                logf "Service %s started" serviceId
                 return! handle
             with ex ->
                 logf "Service %s failed with %A" __.Id  ex
