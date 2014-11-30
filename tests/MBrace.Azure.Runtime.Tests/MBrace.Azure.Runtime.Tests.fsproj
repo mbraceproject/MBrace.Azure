@@ -84,6 +84,7 @@
     <None Include="test.fsx" />
     <None Include="resources.fsx" />
     <None Include="demo.fsx" />
+    <None Include="nunit.fsx" />
     <Content Include="packages.config" />
     <Content Include="app.config" />
   </ItemGroup>

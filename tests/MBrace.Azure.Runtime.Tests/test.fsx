@@ -100,30 +100,3 @@ let wordCount size mapReduceAlgorithm : Cloud<int> =
     mapReduceAlgorithm mapF 0 reduceF inputs
 wordCount 1000 Library.MapReduce.mapReduce 
 |> runtime.Run
-
-let f =
-    cloud {
-        let worker i = cloud { 
-            if i = 0 then
-                invalidOp "failure"
-            else
-                return ()
-        }
-        try
-            let! _ = Array.init 20 worker |> Cloud.Parallel
-            return raise <| new exn("Cloud.Parallel should not have completed succesfully.")
-        with :? InvalidOperationException ->
-            return 42
-} 
-
-let w = runtime.GetWorkers() 
-let [magenda; green; red; blue] = runtime.GetWorkers() |> Seq.toList
-
-let wf = 
-    cloud { 
-        let! child = Cloud.StartChild(cloud { return Console.BackgroundColor <- ConsoleColor.DarkGreen },
-                                      green)
-        return! child 
-    }
-
-let ps = runtime.CreateProcess wf
