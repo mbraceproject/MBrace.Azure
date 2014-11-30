@@ -108,8 +108,15 @@ module Configuration =
                 let this = Assembly.GetExecutingAssembly()
                 let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
                 new System.Collections.Generic.HashSet<_>(dependencies)
+            let ignoredNames =
+                set [ "MBrace.Azure.Runtime"
+                      "MBrace.Azure.Runtime.Common"
+                      "MBrace.Azure.Client"
+                      "MBrace.Azure.Runtime.Standalone"  ]
             let ignore assembly =
-                ignoredAssemblies.Contains(assembly) // TODO : change
+                // TODO : change
+                ignoredAssemblies.Contains(assembly) || ignoredNames.Contains(assembly.GetName().Name)
+
             VagrantRegistry.Initialize(ignoreAssembly = ignore, loadPolicy = AssemblyLoadPolicy.ResolveAll))
 
     /// Default serializer.
