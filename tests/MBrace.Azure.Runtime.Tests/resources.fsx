@@ -24,9 +24,8 @@ let selectEnv name =
 
 let config = 
     { Configuration.Default with
-        StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=krontogiannismbrace;AccountKey=Zoo2JcIuFpwPIg2XQnbDsqXgN7fFKNkI8Glmwy80cqcSzVcNyPc25qmARDfZ2RElJyTnztAqHfccw5gScAjqyg==;"
-        ServiceBusConnectionString = "Endpoint=sb://krontogiannis-mbrace.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=eCfW0KoChGPrL+FNL1gnf4dEyz0lWomWTV6umWY0bII="  }
-
+        StorageConnectionString = selectEnv "azurestorageconn"
+        ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 Configuration.Activate(config)
 Configuration.DeleteConfigurationResources(config)
