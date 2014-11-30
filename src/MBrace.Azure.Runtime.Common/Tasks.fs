@@ -95,6 +95,9 @@ with
         return! TaskExecutionMonitor.AwaitCompletion tem
     }
 
+/// TaskQueue message type.
+type TaskItem = Pickle<Task> * string * AssemblyId list
+
 /// Defines a handle to the state of a runtime instance
 /// All information pertaining to the runtime execution state
 /// is contained in a single process -- the initializing client.
@@ -102,7 +105,10 @@ type RuntimeState =
     {
         /// Reference to the global task queue employed by the runtime
         /// Queue contains pickled task and its vagrant dependency manifest
-        TaskQueue : Queue<Pickle<Task> * (*ProcessId*) string * AssemblyId list>
+        TaskQueue : Queue
+        /// Reference to the global task queue that supports messages tasks
+        /// with affinity.
+        AffinedTaskQueue : Topic
         /// Reference to a Vagrant assembly exporting actor.
         AssemblyManager : AssemblyManager
         /// Reference to the runtime resource manager
@@ -113,7 +119,8 @@ with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration) =
         {
-            TaskQueue = Queue<_>.Init (config.ConfigurationId, config.DefaultQueue) |> Async.RunSynchronously
+            TaskQueue = Queue.Init(config.ConfigurationId, config.DefaultQueue) |> Async.RunSync
+            AffinedTaskQueue = Topic.Init(config.ConfigurationId, config.DefaultTopic) |> Async.RunSync
             AssemblyManager = AssemblyManager.Init(config.ConfigurationId, config.DefaultTableOrContainer) 
             ResourceFactory = ResourceFactory.Init(config) 
         }
@@ -127,7 +134,8 @@ with
     /// <param name="ec">Exception continuation</param>
     /// <param name="cc">Cancellation continuation</param>
     /// <param name="wf">Workflow</param>
-    member rt.EnqueueTask procId dependencies cts sc ec cc (wf : Cloud<'T>) =
+    /// <param name="affinity">Optional task affinity.</param>
+    member rt.EnqueueTask(procId, dependencies, cts, sc, ec, cc, wf : Cloud<'T>, ?affinity) : Async<unit> =
         let taskId = guid()
         let startTask ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
@@ -143,7 +151,10 @@ with
             }
 
         let taskp = Pickle.pickle task
-        rt.TaskQueue.Enqueue((taskp, procId, dependencies))
+        let taskItem = (taskp, procId, dependencies)
+        match affinity with
+        | None -> rt.TaskQueue.Enqueue<TaskItem>(taskItem)
+        | Some affinity -> rt.AffinedTaskQueue.Enqueue<TaskItem>(taskItem, affinity)
 
     /// <summary>
     ///     Enqueue a batch of cloud workflows with supplied continuations to the runtime task queue.
@@ -155,7 +166,8 @@ with
     /// <param name="ec">Exception continuation.</param>
     /// <param name="cc">Cancellation continuation.</param>
     /// <param name="wfs">Workflows</param>
-    member rt.EnqueueTaskBatch procId dependencies cts scFactory ec cc (wfs : Cloud<'T> []) =
+    /// <param name="affinity">Optional task affinity.</param>
+    member rt.EnqueueTaskBatch(procId, dependencies, cts, scFactory, ec, cc, wfs : Cloud<'T> [], ?affinity) : Async<unit> =
         let tasks = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
             let taskId = guid()
@@ -173,9 +185,9 @@ with
 
             let taskp = Pickle.pickle task
             tasks.[i] <- (taskp, procId, dependencies)
-        rt.TaskQueue.EnqueueBatch(tasks)
-
-
+        match affinity with
+        | None -> rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
+        | Some affinity -> rt.AffinedTaskQueue.EnqueueBatch<TaskItem>(tasks, affinity)
 
     /// <summary>
     ///     Schedules a cloud workflow as a distributed result cell.
@@ -184,7 +196,7 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCell procId dependencies cts (wf : Cloud<'T>) = async {
+    member rt.StartAsCell(procId, dependencies, cts, wf : Cloud<'T>, ?affinity) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
         let setResult ctx r = 
             async {
@@ -195,7 +207,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask procId dependencies cts scont econt ccont wf
+        do! rt.EnqueueTask(procId, dependencies, cts, scont, econt, ccont, wf, ?affinity = affinity)
         return resultCell
     }
 
@@ -208,7 +220,7 @@ with
     /// <param name="wf">Input workflow.</param>
     /// <param name="name">Process name.</param>
     /// <param name="procId">Process id.</param>
-    member rt.StartAsProcess procId name dependencies cts (wf : Cloud<'T>) = async {
+    member rt.StartAsProcess(procId, name, dependencies, cts, wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
         let! _ = rt.ResourceFactory.ProcessMonitor
                    .CreateRecord(
@@ -229,29 +241,25 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask procId dependencies cts scont econt ccont wf
+        do! rt.EnqueueTask(procId, dependencies, cts, scont, econt, ccont, wf)
         return resultCell
     }
 
-    
-//    member rt.DequeueBatch(count : int) = async {
-//        let! items = rt.TaskQueue.ReceiveBatch(count)
-//        let ys = Array.zeroCreate items.Length
-//        for i = 0 to items.Length - 1 do
-//            let (tp, procId, deps) = items.[i]
-//            do! rt.AssemblyExporter.LoadDependencies deps
-//            let task = Pickle.unpickle tp
-//            ys.[i] <- task, procId, deps
-//        return ys
-//    }
-
     /// Attempt to dequeue a task from the runtime task queue
     member rt.TryDequeue () = async {
-        let! item = rt.TaskQueue.TryDequeue()
+        // TODO : revise
+        let! item = async {
+            let currentId = rt.ResourceFactory.WorkerMonitor.Current.Id
+            let! item = rt.AffinedTaskQueue.GetSubscription(currentId).TryDequeue() 
+            match item with
+            | None -> return! rt.TaskQueue.TryDequeue()
+            | item -> return item
+        }
+
         match item with
         | None -> return None
         | Some msg -> 
-            let! (tp, procId, deps) = msg.GetPayloadAsync()
+            let! (tp, procId, deps) = msg.GetPayloadAsync<TaskItem>()
             do! rt.AssemblyManager.LoadDependencies deps
             let task = Pickle.unpickle tp
             return Some (msg, task, procId, deps)

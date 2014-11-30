@@ -34,6 +34,7 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
                                            serviceBusConnectionString : "",
                                            defaultTableOrContainer : Configuration.Default.DefaultTableOrContainer,
                                            defaultQueue : Configuration.Default.DefaultQueue,
+                                           defaultTopic: Configuration.Default.DefaultTopic,
                                            defaultLogTable : Configuration.Default.DefaultLogTable);
 
             _svc = new Service(config, maxTasks : 10, serviceId : RoleEnvironment.CurrentRoleInstance.Id);

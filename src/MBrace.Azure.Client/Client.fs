@@ -53,7 +53,7 @@
                 let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 logger.Logf "Starting process %s" processId
-                let! resultCell = state.StartAsProcess processId pname computation.Dependencies cts computation.Workflow
+                let! resultCell = state.StartAsProcess(processId, pname, computation.Dependencies, cts, computation.Workflow)
                 logger.Logf "Created process %s" processId
                 return Process<'T>(config.ConfigurationId, processId, pmon)
             }

@@ -1,5 +1,4 @@
-﻿
-#I "../../bin/"
+﻿#I "../../bin/"
 #r "MBrace.Core.dll"
 #r "MBrace.Library.dll"
 #r "FsPickler.dll"
@@ -25,15 +24,14 @@ let selectEnv name =
 
 let config = 
     { Configuration.Default with
-        StorageConnectionString = selectEnv "azurestorageconn"
-        ServiceBusConnectionString = selectEnv "azureservicebusconn"  }
+        StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=krontogiannismbrace;AccountKey=Zoo2JcIuFpwPIg2XQnbDsqXgN7fFKNkI8Glmwy80cqcSzVcNyPc25qmARDfZ2RElJyTnztAqHfccw5gScAjqyg==;"
+        ServiceBusConnectionString = "Endpoint=sb://krontogiannis-mbrace.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=eCfW0KoChGPrL+FNL1gnf4dEyz0lWomWTV6umWY0bII="  }
+
 
 Configuration.Activate(config)
 Configuration.DeleteConfigurationResources(config)
-
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
-
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
 let del x =
@@ -153,3 +151,21 @@ let pmon = rf.ProcessMonitor
 !pmon.GetProcess("foo")
 !pmon.SetCompleted("foo", "")
 
+//---------------------------------------------------------------------
+
+let t = !Topic.Init(config.ConfigurationId, config.DefaultTopic)
+
+let s1 = "worker_" + System.Guid.NewGuid().ToString("N")
+let s2 = "worker_" + System.Guid.NewGuid().ToString("N")
+
+!t.Enqueue(42, s1)
+!t.Enqueue(43, s2)
+
+let c1 = t.GetSubscription(s1)
+let c2 = t.GetSubscription(s2)
+
+let m1 = !c1.TryDequeue()
+let m2 = !c2.TryDequeue()
+
+!m1.Value.CompleteAsync()
+!m2.Value.CompleteAsync()

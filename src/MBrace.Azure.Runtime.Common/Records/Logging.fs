@@ -91,7 +91,7 @@ type NullLogger () =
 type ConsoleLogger () =
     inherit LoggerBase () with
         override x.Log(entry : string) : unit = 
-            Console.WriteLine("{0} : {1}", DateTimeOffset.UtcNow.ToString("ddMMyyyy HH:mm:ss.fff zzz"), entry)
+            Console.WriteLine("{0} : {1}", DateTimeOffset.Now.ToString("ddMMyyyy HH:mm:ss.fff zzz"), entry)
             base.Log(entry)
 
 type CustomLogger (f : Action<string>) =

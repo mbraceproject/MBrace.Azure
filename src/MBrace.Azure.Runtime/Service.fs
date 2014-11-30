@@ -12,10 +12,10 @@ open Nessos.MBrace
 /// MBrace Runtime Service.
 type Service (config : Configuration, maxTasks : int, serviceId : string) =
     do Configuration.Activate(config)
+    /// MBrace Runtime Service.
     let state = RuntimeState.FromConfiguration(config)
     let logf fmt = Printf.ksprintf state.ResourceFactory.Logger.Log fmt
 
-    /// MBrace Runtime Service.
     new(config : Configuration, maxTasks : int) = new Service (config, maxTasks, guid())
 
     member __.Configuration = config
@@ -30,6 +30,9 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
         async {
             try
                 logf "Starting Service %s" serviceId
+
+                let _ = state.AffinedTaskQueue.GetSubscription(serviceId)
+                logf "Subscription for %s created" serviceId
 
                 let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(serviceId)
                 logf "Declared node %s : %d : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id

@@ -72,7 +72,7 @@ let Parallel (state : RuntimeState) procId dependencies (computations : seq<Clou
                 } |> TaskExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch procId dependencies childCts onSuccess onException onCancellation computations
+                do! state.EnqueueTaskBatch(procId, dependencies, childCts, onSuccess, onException, onCancellation, computations)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
@@ -139,16 +139,17 @@ let Choice (state : RuntimeState) procId dependencies (computations : seq<Cloud<
                 } |> TaskExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch procId dependencies childCts (fun _ -> onSuccess) onException onCancellation computations
+                do! state.EnqueueTaskBatch(procId, dependencies, childCts, (fun _ -> onSuccess), onException, onCancellation, computations)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartChild (state : RuntimeState) procId dependencies (computation : Cloud<'T>) = cloud {
+let StartChild (state : RuntimeState) procId dependencies (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
     let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
-    let! resultCell = Cloud.OfAsync <| state.StartAsCell procId dependencies cts computation
+    let affinity = match affinity with None -> None | Some wr -> Some wr.Id
+    let! resultCell = Cloud.OfAsync <| state.StartAsCell(procId, dependencies, cts, computation, ?affinity = affinity)
     return cloud { 
         let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
         return result.Value

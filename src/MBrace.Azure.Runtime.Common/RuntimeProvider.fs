@@ -14,6 +14,7 @@ open Nessos.MBrace.Runtime
 
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
+open System
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies, context) =
@@ -42,9 +43,10 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
             | ThreadParallel -> ThreadPool.Choice computations
             | Sequential -> Sequential.Choice computations
 
-        member __.ScheduleStartChild(computation,_,_) =
+        member __.ScheduleStartChild(computation,wr,timeout) =
+            if timeout.IsSome then raise <| NotImplementedException("StartChild with timeout")
             match context with
-            | Distributed -> Combinators.StartChild state procId dependencies computation
+            | Distributed -> Combinators.StartChild state procId dependencies computation wr
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
 

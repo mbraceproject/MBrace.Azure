@@ -23,7 +23,7 @@ let selectEnv name =
 let config = 
     { Configuration.Default with
         StorageConnectionString = selectEnv "azurestorageconn"
-        ServiceBusConnectionString = selectEnv "azureservicebusconn"  }
+        ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 //Configuration.Activate(config)
 //Configuration.DeleteConfigurationResources(config)
@@ -116,8 +116,14 @@ let f =
             return 42
 } 
 
-while true do
-    let ps = runtime.CreateProcess f
-    ps.AwaitResult()
+let w = runtime.GetWorkers() 
+let [magenda; green; red; blue] = runtime.GetWorkers() |> Seq.toList
 
+let wf = 
+    cloud { 
+        let! child = Cloud.StartChild(cloud { return Console.BackgroundColor <- ConsoleColor.DarkGreen },
+                                      green)
+        return! child 
+    }
 
+let ps = runtime.CreateProcess wf

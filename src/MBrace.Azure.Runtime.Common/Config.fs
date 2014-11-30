@@ -35,7 +35,9 @@ type Configuration =
       /// Default Service Bus queue name.
       DefaultQueue : string
       /// Default Table name for logging.
-      DefaultLogTable : string }
+      DefaultLogTable : string
+      /// Default Topic name.
+      DefaultTopic : string }
 
     /// Returns an Azure Configuration with the default table, queue, container values and
     /// sample connection strings.
@@ -45,18 +47,17 @@ type Configuration =
           ServiceBusConnectionString = 
               "Endpoint=sb://[your namespace].servicebus.windows.net;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=[your secret]"
           DefaultTableOrContainer = "mbraceruntime"
-          DefaultQueue = "mbraceruntime"
+          DefaultQueue = "mbraceruntimetaskqueue"
+          DefaultTopic = "mbraceruntimetasktopic"
           DefaultLogTable = "mbraceruntimelogs" }
 
     /// Configuration identifier hash.
-    member __.ConfigurationId : ConfigurationId = 
-        let s = // TODO : change
-            __.StorageConnectionString +
-            __.ServiceBusConnectionString +
-            __.DefaultTableOrContainer +
-            __.DefaultQueue +
-            __.DefaultLogTable 
-        ConfigurationId.ofText s
+    member this.ConfigurationId : ConfigurationId = 
+        this.GetType()
+        |> Microsoft.FSharp.Reflection.FSharpType.GetRecordFields
+        |> Seq.map (fun pi -> pi.GetValue(this) :?> string)
+        |> String.concat String.Empty
+        |> ConfigurationId.ofText 
 
 type internal ClientProvider (config : Configuration) =
     let acc = CloudStorageAccount.Parse(config.StorageConnectionString)
@@ -64,11 +65,15 @@ type internal ClientProvider (config : Configuration) =
     member __.BlobClient = acc.CreateCloudBlobClient()
     member __.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
     member __.QueueClient(queue : string) = QueueClient.CreateFromConnectionString(config.ServiceBusConnectionString, queue)
+    member __.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic, name)
+    member __.TopicClient(topic) = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic)
+
     member __.ClearAll() =
         let _ = __.TableClient.GetTableReference(config.DefaultTableOrContainer).DeleteIfExists()
         let _ = __.TableClient.GetTableReference(config.DefaultLogTable).DeleteIfExists()
         let _ = __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).DeleteIfExists()
         let _ = __.NamespaceClient.DeleteQueue(config.DefaultQueue)
+        let _ = __.NamespaceClient.DeleteTopic(config.DefaultTopic)
         ()
     member __.InitAll() =
         let _ = __.TableClient.GetTableReference(config.DefaultTableOrContainer).CreateIfNotExists()

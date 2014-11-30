@@ -14,6 +14,7 @@
 
         type Async with
             static member inline Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
+            static member Sleep(timespan : TimeSpan) = Async.Sleep(int timespan.TotalMilliseconds)
 
         type AsyncBuilder with
             member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 

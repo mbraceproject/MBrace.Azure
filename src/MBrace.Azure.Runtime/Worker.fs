@@ -25,21 +25,20 @@ let initWorker (runtime : RuntimeState)
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then
-            do! Async.Sleep 50
+            do! Async.Sleep 100
             return! loop ()
         else
             try
                 let! task = runtime.TryDequeue()
                 match task with
                 | None ->
-                    do! Async.Sleep 50
+                    do! Async.Sleep 100
                 | Some (msg, task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
                         logf "Starting task %s/%s/%d/%O" procId task.TaskId msg.DeliveryCount task.Type
 
                         let! renew = Async.StartChild(msg.RenewLoopAsync())
-                        logf "Started task renew loop"
 
                         let sw = new Stopwatch()
                         sw.Start()
