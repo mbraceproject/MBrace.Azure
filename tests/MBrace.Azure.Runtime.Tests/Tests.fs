@@ -148,7 +148,7 @@ module ``Azure Runtime Tests`` =
     [<Repeat(repeats)>]
     let ``1. Parallel : exception cancellation`` () =
         cloud {
-        let counter = Counter.Init(config, testContainer, 0) |> Async.RunSynchronously
+            let counter = Counter.Init(config, testContainer, 0) |> Async.RunSynchronously
             let worker i = cloud { 
                 if i = 0 then
                     do! Cloud.Sleep 100
