@@ -37,6 +37,9 @@
         /// Client logger.
         member __.ClientLogger = logger
 
+        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) =
+            Async.StartAsTask(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken))
+
         member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Process<'T> =
             Async.RunSynchronously(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken))
 

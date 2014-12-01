@@ -59,6 +59,26 @@ type Configuration =
         |> String.concat String.Empty
         |> ConfigurationId.ofText 
 
+    // TODO : maybe just make this a class...
+
+    member this.WithStorageConnectionString(conn : string) =
+        { this with StorageConnectionString = conn }
+
+    member this.WithServiceBusConnectionString(conn : string) =
+        { this with ServiceBusConnectionString = conn }
+
+    member this.WithDefaultTableOrContainer(tableOrContainer : string) =
+        { this with DefaultTableOrContainer = tableOrContainer }
+
+    member this.WithDefaultQueue(queue : string) =
+        { this with DefaultQueue = queue }
+
+    member this.WithDefaultTopic(topic : string) =
+        { this with DefaultTopic = topic }
+
+    member this.WithDefaultLogTable(logTable : string) =
+        { this with DefaultLogTable = logTable }
+
 type internal ClientProvider (config : Configuration) =
     let acc = CloudStorageAccount.Parse(config.StorageConnectionString)
     member __.TableClient = acc.CreateCloudTableClient()
