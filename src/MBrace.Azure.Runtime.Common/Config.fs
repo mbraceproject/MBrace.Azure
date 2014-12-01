@@ -134,7 +134,7 @@ module Configuration =
 
     /// Warning : Deletes all queues, tables and containers described in the given configuration.
     /// Does not delete process created resources.
-    let DeleteConfigurationResources (config : Configuration) : unit =
+    let DeleteResources (config : Configuration) : unit =
         init ()
         let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
         cp.ClearAll()

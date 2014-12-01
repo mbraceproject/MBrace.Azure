@@ -45,7 +45,7 @@ type IntCell internal (config : ConfigurationId, res : Uri) =
         new IntCell(config, res)
 
     static member GetUri(container, id) = uri "intcell:%s/%s" container id
-    static member Init(config, container : string, value : int) = 
+    static member Create(config, container : string, value : int) = 
         async { 
             let res = IntCell.GetUri(container, guid () )
             let e = new CounterEntity(res.PartitionWithScheme, value)
@@ -73,15 +73,15 @@ type Latch internal (config, res : Uri) =
         new Latch(config, res)
 
     static member private GetUri(container, id) = uri "latch:%s/%s" container id
-    static member Init(config, container : string, id : string, value : int) = 
+    static member Create(config, container : string, id : string, value : int) = 
         async { 
             let res = Latch.GetUri(container, id)
             let e = new LatchEntity(res.PartitionWithScheme, value, value)
             do! Table.insert config res.Table e
             return new Latch(config, res)
         }
-    static member Init(config, container : string, value : int) = 
-        Latch.Init(config, container, guid(), value)
+    static member Create(config, container : string, value : int) = 
+        Latch.Create(config, container, guid(), value)
 
 type Counter internal (config, res : Uri) = 
     inherit IntCell(config, res)
@@ -102,7 +102,7 @@ type Counter internal (config, res : Uri) =
         new Counter(config, res)
 
     static member private GetUri(container, id) = uri "counter:%s/%s" container id
-    static member Init(config, container : string, value : int) = 
+    static member Create(config, container : string, value : int) = 
         async { 
             let res = Counter.GetUri(container, guid())
             let e = new CounterEntity(res.PartitionWithScheme, value)

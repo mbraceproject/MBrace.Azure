@@ -29,7 +29,7 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
 
     static member OfUri<'T>(config, res : Uri) = new BlobCell<'T>(config, res)
     static member GetUri(container, id) = uri "blobcell:%s/%s" container id
-    static member Init(config, container : string, id : string, f : unit -> 'T) = 
+    static member Create(config, container : string, id : string, f : unit -> 'T) = 
         async { 
             let res = BlobCell<_>.GetUri(container, id)
             let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
@@ -38,5 +38,5 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
             Configuration.Serializer.Serialize<'T>(s, f())
             return new BlobCell<'T>(config, res)
         }
-    static member Init(config, container : string, f : unit -> 'T) = 
-        BlobCell.Init(config, container, guid(), f)
+    static member Create(config, container : string, f : unit -> 'T) = 
+        BlobCell.Create(config, container, guid(), f)

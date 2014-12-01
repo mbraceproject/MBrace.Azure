@@ -119,10 +119,10 @@ with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration) =
         {
-            TaskQueue = Queue.Init(config.ConfigurationId, config.DefaultQueue) |> Async.RunSync
-            AffinedTaskQueue = Topic.Init(config.ConfigurationId, config.DefaultTopic) |> Async.RunSync
-            AssemblyManager = AssemblyManager.Init(config.ConfigurationId, config.DefaultTableOrContainer) 
-            ResourceFactory = ResourceFactory.Init(config) 
+            TaskQueue = Queue.Create(config.ConfigurationId, config.DefaultQueue) |> Async.RunSync
+            AffinedTaskQueue = Topic.Create(config.ConfigurationId, config.DefaultTopic) |> Async.RunSync
+            AssemblyManager = AssemblyManager.Create(config.ConfigurationId, config.DefaultTableOrContainer) 
+            ResourceFactory = ResourceFactory.Create(config) 
         }
 
     /// <summary>

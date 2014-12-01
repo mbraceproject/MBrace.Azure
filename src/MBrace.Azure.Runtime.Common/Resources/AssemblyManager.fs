@@ -14,7 +14,7 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            return! BlobCell.Init(config, res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
+            return! BlobCell.Create(config, res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
@@ -63,7 +63,7 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
         new AssemblyManager(config, res)
 
     static member private GetUri(container) = uri "exporter:%s" container
-    static member Init(config, container : string) = 
+    static member Create(config, container : string) = 
         let res = AssemblyManager.GetUri(container)
         new AssemblyManager(config, res)
 

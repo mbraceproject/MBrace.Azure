@@ -68,7 +68,7 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
 
     static member private GetUri(container, id) = uri "dcts:%s/%s" container id
     static member FromUri(config : ConfigurationId, uri) = new DistributedCancellationTokenSource(config, uri)
-    static member Init(config, container : string, ?parent : DistributedCancellationTokenSource) = 
+    static member Create(config, container : string, ?parent : DistributedCancellationTokenSource) = 
         async { 
             let link = 
                 match parent with
