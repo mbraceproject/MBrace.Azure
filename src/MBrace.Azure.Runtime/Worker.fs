@@ -36,6 +36,7 @@ let initWorker (runtime : RuntimeState)
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
                         logf "Starting task %s/%s/%d/%O" procId task.TaskId msg.DeliveryCount task.Type
+                        logf "Task %s/%s/%A/%A" procId task.TaskId msg.IsQueueMessage msg.Affinity
 
                         let! renew = Async.StartChild(msg.RenewLoopAsync())
 

@@ -26,7 +26,7 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 //Configuration.Activate(config)
-//Configuration.DeleteConfigurationResources(config)
+//Configuration.DeleteResources(config)
 
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
@@ -100,3 +100,10 @@ let wordCount size mapReduceAlgorithm : Cloud<int> =
     mapReduceAlgorithm mapF 0 reduceF inputs
 wordCount 1000 Library.MapReduce.mapReduce 
 |> runtime.Run
+
+
+let ws = runtime.GetWorkers() |> Seq.toArray
+let wr = ws.[0]
+
+runtime.Run <| cloud { let! child = Cloud.StartChild(Cloud.Log "FOO", wr) in return! child }
+

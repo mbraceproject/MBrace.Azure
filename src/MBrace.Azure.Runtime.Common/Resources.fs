@@ -28,7 +28,7 @@ type ResourceFactory private (config : Configuration) =
     member __.WorkerMonitor = ConfigurationRegistry.Resolve<WorkerMonitor>(config.ConfigurationId)
     member __.Logger = ConfigurationRegistry.Resolve<ILogger>(config.ConfigurationId)
     
-    member __.RegisterLocalSubscription(subscription) = ConfigurationRegistry.Register<Subscription>(config.ConfigurationId, subscription)
-    member __.LocalSubscription = ConfigurationRegistry.Resolve<Subscription>(config.ConfigurationId)
+    //member __.RegisterLocalSubscription(subscription) = ConfigurationRegistry.Register<Subscription>(config.ConfigurationId, subscription)
+    //member __.LocalSubscription = ConfigurationRegistry.Resolve<Subscription>(config.ConfigurationId)
 
     static member Create (config : Configuration) = new ResourceFactory(config)

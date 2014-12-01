@@ -13,9 +13,21 @@ module private Constants =
     let MaxTTL = TimeSpan.MaxValue
     let ServerWaitTime = TimeSpan.FromMilliseconds(100.)
     let AffinityPropertyName = "Affinity"
+    let SubscriptionAutoDeleteInterval = TimeSpan.FromMinutes(5.) // 5min is the minimum duration
+    //let SubscriptionRenewInterval = TimeSpan.FromSeconds(30.)
 
-type QueueMessage(config, msg : BrokeredMessage) = 
+type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) = 
     let completed = ref false
+    let affinity = 
+        match msg.Properties.TryGetValue(AffinityPropertyName) with
+        | false, _ -> None
+        | true, affinity -> Some (string affinity)
+
+    member __.Affinity = affinity
+
+    /// Defines if the message belongs to a Queue or a Topic.
+    /// Queue messages with Affinity are messages that failed to Complete in a Subscription.
+    member __.IsQueueMessage = isQueueMessage 
 
     member __.DeliveryCount = msg.DeliveryCount
     
@@ -49,7 +61,7 @@ type QueueMessage(config, msg : BrokeredMessage) =
             return! t.GetValue()
         }
 
-type Subscription internal (config, topic, affinity : string) = 
+type internal Subscription (config, topic, affinity : string, deadLetterPath : string) = 
     let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
     let subscription = sprintf "affinity_%s" affinity
 
@@ -59,6 +71,8 @@ type Subscription internal (config, topic, affinity : string) =
             let sd = new SubscriptionDescription(topic, subscription)
             sd.DefaultMessageTimeToLive <- MaxTTL
             sd.LockDuration <- MaxLockDuration
+            sd.AutoDeleteOnIdle <- SubscriptionAutoDeleteInterval
+            sd.ForwardDeadLetteredMessagesTo <- deadLetterPath
             let filter = new SqlFilter(sprintf "%s = '%s'" AffinityPropertyName affinity)
             ns.CreateSubscription(sd, filter) |> ignore
     
@@ -67,15 +81,15 @@ type Subscription internal (config, topic, affinity : string) =
         async { 
             let! msg = sub.ReceiveAsync(ServerWaitTime)
             if msg = null then return None
-            else return Some(QueueMessage(config, msg))
+            else return Some(QueueMessage(config, msg, false))
         }
 
-type Topic internal (config, topic) = 
+type internal Topic (config, topic) = 
     let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
     let ns = cp.NamespaceClient
     let tc = cp.TopicClient(topic)
     member __.Name = topic
-    member __.GetSubscription(affinity) : Subscription = new Subscription(config, topic, affinity)
+    member __.GetSubscription(affinity, deadLetterPath) : Subscription = new Subscription(config, topic, affinity, deadLetterPath)
     
     member __.EnqueueBatch<'T>(xs : ('T * string) []) = 
         async { 
@@ -130,15 +144,18 @@ type Topic internal (config, topic) =
                 let td = new TopicDescription(name)
                 td.EnableBatchedOperations <- true
                 td.EnablePartitioning <- true
-                td.DefaultMessageTimeToLive <- MaxTTL
+                td.DefaultMessageTimeToLive <- MaxTTL 
                 do! ofTask <| ns.CreateTopicAsync(td)
             return new Topic(config, name)
         }
 
 /// Queue implementation.
-type Queue internal (config : ConfigurationId, res : Uri) = 
+type internal Queue (config : ConfigurationId, res : Uri) = 
     let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Queue)
     let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
+    
+    member __.Path = queue.Path
+    
     member __.Length = ns.GetQueue(res.Queue).MessageCount
     
     member __.EnqueueBatch<'T>(xs : 'T []) = 
@@ -161,7 +178,7 @@ type Queue internal (config : ConfigurationId, res : Uri) =
         async { 
             let! msg = queue.ReceiveAsync(ServerWaitTime)
             if msg = null then return None
-            else return Some(QueueMessage(config, msg))
+            else return Some(QueueMessage(config, msg, true))
         }
     
     interface IResource with
@@ -190,4 +207,54 @@ type Queue internal (config : ConfigurationId, res : Uri) =
             let! exists = ns.QueueExistsAsync(res.Queue)
             if not exists then do! ofTask <| ns.CreateQueueAsync(qd)
             return new Queue(config, res)
+        }
+
+// Unified access to Queue/Topic/Subscription.
+type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) = 
+    let mutable affinity : string option = None
+    let mutable subscription : Subscription option = None 
+
+    member __.Affinity 
+        with get () = affinity.Value
+        and set aff = 
+            affinity <- Some aff
+            subscription <- Some(topic.GetSubscription(aff, queue.Path))
+
+    member __.TryDequeue() : Async<QueueMessage option> =
+        async {
+            let! msg = subscription.Value.TryDequeue()
+            match msg with
+            | Some _ -> return msg
+            | None -> return! queue.TryDequeue()
+        }
+
+    member __.Enqueue<'T>(item : 'T, ?affinity) : Async<unit> =
+        async {
+            match affinity with
+            | None -> return! queue.Enqueue<'T>(item)
+            | Some affinity -> return! topic.Enqueue<'T>(item, affinity)
+        }
+    member __.EnqueueBatch<'T>(xs : 'T []) = queue.EnqueueBatch<'T>(xs)
+
+    member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = topic.EnqueueBatch<'T>(xs, affinity)
+
+    member __.EnqueueBatch<'T>(xs : ('T * string) []) = topic.EnqueueBatch<'T>(xs)
+
+    interface ISerializable with
+        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+            info.AddValue("queue", queue, typeof<Queue>)
+            info.AddValue("topic", topic, typeof<Topic>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
+    
+    new(info : SerializationInfo, context : StreamingContext) = 
+        let queue = info.GetValue("queue", typeof<Queue>) :?> Queue
+        let topic = info.GetValue("topic", typeof<Topic>) :?> Topic
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new TaskQueue(config, queue, topic)
+
+    static member Create(config, queue, topic) =
+        async {
+            let! queue = Queue.Create(config, queue)
+            let! topic = Topic.Create(config, topic)
+            return new TaskQueue(config, queue, topic)
         }

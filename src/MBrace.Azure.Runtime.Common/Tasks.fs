@@ -105,10 +105,7 @@ type RuntimeState =
     {
         /// Reference to the global task queue employed by the runtime
         /// Queue contains pickled task and its vagrant dependency manifest
-        TaskQueue : Queue
-        /// Reference to the global task queue that supports messages tasks
-        /// with affinity.
-        AffinedTaskQueue : Topic
+        TaskQueue : TaskQueue
         /// Reference to a Vagrant assembly exporting actor.
         AssemblyManager : AssemblyManager
         /// Reference to the runtime resource manager
@@ -119,8 +116,7 @@ with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration) =
         {
-            TaskQueue = Queue.Create(config.ConfigurationId, config.DefaultQueue) |> Async.RunSync
-            AffinedTaskQueue = Topic.Create(config.ConfigurationId, config.DefaultTopic) |> Async.RunSync
+            TaskQueue = TaskQueue.Create(config.ConfigurationId, config.DefaultQueue, config.DefaultTopic) |> Async.RunSync
             AssemblyManager = AssemblyManager.Create(config.ConfigurationId, config.DefaultTableOrContainer) 
             ResourceFactory = ResourceFactory.Create(config) 
         }
@@ -152,9 +148,7 @@ with
 
         let taskp = Pickle.pickle task
         let taskItem = (taskp, procId, dependencies)
-        match affinity with
-        | None -> rt.TaskQueue.Enqueue<TaskItem>(taskItem)
-        | Some affinity -> rt.AffinedTaskQueue.Enqueue<TaskItem>(taskItem, affinity)
+        rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
 
     /// <summary>
     ///     Enqueue a batch of cloud workflows with supplied continuations to the runtime task queue.
@@ -187,7 +181,7 @@ with
             tasks.[i] <- (taskp, procId, dependencies)
         match affinity with
         | None -> rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
-        | Some affinity -> rt.AffinedTaskQueue.EnqueueBatch<TaskItem>(tasks, affinity)
+        | Some affinity -> rt.TaskQueue.EnqueueBatch<TaskItem>(tasks, affinity)
 
     /// <summary>
     ///     Schedules a cloud workflow as a distributed result cell.
@@ -248,13 +242,7 @@ with
     /// Attempt to dequeue a task from the runtime task queue
     member rt.TryDequeue () = async {
         // TODO : revise
-        let! item = async {
-            let currentId = rt.ResourceFactory.WorkerMonitor.Current.Id
-            let! item = rt.ResourceFactory.LocalSubscription.TryDequeue() 
-            match item with
-            | None -> return! rt.TaskQueue.TryDequeue()
-            | item -> return item
-        }
+        let! item = rt.TaskQueue.TryDequeue()
 
         match item with
         | None -> return None

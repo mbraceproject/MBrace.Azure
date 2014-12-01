@@ -31,8 +31,7 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
             try
                 logf "Starting Service %s" serviceId
 
-                let subscription = state.AffinedTaskQueue.GetSubscription(serviceId)
-                state.ResourceFactory.RegisterLocalSubscription(subscription)
+                let subscription = state.TaskQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 
                 let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(serviceId)
