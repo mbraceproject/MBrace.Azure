@@ -14,7 +14,7 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            return! BlobCell.Create(config, res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
+            return! BlobCell.CreateIfNotExists(config, res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 

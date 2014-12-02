@@ -26,7 +26,7 @@ type ResultCell<'T> internal (config, res : Uri) =
 
     member __.SetResult(result : 'T) : Async<unit> =
         async {
-            let! bc = BlobCell.Create(config, res.Container, fun () -> result)
+            let! bc = BlobCell.CreateIfNotExists(config, res.Container, fun () -> result)
             let uri = (bc :> IResource).Uri
             let e = new LightCellEntity(res.PartitionWithScheme, uri.ToString(), ETag = "*")
             let! u = Table.merge config res.Table e
@@ -80,7 +80,7 @@ type ResultAggregator<'T> internal (config, res : Uri, latch : Latch) =
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
             let e = new ResultAggregatorEntity(res.PartitionWithScheme, index, null, ETag = "*")
-            let! bc = BlobCell.Create(config, res.Container, fun () -> value)
+            let! bc = BlobCell.CreateIfNotExists(config, res.Container, fun () -> value)
             e.Uri <- (bc :> IResource).Uri.ToString()
             let! u = Table.replace config res.Table e
             let! curr = latch.Decrement()
