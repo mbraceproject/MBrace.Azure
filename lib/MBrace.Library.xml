@@ -30,6 +30,52 @@
  execution within local thread context.
 </summary>
 </member>
+<member name="M:Nessos.MBrace.Library.CloudFileUtils.CloudFile.WriteAllBytes.Static(System.Byte[],Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Write buffer contents to CloudFile.
+ </summary>
+ <param name="buffer">Source buffer.</param>
+ <param name="path">Path to Cloud file.</param>
+</member>
+<member name="M:Nessos.MBrace.Library.CloudFileUtils.CloudFile.ReadAllBytes.Static(Nessos.MBrace.CloudFile)">
+ <summary>
+     Dump the contents of given CloudFile as byte[].
+ </summary>
+ <param name="file">Input CloudFile.</param>
+</member>
+<member name="M:Nessos.MBrace.Library.CloudFileUtils.CloudFile.WriteAllText.Static(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Writes string contents to given CloudFile.
+ </summary>
+ <param name="text">Input text.</param>
+ <param name="encoding">Output encoding.</param>
+ <param name="path">Path to Cloud file.</param>
+</member>
+<member name="M:Nessos.MBrace.Library.CloudFileUtils.CloudFile.ReadAllText.Static(Nessos.MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Dump all file contents to a single string.
+ </summary>
+ <param name="file">Input CloudFile.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:Nessos.MBrace.Library.CloudFileUtils.CloudFile.WriteLines.Static(System.Collections.Generic.IEnumerable{System.String},Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Writes a sequence of lines to a given CloudFile path.
+ </summary>
+ <param name="lines">Lines to be written.</param>
+ <param name="encoding">Text encoding.</param>
+ <param name="path">Path to CloudFile.</param>
+</member>
+<member name="M:Nessos.MBrace.Library.CloudFileUtils.CloudFile.ReadLines.Static(Nessos.MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Reads a CloudFile as a sequence of lines.
+ </summary>
+ <param name="file">Input CloudFile.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="T:Nessos.MBrace.Library.CloudFileUtils">
+
+</member>
 <member name="M:Nessos.MBrace.Library.MapReduce.mapReduce``2(Microsoft.FSharp.Core.FSharpFunc{``0,Nessos.MBrace.Cloud{``1}},``1,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``1,Nessos.MBrace.Cloud{``1}}},``0[])">
  <summary>
      Map/Reduce implementation.
@@ -112,6 +158,12 @@
  Collection of context-less combinators for 
  execution within local thread context.
 </summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
 </member>
 <member name="M:Nessos.MBrace.Library.Utils.List.split``1(Microsoft.FSharp.Collections.FSharpList{``0})">
  <summary>

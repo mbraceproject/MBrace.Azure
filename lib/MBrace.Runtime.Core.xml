@@ -11,55 +11,6 @@
 <member name="">
 
 </member>
-<member name="P:Nessos.MBrace.Runtime.VagrantRegistry.Vagrant">
-<summary>
- Gets the registered vagrant instance.
-</summary>
-</member>
-<member name="P:Nessos.MBrace.Runtime.VagrantRegistry.Pickler">
-<summary>
- Gets the registered FsPickler serializer instance.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Core.FSharpFunc{System.Reflection.Assembly,System.Boolean}},Microsoft.FSharp.Core.FSharpOption{Nessos.Vagrant.AssemblyLoadPolicy})">
- <summary>
-     Initializes vagrant using default settings.
- </summary>
- <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
- <param name="loadPolicy">Specify a default assembly load policy.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Nessos.Vagrant.Vagrant})">
- <summary>
-     Initializes the registry using provided factory.
- </summary>
- <param name="factory">Vagrant instance factory.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.VagrantRegistry.ComputeObjectDependencies(System.Object)">
- <summary>
-     Computes assembly dependencies for given serializable object graph.
- </summary>
- <param name="graph">Object graph.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.Runtime.VagrantRegistry">
-<summary>
- Vagrant state container
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
 <member name="">
 
 </member>
@@ -484,28 +435,134 @@
 <member name="">
 
 </member>
-<member name="T:Nessos.MBrace.Runtime.Serialization.Pickle`1">
-<summary>
- Represents a typed serialized value.
-</summary>
+<member name="">
+
 </member>
-<member name="M:Nessos.MBrace.Runtime.Serialization.Pickle.unpickle``1(Nessos.MBrace.Runtime.Serialization.Pickle{``0})">
-<summary>
- Unpickles a value.
-</summary>
+<member name="">
+
 </member>
-<member name="M:Nessos.MBrace.Runtime.Serialization.Pickle.pickle``1(``0)">
-<summary>
- Pickles a value.
-</summary>
+<member name="">
+
 </member>
-<member name="T:Nessos.MBrace.Runtime.Serialization.Pickle">
-<summary>
- Pickle methods
-</summary>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
 </member>
 <member name="T:Nessos.MBrace.Runtime.Serialization">
 
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Runtime.Store.FileSystemStore.LocalTemp">
+<summary>
+ Initializes a FileSystemStore instance on the local system temp path.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.FileSystemStore.Create(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Creates a new FileSystemStore instance on given path.
+ </summary>
+ <param name="path">Local or UNC path.</param>
+ <param name="create">Create directory if missing. Defaults to false</param>
+ <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Store.FileSystemStore">
+<summary>
+ Store implementation that uses a filesystem as backend.
+</summary>
 </member>
 <member name="">
 
@@ -742,6 +799,76 @@
 <member name="T:Nessos.MBrace.Runtime.Utils.Retry">
 <summary>
  Retry utilities
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.Utils">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.Vagrant">
+<summary>
+ Gets the registered vagrant instance.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.Pickler">
+<summary>
+ Gets the registered FsPickler serializer instance.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Core.FSharpFunc{System.Reflection.Assembly,System.Boolean}},Microsoft.FSharp.Core.FSharpOption{Nessos.Vagrant.AssemblyLoadPolicy})">
+ <summary>
+     Initializes vagrant using default settings.
+ </summary>
+ <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
+ <param name="loadPolicy">Specify a default assembly load policy.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Nessos.Vagrant.Vagrant})">
+ <summary>
+     Initializes the registry using provided factory.
+ </summary>
+ <param name="factory">Vagrant instance factory.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.ComputeObjectDependencies(System.Object)">
+ <summary>
+     Computes assembly dependencies for given serializable object graph.
+ </summary>
+ <param name="graph">Object graph.</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry">
+<summary>
+ Vagrant state container
 </summary>
 </member>
 </members>

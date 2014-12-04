@@ -128,23 +128,53 @@
  Cloud workflows static methods
 </summary>
 </member>
-<member name="M:Nessos.MBrace.CloudArray.New``1(System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Core.FSharpOption{System.String})">
+<member name="M:Nessos.MBrace.CloudAtom.Update``1(Microsoft.FSharp.Core.FSharpFunc{``0,``0},Nessos.MBrace.ICloudAtom{``0})">
  <summary>
-     Creates a new CloudArray in the specified container.
+     Atomically updates the contained value.
  </summary>
- <param name="values">Values to be stored.</param>
- <param name="uri">Target uri for given cloud array. Defaults to runtime-assigned path.</param>
+ <param name="updater">value updating function.</param>
+ <param name="atom">Atom instance to be updated.</param>
 </member>
-<member name="M:Nessos.MBrace.CloudArray.Combine``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.ICloudArray{``0}})">
+<member name="M:Nessos.MBrace.CloudAtom.Transact``2(Microsoft.FSharp.Core.FSharpFunc{``0,System.Tuple{``1,``0}},Nessos.MBrace.ICloudAtom{``0})">
  <summary>
-     Combines a collection of cloud arrays into one.
+     Transactionally updates the contained value.
  </summary>
- <param name="arrays">Cloud arrays to be combined.</param>
+ <param name="trasactF"></param>
+ <param name="atom"></param>
 </member>
-<member name="T:Nessos.MBrace.CloudArray">
-<summary>
- Cloud array API
-</summary>
+<member name="M:Nessos.MBrace.CloudAtom.Read``1(Nessos.MBrace.ICloudAtom{``0})">
+ <summary>
+     Dereferences a cloud atom.
+ </summary>
+ <param name="atom">Atom instance.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudAtom.New``1(``0)">
+ <summary>
+     Creates a new cloud atom instance with given value.
+ </summary>
+ <param name="initial">Initial value.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudAtom.IsSupportedValue``1(``0)">
+ <summary>
+     Checks if value is supported by current table store.
+ </summary>
+ <param name="value">Value to be checked.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudAtom.Force``1(``0,Nessos.MBrace.ICloudAtom{``0})">
+ <summary>
+     Forces the contained value to provided argument.
+ </summary>
+ <param name="value">Value to be set.</param>
+ <param name="atom">Atom instance to be updated.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudAtom.Delete``1(Nessos.MBrace.ICloudAtom{``0})">
+ <summary>
+     Deletes the provided atom instance from store.
+ </summary>
+ <param name="atom">Atom instance to be deleted.</param>
+</member>
+<member name="">
+
 </member>
 <member name="T:Nessos.MBrace.CloudAttribute">
 <summary>
@@ -196,12 +226,80 @@
  Cloud workflow expression builder
 </summary>
 </member>
-<member name="M:Nessos.MBrace.CloudFile.Read``1(Nessos.MBrace.ICloudFile,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
+<member name="M:Nessos.MBrace.CloudChannel.Send``1(``0,Nessos.MBrace.ISendPort{``0})">
+ <summary>
+     Send message to the channel.
+ </summary>
+ <param name="message">Message to send.</param>
+ <param name="channel">Target channel.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudChannel.Receive``1(Nessos.MBrace.IReceivePort{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Receive message from channel.
+ </summary>
+ <param name="channel">Source channel.</param>
+ <param name="timeout">Timeout in milliseconds.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudChannel.New``1">
+<summary>
+ Creates a new channel instance.
+</summary>
+</member>
+<member name="T:Nessos.MBrace.CloudChannel">
+<summary>
+ Channel methods for MBrace
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.CloudFile.StoreId">
+<summary>
+ Cloud service unique identifier
+</summary>
+</member>
+<member name="P:Nessos.MBrace.CloudFile.Path">
+<summary>
+ Full path to cloud file.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.CloudFile.FileName">
+<summary>
+ File name
+</summary>
+</member>
+<member name="P:Nessos.MBrace.CloudFile.DirectoryName">
+<summary>
+ Path of containing folder
+</summary>
+</member>
+<member name="M:Nessos.MBrace.CloudFile.Read``1(Nessos.MBrace.CloudFile,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
  <summary> 
      Read the contents of a CloudFile using the given deserialize/reader function.
  </summary>
  <param name="cloudFile">CloudFile to read.</param>
  <param name="deserializer">Function that reads data from the underlying stream.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudFile.Read``1(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
+ <summary>
+     Reads the contents of provided cloud file using provided deserializer.
+ </summary>
+ <param name="file">cloud file to be read.</param>
+ <param name="deserializer">deserializing function.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudFile.New(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},System.String,System.String)">
+ <summary> 
+     Create a new file in the storage with the specified folder and name.
+     Use the serialize function to write to the underlying stream.
+ </summary>
+ <param name="serializer">Function that will write data on the underlying stream.</param>
+ <param name="path">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
 </member>
 <member name="M:Nessos.MBrace.CloudFile.New(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},Microsoft.FSharp.Core.FSharpOption{System.String})">
  <summary> 
@@ -209,47 +307,171 @@
      Use the serialize function to write to the underlying stream.
  </summary>
  <param name="serializer">Function that will write data on the underlying stream.</param>
- <param name="uri">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
+ <param name="path">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
 </member>
-<member name="M:Nessos.MBrace.CloudFile.Enumerate(System.String)">
- <summary> 
-     Returns all CloudFiles in given container.
+<member name="M:Nessos.MBrace.CloudFile.GetSizeAsync">
+<summary>
+ Returns the file size in bytes
+</summary>
+</member>
+<member name="M:Nessos.MBrace.CloudFile.FromPath(System.String)">
+ <summary>
+     Returns an existing cloud file instance from provided path.
  </summary>
- <param name="container">The container (folder) to search.</param>
+ <param name="path">Input path to cloud file.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudFile.Enumerate(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary> 
+     Returns all files in given directory as CloudFiles.
+ </summary>
+ <param name="directory">Directory to enumerate. Defaults to execution context.</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.CloudFile.CopyToStream(System.IO.Stream)">
+ <summary>
+     Copy file contents to local stream.
+ </summary>
+ <param name="target">Target stream.</param>
+</member>
+<member name="M:Nessos.MBrace.CloudFile.BeginRead">
+<summary>
+ Asynchronously returns a reading stream to file.
+</summary>
+</member>
+<member name="">
+
 </member>
 <member name="T:Nessos.MBrace.CloudFile">
 <summary>
- Cloud file API
+ Represents a file reference bound to specific cloud store instance
 </summary>
 </member>
-<member name="M:Nessos.MBrace.CloudRef.Read``1(Nessos.MBrace.ICloudRef{``0})">
+<member name="M:Nessos.MBrace.CloudRef.Read``1(Nessos.MBrace.CloudRef{``0})">
  <summary>
      Dereference a Cloud reference.
  </summary>
  <param name="cloudRef">CloudRef to be dereferenced.</param>
 </member>
-<member name="M:Nessos.MBrace.CloudRef.New``1(``0)">
+<member name="M:Nessos.MBrace.CloudRef.Create``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
  <summary>
      Creates a new cloud reference to the underlying store with provided value.
      Cloud references are immutable and cached locally for performance.
  </summary>
  <param name="value">Cloud reference value.</param>
+ <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
+ <param name="serializer">Serialization used for object serialization. Defaults to runtime context.</param>
 </member>
-<member name="T:Nessos.MBrace.CloudRef">
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.CloudRef`1.Value">
 <summary>
- Cloud reference methods.
+ Synchronously dereferences the cloud ref.
 </summary>
 </member>
-<member name="M:Nessos.MBrace.CloudSeq.New``1(System.Collections.Generic.IEnumerable{``0})">
+<member name="M:Nessos.MBrace.CloudRef`1.GetValue">
+<summary>
+ Asynchronously dereferences the cloud ref.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.CloudRef`1">
+<summary>
+ Represents an immutable reference to an
+ object that is persisted in the underlying store.
+ Cloud references are cached locally for performance.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.CloudSeq.New``1(System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
  <summary>
      Creates a new cloud sequence with given values in the underlying store.
      Cloud sequences are cached locally for performance.
  </summary>
  <param name="values">Collection to populate the cloud sequence with.</param>
+ <param name="directory">FileStore directory used for cloud seq. Defaults to execution context.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
 </member>
-<member name="T:Nessos.MBrace.CloudSeq">
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.CloudSeq`1.Path">
 <summary>
- Cloud sequence methods.
+ Path to CloudSeq in store
+</summary>
+</member>
+<member name="P:Nessos.MBrace.CloudSeq`1.Length">
+<summary>
+ Sequence length
+</summary>
+</member>
+<member name="M:Nessos.MBrace.CloudSeq`1.GetSequenceAsync">
+<summary>
+ Asynchronously fetches the sequence
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.CloudSeq`1">
+<summary>
+ Represents a finite and immutable sequence of
+ elements that is stored in the underlying CloudStore
+ and will be enumerated on demand.
 </summary>
 </member>
 <member name="">
@@ -261,40 +483,83 @@
  will produce a value of type &apos;T, or raise an exception.
 </summary>
 </member>
-<member name="P:Nessos.MBrace.ICloudArray`1.Size">
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.ICloudAtom`1.Id">
 <summary>
- Approximate collection size in bytes.
+ Cloud atom identifier
 </summary>
 </member>
-<member name="P:Nessos.MBrace.ICloudArray`1.Item(System.Int64)">
+<member name="M:Nessos.MBrace.ICloudAtom`1.Update(Microsoft.FSharp.Core.FSharpFunc{`0,`0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
-     Returns the item in the specified index.
+     Atomically updates table entry of given id using updating function.
  </summary>
- <param name="index">The item's index.</param>
+ <param name="updater">Value updating function</param>
+ <param name="maxRetries">Maximum retries under optimistic semantics. Defaults to infinite.</param>
 </member>
-<member name="P:Nessos.MBrace.ICloudArray`1.Count">
+<member name="M:Nessos.MBrace.ICloudAtom`1.GetValue">
 <summary>
- The number of elements contained.
+ Returns the current value of atom.
 </summary>
 </member>
-<member name="M:Nessos.MBrace.ICloudArray`1.Range(System.Int64,System.Int32)">
+<member name="M:Nessos.MBrace.ICloudAtom`1.Force(`0)">
  <summary>
-     Returns an array of the elements in the specified range.
+      Forces a value on atom.
  </summary>
- <param name="start">The starting index.</param>
- <param name="count">The number of elements to return.</param>
+ <param name="value">value to be set.</param>
 </member>
-<member name="M:Nessos.MBrace.ICloudArray`1.Append(Nessos.MBrace.ICloudArray{`0})">
- <summary>
-     Combines two CloudArrays into one.
- </summary>
- <param name="other">Other cloud array to be joined.</param>
-</member>
-<member name="T:Nessos.MBrace.ICloudArray`1">
+<member name="T:Nessos.MBrace.ICloudAtom`1">
 <summary>
- Represents a finite and immutable sequence of
- elements that is persisted in the underlying store
- and provides fast random access.
+ Represent a distributed atomically updatable value reference
 </summary>
 </member>
 <member name="M:Nessos.MBrace.ICloudDisposable.Dispose">
@@ -307,89 +572,26 @@
  Denotes handle to a distributable resource that can be disposed of.
 </summary>
 </member>
-<member name="P:Nessos.MBrace.ICloudFile.Size">
+<member name="M:Nessos.MBrace.IReceivePort`1.Receive(Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Asynchronously awaits a message from the channel.
+ </summary>
+ <param name="timeout">Timeout in milliseconds.</param>
+</member>
+<member name="T:Nessos.MBrace.IReceivePort`1">
 <summary>
- CloudFile size in bytes.
+ Receiving side of a distributed channel
 </summary>
 </member>
-<member name="M:Nessos.MBrace.ICloudFile.Read">
-<summary>
- Asynchronously returns a reader stream to the file data.
-</summary>
+<member name="M:Nessos.MBrace.ISendPort`1.Send(`0)">
+ <summary>
+     Sends a message over the channel
+ </summary>
+ <param name="message">Message to send.</param>
 </member>
-<member name="T:Nessos.MBrace.ICloudFile">
+<member name="T:Nessos.MBrace.ISendPort`1">
 <summary>
- Represents a binary file persisted in the underlying store.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.ICloudRef`1.GetValue">
-<summary>
- Asynchronously dereferences the cloud ref.
-</summary>
-</member>
-<member name="T:Nessos.MBrace.ICloudRef`1">
-<summary>
- Represents an immutable reference to an
- object that is persisted in the underlying store.
- Cloud references are cached locally for performance.
-</summary>
-</member>
-<member name="P:Nessos.MBrace.ICloudSeq`1.Size">
-<summary>
- Approximate size (in bytes) of the referenced CloudSeq.
-</summary>
-</member>
-<member name="P:Nessos.MBrace.ICloudSeq`1.Count">
-<summary>
- CloudSeq element count.
-</summary>
-</member>
-<member name="T:Nessos.MBrace.ICloudSeq`1">
-<summary>
- Represents a finite and immutable sequence of
- elements that is persisted in the underlying store
- and can be enumerated on demand.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.IMutableCloudRef`1.TryUpdate(`0)">
-<summary>
- Asynchronously attempts to update the MutableCloudRef; returns true if successful.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.IMutableCloudRef`1.GetValue">
-<summary>
- Asynchronously dereferences current value of MutableCloudRef.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.IMutableCloudRef`1.ForceUpdate(`0)">
-<summary>
- Asynchronously forces update to MutableCloudRef regardless of state.
-</summary>
-</member>
-<member name="T:Nessos.MBrace.IMutableCloudRef`1">
-<summary>
- Represents a mutable reference to an
- object that is persisted in the underlying store.
-</summary>
-</member>
-<member name="P:Nessos.MBrace.IStorageEntity.Uri">
-<summary>
- Unique store identifier.
-</summary>
-</member>
-<member name="P:Nessos.MBrace.IStorageEntity.Name">
-<summary>
- File name
-</summary>
-</member>
-<member name="P:Nessos.MBrace.IStorageEntity.Container">
-<summary>
- Container (directory) name
-</summary>
-</member>
-<member name="T:Nessos.MBrace.IStorageEntity">
-<summary>
- Represents an entity that resides in the runtime&apos;s storage implementation
+ Sending side of a distributed channel
 </summary>
 </member>
 <member name="P:Nessos.MBrace.IWorkerRef.Type">
@@ -405,51 +607,6 @@
 <member name="T:Nessos.MBrace.IWorkerRef">
 <summary>
  Denotes a reference to a worker node in the cluster
-</summary>
-</member>
-<member name="M:Nessos.MBrace.MutableCloudRef.TryUpdate``1(Nessos.MBrace.IMutableCloudRef{``0},``0)">
- <summary>
-     Attempt to update the value of given reference with given value.
-     Returns true iff the operation was successful.
- </summary>
- <param name="mref">Mutable cloud reference to be updated.</param>
- <param name="value">Value to be set.</param>
-</member>
-<member name="M:Nessos.MBrace.MutableCloudRef.SpinSet``1(Nessos.MBrace.IMutableCloudRef{``0},Microsoft.FSharp.Core.FSharpFunc{``0,``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
- <summary>
-     Updates the MutableCloudRef using the update function.
-     This method will return when the update is successful.
- </summary>
- <param name="mref">The MutableCloudRef to be updated.</param>
- <param name="update">
-     A function that takes the current value of the MutableCloudRef and
-     returns the new value to be stored.
- </param>
- <param name="interval">The interval, in milliseconds, to sleep between the spin calls.</param>
-</member>
-<member name="M:Nessos.MBrace.MutableCloudRef.Read``1(Nessos.MBrace.IMutableCloudRef{``0})">
- <summary>
-     Returns the current value of the mutable cloud reference.
- </summary>
- <param name="mref">Mutable cloud ref to be dereferenced.</param>
-</member>
-<member name="M:Nessos.MBrace.MutableCloudRef.New``1(``0)">
- <summary>
-     Creates a new mutable cloud ref with given initial value.
-     Mutable cloud refs are not cached locally.
- </summary>
- <param name="init">Value to initialize mutable cloud ref with.</param>
-</member>
-<member name="M:Nessos.MBrace.MutableCloudRef.ForceUpdate``1(Nessos.MBrace.IMutableCloudRef{``0},``0)">
- <summary>
-     Force update to the value of given reference with given value.
- </summary>
- <param name="mref">Mutable cloud reference to be updated.</param>
- <param name="value">Value to be set.</param>
-</member>
-<member name="T:Nessos.MBrace.MutableCloudRef">
-<summary>
- Mutable cloud reference methods.
 </summary>
 </member>
 <member name="">
@@ -480,46 +637,14 @@
  Scheduling context for currently executing cloud process.
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Storage.IsValidUri(System.String)">
+<member name="M:Nessos.MBrace.CloudAtomUtils.ICloudAtom`1.Transact``2(Nessos.MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,System.Tuple{``1,``0}})">
  <summary>
-     Checks if provided uri is valid in provided underlying storage.
+     Transactionally updates the contained value.
  </summary>
- <param name="uri">Uri to be examined.</param>
+ <param name="transaction">Transaction function.</param>
 </member>
-<member name="M:Nessos.MBrace.Storage.GetRandomUri(Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary>
-     Gets a unique, randomly generated file name
-     that is valid in current storage implementation.
- </summary>
- <param name="container">Container for provided storage implementation. Defaults to auto-generated container.</param>
-</member>
-<member name="M:Nessos.MBrace.Storage.GetRandomContainer">
- <summary>
-     Gets a unique, randomly generated container (directory) name
-     that is valid in current storage implementation.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Storage.GetFileName(System.String)">
- <summary>
-     Returns the file name for the given storage uri.
- </summary>
- <param name="uri">Uri to be parsed.</param>
-</member>
-<member name="M:Nessos.MBrace.Storage.GetContainerName(System.String)">
- <summary>
-     Returns the container name for given storage uri.
- </summary>
- <param name="uri">Uri to be parsed.</param>
-</member>
-<member name="M:Nessos.MBrace.Storage.Enumerate">
- <summary>
-     Enumerates all containers (directories) in underlying storage.
- </summary>
-</member>
-<member name="T:Nessos.MBrace.Storage">
-<summary>
- General purpose store methods.
-</summary>
+<member name="T:Nessos.MBrace.CloudAtomUtils">
+
 </member>
 <member name="P:Nessos.MBrace.CloudBuilderModule.cloud">
 <summary>
@@ -597,6 +722,457 @@
 <member name="T:Nessos.MBrace.CloudBuilderUtils">
 
 </member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.WithMappedContinuation``2(Microsoft.FSharp.Core.FSharpFunc{Nessos.MBrace.Continuation.Continuation{``0},Nessos.MBrace.Continuation.Continuation{``1}},Nessos.MBrace.Cloud{``1})">
+ <summary>
+     Wraps a workflow with a mapped continuation.
+ </summary>
+ <param name="mapper">Continuation mapping function.</param>
+ <param name="workflow">Input workflow.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.WithAppendedStackTrace``1(System.String,Nessos.MBrace.Cloud{``0})">
+ <summary>
+     Appends a function information entry to the symbolic stacktrace in the exception continuation.
+ </summary>
+ <param name="functionName">Function info string to be appended.</param>
+ <param name="workflow">Workflow to be wrapped.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.TryGetResource``1">
+ <summary>
+     Try Getting resource from current execution context.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.ToAsync``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ResourceRegistry})">
+ <summary>
+     Wraps a cloud workflow into an asynchronous workflow.
+ </summary>
+ <param name="cloudWorkflow">Cloud workflow to be executed.</param>
+ <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.StartWithContinuations``1(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Continuation.Continuation{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ExecutionContext})">
+ <summary>
+     Starts a cloud workflow with given execution context in the current thread.
+ </summary>
+ <param name="cloudWorkflow">Cloud workflow to be executed.</param>
+ <paran name"continuation">Root continuation for workflow.</param>
+ <param name="context">Local execution context.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.StartAsTask``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ResourceRegistry},Microsoft.FSharp.Core.FSharpOption{System.Threading.Tasks.TaskCreationOptions},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>
+     Starts given workflow as a separate, locally executing task.
+ </summary>
+ <param name="cloudWorkflow">Cloud workflow to be executed.</param>
+ <param name="resources">Resource registry used with workflows.</param>
+ <param name="taskCreationOptions">Resource registry used with workflows.</param>
+ <param name="cancellationToken">Cancellation token.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.Start(Nessos.MBrace.Cloud{Microsoft.FSharp.Core.Unit},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ResourceRegistry},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>
+     Starts provided cloud workflow in the thread pool.
+ </summary>
+ <param name="cloudWorkflow">Cloud workflow to be executed.</param>
+ <param name="resources">Resource registry passed to execution context.</param>
+ <param name="cancellationToken">Local Cancellation token.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.SetSchedulingContext``1(Nessos.MBrace.Cloud{``0},Nessos.MBrace.SchedulingContext)">
+ <summary>
+     Sets a new scheduling context for target workflow.
+ </summary>
+ <param name="workflow">Target workflow.</param>
+ <param name="schedulingContext">Target scheduling context.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.RunSynchronously``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ResourceRegistry},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>
+     Synchronously await a locally executing workflow.
+ </summary>
+ <param name="cloudWorkflow">Cloud workflow to be executed.</param>
+ <param name="resources">Resource resolver to be used; defaults to no resources.</param>
+ <param name="cancellationToken">Cancellation token to be used.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.GetResourceRegistry">
+ <summary>
+     Returns the resource registry for current execution context.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.GetResource``1">
+ <summary>
+     Gets resource from current execution context.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Cloud.FromContinuations``1(Microsoft.FSharp.Core.FSharpFunc{Nessos.MBrace.Continuation.ExecutionContext,Microsoft.FSharp.Core.FSharpFunc{Nessos.MBrace.Continuation.Continuation{``0},Microsoft.FSharp.Core.Unit}})">
+ <summary>
+     Creates a cloud workflow that captures the current execution context.
+ </summary>
+ <param name="body">Execution body.</param>
+</member>
+<member name="T:Nessos.MBrace.Continuation.Cloud">
+<summary>
+ Intrinsic cloud workflow methods
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.Continuation`1.Cancellation">
+<summary>
+ Cancellation continuation
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.Continuation`1.Exception">
+<summary>
+ Exception continuation
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.Continuation`1.Success">
+<summary>
+ Success continuation
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Continuation.Continuation`1">
+<summary>
+ Distributable continuation context.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExceptionDispatchInfo.Reify(Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Returns contained exception with restored stacktrace state.
+     This operation mutates exception contents, so should be used with care.
+ </summary>
+ <param name="useSeparator">Add a separator after remote stacktrace. Defaults to true.</param>
+ <param name="prepareForRaise">Prepare exception state for raise. Defaults to false.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExceptionDispatchInfo.Capture(System.Exception)">
+ <summary>
+     Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
+ </summary>
+ <param name="exn">Captured exception</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExceptionDispatchInfo.AppendToStackTrace(System.Collections.Generic.IEnumerable{System.String})">
+ <summary>
+     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
+ </summary>
+ <param name="line">Line to be appended.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExceptionDispatchInfo.AppendToStackTrace(System.String)">
+ <summary>
+     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
+ </summary>
+ <param name="line">Line to be appended.</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Continuation.ExceptionDispatchInfo">
+<summary>
+ Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
+ that is serializable and permits symbolic appending to stacktrace
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.ExecutionContext.CancellationToken">
+<summary>
+ Local cancellation token
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.ExecutionContext.Resources">
+<summary>
+ Runtime cloud resource resolver
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExecutionContext.Empty(Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>
+     Initializes an empty execution context.  
+ </summary>
+ <param name="cancellationToken">Optional cancellation token.</param>
+</member>
+<member name="T:Nessos.MBrace.Continuation.ExecutionContext">
+<summary>
+ Local, non-distributable continuation execution context.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ICloudLogger.Log(System.String)">
+ <summary>
+     Log a new message to the execution context.
+ </summary>
+ <param name="entry">Entry to be logged.</param>
+</member>
+<member name="T:Nessos.MBrace.Continuation.ICloudLogger">
+ <summary>
+     Abstract logger.
+ </summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.IRuntimeProvider.TaskId">
+<summary>
+ Get cloud task identifier
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.IRuntimeProvider.SchedulingContext">
+ <summary>
+     Gets the current scheduling context.
+ </summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.IRuntimeProvider.ProcessId">
+<summary>
+ Get cloud process identifier
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.IRuntimeProvider.Logger">
+<summary>
+ Gets the current logger instance.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Continuation.IRuntimeProvider.CurrentWorker">
+<summary>
+ Gets currently running worker
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.IRuntimeProvider.WithSchedulingContext(Nessos.MBrace.SchedulingContext)">
+ <summary>
+     Creates a new scheduler instance with updated scheduling context
+ </summary>
+ <param name="newContext">new scheduling context</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.IRuntimeProvider.ScheduleStartChild``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.IWorkerRef},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Start a new computation as a child task.
+ </summary>
+ <param name="workflow">Workflow to be executed.</param>
+ <param name="target">Explicitly specify a target worker for execution.</param>
+ <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.IRuntimeProvider.ScheduleParallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
+ <summary>
+     Parallel fork/join implementation.
+ </summary>
+ <param name="computations">Computations to be executed.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.IRuntimeProvider.ScheduleChoice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
+ <summary>
+     Parallel nondeterministic choice implementation.
+ </summary>
+ <param name="computations">Computations to be executed.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.IRuntimeProvider.GetAvailableWorkers">
+<summary>
+ Get all available workers in cluster
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Continuation.IRuntimeProvider">
+ <summary>
+     Executing runtime abstraction.
+ </summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Continuation.ResourceNotFoundException">
+<summary>
+ Exception raised on missing resource resolution
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Continuation.ResourceRegistry.InstalledResources">
+<summary>
+ Gets all resources currently registered with factory.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Continuation.ResourceRegistry.Empty">
+<summary>
+ Creates an empty resource container
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ResourceRegistry.TryResolve``1">
+<summary>
+ Try Resolving resource of given type
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ResourceRegistry.Resolve``1">
+<summary>
+ Resolves resource of given type
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ResourceRegistry.Register``1(``0)">
+ <summary>
+     Creates a new resource registry by appending provided resource.
+     Any existing resources of the same type will be overwritten.
+ </summary>
+ <param name="resource">input resource.</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Continuation.ResourceRegistry">
+<summary>
+ Immutable dependency container used for pushing
+ runtime resources to the continuation monad.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Continuation.Trampoline.Reset">
+<summary>
+ Resets the trampoline state in the current thread.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Trampoline.Reset">
+<summary>
+ Resets the trampoline state in the current thread.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Trampoline.QueueWorkItem(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Microsoft.FSharp.Core.Unit})">
+<summary>
+ Queue a new work item to the .NET thread pool.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Trampoline.IsBindThresholdReached">
+<summary>
+ Checks if continuation execution stack has reached specified threshold in the current thread.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Trampoline.IsBindThresholdReached">
+<summary>
+ Checks if continuation execution stack has reached specified threshold in the current thread.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Continuation.Trampoline">
+<summary>
+ Mechanism for offloading execution stack in the thread pool
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Continuation.choice``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpChoice{``1,System.Exception}},Nessos.MBrace.Continuation.Continuation{``1})">
+ <summary>
+     Contravariant Continuation choice combinator.
+ </summary>
+ <param name="f">Choice function.</param>
+ <param name="tcont">Initial continuation.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Continuation.failwith``2(Microsoft.FSharp.Core.FSharpFunc{``0,System.Exception},Nessos.MBrace.Continuation.Continuation{``1})">
+ <summary>
+     Contravariant failure combinator
+ </summary>
+ <param name="f">Mapper function.</param>
+ <param name="tcont">Initial continuation.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.Continuation.map``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},Nessos.MBrace.Continuation.Continuation{``1})">
+ <summary>
+     Contravariant Continuation map combinator.
+ </summary>
+ <param name="f">Mapper function.</param>
+ <param name="tcont">Initial continuation.</param>
+</member>
+<member name="T:Nessos.MBrace.Continuation.Continuation">
+<summary>
+ Continuation utility functions
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExceptionDispatchInfoModule.raiseWithCurrentStackTrace``2(System.Boolean,``0)">
+ <summary>
+     Immediately raises exception instance, preserving its current stacktrace
+ </summary>
+ <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
+ <param name="exn">Input exception.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExceptionDispatchInfoModule.raise``1(System.Boolean,Nessos.MBrace.Continuation.ExceptionDispatchInfo)">
+ <summary>
+     Raise provided exception dispatch info.
+ </summary>
+ <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
+ <param name="edi">Exception dispatch info to be raised.</param>
+</member>
+<member name="T:Nessos.MBrace.Continuation.ExceptionDispatchInfoModule">
+
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExceptionDispatchInfoUtils.Async.RunSync``1(Microsoft.FSharp.Control.FSharpAsync{``0},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>
+     Runs the asynchronous computation and awaits its result.
+     Preserves original stacktrace for any exception raised.
+ </summary>
+ <param name="workflow">Workflow to be run.</param>
+ <param name="cancellationToken">Optioncal cancellation token.</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.ExceptionDispatchInfoUtils.Async.Raise``1(System.Exception)">
+ <summary>
+     Efficiently reraise exception, without losing its existing stacktrace.
+ </summary>
+ <param name="e"></param>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Continuation.ExceptionDispatchInfoUtils">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Continuation.ResourceBuilder.resource">
+<summary>
+ resource registry builder
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Continuation.ResourceBuilder">
+<summary>
+ Resource registry builder API
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Continuation.ResourceRegistryUtils">
+
+</member>
 <member name="M:Nessos.MBrace.Operators.op_LessDotGreater``2(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Cloud{``1})">
  <summary>
      Combines two cloud computations into one that executes them sequentially.
@@ -625,405 +1201,268 @@
  Contains common operators for cloud computation.
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.WithMappedContinuation``2(Microsoft.FSharp.Core.FSharpFunc{Nessos.MBrace.Runtime.Continuation{``0},Nessos.MBrace.Runtime.Continuation{``1}},Nessos.MBrace.Cloud{``1})">
- <summary>
-     Wraps a workflow with a mapped continuation.
- </summary>
- <param name="mapper">Continuation mapping function.</param>
- <param name="workflow">Input workflow.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.WithAppendedStackTrace``1(System.String,Nessos.MBrace.Cloud{``0})">
- <summary>
-     Appends a function information entry to the symbolic stacktrace in the exception continuation.
- </summary>
- <param name="functionName">Function info string to be appended.</param>
- <param name="workflow">Workflow to be wrapped.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.TryGetResource``1">
- <summary>
-     Try Getting resource from current execution context.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.ToAsync``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.ResourceRegistry})">
- <summary>
-     Wraps a cloud workflow into an asynchronous workflow.
- </summary>
- <param name="cloudWorkflow">Cloud workflow to be executed.</param>
- <param name="resources">Resource resolver to be used; defaults to empty resource registry.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.StartWithContinuations``1(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Runtime.Continuation{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.ExecutionContext})">
- <summary>
-     Starts a cloud workflow with given execution context in the current thread.
- </summary>
- <param name="cloudWorkflow">Cloud workflow to be executed.</param>
- <paran name"continuation">Root continuation for workflow.</param>
- <param name="context">Local execution context.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.StartAsTask``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.ResourceRegistry},Microsoft.FSharp.Core.FSharpOption{System.Threading.Tasks.TaskCreationOptions},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
- <summary>
-     Starts given workflow as a separate, locally executing task.
- </summary>
- <param name="cloudWorkflow">Cloud workflow to be executed.</param>
- <param name="resources">Resource registry used with workflows.</param>
- <param name="taskCreationOptions">Resource registry used with workflows.</param>
- <param name="cancellationToken">Cancellation token.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.Start(Nessos.MBrace.Cloud{Microsoft.FSharp.Core.Unit},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.ResourceRegistry},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
- <summary>
-     Starts provided cloud workflow in the thread pool.
- </summary>
- <param name="cloudWorkflow">Cloud workflow to be executed.</param>
- <param name="resources">Resource registry passed to execution context.</param>
- <param name="cancellationToken">Local Cancellation token.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.SetSchedulingContext``1(Nessos.MBrace.Cloud{``0},Nessos.MBrace.SchedulingContext)">
- <summary>
-     Sets a new scheduling context for target workflow.
- </summary>
- <param name="workflow">Target workflow.</param>
- <param name="schedulingContext">Target scheduling context.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.RunSynchronously``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.ResourceRegistry},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
- <summary>
-     Synchronously await a locally executing workflow.
- </summary>
- <param name="cloudWorkflow">Cloud workflow to be executed.</param>
- <param name="resources">Resource resolver to be used; defaults to no resources.</param>
- <param name="cancellationToken">Cancellation token to be used.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.GetResourceRegistry">
- <summary>
-     Returns the resource registry for current execution context.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.GetResource``1">
- <summary>
-     Gets resource from current execution context.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Cloud.FromContinuations``1(Microsoft.FSharp.Core.FSharpFunc{Nessos.MBrace.Runtime.ExecutionContext,Microsoft.FSharp.Core.FSharpFunc{Nessos.MBrace.Runtime.Continuation{``0},Microsoft.FSharp.Core.Unit}})">
- <summary>
-     Creates a cloud workflow that captures the current execution context.
- </summary>
- <param name="body">Execution body.</param>
-</member>
-<member name="T:Nessos.MBrace.Runtime.Cloud">
+<member name="P:Nessos.MBrace.Store.CloudFileStoreConfiguration.DefaultDirectory">
 <summary>
- Intrinsic cloud workflow methods
+ Default directory used by current execution context.
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Runtime.Continuation`1.Cancellation">
+<member name="P:Nessos.MBrace.Store.CloudFileStoreConfiguration.FileStore">
 <summary>
- Cancellation continuation
+ File store.
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Runtime.Continuation`1.Exception">
+<member name="T:Nessos.MBrace.Store.CloudFileStoreConfiguration">
 <summary>
- Exception continuation
+ Store configuration record passed to the continuation execution context
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Runtime.Continuation`1.Success">
+<member name="P:Nessos.MBrace.Store.ICloudAtomProvider.Id">
 <summary>
- Success continuation
+ Cloud atom identifier
 </summary>
 </member>
-<member name="T:Nessos.MBrace.Runtime.Continuation`1">
+<member name="M:Nessos.MBrace.Store.ICloudAtomProvider.IsSupportedValue``1(``0)">
+ <summary>
+     Checks if provided value is supported in atom instances.
+ </summary>
+ <param name="value">Value to be checked.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudAtomProvider.CreateAtom``1(``0)">
+ <summary>
+     Creates a new atom instance with given initial value.
+ </summary>
+ <param name="initValue"></param>
+</member>
+<member name="T:Nessos.MBrace.Store.ICloudAtomProvider">
 <summary>
- Distributable continuation context.
+ Defines a factory for distributed atoms
 </summary>
 </member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo.Reify(Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
- <summary>
-     Returns contained exception with restored stacktrace state.
-     This operation mutates exception contents, so should be used with care.
- </summary>
- <param name="useSeparator">Add a separator after remote stacktrace. Defaults to true.</param>
- <param name="prepareForRaise">Prepare exception state for raise. Defaults to false.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo.Capture(System.Exception)">
- <summary>
-     Captures the provided exception stacktrace into an ExceptionDispatchInfo instance.
- </summary>
- <param name="exn">Captured exception</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo.AppendToStackTrace(System.Collections.Generic.IEnumerable{System.String})">
- <summary>
-     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
- </summary>
- <param name="line">Line to be appended.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfo.AppendToStackTrace(System.String)">
- <summary>
-     Creates a new ExceptionDispatchInfo instance with line appended to stacktrace.
- </summary>
- <param name="line">Line to be appended.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.Runtime.ExceptionDispatchInfo">
+<member name="P:Nessos.MBrace.Store.ICloudChannelProvider.Id">
 <summary>
- Replacement for System.Runtime.ExceptionServices.ExceptionDispatchInfo
- that is serializable and permits symbolic appending to stacktrace
+ unique cloud file store identifier
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Runtime.ExecutionContext.CancellationToken">
+<member name="M:Nessos.MBrace.Store.ICloudChannelProvider.CreateChannel``1">
+ <summary>
+     Creates a new channel instance for given type
+ </summary>
+ <param name="container">Container id for current instance.</param>
+</member>
+<member name="T:Nessos.MBrace.Store.ICloudChannelProvider">
 <summary>
- Local cancellation token
+ Defines a factory for distributed channels
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Runtime.ExecutionContext.Resources">
+<member name="P:Nessos.MBrace.Store.ICloudFileStore.Name">
 <summary>
- Runtime cloud resource resolver
+ Implementation name
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ExecutionContext.Empty(Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
- <summary>
-     Initializes an empty execution context.  
- </summary>
- <param name="cancellationToken">Optional cancellation token.</param>
-</member>
-<member name="T:Nessos.MBrace.Runtime.ExecutionContext">
+<member name="P:Nessos.MBrace.Store.ICloudFileStore.Id">
 <summary>
- Local, non-distributable continuation execution context.
+ Store identifier
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ICloudLogger.Log(System.String)">
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.TryGetFullPath(System.String)">
  <summary>
-     Log a new message to the execution context.
+     Returns a normal form for path. Returns None if invalid format.
  </summary>
- <param name="entry">Entry to be logged.</param>
+ <param name="path">Input filepath.</param>
 </member>
-<member name="T:Nessos.MBrace.Runtime.ICloudLogger">
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.ToStream(System.String,System.IO.Stream)">
  <summary>
-     Abstract logger.
+     Reads an existing file to target stream.
  </summary>
+ <param name="sourceFile">Source file.</param>
+ <param name="target">Target stream.</param>
 </member>
-<member name="P:Nessos.MBrace.Runtime.IRuntimeProvider.TaskId">
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.OfStream(System.IO.Stream,System.String)">
+ <summary>
+     Creates a new file from provided stream.
+ </summary>
+ <param name="targetFile">Target file.</param>
+ <param name="source">Source stream.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.GetUniqueDirectoryPath">
 <summary>
- Get cloud task identifier
+ Generates a random, uniquely specified path to directory
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Runtime.IRuntimeProvider.SchedulingContext">
- <summary>
-     Gets the current scheduling context.
- </summary>
-</member>
-<member name="P:Nessos.MBrace.Runtime.IRuntimeProvider.ProcessId">
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.GetRootDirectory">
 <summary>
- Get cloud process identifier
+ Returns the root directory for cloud store instance.
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Runtime.IRuntimeProvider.Logger">
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.GetFileStoreDescriptor">
 <summary>
- Gets the current logger instance.
+ Returns a serializable file store descriptor
+ that can be used in remote processes.
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Runtime.IRuntimeProvider.CurrentWorker">
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.GetFileSize(System.String)">
+ <summary>
+     Returns the file size in bytes.
+ </summary>
+ <param name="path">Input file path.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.GetFileName(System.String)">
+ <summary>
+     Returns the file name for given path.
+ </summary>
+ <param name="path">Input file path.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.GetDirectoryName(System.String)">
+ <summary>
+     Returns the directory name for given path.
+ </summary>
+ <param name="path">Input filepath.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.FileExists(System.String)">
+ <summary>
+     Checks if file exists in given path
+ </summary>
+ <param name="path">File path.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.EnumerateFiles(System.String)">
+ <summary>
+     Gets all files that exist in given container
+ </summary>
+ <param name="directory">Path to directory.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.EnumerateDirectories(System.String)">
+ <summary>
+     Get all directories that exist in given directory.
+ </summary>
+ <param name="directory">Directory to enumerate.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.DirectoryExists(System.String)">
+ <summary>
+     Checks if container exists in given path
+ </summary>
+ <param name="directory">Path to directory.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.DeleteFile(System.String)">
+ <summary>
+     Deletes file in given path
+ </summary>
+ <param name="path">File path.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.DeleteDirectory(System.String,System.Boolean)">
+ <summary>
+     Deletes provided directory.
+ </summary>
+ <param name="directory">file container.</param>
+ <param name="recursive">Delete recursively.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.CreateDirectory(System.String)">
+ <summary>
+     Creates a new directory in store.
+ </summary>
+ <param name="directory">Path to directory</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.Combine(System.String[])">
+ <summary>
+     Combines an array of strings into a path.
+ </summary>
+ <param name="paths">Strings to be combined.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.BeginWrite(System.String)">
+ <summary>
+     Creates a new file in store. If successful returns a writing stream.
+ </summary>
+ <param name="path">Path to new file.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.BeginRead(System.String)">
+ <summary>
+     Reads from an existing file in store. If successful returns a reading stream.
+ </summary>
+ <param name="path">Path to existing file.</param>
+</member>
+<member name="T:Nessos.MBrace.Store.ICloudFileStore">
 <summary>
- Gets currently running worker
+ Defines a cloud file storage abstraction
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Runtime.IRuntimeProvider.WithSchedulingContext(Nessos.MBrace.SchedulingContext)">
- <summary>
-     Creates a new scheduler instance with updated scheduling context
- </summary>
- <param name="newContext">new scheduling context</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IRuntimeProvider.ScheduleStartChild``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.IWorkerRef},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
- <summary>
-     Start a new computation as a child task.
- </summary>
- <param name="workflow">Workflow to be executed.</param>
- <param name="target">Explicitly specify a target worker for execution.</param>
- <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IRuntimeProvider.ScheduleParallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
- <summary>
-     Parallel fork/join implementation.
- </summary>
- <param name="computations">Computations to be executed.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IRuntimeProvider.ScheduleChoice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
- <summary>
-     Parallel nondeterministic choice implementation.
- </summary>
- <param name="computations">Computations to be executed.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IRuntimeProvider.GetAvailableWorkers">
+<member name="P:Nessos.MBrace.Store.ICloudFileStoreDescriptor.Name">
 <summary>
- Get all available workers in cluster
+ Implementation name
 </summary>
 </member>
-<member name="T:Nessos.MBrace.Runtime.IRuntimeProvider">
- <summary>
-     Executing runtime abstraction.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.IsValidUri(System.String)">
- <summary>
-     Checks if provided uri is valid for given storage implementation.
- </summary>
- <param name="uri">Uri to be examined.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.GetRandomUri(Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary>
-     Returns a unique, randomized uri (file) name 
-     valid in the underlying storage implementation.
- </summary>
- <param name="container">Container for the file name. Defaults to process container.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.GetRandomContainer">
- <summary>
-     Returns a unique, randomized container (directory) name 
-     valid in the underlying storage implementation.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.GetFileName(System.String)">
- <summary>
-     Returns the file name for a valid uri in current storage implementation.
- </summary>
- <param name="uri">Uri to be parsed.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.GetContainerName(System.String)">
- <summary>
-     Returns container (directory) name for a valid uri in current storage implementation.
- </summary>
- <param name="uri">Uri to be parsed.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.GetContainedFiles(System.String)">
- <summary>
-     Returns all files contained in given container in the underlying storage as cloud files.
- </summary>
- <param name="container"></param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.GetCloudFile(System.String)">
- <summary>
-     Returns a cloud file found on provided uri, if it exists.
- </summary>
- <param name="uri">Uri to be looked up.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.GetAllContainers">
- <summary>
-     Returns all containers (directories) found in the underlying storage implementation.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.CreateMutableCloudRef``1(System.String,``0)">
- <summary>
-     Persists a value to the underlying store and returns a typed mutable cloud reference.
- </summary>
- <param name="uri">Storage uri to be used.</param>
- <param name="value">Initial value.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.CreateCloudSeq``1(System.String,System.Collections.Generic.IEnumerable{``0})">
- <summary>
-     Persists a collection of values to the underlying store and return a typed cloud sequence.
- </summary>
- <param name="uri">Storage uri to be used.</param>
- <param name="values">Values to be persisted.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.CreateCloudRef``1(System.String,``0)">
- <summary>
-     Persists a value to the underlying store and returns a typed cloud reference.
- </summary>
- <param name="uri">Storage uri to be used.</param>
- <param name="value">Value to be persisted.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.CreateCloudFile(System.String,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}})">
- <summary>
-     Serializes binary data to a file in the underlying store and returns a cloud file reference.
- </summary>
- <param name="uri">Storage uri to be used.</param>
- <param name="serializer">Asynchronous serialization function.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.CreateCloudArray``1(System.String,System.Collections.Generic.IEnumerable{``0})">
- <summary>
-     Stores a collection of values to the underlying store and returns a cloud array reference.
- </summary>
- <param name="uri">Storage uri to be used.</param>
- <param name="values">Values to be persisted.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.IStorageProvider.CombineCloudArrays``1(System.String,System.Collections.Generic.IEnumerable{Nessos.MBrace.ICloudArray{``0}})">
- <summary>
-     Combines a collection of persisted cloud arrays into one cloud array instance.
- </summary>
- <param name="uri">Entry point uri.</param>
- <param name="arrays">Arrays to be combined.</param>
-</member>
-<member name="T:Nessos.MBrace.Runtime.IStorageProvider">
- <summary>
-     Abstract storage provider resource.
- </summary>
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.Runtime.ResourceNotFoundException">
+<member name="P:Nessos.MBrace.Store.ICloudFileStoreDescriptor.Id">
 <summary>
- Exception raised on missing resource resolution
+ Descriptor Identifier
 </summary>
 </member>
-<member name="">
-
-</member>
-<member name="P:Nessos.MBrace.Runtime.ResourceRegistry.InstalledResources">
+<member name="M:Nessos.MBrace.Store.ICloudFileStoreDescriptor.Recover">
 <summary>
- Gets all resources currently registered with factory.
+ Recovers the serializer instance locally
 </summary>
 </member>
-<member name="">
-
-</member>
-<member name="P:Nessos.MBrace.Runtime.ResourceRegistry.Empty">
+<member name="T:Nessos.MBrace.Store.ICloudFileStoreDescriptor">
 <summary>
- Creates an empty resource container
+ Defines a serializable file store descriptor
+ used for recovering instances in remote processes.
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ResourceRegistry.TryResolve``1">
+<member name="P:Nessos.MBrace.Store.ISerializer.Id">
 <summary>
- Try Resolving resource of given type
+ Serializer identifier
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Runtime.ResourceRegistry.Resolve``1">
-<summary>
- Resolves resource of given type
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.ResourceRegistry.Register``1(``0)">
+<member name="M:Nessos.MBrace.Store.ISerializer.Serialize``1(System.IO.Stream,``0)">
  <summary>
-     Creates a new resource registry by appending provided resource.
-     Any existing resources of the same type will be overwritten.
+     Serializes a value to stream.
  </summary>
- <param name="resource">input resource.</param>
+ <param name="target">Target stream.</param>
+ <param name="value">Input value.</param>
 </member>
-<member name="">
-
+<member name="M:Nessos.MBrace.Store.ISerializer.SeqSerialize``1(System.IO.Stream,System.Collections.Generic.IEnumerable{``0})">
+ <summary>
+     Serializes a sequence to stream.
+ </summary>
+ <param name="target">Target stream.</param>
+ <param name="values">Input sequence.</param>
+ <returns>Serialized element count.</returns>
 </member>
-<member name="">
-
+<member name="M:Nessos.MBrace.Store.ISerializer.SeqDeserialize``1(System.IO.Stream,System.Int32)">
+ <summary>
+     Deserialize a sequence from stream.
+ </summary>
+ <param name="source">Source stream.</param>
+ <param name="length">Expected number of elements.</param>
 </member>
-<member name="T:Nessos.MBrace.Runtime.ResourceRegistry">
+<member name="M:Nessos.MBrace.Store.ISerializer.GetSerializerDescriptor">
 <summary>
- Immutable dependency container used for pushing
- runtime resources to the continuation monad.
+ Creates a serializable descriptor used for 
+ re-establishing serializer instances in remote processes
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ISerializer.Deserialize``1(System.IO.Stream)">
+ <summary>
+     Deserializes a value from stream.
+ </summary>
+ <param name="source">Source stream.</param>
+</member>
+<member name="T:Nessos.MBrace.Store.ISerializer">
+<summary>
+ Serialization abstraction
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Store.ISerializerDescriptor.Id">
+<summary>
+ Descriptor Identifier
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ISerializerDescriptor.Recover">
+<summary>
+ Recovers the serializer instance locally
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Store.ISerializerDescriptor">
+<summary>
+ Serializable serializer identifier
+ that can be recovered in remote processes.
 </summary>
 </member>
 <member name="">
@@ -1035,153 +1474,7 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
-<member name="M:Nessos.MBrace.Runtime.Trampoline.Reset">
-<summary>
- Resets the trampoline state in the current thread.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Trampoline.Reset">
-<summary>
- Resets the trampoline state in the current thread.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Trampoline.QueueWorkItem(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Microsoft.FSharp.Core.Unit})">
-<summary>
- Queue a new work item to the .NET thread pool.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Trampoline.IsBindThresholdReached">
-<summary>
- Checks if continuation execution stack has reached specified threshold in the current thread.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Trampoline.IsBindThresholdReached">
-<summary>
- Checks if continuation execution stack has reached specified threshold in the current thread.
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.Runtime.Trampoline">
-<summary>
- Mechanism for offloading execution stack in the thread pool
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Continuation.choice``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpChoice{``1,System.Exception}},Nessos.MBrace.Runtime.Continuation{``1})">
- <summary>
-     Contravariant Continuation choice combinator.
- </summary>
- <param name="f">Choice function.</param>
- <param name="tcont">Initial continuation.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Continuation.failwith``2(Microsoft.FSharp.Core.FSharpFunc{``0,System.Exception},Nessos.MBrace.Runtime.Continuation{``1})">
- <summary>
-     Contravariant failure combinator
- </summary>
- <param name="f">Mapper function.</param>
- <param name="tcont">Initial continuation.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.Continuation.map``2(Microsoft.FSharp.Core.FSharpFunc{``0,``1},Nessos.MBrace.Runtime.Continuation{``1})">
- <summary>
-     Contravariant Continuation map combinator.
- </summary>
- <param name="f">Mapper function.</param>
- <param name="tcont">Initial continuation.</param>
-</member>
-<member name="T:Nessos.MBrace.Runtime.Continuation">
-<summary>
- Continuation utility functions
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoModule.raiseWithCurrentStackTrace``2(System.Boolean,``0)">
- <summary>
-     Immediately raises exception instance, preserving its current stacktrace
- </summary>
- <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
- <param name="exn">Input exception.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoModule.raise``1(System.Boolean,Nessos.MBrace.Runtime.ExceptionDispatchInfo)">
- <summary>
-     Raise provided exception dispatch info.
- </summary>
- <param name="useSeparator">Appends a stacktrace separator after the remote stacktrace.</param>
- <param name="edi">Exception dispatch info to be raised.</param>
-</member>
-<member name="T:Nessos.MBrace.Runtime.ExceptionDispatchInfoModule">
-
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoUtils.Async.RunSync``1(Microsoft.FSharp.Control.FSharpAsync{``0},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
- <summary>
-     Runs the asynchronous computation and awaits its result.
-     Preserves original stacktrace for any exception raised.
- </summary>
- <param name="workflow">Workflow to be run.</param>
- <param name="cancellationToken">Optioncal cancellation token.</param>
-</member>
-<member name="M:Nessos.MBrace.Runtime.ExceptionDispatchInfoUtils.Async.Raise``1(System.Exception)">
- <summary>
-     Efficiently reraise exception, without losing its existing stacktrace.
- </summary>
- <param name="e"></param>
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.Runtime.ExceptionDispatchInfoUtils">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="P:Nessos.MBrace.Runtime.ResourceBuilder.resource">
-<summary>
- resource registry builder
-</summary>
-</member>
-<member name="T:Nessos.MBrace.Runtime.ResourceBuilder">
-<summary>
- Resource registry builder API
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.Runtime.ResourceRegistryUtils">
-
-</member>
-<member name="M:Nessos.MBrace.StoreExtensionMethods.IMutableCloudRef`1.get_Value``1(Nessos.MBrace.IMutableCloudRef{``0})">
-<summary>
- Synchronously retrieves the current value of the mutable cloud ref
-</summary>
-</member>
-<member name="M:Nessos.MBrace.StoreExtensionMethods.ICloudRef`1.get_Value``1(Nessos.MBrace.ICloudRef{``0})">
-<summary>
- Synchronously dereferences the cloud ref
-</summary>
-</member>
-<member name="T:Nessos.MBrace.StoreExtensionMethods">
+<member name="T:Nessos.MBrace.Store.CloudFileStoreUtils">
 
 </member>
 </members>

@@ -4,6 +4,7 @@ open System.Diagnostics
 open System.Threading
 
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources

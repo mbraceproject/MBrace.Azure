@@ -117,6 +117,8 @@ type ConfigurationRegistry private () =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Configuration =
+    open Nessos.MBrace.Runtime.Vagrant
+
     let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
     let private init =

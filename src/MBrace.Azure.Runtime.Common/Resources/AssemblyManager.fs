@@ -9,6 +9,7 @@ open System
 open System.Runtime.Serialization
 open System.Threading
 open Nessos.MBrace.Azure.Runtime.Common.Storage
+open Nessos.MBrace.Runtime.Vagrant
 
 type AssemblyManager private (config : ConfigurationId, res : Uri) = 
     

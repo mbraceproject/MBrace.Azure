@@ -17,6 +17,9 @@ open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Runtime.Serialization
 open Nessos.MBrace.Azure.Runtime.Resources
 open Nessos.MBrace.Azure.Runtime.Common.Storage
+open Nessos.MBrace.Continuation
+open Nessos.FsPickler
+open Nessos.MBrace.Runtime.Vagrant
 
 // Tasks are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
@@ -145,8 +148,8 @@ with
                 StartTask = startTask
                 CancellationTokenSource = cts
             }
-
-        let taskp = Pickle.pickle task
+        
+        let taskp = VagrantRegistry.Pickler.PickleTyped task
         let taskItem = (taskp, procId, dependencies)
         rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
 
@@ -177,7 +180,7 @@ with
                     CancellationTokenSource = cts
                 }
 
-            let taskp = Pickle.pickle task
+            let taskp = VagrantRegistry.Pickler.PickleTyped task
             tasks.[i] <- (taskp, procId, dependencies)
         match affinity with
         | None -> rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
@@ -249,6 +252,6 @@ with
         | Some msg -> 
             let! (tp, procId, deps) = msg.GetPayloadAsync<TaskItem>()
             do! rt.AssemblyManager.LoadDependencies deps
-            let task = Pickle.unpickle tp
+            let task = VagrantRegistry.Pickler.UnPickleTyped<Task> tp
             return Some (msg, task, procId, deps)
     }

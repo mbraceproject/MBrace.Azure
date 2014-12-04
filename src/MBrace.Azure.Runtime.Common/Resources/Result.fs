@@ -9,6 +9,7 @@ open System
 open System.Runtime.Serialization
 open System.Threading
 open Nessos.MBrace.Azure.Runtime.Common.Storage
+open Nessos.MBrace.Continuation
 
 /// Result value
 type Result<'T> =

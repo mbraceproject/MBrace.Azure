@@ -8,6 +8,7 @@ open System.IO
 module internal Argument =
     open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Runtime
+    open Nessos.MBrace.Runtime.Vagrant
 
     let ofConfiguration (runtime : Configuration) =
         Configuration.Initialize()

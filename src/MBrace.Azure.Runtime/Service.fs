@@ -6,8 +6,9 @@ open System.Threading.Tasks
 open Nessos.MBrace.Azure.Runtime
 open System.Runtime.InteropServices
 open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Runtime
 open Nessos.MBrace
+open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, maxTasks : int, serviceId : string) =
@@ -34,7 +35,7 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
                 let subscription = state.TaskQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 
-                let! e = state.ResourceFactory.WorkerMonitor.DeclareCurrent(serviceId)
+                let! (e : WorkerRef) = state.ResourceFactory.WorkerMonitor.DeclareCurrent(serviceId)
                 logf "Declared node %s : %d : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
                 Async.Start(state.ResourceFactory.WorkerMonitor.HeartbeatLoop())

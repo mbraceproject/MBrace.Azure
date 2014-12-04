@@ -12,6 +12,7 @@ open System.Net
 open System.Diagnostics
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 open System.Collections.Concurrent
 
 type ILogger =

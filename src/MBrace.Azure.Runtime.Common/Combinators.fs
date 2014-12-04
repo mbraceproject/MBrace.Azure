@@ -12,6 +12,7 @@ open Nessos.MBrace.Azure.Runtime
 
 open Nessos.MBrace.Azure.Runtime.Resources
 open Nessos.MBrace.Azure.Runtime.Common.Storage
+open Nessos.MBrace.Continuation
 
 let inline private withCancellationToken (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
     let token = cts.GetLocalCancellationToken()
