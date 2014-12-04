@@ -28,10 +28,37 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 Configuration.Activate(config)
-Configuration.DeleteConfigurationResources(config)
+Configuration.DeleteResources(config)
+
+
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
 let (!) (task : Async<'T>) = Async.RunSynchronously task
+
+
+let factory = ChannelProvider.Create(config.ConfigurationId)
+
+let sp, rp = !factory.CreateChannel<int>()
+
+!sp.Send(42)
+
+!rp.Receive()
+
+type Foo = Foo of int
+
+let sp, rp = !factory.CreateChannel<byte []>()
+
+!sp.Send(Array.zeroCreate 200)
+let r = !rp.Receive()
+r.Length
+
+
+
+
+
+
+
+
 
 let del x =
     ClientProvider.TableClient.ListTables(x)

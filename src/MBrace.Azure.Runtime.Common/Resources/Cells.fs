@@ -29,14 +29,19 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
 
     static member OfUri<'T>(config, res : Uri) = new BlobCell<'T>(config, res)
     static member GetUri(container, id) = uri "blobcell:%s/%s" container id
-    static member Create(config, container : string, id : string, f : unit -> 'T) = 
+    static member CreateIfNotExists(config, container : string, id : string, f : unit -> 'T) = 
         async { 
             let res = BlobCell<_>.GetUri(container, id)
             let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
             let! _ = c.CreateIfNotExistsAsync()
-            use! s = c.GetBlockBlobReference(res.FileWithScheme).OpenWriteAsync()
-            Configuration.Serializer.Serialize<'T>(s, f())
-            return new BlobCell<'T>(config, res)
+            let b = c.GetBlockBlobReference(res.FileWithScheme)
+            let! exists = b.ExistsAsync()
+            if not exists then
+                use! s = b.OpenWriteAsync()
+                Configuration.Serializer.Serialize<'T>(s, f())
+                return new BlobCell<'T>(config, res)
+            else
+                return BlobCell.OfUri<'T>(config, res)
         }
-    static member Create(config, container : string, f : unit -> 'T) = 
-        BlobCell.Create(config, container, guid(), f)
+    static member CreateIfNotExists(config, container : string, f : unit -> 'T) = 
+        BlobCell.CreateIfNotExists(config, container, guid(), f)

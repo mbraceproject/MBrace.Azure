@@ -34,13 +34,13 @@ type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) =
     member __.CompleteAsync() = 
         async { 
             completed := true
-            do! ofTask <| msg.CompleteAsync()
+            do! msg.CompleteAsync()
         }
     
     member __.AbandonAsync() = 
         async { 
             completed := true
-            do! ofTask <| msg.AbandonAsync()
+            do! msg.AbandonAsync()
         }
     
     member __.RenewLoopAsync() = 
@@ -48,7 +48,7 @@ type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) =
             async { 
                 if !completed then return ()
                 else 
-                    do! ofTask <| msg.RenewLockAsync()
+                    do! msg.RenewLockAsync()
                     do! Async.Sleep RenewLockInverval
                     return! loop()
             }
@@ -96,13 +96,13 @@ type internal Topic (config, topic) =
             let! ys = xs
                       |> Array.map (fun (x, affinity) -> 
                              async { 
-                                 let! bc = BlobCell.Create(config, topic, fun () -> x)
+                                 let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> x)
                                  let msg = new BrokeredMessage((bc :> IResource).Uri)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
                              })
                       |> Async.Parallel
-            do! ofTask <| tc.SendBatchAsync(ys)
+            do! tc.SendBatchAsync(ys)
         }
 
     member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = 
@@ -110,21 +110,21 @@ type internal Topic (config, topic) =
             let! ys = xs
                       |> Array.map (fun x -> 
                              async { 
-                                 let! bc = BlobCell.Create(config, topic, fun () -> x)
+                                 let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> x)
                                  let msg = new BrokeredMessage((bc :> IResource).Uri)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
                              })
                       |> Async.Parallel
-            do! ofTask <| tc.SendBatchAsync(ys)
+            do! tc.SendBatchAsync(ys)
         }
     
     member __.Enqueue<'T>(t : 'T, affinity : string) = 
         async { 
-            let! bc = BlobCell.Create(config, topic, fun () -> t)
+            let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> t)
             let msg = new BrokeredMessage((bc :> IResource).Uri)
             msg.Properties.Add(AffinityPropertyName, affinity)
-            do! ofTask <| tc.SendAsync(msg)
+            do! tc.SendAsync(msg)
         }
     
     interface ISerializable with
@@ -145,7 +145,7 @@ type internal Topic (config, topic) =
                 td.EnableBatchedOperations <- true
                 td.EnablePartitioning <- true
                 td.DefaultMessageTimeToLive <- MaxTTL 
-                do! ofTask <| ns.CreateTopicAsync(td)
+                do! ns.CreateTopicAsync(td)
             return new Topic(config, name)
         }
 
@@ -161,17 +161,17 @@ type internal Queue (config : ConfigurationId, res : Uri) =
     member __.EnqueueBatch<'T>(xs : 'T []) = 
         async { 
             let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = BlobCell.Create(config, res.Queue, fun () -> x)
+                      |> Array.map (fun x -> async { let! bc = BlobCell.CreateIfNotExists(config, res.Queue, fun () -> x)
                                                      return new BrokeredMessage((bc :> IResource).Uri) })
                       |> Async.Parallel
-            do! ofTask <| queue.SendBatchAsync(ys)
+            do! queue.SendBatchAsync(ys)
         }
     
     member __.Enqueue<'T>(t : 'T) = 
         async { 
-            let! bc = BlobCell.Create(config, res.Queue, fun () -> t)
+            let! bc = BlobCell.CreateIfNotExists(config, res.Queue, fun () -> t)
             let msg = new BrokeredMessage((bc :> IResource).Uri)
-            do! ofTask <| queue.SendAsync(msg)
+            do! queue.SendAsync(msg)
         }
     
     member __.TryDequeue<'T>() : Async<QueueMessage option> = 
@@ -205,7 +205,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
             qd.DefaultMessageTimeToLive <- MaxTTL
             qd.LockDuration <- MaxLockDuration
             let! exists = ns.QueueExistsAsync(res.Queue)
-            if not exists then do! ofTask <| ns.CreateQueueAsync(qd)
+            if not exists then do! ns.CreateQueueAsync(qd)
             return new Queue(config, res)
         }
 
