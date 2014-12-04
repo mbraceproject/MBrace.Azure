@@ -59,8 +59,8 @@ module Table =
         async {
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let! _ = t.CreateIfNotExistsAsync()
-            let! e = t.ExecuteAsync(op)
-            return e.Result
+            let! (e : TableResult) = t.ExecuteAsync(op)
+            return e.Result 
         }
 
     let insert<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
@@ -82,7 +82,7 @@ module Table =
     let read<'T when 'T :> ITableEntity> config table pk rk : Async<'T> = 
         async { 
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
-            let! e = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk))
+            let! (e : TableResult) = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk))
             return e.Result :?> 'T
         }
     

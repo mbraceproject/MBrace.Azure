@@ -9,16 +9,21 @@
 
         let guid() = Guid.NewGuid().ToString("N")
         let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
-    
-        let inline ofTask (t : Task) : Task<unit> = t.ContinueWith ignore
 
         type Async with
-            static member inline Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
+            static member Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
             static member Sleep(timespan : TimeSpan) = Async.Sleep(int timespan.TotalMilliseconds)
+            static member AwaitTask(task : Task) = Async.AwaitTask(task.ContinueWith ignore)
 
         type AsyncBuilder with
-            member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
-                async { let! r = Async.AwaitTask(f) in return! g r }
+            member __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
+                __.Bind(Async.AwaitTask f, g)
+            member __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
+                __.Bind(Async.AwaitTask(f.ContinueWith ignore), g)
+            member __.ReturnFrom(f : Task<'T>) : Async<'T> =
+                __.ReturnFrom(Async.AwaitTask f)
+            member __.ReturnFrom(f : Task) : Async<unit> =
+                __.ReturnFrom(Async.AwaitTask f)
 
         type Uri with
             member u.ResourceId = u.Scheme
