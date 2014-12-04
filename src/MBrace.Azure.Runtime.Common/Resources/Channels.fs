@@ -32,6 +32,11 @@ type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
     [<NonSerialized>]
     let queueClient = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(queueName)
 
+    member __.Dispose () : Async<unit> =
+        async {
+            do! ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.DeleteQueueAsync(queueName)
+        }
+
     // TODO : Receive semantics
 
     member __.Receive(?timeout : int) : Async<'T> =

@@ -44,9 +44,13 @@ let sp, rp = !factory.CreateChannel<int>()
 
 !rp.Receive()
 
+type Foo = Foo of int
 
+let sp, rp = !factory.CreateChannel<byte []>()
 
-
+!sp.Send(Array.zeroCreate 200)
+let r = !rp.Receive()
+r.Length
 
 
 
