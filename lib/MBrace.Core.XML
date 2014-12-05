@@ -357,7 +357,7 @@
  </summary>
  <param name="cloudRef">CloudRef to be dereferenced.</param>
 </member>
-<member name="M:Nessos.MBrace.CloudRef.Create``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
+<member name="M:Nessos.MBrace.CloudRef.New``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
  <summary>
      Creates a new cloud reference to the underlying store with provided value.
      Cloud references are immutable and cached locally for performance.
@@ -534,6 +534,17 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.ICloudAtom`1.Value">
+<summary>
+ Returns the current value of atom.
+</summary>
+</member>
 <member name="P:Nessos.MBrace.ICloudAtom`1.Id">
 <summary>
  Cloud atom identifier
@@ -548,7 +559,7 @@
 </member>
 <member name="M:Nessos.MBrace.ICloudAtom`1.GetValue">
 <summary>
- Returns the current value of atom.
+ Asynchronously returns the current value of atom.
 </summary>
 </member>
 <member name="M:Nessos.MBrace.ICloudAtom`1.Force(`0)">
@@ -1201,6 +1212,27 @@
  Contains common operators for cloud computation.
 </summary>
 </member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Store.ChannelConfiguration">
+<summary>
+ Provides channel configuration to be passed
+ in the cloud monad execution context
+</summary>
+</member>
 <member name="P:Nessos.MBrace.Store.CloudFileStoreConfiguration.DefaultDirectory">
 <summary>
  Default directory used by current execution context.
@@ -1216,6 +1248,11 @@
  Store configuration record passed to the continuation execution context
 </summary>
 </member>
+<member name="P:Nessos.MBrace.Store.ICloudAtomProvider.Name">
+<summary>
+ Implementation name
+</summary>
+</member>
 <member name="P:Nessos.MBrace.Store.ICloudAtomProvider.Id">
 <summary>
  Cloud atom identifier
@@ -1227,10 +1264,28 @@
  </summary>
  <param name="value">Value to be checked.</param>
 </member>
-<member name="M:Nessos.MBrace.Store.ICloudAtomProvider.CreateAtom``1(``0)">
+<member name="M:Nessos.MBrace.Store.ICloudAtomProvider.GetAtomProviderDescriptor">
+<summary>
+ Returns a serializable atom provider descriptor
+ that can be used in remote processes.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudAtomProvider.DisposeContainer(System.String)">
+ <summary>
+     Disposes all atoms in provided container
+ </summary>
+ <param name="container">Atom container.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudAtomProvider.CreateUniqueContainerName">
+<summary>
+ Create a uniquely specified container name.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudAtomProvider.CreateAtom``1(System.String,``0)">
  <summary>
      Creates a new atom instance with given initial value.
  </summary>
+ <param name="container">Atom container.</param>
  <param name="initValue"></param>
 </member>
 <member name="T:Nessos.MBrace.Store.ICloudAtomProvider">
@@ -1238,20 +1293,84 @@
  Defines a factory for distributed atoms
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Store.ICloudChannelProvider.Id">
+<member name="P:Nessos.MBrace.Store.ICloudAtomProviderDescriptor.Name">
 <summary>
- unique cloud file store identifier
+ Implementation name
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Store.ICloudChannelProvider.CreateChannel``1">
+<member name="P:Nessos.MBrace.Store.ICloudAtomProviderDescriptor.Id">
+<summary>
+ Descriptor Identifier
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudAtomProviderDescriptor.Recover">
+<summary>
+ Recovers the atom provider instance locally
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Store.ICloudAtomProviderDescriptor">
+<summary>
+ Defines a serializable atom provider descriptor
+ used for recovering instances in remote processes.
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Store.ICloudChannelProvider.Name">
+<summary>
+ Implementation name
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Store.ICloudChannelProvider.Id">
+<summary>
+ unique cloud channel source identifier
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudChannelProvider.GetChannelProviderDescriptor">
+<summary>
+ Returns a serializable channel provider descriptor
+ that can be used in remote processes.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudChannelProvider.DisposeContainer(System.String)">
  <summary>
-     Creates a new channel instance for given type
+     Disposes all atoms in provided container
  </summary>
- <param name="container">Container id for current instance.</param>
+ <param name="container">Atom container.</param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudChannelProvider.CreateUniqueContainerName">
+<summary>
+ Create a uniquely specified container name.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudChannelProvider.CreateChannel``1(System.String)">
+ <summary>
+     Creates a new channel instance for given type.
+ </summary>
+ <param name="container">Container for channel.</param>
 </member>
 <member name="T:Nessos.MBrace.Store.ICloudChannelProvider">
 <summary>
  Defines a factory for distributed channels
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Store.ICloudChannelProviderDescriptor.Name">
+<summary>
+ Implementation name
+</summary>
+</member>
+<member name="P:Nessos.MBrace.Store.ICloudChannelProviderDescriptor.Id">
+<summary>
+ Descriptor Identifier
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudChannelProviderDescriptor.Recover">
+<summary>
+ Recovers the channel provider instance locally
+</summary>
+</member>
+<member name="T:Nessos.MBrace.Store.ICloudChannelProviderDescriptor">
+<summary>
+ Defines a serializable channel provider descriptor
+ used for recovering instances in remote processes.
 </summary>
 </member>
 <member name="P:Nessos.MBrace.Store.ICloudFileStore.Name">
@@ -1283,11 +1402,6 @@
  </summary>
  <param name="targetFile">Target file.</param>
  <param name="source">Source stream.</param>
-</member>
-<member name="M:Nessos.MBrace.Store.ICloudFileStore.GetUniqueDirectoryPath">
-<summary>
- Generates a random, uniquely specified path to directory
-</summary>
 </member>
 <member name="M:Nessos.MBrace.Store.ICloudFileStore.GetRootDirectory">
 <summary>
@@ -1355,6 +1469,11 @@
  <param name="directory">file container.</param>
  <param name="recursive">Delete recursively.</param>
 </member>
+<member name="M:Nessos.MBrace.Store.ICloudFileStore.CreateUniqueDirectoryPath">
+<summary>
+ Generates a random, uniquely specified path to directory
+</summary>
+</member>
 <member name="M:Nessos.MBrace.Store.ICloudFileStore.CreateDirectory(System.String)">
  <summary>
      Creates a new directory in store.
@@ -1396,7 +1515,7 @@
 </member>
 <member name="M:Nessos.MBrace.Store.ICloudFileStoreDescriptor.Recover">
 <summary>
- Recovers the serializer instance locally
+ Recovers the file store instance locally
 </summary>
 </member>
 <member name="T:Nessos.MBrace.Store.ICloudFileStoreDescriptor">
@@ -1410,14 +1529,14 @@
  Serializer identifier
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Store.ISerializer.Serialize``1(System.IO.Stream,``0)">
+<member name="M:Nessos.MBrace.Store.ISerializer.Serialize``1(System.IO.Stream,``0,System.Boolean)">
  <summary>
      Serializes a value to stream.
  </summary>
  <param name="target">Target stream.</param>
  <param name="value">Input value.</param>
 </member>
-<member name="M:Nessos.MBrace.Store.ISerializer.SeqSerialize``1(System.IO.Stream,System.Collections.Generic.IEnumerable{``0})">
+<member name="M:Nessos.MBrace.Store.ISerializer.SeqSerialize``1(System.IO.Stream,System.Collections.Generic.IEnumerable{``0},System.Boolean)">
  <summary>
      Serializes a sequence to stream.
  </summary>
@@ -1425,7 +1544,7 @@
  <param name="values">Input sequence.</param>
  <returns>Serialized element count.</returns>
 </member>
-<member name="M:Nessos.MBrace.Store.ISerializer.SeqDeserialize``1(System.IO.Stream,System.Int32)">
+<member name="M:Nessos.MBrace.Store.ISerializer.SeqDeserialize``1(System.IO.Stream,System.Int32,System.Boolean)">
  <summary>
      Deserialize a sequence from stream.
  </summary>
@@ -1438,7 +1557,7 @@
  re-establishing serializer instances in remote processes
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Store.ISerializer.Deserialize``1(System.IO.Stream)">
+<member name="M:Nessos.MBrace.Store.ISerializer.Deserialize``1(System.IO.Stream,System.Boolean)">
  <summary>
      Deserializes a value from stream.
  </summary>
@@ -1464,6 +1583,9 @@
  Serializable serializer identifier
  that can be recovered in remote processes.
 </summary>
+</member>
+<member name="">
+
 </member>
 <member name="">
 

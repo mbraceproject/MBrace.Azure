@@ -9,13 +9,13 @@
 open System.Diagnostics
 
 open Nessos.MBrace
-open Nessos.MBrace.Library
 open Nessos.MBrace.Runtime
 
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open System
 open Nessos.MBrace.Continuation
+open Nessos.MBrace.InMemoryRuntime
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies, context) =

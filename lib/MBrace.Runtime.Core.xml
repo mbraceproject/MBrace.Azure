@@ -483,6 +483,88 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Runtime.Store.FileSystemAtomProvider.LocalTemp">
+<summary>
+ Initializes a FileSystemStore instance on the local system temp path.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.FileSystemAtomProvider.Create(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
+ <summary>
+     Creates a new FileSystemAtomProvider instance on given path.
+ </summary>
+ <param name="path">Local or UNC path.</param>
+ <param name="create">Create directory if missing. Defaults to false</param>
+ <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
 <member name="P:Nessos.MBrace.Runtime.Store.FileSystemStore.LocalTemp">
 <summary>
  Initializes a FileSystemStore instance on the local system temp path.
@@ -841,18 +923,20 @@
  Gets the registered FsPickler serializer instance.
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Core.FSharpFunc{System.Reflection.Assembly,System.Boolean}},Microsoft.FSharp.Core.FSharpOption{Nessos.Vagrant.AssemblyLoadPolicy})">
+<member name="M:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Core.FSharpFunc{System.Reflection.Assembly,System.Boolean}},Microsoft.FSharp.Core.FSharpOption{Nessos.Vagrant.AssemblyLoadPolicy},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
  <summary>
      Initializes vagrant using default settings.
  </summary>
  <param name="ignoreAssembly">Specify an optional ignore assembly predicate.</param>
  <param name="loadPolicy">Specify a default assembly load policy.</param>
+ <param name="throwOnError">Throw exception on error.</param>
 </member>
-<member name="M:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Nessos.Vagrant.Vagrant})">
+<member name="M:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpFunc{Microsoft.FSharp.Core.Unit,Nessos.Vagrant.Vagrant},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
  <summary>
      Initializes the registry using provided factory.
  </summary>
  <param name="factory">Vagrant instance factory.</param>
+ <param name="throwOnError">Throw exception on error.</param>
 </member>
 <member name="M:Nessos.MBrace.Runtime.Vagrant.VagrantRegistry.ComputeObjectDependencies(System.Object)">
  <summary>

@@ -98,7 +98,7 @@ let wordCount size mapReduceAlgorithm : Cloud<int> =
     let reduceF i i' = cloud { return i + i' }
     let inputs = Array.init size (fun i -> "lorem ipsum dolor sit amet")
     mapReduceAlgorithm mapF 0 reduceF inputs
-wordCount 1000 Library.MapReduce.mapReduce 
+wordCount 1000 MapReduce.mapReduce 
 |> runtime.Run
 
 
@@ -117,7 +117,14 @@ runtime.Run <| CloudAtom.Transact(fun x -> x+1, x + 1) atom
 
 atom.Id
 
-runtime.Run <| CloudFile.New((fun stream -> async { use sr = new StreamWriter(stream) in return sr.WriteLine("Foobar") }), "foo/bar")
+let cf = runtime.Run <| CloudFile.New((fun stream -> async { use sr = new StreamWriter(stream) in return sr.WriteLine("Foobar") }), "foo/bar")
+cf.FileName
+
+let s = cf.BeginRead() |> Async.RunSynchronously
+let sr = new StreamReader(s)
+sr.ReadToEnd()
+s.Dispose()
+
 runtime.Run <| FileStore.EnumerateDirectories()
 runtime.Run <| FileStore.CreateDirectory("foo")
 

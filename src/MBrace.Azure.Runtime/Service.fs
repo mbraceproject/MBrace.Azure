@@ -37,11 +37,13 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
                 let subscription = state.TaskQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 
-                let atomProvider = AtomProvider.Create(config.DefaultTableOrContainer, config.ConfigurationId)
-                logf "AtomProvider : %s" atomProvider.Id
+                let atomConfig = { AtomProvider = AtomProvider.Create(config.ConfigurationId); DefaultContainer = config.DefaultTableOrContainer }
+                logf "AtomProvider : %s" atomConfig.AtomProvider.Id
 
-                let channelProvider = ChannelProvider.Create(config.ConfigurationId)
-                logf "ChannelProvider : %s" channelProvider.Id
+                let channelConfig = { ChannelProvider = ChannelProvider.Create(config.ConfigurationId); DefaultContainer = String.Empty }
+                logf "ChannelProvider : %s" channelConfig.ChannelProvider.Id
+
+                logf "CloudFileStore : %s" storeConfig.FileStore.Id
 
                 let! (e : WorkerRef) = state.ResourceFactory.WorkerMonitor.DeclareCurrent(serviceId)
                 logf "Declared node %s : %d : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
@@ -51,7 +53,7 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
 
                 logf "Starting worker loop"
                 logf "MaxTasks : %d" maxTasks
-                let resources = resource { yield storeConfig; yield atomProvider; yield channelProvider}
+                let resources = resource { yield storeConfig; yield atomConfig; yield channelConfig}
                 let! handle = Async.StartChild(Worker.initWorker state resources maxTasks)
                 logf "Worker loop started"
                 

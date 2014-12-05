@@ -11,6 +11,9 @@ open Nessos.MBrace
 [<AutoSerializableAttribute(true)>]
 type Atom<'T> internal (table, pk, rk, config) =
     interface ICloudAtom<'T> with
+
+        member this.Value : 'T = Async.RunSynchronously((this :> ICloudAtom<'T>).GetValue())
+        
         member this.Id = sprintf "%s/%s/%s" table pk rk
 
         member this.Dispose(): Async<unit> = 
@@ -63,21 +66,40 @@ type Atom<'T> internal (table, pk, rk, config) =
             }
 
 [<AutoSerializableAttribute(false)>]
-type AtomProvider private (table, config : ConfigurationId) =
+type AtomProvider private(config : ConfigurationId) =
         
     interface ICloudAtomProvider with
-        member this.Id = sprintf "CloudAtomProvider:%s" table
+        member this.Id   = "CloudAtomProvider" 
+        member this.Name = "CloudAtomProvider" 
 
         member this.IsSupportedValue(value: 'T) : bool = 
             Configuration.Serializer.ComputeSize(value) <= TableEntityUtils.MaxPayloadSize
         
-        member this.CreateAtom(initial: 'T) = 
+        member this.CreateUniqueContainerName() = (guid()).Substring(0,5) // TODO : Change
+
+        member this.CreateAtom(container, initial: 'T) = 
                 async {
                     let binary = Configuration.Serializer.Pickle(initial)
                     let e = new FatEntity(guid(), String.Empty, binary)
-                    do! Table.insert<FatEntity> config table e
-                    return new Atom<'T>(table, e.PartitionKey, e.RowKey, config) :> ICloudAtom<'T>
+                    do! Table.insert<FatEntity> config container e
+                    return new Atom<'T>(container, e.PartitionKey, e.RowKey, config) :> ICloudAtom<'T>
                 }
 
-    static member Create(table, config : ConfigurationId) : ICloudAtomProvider =
-        new AtomProvider(table, config) :> _
+        member this.DisposeContainer(container) =
+            async {
+                do! ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(container).DeleteIfExistsAsync()
+            }
+
+        member this.GetAtomProviderDescriptor() : ICloudAtomProviderDescriptor = 
+            let this = this :> ICloudAtomProvider
+            let id = this.Id
+            let name = this.Name
+            let config = config
+            { new ICloudAtomProviderDescriptor with
+                  member x.Id : string = id
+                  member x.Name : string = name
+                  member x.Recover() : ICloudAtomProvider = new AtomProvider(config) :> _
+            }
+
+    static member Create(config : ConfigurationId) : ICloudAtomProvider =
+        new AtomProvider(config) :> _

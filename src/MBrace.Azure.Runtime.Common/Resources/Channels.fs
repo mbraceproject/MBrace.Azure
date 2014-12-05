@@ -80,10 +80,19 @@ type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
 type ChannelProvider private (config : ConfigurationId) =
     
     interface ICloudChannelProvider with
-        member __.Id = 
-            ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.Address.ToString()
+        member x.CreateUniqueContainerName() : string = guid()
+        
+        member x.DisposeContainer(queueName : string): Async<unit> = 
+            async {
+                do! ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.DeleteQueueAsync(queueName)
+            }
+        
+        // TODO : Change
+        member __.Name : string = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.Address.ToString()
+        
+        member __.Id = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.Address.ToString()
 
-        member __.CreateChannel<'T> () =
+        member __.CreateChannel<'T> (_ : string) =
             async {
                 let queueName = guid()
                 let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
@@ -94,6 +103,22 @@ type ChannelProvider private (config : ConfigurationId) =
                 do! ns.CreateQueueAsync(qd)
                 return new SendPort<'T>(queueName, config) :> ISendPort<'T>, 
                         new ReceivePort<'T>(queueName, config) :> IReceivePort<'T>
+            }
+
+        member this.GetChannelProviderDescriptor() : ICloudAtomProviderDescriptor = 
+            let this = this :> ICloudChannelProvider
+            let id = this.Id
+            let name = this.Name
+            let config = config
+            { new ICloudAtomProviderDescriptor with
+                  member x.Id: string = 
+                      failwith "Not implemented yet"
+                  
+                  member x.Name: string = 
+                      failwith "Not implemented yet"
+                  
+                  member x.Recover(): ICloudAtomProvider = 
+                      failwith "Not implemented yet"
             }
 
     static member Create(config : ConfigurationId) : ICloudChannelProvider =

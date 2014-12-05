@@ -10,7 +10,6 @@ open FsUnit
 open Nessos.MBrace
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Runtime
-open Nessos.MBrace.Library
 open Nessos.MBrace.Azure.Client
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Standalone
