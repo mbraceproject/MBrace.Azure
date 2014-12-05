@@ -20,6 +20,7 @@ open Nessos.MBrace.Azure.Runtime.Common.Storage
 open Nessos.MBrace.Continuation
 open Nessos.FsPickler
 open Nessos.MBrace.Runtime.Vagrant
+open Nessos.MBrace.Store
 
 // Tasks are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
@@ -86,11 +87,14 @@ with
     /// <param name="runtimeProvider">Local scheduler implementation.</param>
     /// <param name="dependencies">Task dependent assemblies.</param>
     /// <param name="task">Task to be executed.</param>
-    static member RunAsync (runtimeProvider : IRuntimeProvider) (dependencies : AssemblyId list) (task : Task) = async {
+    static member RunAsync (runtimeProvider : IRuntimeProvider) 
+                           (store : CloudFileStoreConfiguration)
+                           (dependencies : AssemblyId list) 
+                           (task : Task) = async {
         let tem = new TaskExecutionMonitor()
         let ctx =
             {
-                Resources = resource { yield runtimeProvider ; yield tem ; yield task.CancellationTokenSource ; yield dependencies }
+                Resources = resource { yield runtimeProvider ; yield store; yield tem ; yield task.CancellationTokenSource ; yield dependencies }
                 CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
             }
 

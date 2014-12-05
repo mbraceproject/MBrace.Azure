@@ -8,6 +8,7 @@ open Nessos.MBrace.Continuation
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
+open Nessos.MBrace.Store
 
 /// <summary>
 ///     Initializes a worker loop. Worker polls task queue of supplied
@@ -16,12 +17,13 @@ open Nessos.MBrace.Azure.Runtime.Resources
 /// <param name="runtime">Runtime to subscribe to.</param>
 /// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
 let initWorker (runtime : RuntimeState) 
+               (store : CloudFileStoreConfiguration)
                (maxConcurrentTasks : int) : Async<unit> = async {
 
     let currentTaskCount = ref 0
     let runTask procId deps t =
         let provider = RuntimeProvider.FromTask runtime procId deps t
-        Task.RunAsync provider deps t
+        Task.RunAsync provider store deps t
     let inline logf fmt = Printf.ksprintf runtime.ResourceFactory.Logger.Log fmt
 
     let rec loop () = async {

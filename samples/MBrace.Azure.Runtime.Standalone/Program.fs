@@ -3,6 +3,8 @@
     open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Azure.Runtime.Common
     open System.Diagnostics
+    open Nessos.MBrace.Azure.Store
+    open Nessos.MBrace.Store
 
     [<EntryPoint>]
     let main (args : string []) =
@@ -10,7 +12,10 @@
             let ps = Process.GetCurrentProcess()
             let config = Argument.toConfiguration args
 
-            let svc = new Service(config, 10)
+            let store = new BlobStore(config.StorageConnectionString);
+            let storeconfig = { FileStore = store ; DefaultDirectory = "mbracestore" }
+
+            let svc = new Service(config, 10, storeconfig)
             
             Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
 

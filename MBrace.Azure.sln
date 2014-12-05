@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.31101.0
+VisualStudioVersion = 12.0.30723.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1CCF30B5-03E2-423A-85A9-98278969CAAF}"
 EndProject
@@ -18,6 +18,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{C84D07FB-0C7F-4711-A6EE-4F31D1DDD71A}"
 	ProjectSection(SolutionItems) = preProject
+		lib\MBrace.Azure.Store.dll = lib\MBrace.Azure.Store.dll
+		lib\MBrace.Azure.Store.pdb = lib\MBrace.Azure.Store.pdb
 		lib\MBrace.Core.dll = lib\MBrace.Core.dll
 		lib\MBrace.Core.pdb = lib\MBrace.Core.pdb
 		lib\MBrace.Core.XML = lib\MBrace.Core.XML

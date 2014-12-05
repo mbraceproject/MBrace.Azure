@@ -9,21 +9,22 @@ open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace
 open Nessos.MBrace.Runtime
 open Nessos.MBrace.Continuation
+open Nessos.MBrace.Store
 
 /// MBrace Runtime Service.
-type Service (config : Configuration, maxTasks : int, serviceId : string) =
+type Service (config : Configuration, maxTasks : int, store : CloudFileStoreConfiguration, serviceId : string) =
     do Configuration.Activate(config)
-    /// MBrace Runtime Service.
     let state = RuntimeState.FromConfiguration(config)
     let logf fmt = Printf.ksprintf state.ResourceFactory.Logger.Log fmt
 
-    new(config : Configuration, maxTasks : int) = new Service (config, maxTasks, guid())
+    /// MBrace Runtime Service.
+    new(config : Configuration, maxTasks : int, store : CloudFileStoreConfiguration) = new Service (config, maxTasks, store, guid())
 
     member __.Configuration = config
     member __.Id = serviceId
     member __.AttachLogger(logger) = state.ResourceFactory.Logger.Attach(logger)
     member __.MaxConcurrentTasks = maxTasks
-
+    member __.CloudFileStore = store
     member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
     member __.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(__.StartAsync(), cancellationToken = ct) :> _
         
@@ -41,8 +42,10 @@ type Service (config : Configuration, maxTasks : int, serviceId : string) =
                 Async.Start(state.ResourceFactory.WorkerMonitor.HeartbeatLoop())
                 logf "Started heartbeat loop" 
 
+                logf "Store %A" store.FileStore.Name
+
                 logf "Starting worker loop, max tasks %d" maxTasks
-                let! handle = Async.StartChild(Worker.initWorker state maxTasks)
+                let! handle = Async.StartChild(Worker.initWorker state store maxTasks)
                 logf "Worker loop started"
                 
                 logf "Service %s started" serviceId

@@ -11,6 +11,8 @@ using Microsoft.WindowsAzure.ServiceRuntime;
 using Microsoft.WindowsAzure.Storage;
 using Nessos.MBrace.Azure.Runtime;
 using Nessos.MBrace.Azure.Runtime.Common;
+using Nessos.MBrace.Azure.Store;
+using Nessos.MBrace.Store;
 
 namespace Nessos.MBrace.Azure.CloudService.WorkerRole
 {
@@ -33,11 +35,15 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
             var config = Configuration.Default
                             .WithStorageConnectionString("")
                             .WithServiceBusConnectionString("");
-
-            _svc = new Service(config, maxTasks : 10, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
+            
+            var filestore = new BlobStore(config.StorageConnectionString);
+            var storeconfig = new CloudFileStoreConfiguration(filestore, "mbracestore");
+            
+            _svc = new Service(config, maxTasks : 10, store : storeconfig, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
             var logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, LoggerType.NewWorker(_svc.Id));
             logger.Attach(new CustomLogger(s => Trace.WriteLine(s)));
             _svc.AttachLogger(logger);
+            
             return result;
         }
 

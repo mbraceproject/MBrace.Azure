@@ -59,6 +59,9 @@
     <Reference Include="FsPickler">
       <HintPath>..\..\packages\FsPickler.1.0.6\lib\net45\FsPickler.dll</HintPath>
     </Reference>
+    <Reference Include="MBrace.Azure.Store">
+      <HintPath>..\..\lib\MBrace.Azure.Store.dll</HintPath>
+    </Reference>
     <Reference Include="MBrace.Core">
       <HintPath>..\..\lib\MBrace.Core.dll</HintPath>
     </Reference>
