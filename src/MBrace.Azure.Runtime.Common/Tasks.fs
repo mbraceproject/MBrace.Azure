@@ -88,13 +88,19 @@ with
     /// <param name="dependencies">Task dependent assemblies.</param>
     /// <param name="task">Task to be executed.</param>
     static member RunAsync (runtimeProvider : IRuntimeProvider) 
-                           (store : CloudFileStoreConfiguration)
+                           (resources : ResourceRegistry)
                            (dependencies : AssemblyId list) 
                            (task : Task) = async {
         let tem = new TaskExecutionMonitor()
         let ctx =
             {
-                Resources = resource { yield runtimeProvider ; yield store; yield tem ; yield task.CancellationTokenSource ; yield dependencies }
+                Resources = resource { 
+                                yield runtimeProvider
+                                yield! resources
+                                yield tem
+                                yield task.CancellationTokenSource
+                                yield dependencies
+                            }
                 CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
             }
 

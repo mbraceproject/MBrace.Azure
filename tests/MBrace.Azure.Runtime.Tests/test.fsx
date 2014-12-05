@@ -9,10 +9,10 @@
 #time "on"
 
 open Nessos.MBrace
-open Nessos.MBrace.Runtime
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Client
 open System
+open System.IO
 open System.Threading
 
 let selectEnv name =
@@ -34,14 +34,14 @@ open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 Runtime.Spawn(config, 4)
 // inmemory-----
-[1..4]
-|> List.map(fun _ -> 
-    let svc = Service(config, 10)
-    svc.AttachLogger(Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger())
-    svc.StartAsync())
-|> Async.Parallel
-|> Async.Ignore
-|> Async.Start
+//[1..4]
+//|> List.map(fun _ -> 
+//    let svc = Service(config, 10)
+//    svc.AttachLogger(Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger())
+//    svc.StartAsync())
+//|> Async.Parallel
+//|> Async.Ignore
+//|> Async.Start
 //--------------
 
 let runtime = Runtime.GetHandle(config)
@@ -107,3 +107,28 @@ let wr = ws.[0]
 
 runtime.Run <| cloud { let! child = Cloud.StartChild(Cloud.Log "FOO", wr) in return! child }
 
+
+let atom = runtime.Run <| CloudAtom.New(12)
+
+atom.GetValue() |> Async.RunSynchronously
+atom.Update((+) 1) |> Async.RunSynchronously
+
+runtime.Run <| CloudAtom.Transact(fun x -> x+1, x + 1) atom
+
+atom.Id
+
+runtime.Run <| CloudFile.New((fun stream -> async { use sr = new StreamWriter(stream) in return sr.WriteLine("Foobar") }), "foo/bar")
+runtime.Run <| FileStore.EnumerateDirectories()
+runtime.Run <| FileStore.CreateDirectory("foo")
+
+
+let sp, rp = runtime.Run <| CloudChannel.New<int>()
+
+let ps = runtime.CreateProcess(
+                    cloud { 
+                        while true do 
+                            let! x = CloudChannel.Receive(rp)
+                            printfn "%d" x })
+
+for i = 0 to 100 do
+    sp.Send(i) |> Async.RunSynchronously

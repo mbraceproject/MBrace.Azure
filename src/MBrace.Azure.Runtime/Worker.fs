@@ -17,13 +17,13 @@ open Nessos.MBrace.Store
 /// <param name="runtime">Runtime to subscribe to.</param>
 /// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
 let initWorker (runtime : RuntimeState) 
-               (store : CloudFileStoreConfiguration)
+               (resources : ResourceRegistry)
                (maxConcurrentTasks : int) : Async<unit> = async {
 
     let currentTaskCount = ref 0
     let runTask procId deps t =
         let provider = RuntimeProvider.FromTask runtime procId deps t
-        Task.RunAsync provider store deps t
+        Task.RunAsync provider resources deps t
     let inline logf fmt = Printf.ksprintf runtime.ResourceFactory.Logger.Log fmt
 
     let rec loop () = async {

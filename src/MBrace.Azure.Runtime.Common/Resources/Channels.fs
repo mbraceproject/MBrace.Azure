@@ -11,13 +11,8 @@ open Nessos.MBrace.Azure.Runtime.Common
 
 
 // Implementation of Channels over ServiceBus Queues.
-//
-// TODO : Implement MBrace.Core interfaces
-
-[<AutoSerializableAttribute(true)>]
 type SendPort<'T> internal (queueName, config : ConfigurationId) =
     
-    [<NonSerialized>]
     let queueClient = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(queueName)
 
     interface ISendPort<'T> with
@@ -30,10 +25,17 @@ type SendPort<'T> internal (queueName, config : ConfigurationId) =
                 do! queueClient.SendAsync(msg)
             }
 
-[<AutoSerializableAttribute(true)>]
-type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
+    interface ISerializable with
+        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+            info.AddValue("queueName", queueName, typeof<string>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
     
-    [<NonSerialized>]
+    new(info : SerializationInfo, context : StreamingContext) = 
+        let queueName = info.GetValue("queueName", typeof<string>) :?> string
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new SendPort<'T>(queueName, config)
+
+type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
     let queueClient = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(queueName)
 
     interface IReceivePort<'T> with
@@ -44,7 +46,6 @@ type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
             }
 
         // TODO : Receive semantics
-
         member __.Receive(?timeout : int) : Async<'T> =
             async {
                 let timeout = 
@@ -64,11 +65,23 @@ type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
                     return raise <| TimeoutException()
             }
 
+
+    interface ISerializable with
+        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+            info.AddValue("queueName", queueName, typeof<string>)
+            info.AddValue("config", config, typeof<ConfigurationId>)
+    
+    new(info : SerializationInfo, context : StreamingContext) = 
+        let queueName = info.GetValue("queueName", typeof<string>) :?> string
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        new ReceivePort<'T>(queueName, config)
+
 [<AutoSerializableAttribute(false)>]
 type ChannelProvider private (config : ConfigurationId) =
     
     interface ICloudChannelProvider with
-        member __.Id = raise <| NotImplementedException("Id")
+        member __.Id = 
+            ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.Address.ToString()
 
         member __.CreateChannel<'T> () =
             async {
@@ -83,5 +96,5 @@ type ChannelProvider private (config : ConfigurationId) =
                         new ReceivePort<'T>(queueName, config) :> IReceivePort<'T>
             }
 
-    static member Create(config : ConfigurationId) =
-        new ChannelProvider(config)
+    static member Create(config : ConfigurationId) : ICloudChannelProvider =
+        new ChannelProvider(config) :> _

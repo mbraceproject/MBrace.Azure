@@ -36,10 +36,10 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
                             .WithStorageConnectionString("")
                             .WithServiceBusConnectionString("");
             
-            var filestore = new BlobStore(config.StorageConnectionString);
-            var storeconfig = new CloudFileStoreConfiguration(filestore, "mbracestore");
+            var blobStore = new BlobStore(config.StorageConnectionString);
+            var storeConfig = new CloudFileStoreConfiguration(blobStore, defaultDirectory : "mbracestore");
             
-            _svc = new Service(config, maxTasks : 10, store : storeconfig, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
+            _svc = new Service(config, maxTasks : 10, storeConfig : storeConfig, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
             var logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, LoggerType.NewWorker(_svc.Id));
             logger.Attach(new CustomLogger(s => Trace.WriteLine(s)));
             _svc.AttachLogger(logger);

@@ -10,12 +10,8 @@ open Nessos.MBrace
 
 [<AutoSerializableAttribute(true)>]
 type Atom<'T> internal (table, pk, rk, config) =
-
-    [<NonSerializedAttribute>]
-    let pickler = Configuration.Serializer
-
     interface ICloudAtom<'T> with
-        member this.Id = sprintf "table/pk/rk"
+        member this.Id = sprintf "%s/%s/%s" table pk rk
 
         member this.Dispose(): Async<unit> = 
             async {
@@ -25,6 +21,7 @@ type Atom<'T> internal (table, pk, rk, config) =
         
         member this.Update(updater: 'T -> 'T, ?maxRetries : int): Async<unit> = 
             async {
+                let pickler = Configuration.Serializer
                 let interval = let r = new Random() in r.Next(2,10) 
                 let maxInterval = 5000
                 let maxRetries = defaultArg maxRetries Int32.MaxValue
@@ -52,7 +49,7 @@ type Atom<'T> internal (table, pk, rk, config) =
         member this.Force(newValue: 'T): Async<unit> = 
             async {
                 let! e = Table.read<FatEntity> config table pk rk
-                let newBinary = pickler.Pickle<'T>(newValue)
+                let newBinary = Configuration.Serializer.Pickle<'T>(newValue)
                 let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge config table e
                 return ()
@@ -61,7 +58,7 @@ type Atom<'T> internal (table, pk, rk, config) =
         member this.GetValue(): Async<'T> = 
             async {
                 let! e = Table.read<FatEntity> config table pk rk
-                let value = pickler.UnPickle<'T>(e.GetPayload())
+                let value = Configuration.Serializer.UnPickle<'T>(e.GetPayload())
                 return value
             }
 
@@ -82,5 +79,5 @@ type AtomProvider private (table, config : ConfigurationId) =
                     return new Atom<'T>(table, e.PartitionKey, e.RowKey, config) :> ICloudAtom<'T>
                 }
 
-    static member Create(table, config : ConfigurationId) =
-        new AtomProvider(table, config)
+    static member Create(table, config : ConfigurationId) : ICloudAtomProvider =
+        new AtomProvider(table, config) :> _
