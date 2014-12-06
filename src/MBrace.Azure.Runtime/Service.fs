@@ -11,21 +11,22 @@ open Nessos.MBrace.Runtime
 open Nessos.MBrace.Continuation
 open Nessos.MBrace.Store
 open Nessos.MBrace.Azure.Runtime.Resources
+open System.Diagnostics
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileStoreConfiguration, serviceId : string) =
-    do Configuration.Activate(config)
-    let state = RuntimeState.FromConfiguration(config)
-    let logf fmt = Printf.ksprintf state.ResourceFactory.Logger.Log fmt
+
+    let logger = new NullLogger() :> ILogger
+    let logf fmt = Printf.ksprintf logger.Log fmt
 
     /// MBrace Runtime Service.
     new(config : Configuration, maxTasks : int, store : CloudFileStoreConfiguration) = new Service (config, maxTasks, store, guid())
 
     member __.Configuration = config
     member __.Id = serviceId
-    member __.AttachLogger(logger) = state.ResourceFactory.Logger.Attach(logger)
+    member __.AttachLogger(l) = logger.Attach(l)
     member __.MaxConcurrentTasks = maxTasks
-    member __.CloudFileStore = storeConfig
+    member __.CloudFileStoreConfiguration = storeConfig
     member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
     member __.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(__.StartAsync(), cancellationToken = ct) :> _
         
@@ -33,8 +34,18 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
         async {
             try
                 logf "Starting Service %s" serviceId
+                let sw = new Stopwatch() in sw.Start()
 
-                let subscription = state.TaskQueue.Affinity <- serviceId
+                logf "Activating Configuration"
+                do! Configuration.Activate(config)
+
+                logf "Initializing RuntimeState"
+                let state = RuntimeState.FromConfiguration(config)
+                
+                state.ResourceFactory.Logger.Attach(logger)
+                logf "Logger attached"
+
+                state.TaskQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 
                 let atomConfig = { AtomProvider = AtomProvider.Create(config.ConfigurationId); DefaultContainer = config.DefaultTableOrContainer }
@@ -57,7 +68,8 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
                 let! handle = Async.StartChild(Worker.initWorker state resources maxTasks)
                 logf "Worker loop started"
                 
-                logf "Service %s started" serviceId
+                sw.Stop()
+                logf "Service %s started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
                 return! handle
             with ex ->
                 logf "Service %s failed with %A" __.Id  ex

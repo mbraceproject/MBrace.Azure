@@ -24,7 +24,7 @@ type private Helpers () =
     static member val exe = None with get, set
 
     static member InitWorkers config (count : int) exe =
-        Nessos.MBrace.Azure.Runtime.Configuration.Activate(config)
+        Async.RunSynchronously(Nessos.MBrace.Azure.Runtime.Configuration.Activate(config))
         if count < 1 then invalidArg "workerCount" "must be positive."  
         let args = Argument.ofConfiguration config 
         let psi = new ProcessStartInfo(exe, args)

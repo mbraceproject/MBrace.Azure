@@ -1,18 +1,17 @@
 ﻿namespace Nessos.MBrace.Azure.Runtime
 
-open System
-open System.Reflection
-open System.Threading
-open System.Security.Cryptography
-open System.Text
-
-open Nessos.Vagrant
-open Nessos.MBrace.Runtime
-open Nessos.FsPickler
-open Microsoft.WindowsAzure.Storage
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
+open Microsoft.WindowsAzure.Storage
+open Nessos.FsPickler
+open Nessos.MBrace.Runtime
+open Nessos.Vagrant
+open System
 open System.Collections.Concurrent
+open System.Reflection
+open System.Security.Cryptography
+open System.Text
+open System.Threading
 
 
 /// Configuration identifier.
@@ -89,17 +88,21 @@ type internal ClientProvider (config : Configuration) =
     member __.TopicClient(topic) = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic)
 
     member __.ClearAll() =
-        let _ = __.TableClient.GetTableReference(config.DefaultTableOrContainer).DeleteIfExists()
-        let _ = __.TableClient.GetTableReference(config.DefaultLogTable).DeleteIfExists()
-        let _ = __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).DeleteIfExists()
-        let _ = __.NamespaceClient.DeleteQueue(config.DefaultQueue)
-        let _ = __.NamespaceClient.DeleteTopic(config.DefaultTopic)
-        ()
+        async { 
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.DefaultTableOrContainer).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.DefaultLogTable).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).DeleteIfExistsAsync()
+            let! _ = Async.AwaitIAsyncResult <| __.NamespaceClient.DeleteQueueAsync(config.DefaultQueue)
+            let! _ = Async.AwaitIAsyncResult <| __.NamespaceClient.DeleteTopicAsync(config.DefaultTopic)
+            ()
+        }
     member __.InitAll() =
-        let _ = __.TableClient.GetTableReference(config.DefaultTableOrContainer).CreateIfNotExists()
-        let _ = __.TableClient.GetTableReference(config.DefaultLogTable).CreateIfNotExists()
-        let _ = __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).CreateIfNotExists()
-        ()
+        async {
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.DefaultTableOrContainer).CreateIfNotExistsAsync()
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.DefaultLogTable).CreateIfNotExistsAsync()
+            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).CreateIfNotExistsAsync()
+            ()
+        }
 
 [<Sealed;AbstractClass>]
 /// Holds configuration specific resources.
@@ -148,15 +151,19 @@ module Configuration =
     let Initialize () = init ()
 
     /// Activates the given configuration.
-    let Activate(config : Configuration) : unit = 
+    let Activate(config : Configuration) : Async<unit> = 
+      async {
         init ()
         let cp = new ClientProvider(config)
-        cp.InitAll()
+        do! cp.InitAll()
         ConfigurationRegistry.Register<ClientProvider>(config.ConfigurationId, cp)
+    }
 
     /// Warning : Deletes all queues, tables and containers described in the given configuration.
     /// Does not delete process created resources.
-    let DeleteResources (config : Configuration) : unit =
+    let DeleteResources (config : Configuration) : Async<unit> =
+      async {
         init ()
         let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
-        cp.ClearAll()
+        do! cp.ClearAll()
+    }

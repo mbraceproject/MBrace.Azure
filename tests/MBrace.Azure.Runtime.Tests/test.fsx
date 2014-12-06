@@ -13,7 +13,6 @@ open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Client
 open System
 open System.IO
-open System.Threading
 
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
@@ -139,3 +138,6 @@ let ps = runtime.CreateProcess(
 
 for i = 0 to 100 do
     sp.Send(i) |> Async.RunSynchronously
+
+
+let cref = runtime.Run <| CloudRef.New(42)

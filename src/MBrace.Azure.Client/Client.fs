@@ -18,7 +18,7 @@
     [<AutoSerializable(false)>]
     type Runtime private (config : Configuration) =
         let clientId = guid()
-        do Configuration.Activate(config)
+        do Async.RunSynchronously(Configuration.Activate(config))
         let state = RuntimeState.FromConfiguration(config)
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         do state.ResourceFactory.Logger.Attach(logger)
