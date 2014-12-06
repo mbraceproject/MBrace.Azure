@@ -1,16 +1,17 @@
 ﻿namespace Nessos.MBrace.Azure.Runtime.Resources
 
+open Microsoft.ServiceBus.Messaging
+open Nessos.MBrace
+open Nessos.MBrace.Azure.Runtime
+open Nessos.MBrace.Azure.Runtime.Common
+open Nessos.MBrace.Store
 open System
 open System.IO
 open System.Runtime.Serialization
-open Microsoft.ServiceBus.Messaging
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace
-open Nessos.MBrace.Store
-open Nessos.MBrace.Azure.Runtime.Common
-
 
 // Implementation of Channels over ServiceBus Queues.
+// TODO : Revise Channel semantics.
+
 type SendPort<'T> internal (queueName, config : ConfigurationId) =
     
     let queueClient = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(queueName)
@@ -45,7 +46,6 @@ type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
                 do! ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.DeleteQueueAsync(queueName)
             }
 
-        // TODO : Receive semantics
         member __.Receive(?timeout : int) : Async<'T> =
             async {
                 let timeout = 
@@ -86,9 +86,8 @@ type ChannelProvider private (config : ConfigurationId) =
             async {
                 do! ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.DeleteQueueAsync(queueName)
             }
-        
-        // TODO : Change
-        member __.Name : string = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.Address.ToString()
+
+        member __.Name = "Service Bus Channel Provider"
         
         member __.Id = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient.Address.ToString()
 
@@ -105,21 +104,15 @@ type ChannelProvider private (config : ConfigurationId) =
                         new ReceivePort<'T>(queueName, config) :> IReceivePort<'T>
             }
 
-        member this.GetChannelProviderDescriptor() : ICloudAtomProviderDescriptor = 
+        member this.GetChannelProviderDescriptor() : ICloudChannelProviderDescriptor = 
             let this = this :> ICloudChannelProvider
             let id = this.Id
             let name = this.Name
             let config = config
-            { new ICloudAtomProviderDescriptor with
-                  member x.Id: string = 
-                      failwith "Not implemented yet"
-                  
-                  member x.Name: string = 
-                      failwith "Not implemented yet"
-                  
-                  member x.Recover(): ICloudAtomProvider = 
-                      failwith "Not implemented yet"
-            }
+            { new ICloudChannelProviderDescriptor with
+                  member x.Id : string = id
+                  member x.Name : string = name
+                  member x.Recover() : ICloudChannelProvider = new ChannelProvider(config) :> _ }
 
     static member Create(config : ConfigurationId) : ICloudChannelProvider =
         new ChannelProvider(config) :> _

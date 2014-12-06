@@ -483,9 +483,6 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
 <member name="P:Nessos.MBrace.Runtime.Store.FileSystemAtomProvider.LocalTemp">
 <summary>
  Initializes a FileSystemStore instance on the local system temp path.
@@ -509,7 +506,7 @@
 <member name="">
 
 </member>
-<member name="M:Nessos.MBrace.Runtime.Store.FileSystemAtomProvider.Create(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
+<member name="M:Nessos.MBrace.Runtime.Store.FileSystemAtomProvider.Create(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
  <summary>
      Creates a new FileSystemAtomProvider instance on given path.
  </summary>
@@ -520,14 +517,10 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
+<member name="T:Nessos.MBrace.Runtime.Store.FileSystemAtomProvider">
+<summary>
+ File system based atom implementation with pessimistic concurrency.
+</summary>
 </member>
 <member name="">
 
