@@ -11,7 +11,7 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
         async { 
             let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
             use! s = container.GetBlockBlobReference(res.FileWithScheme).OpenReadAsync()
-            return Configuration.Serializer.Deserialize<'T>(s) 
+            return Configuration.Pickler.Deserialize<'T>(s) 
         }
     
     interface IResource with 
@@ -38,7 +38,7 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
             let! exists = b.ExistsAsync()
             if not exists then
                 use! s = b.OpenWriteAsync()
-                Configuration.Serializer.Serialize<'T>(s, f())
+                Configuration.Pickler.Serialize<'T>(s, f())
                 return new BlobCell<'T>(config, res)
             else
                 return BlobCell.OfUri<'T>(config, res)

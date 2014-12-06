@@ -144,8 +144,11 @@ module Configuration =
 
             VagrantRegistry.Initialize(ignoreAssembly = ignore, loadPolicy = AssemblyLoadPolicy.ResolveAll))
 
-    /// Default serializer.
-    let Serializer = init () ; VagrantRegistry.Pickler
+    /// Default Pickler.
+    let Pickler = init () ; VagrantRegistry.Pickler
+
+    /// Default ISerializer
+    let Serializer = init (); VagrantRegistry.Serializer
 
     /// Initialize Vagrant.
     let Initialize () = init ()

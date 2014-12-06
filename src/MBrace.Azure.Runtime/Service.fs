@@ -39,6 +39,9 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
                 logf "Activating Configuration"
                 do! Configuration.Activate(config)
 
+                let serializer = Configuration.Serializer
+                logf "Serializer : %s" serializer.Id
+
                 logf "Initializing RuntimeState"
                 let state = RuntimeState.FromConfiguration(config)
                 
@@ -64,7 +67,13 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
 
                 logf "Starting worker loop"
                 logf "MaxTasks : %d" maxTasks
-                let resources = resource { yield storeConfig; yield atomConfig; yield channelConfig}
+                let resources = 
+                    resource { 
+                        yield serializer
+                        yield storeConfig
+                        yield atomConfig
+                        yield channelConfig
+                    }
                 let! handle = Async.StartChild(Worker.initWorker state resources maxTasks)
                 logf "Worker loop started"
                 

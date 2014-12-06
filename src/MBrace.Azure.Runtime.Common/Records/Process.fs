@@ -34,8 +34,8 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member val CancellationUri : string = cancellationUri with get, set
     member val Type : byte [] = ty with get, set
     member val Dependencies : byte [] = deps with get, set
-    member __.UnpickleType () = Configuration.Serializer.UnPickle<Type> __.Type
-    member __.UnpickleDependencies () = Configuration.Serializer.UnPickle<AssemblyId list> __.Dependencies
+    member __.UnpickleType () = Configuration.Pickler.UnPickle<Type> __.Type
+    member __.UnpickleDependencies () = Configuration.Pickler.UnPickle<AssemblyId list> __.Dependencies
     new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null)
 
 type ProcessMonitor internal (config, table : string) = 
@@ -43,8 +43,8 @@ type ProcessMonitor internal (config, table : string) =
     
     member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
         let now = DateTimeOffset.UtcNow
-        let ty = Configuration.Serializer.Pickle(ty)
-        let deps = Configuration.Serializer.Pickle(deps)
+        let ty = Configuration.Pickler.Pickle(ty)
+        let deps = Configuration.Pickler.Pickle(deps)
         let e = new ProcessRecord(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, ty, deps)
         do! Table.insert<ProcessRecord> config table e
         return e

@@ -24,8 +24,8 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-//Configuration.Activate(config)
-//Configuration.DeleteResources(config)
+//Configuration.Activate(config) |> Async.RunSynchronously
+//Configuration.DeleteResources(config) |> Async.RunSynchronously
 
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
@@ -141,3 +141,12 @@ for i = 0 to 100 do
 
 
 let cref = runtime.Run <| CloudRef.New(42)
+
+let wf = cloud {
+    let! cseq = CloudSeq.New([1..10])
+    let! ch = Cloud.StartChild(cloud { return Seq.toArray cseq })
+    return! ch
+}
+
+let x = runtime.Run wf
+runtime.Run <| CloudSeq.New [1..10]

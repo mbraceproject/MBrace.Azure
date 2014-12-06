@@ -20,7 +20,7 @@ type SendPort<'T> internal (queueName, config : ConfigurationId) =
 
         member __.Send(message : 'T) : Async<unit> = 
             async {
-                let bin = Configuration.Serializer.Pickle(message)
+                let bin = Configuration.Pickler.Pickle(message)
                 use ms = new MemoryStream(bin) in ms.Position <- 0L
                 let msg = new BrokeredMessage(ms)
                 do! queueClient.SendAsync(msg)
@@ -58,7 +58,7 @@ type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
                 if msg <> null then 
                     try
                         use stream = msg.GetBody<Stream>()
-                        return Configuration.Serializer.Deserialize<'T>(stream)
+                        return Configuration.Pickler.Deserialize<'T>(stream)
                     finally
                         msg.Complete()
                 else

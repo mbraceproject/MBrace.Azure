@@ -24,7 +24,7 @@ type Atom<'T> internal (table, pk, rk, config) =
         
         member this.Update(updater: 'T -> 'T, ?maxRetries : int): Async<unit> = 
             async {
-                let pickler = Configuration.Serializer
+                let pickler = Configuration.Pickler
                 let interval = let r = new Random() in r.Next(2,10) 
                 let maxInterval = 5000
                 let maxRetries = defaultArg maxRetries Int32.MaxValue
@@ -52,7 +52,7 @@ type Atom<'T> internal (table, pk, rk, config) =
         member this.Force(newValue: 'T): Async<unit> = 
             async {
                 let! e = Table.read<FatEntity> config table pk rk
-                let newBinary = Configuration.Serializer.Pickle<'T>(newValue)
+                let newBinary = Configuration.Pickler.Pickle<'T>(newValue)
                 let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge config table e
                 return ()
@@ -61,7 +61,7 @@ type Atom<'T> internal (table, pk, rk, config) =
         member this.GetValue(): Async<'T> = 
             async {
                 let! e = Table.read<FatEntity> config table pk rk
-                let value = Configuration.Serializer.UnPickle<'T>(e.GetPayload())
+                let value = Configuration.Pickler.UnPickle<'T>(e.GetPayload())
                 return value
             }
 
@@ -69,17 +69,18 @@ type Atom<'T> internal (table, pk, rk, config) =
 type AtomProvider private(config : ConfigurationId) =
         
     interface ICloudAtomProvider with
-        member this.Id   = "CloudAtomProvider" 
-        member this.Name = "CloudAtomProvider" 
+        member this.Id = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.StorageUri.PrimaryUri.ToString()
+            
+        member this.Name = "Azure Table Storage Atom Provider" 
 
         member this.IsSupportedValue(value: 'T) : bool = 
-            Configuration.Serializer.ComputeSize(value) <= TableEntityUtils.MaxPayloadSize
+            Configuration.Pickler.ComputeSize(value) <= TableEntityUtils.MaxPayloadSize
         
         member this.CreateUniqueContainerName() = (guid()).Substring(0,5) // TODO : Change
 
         member this.CreateAtom(container, initial: 'T) = 
                 async {
-                    let binary = Configuration.Serializer.Pickle(initial)
+                    let binary = Configuration.Pickler.Pickle(initial)
                     let e = new FatEntity(guid(), String.Empty, binary)
                     do! Table.insert<FatEntity> config container e
                     return new Atom<'T>(container, e.PartitionKey, e.RowKey, config) :> ICloudAtom<'T>
