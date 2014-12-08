@@ -136,7 +136,7 @@ module Configuration =
             let ignoredNames =
                 set [ "MBrace.Azure.Runtime"
                       "MBrace.Azure.Runtime.Common"
-                      "MBrace.Azure.Client"
+//                      "MBrace.Azure.Client" // TODO
                       "MBrace.Azure.Runtime.Standalone"  ]
             let ignore assembly =
                 // TODO : change

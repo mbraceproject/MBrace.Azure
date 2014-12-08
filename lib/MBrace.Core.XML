@@ -827,6 +827,9 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
 <member name="T:Nessos.MBrace.Continuation.ResourceNotFoundException">
 <summary>
  Exception raised on missing resource resolution
