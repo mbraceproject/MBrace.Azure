@@ -140,6 +140,9 @@ for i = 0 to 100 do
     sp.Send(i) |> Async.RunSynchronously
 
 
+runtime.Run(cloud { return DateTime.Now })
+
+
 let cref = runtime.Run <| CloudRef.New(42)
 
 let wf = cloud {
