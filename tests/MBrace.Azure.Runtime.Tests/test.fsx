@@ -33,7 +33,7 @@ open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 Runtime.Spawn(config, 4)
 // inmemory-----
-//[1..4]
+//[1..1]
 //|> List.map(fun _ -> 
 //    let svc = Service(config, 10)
 //    svc.AttachLogger(Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger())
@@ -44,7 +44,7 @@ Runtime.Spawn(config, 4)
 //--------------
 
 let runtime = Runtime.GetHandle(config)
-runtime.ClientLogger.Attach(new Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger()) 
+runtime.ClientLogger.Attach(new Common.ConsoleLogger()) 
 
 runtime.ShowProcesses()
 runtime.ShowWorkers()

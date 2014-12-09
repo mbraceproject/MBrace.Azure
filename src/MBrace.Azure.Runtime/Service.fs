@@ -39,6 +39,10 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
                 logf "Activating Configuration"
                 do! Configuration.Activate(config)
 
+                logf "Creating storage logger"
+                let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Worker(id = __.Id))
+                logger.Attach(storageLogger)
+                
                 let serializer = Configuration.Serializer
                 logf "Serializer : %s" serializer.Id
 
