@@ -39,7 +39,7 @@ type internal WorkerReporter() =
           Field.create "% CPU (avg)" Right (fun p -> printer p.CPUAverage)
           Field.create "Total Memory(MB)" Right (fun p -> printer p.TotalMemory)
           Field.create "% Memory" Right (fun p -> printer p.Memory)
-          Field.create "Network(ul/dl : kbps)"  Right (fun n -> sprintf "%s / %s" <| printer n.NetworkDown <| printer n.NetworkDown)
+          Field.create "Network(ul/dl : kbps)"  Right (fun n -> sprintf "%s / %s" <| printer n.NetworkUp <| printer n.NetworkDown)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
           Field.create "Heartbeat" Left (fun p -> p.Timestamp)
