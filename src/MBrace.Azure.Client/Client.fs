@@ -81,9 +81,9 @@
 
 
         member __.GetWorkers () = Async.RunSynchronously <| __.GetWorkersAsync()
-        member __.GetWorkersAsync () = wmon.GetWorkers()
+        member __.GetWorkersAsync () = wmon.GetWorkerRefs()
         member __.ShowWorkers () = 
-            let ws = __.GetWorkers() 
+            let ws = wmon.GetWorkers() |> Async.RunSynchronously
             printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
         member __.GetLogs () = Async.RunSynchronously <| __.GetLogsAsync()
@@ -116,7 +116,7 @@
             }
         member __.ShowProcesses () = 
             let ps = __.GetProcesses() |> Seq.map (fun ps -> ps.ProcessEntity.Value)
-            printf "%s" <| ProcessReporter.Report(ps, "Processes", true)
+            printf "%s" <| ProcessReporter.Report(ps, "Processes", false)
 
         /// <summary>
         /// Gets a handle for a remote runtime.

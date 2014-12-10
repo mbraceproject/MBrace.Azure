@@ -30,14 +30,22 @@ type internal ProcessReporter() =
 
 type internal WorkerReporter() = 
     
-    static let template : Field<WorkerRef> list = 
-        [ Field.create "Id" Left (fun p -> (p :> IWorkerRef).Id)
-          Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
+    static let template : Field<WorkerRecord> list = 
+        let printer (value : Nullable<double>) =
+            if value.HasValue then sprintf "%.2f" value.Value else "N/A"
+        [ Field.create "Id" Left (fun p -> p.Id)
           Field.create "Hostname" Left (fun p -> p.Hostname)
+          Field.create "% CPU" Right (fun p -> printer p.CPU)
+          Field.create "% CPU (avg)" Right (fun p -> printer p.CPUAverage)
+          Field.create "Total Memory(MB)" Right (fun p -> printer p.TotalMemory)
+          Field.create "% Memory" Right (fun p -> printer p.Memory)
+          Field.create "Network(ul/dl : kbps)"  Right (fun n -> sprintf "%s / %s" <| printer n.NetworkDown <| printer n.NetworkDown)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
-          Field.create "Process Name" Right (fun p -> p.ProcessName) ]
+          Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
+          Field.create "Heartbeat" Left (fun p -> p.Timestamp)
+        ]
     
-    static member Report(workers : WorkerRef seq, title, borders) = 
+    static member Report(workers : WorkerRecord seq, title, borders) = 
         let ws = workers
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList

@@ -89,6 +89,7 @@
     <Compile Include="Resources\CancellationToken.fs" />
     <Compile Include="Resources\AssemblyManager.fs" />
     <Compile Include="Resources\Result.fs" />
+    <Compile Include="Records\PerformanceMonitor.fs" />
     <Compile Include="Records\Worker.fs" />
     <Compile Include="Records\Logging.fs" />
     <Compile Include="Records\Process.fs" />
@@ -148,6 +149,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Management" />
     <Reference Include="System.Numerics" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.Security" />
