@@ -19,7 +19,7 @@ type internal ProcessReporter() =
           Field.create "State" Right (fun p -> p.State)
           Field.create "Completed" Left (fun p -> p.Completed)
           Field.create "Start Time" Left (fun p -> p.InitializationTime)
-          Field.create "Execution Time" Left (fun p -> DateTimeOffset.UtcNow - p.InitializationTime)
+          Field.create "Execution Time" Left (fun p -> if p.Completed then p.CompletionTime - p.InitializationTime  else DateTimeOffset.UtcNow - p.InitializationTime)
           Field.create "Result Type" Left (fun p -> p.TypeName) 
         ]
     
