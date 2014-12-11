@@ -20,7 +20,8 @@ type internal ProcessReporter() =
           Field.create "Completed" Left (fun p -> p.Completed)
           Field.create "Start Time" Left (fun p -> p.InitializationTime)
           Field.create "Execution Time" Left (fun p -> DateTimeOffset.UtcNow - p.InitializationTime)
-          Field.create "Result Type" Left (fun p -> p.Type) ]
+          Field.create "Result Type" Left (fun p -> p.TypeName) 
+        ]
     
     static member Report(processes : ProcessRecord seq, title, borders) = 
         let ps = processes 

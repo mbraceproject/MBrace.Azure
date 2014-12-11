@@ -22,7 +22,7 @@ type ProcessState =
         | Killed -> "Killed"
         | Completed -> "Completed"
 
-type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, deps) = 
+type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, typeName, deps) = 
     inherit TableEntity(pk, pid)
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
@@ -32,20 +32,21 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member val Completed : bool = completed with get, set
     member val ResultUri : string = resultUri with get, set
     member val CancellationUri : string = cancellationUri with get, set
+    member val TypeName : string = typeName with get, set
     member val Type : byte [] = ty with get, set
     member val Dependencies : byte [] = deps with get, set
     member __.UnpickleType () = Configuration.Pickler.UnPickle<Type> __.Type
     member __.UnpickleDependencies () = Configuration.Pickler.UnPickle<AssemblyId list> __.Dependencies
-    new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null)
+    new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null, null)
 
 type ProcessMonitor internal (config, table : string) = 
     let pk = "process"
     
     member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
         let now = DateTimeOffset.UtcNow
-        let ty = Configuration.Pickler.Pickle(ty)
+        let pickledTy = Configuration.Pickler.Pickle(ty)
         let deps = Configuration.Pickler.Pickle(deps)
-        let e = new ProcessRecord(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, ty, deps)
+        let e = new ProcessRecord(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, pickledTy, ty.Name, deps)
         do! Table.insert<ProcessRecord> config table e
         return e
     }

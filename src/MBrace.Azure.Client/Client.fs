@@ -115,7 +115,7 @@
                 return rs :> seq<_>
             }
         member __.ShowProcesses () = 
-            let ps = __.GetProcesses() |> Seq.map (fun ps -> ps.ProcessEntity.Value)
+            let ps = pmon.GetProcesses() |> Async.RunSynchronously
             printf "%s" <| ProcessReporter.Report(ps, "Processes", false)
 
         /// <summary>
