@@ -11,9 +11,9 @@ open Microsoft.WindowsAzure.Storage.Table
 
 type ResourceFactory private (config : Configuration) =
   
-    do ConfigurationRegistry.Register<_>(config.ConfigurationId, new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer))
-    do ConfigurationRegistry.Register<_>(config.ConfigurationId, new ProcessMonitor(config.ConfigurationId, config.DefaultTableOrContainer))
-    do ConfigurationRegistry.Register<_>(config.ConfigurationId, new NullLogger() :> ILogger)
+    //do ConfigurationRegistry.Register<_>(config.ConfigurationId, new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer))
+    //do ConfigurationRegistry.Register<_>(config.ConfigurationId, new ProcessMonitor(config.ConfigurationId, config.DefaultTableOrContainer))
+    //do ConfigurationRegistry.Register<_>(config.ConfigurationId, new NullLogger() :> ILogger)
 
     member __.RequestCounter(container, count) = Counter.Create(config.ConfigurationId, container, count)
     member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Create(config.ConfigurationId, container, count)
@@ -24,9 +24,9 @@ type ResourceFactory private (config : Configuration) =
         let logger = new ProcessLogger(config.ConfigurationId, container, ProcessLog(id = pid)) 
         logger.Attach(new ConsoleLogger())
         logger 
-    member __.ProcessMonitor = ConfigurationRegistry.Resolve<ProcessMonitor>(config.ConfigurationId)
-    member __.WorkerMonitor = ConfigurationRegistry.Resolve<WorkerMonitor>(config.ConfigurationId)
-    member __.Logger = ConfigurationRegistry.Resolve<ILogger>(config.ConfigurationId)
+    //member __.ProcessMonitor = ConfigurationRegistry.Resolve<ProcessMonitor>(config.ConfigurationId)
+    //member __.WorkerMonitor = ConfigurationRegistry.Resolve<WorkerMonitor>(config.ConfigurationId)
+    //member __.Logger = ConfigurationRegistry.Resolve<ILogger>(config.ConfigurationId)
     
     //member __.RegisterLocalSubscription(subscription) = ConfigurationRegistry.Register<Subscription>(config.ConfigurationId, subscription)
     //member __.LocalSubscription = ConfigurationRegistry.Resolve<Subscription>(config.ConfigurationId)

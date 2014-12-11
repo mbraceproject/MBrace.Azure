@@ -236,9 +236,9 @@ type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic)
         }
     member __.EnqueueBatch<'T>(xs : 'T []) = queue.EnqueueBatch<'T>(xs)
 
-    member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = topic.EnqueueBatch<'T>(xs, affinity)
+    //member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = topic.EnqueueBatch<'T>(xs, affinity)
 
-    member __.EnqueueBatch<'T>(xs : ('T * string) []) = topic.EnqueueBatch<'T>(xs)
+    //member __.EnqueueBatch<'T>(xs : ('T * string) []) = topic.EnqueueBatch<'T>(xs)
 
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 

@@ -54,7 +54,7 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
         member __.GetAvailableWorkers () = async { 
             let! ws = state.ResourceFactory.WorkerMonitor.GetWorkerRefs()
             return ws |> Seq.map (fun w -> w :> IWorkerRef)
-                      |> Seq.toArray
+                      |> Seq.toArray 
             }
         member __.CurrentWorker = state.ResourceFactory.WorkerMonitor.Current.AsWorkerRef() :> IWorkerRef
         member __.Logger = state.ResourceFactory.RequestProcessLogger(Storage.processIdToStorageId procId, procId) :> ICloudLogger

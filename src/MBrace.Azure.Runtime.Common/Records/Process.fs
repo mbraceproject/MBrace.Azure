@@ -13,12 +13,12 @@ open System.Runtime.Serialization
 open Nessos.Vagrant
 
 type ProcessState = 
-    | Initialized
+    | Running
     | Killed
     | Completed
     override this.ToString() = 
         match this with
-        | Initialized -> "Initialized"
+        | Running -> "Running"
         | Killed -> "Killed"
         | Completed -> "Completed"
 
@@ -46,7 +46,7 @@ type ProcessMonitor internal (config, table : string) =
         let now = DateTimeOffset.UtcNow
         let pickledTy = Configuration.Pickler.Pickle(ty)
         let deps = Configuration.Pickler.Pickle(deps)
-        let e = new ProcessRecord(pk, pid, name, ctsUri, string ProcessState.Initialized, now, now, false, resultUri, pickledTy, ty.Name, deps)
+        let e = new ProcessRecord(pk, pid, name, ctsUri, string ProcessState.Running, now, now, false, resultUri, pickledTy, ty.Name, deps)
         do! Table.insert<ProcessRecord> config table e
         return e
     }
