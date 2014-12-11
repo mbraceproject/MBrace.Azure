@@ -76,19 +76,24 @@ type ResultCell<'T> internal (config, res : Uri) =
         }
 
 
-type ResultAggregator<'T> internal (config, res : Uri, latch : Latch) = 
+type ResultAggregator<'T> internal (config, res : Uri) = 
     
+    let completed () =
+        async {
+            let! xs = Table.queryPK<ResultAggregatorEntity> config res.Table res.PartitionWithScheme
+            return xs |> Seq.forall (fun e -> e.Uri <> String.Empty)
+        }
+
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
             let e = new ResultAggregatorEntity(res.PartitionWithScheme, index, null, ETag = "*")
             let! bc = BlobCell.CreateIfNotExists(config, res.Container, fun () -> value)
             e.Uri <- (bc :> IResource).Uri.ToString()
             let! u = Table.replace config res.Table e
-            let! curr = latch.Decrement()
-            return curr = 0
+            return __.Complete
         }
     
-    member __.Complete = latch.Value = 0
+    member __.Complete = Async.RunSync(completed())
     
     member __.ToArray() : Async<'T []> = 
         async { 
@@ -98,7 +103,6 @@ type ResultAggregator<'T> internal (config, res : Uri, latch : Latch) =
                 let! xs = Table.queryPK<ResultAggregatorEntity> config res.Table res.PartitionWithScheme
                 let bs = 
                     xs
-                    |> Seq.filter (fun x -> x.RowKey <> "") // skip latch entity
                     |> Seq.sortBy (fun x -> x.Index)
                     |> Seq.map (fun x -> x.Uri)
                     |> Seq.map (fun x -> BlobCell<_>.OfUri(config, new Uri(x)))
@@ -120,21 +124,18 @@ type ResultAggregator<'T> internal (config, res : Uri, latch : Latch) =
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
-            info.AddValue("latch", latch, typeof<Latch>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        let latch = info.GetValue("latch", typeof<Latch>) :?> Latch
-        new ResultAggregator<'T>(config, res, latch)
+        new ResultAggregator<'T>(config, res)
 
     static member private GetUri<'T>(container, id) = uri "aggregator:%s/%s" container id
     static member Create<'T>(config, container : string, size : int) = 
         async { 
             let res = ResultAggregator<_>.GetUri(container, guid())
-            let! l = Latch.Create(config, res.Container, res.PartitionKey, size)
             for i = 0 to size - 1 do
-                let e = new ResultAggregatorEntity(res.PartitionWithScheme, i, "")
+                let e = new ResultAggregatorEntity(res.PartitionWithScheme, i, String.Empty)
                 do! Table.insert config res.Table e
-            return new ResultAggregator<'T>(config, res, l)
+            return new ResultAggregator<'T>(config, res)
         }
