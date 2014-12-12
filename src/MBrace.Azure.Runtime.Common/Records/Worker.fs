@@ -28,8 +28,10 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
     member val ProcessName :string = pname with get, set
     member val InitializationTime : DateTimeOffset = joined with get, set
     
-    //member val Heartbeat = base.Timestamp with get, set
+    member val ActiveTasks : Nullable<int64> = Unchecked.defaultof<_> with get, set
+    member val CompletedTasks : Nullable<int64> = Unchecked.defaultof<_> with get, set
 
+    member val ProcessorCount = System.Environment.ProcessorCount with get, set
     member val CPU = Unchecked.defaultof<_> with get, set
     member val TotalMemory = Unchecked.defaultof<_> with get, set
     member val Memory = Unchecked.defaultof<_> with get, set
@@ -53,6 +55,8 @@ type WorkerMonitor private (config, table : string) =
 
     let current = ref None
     let perfMon = new PerformanceMonitor()
+    let inc (x : Nullable<int64>) = Nullable<_>(if x.HasValue then x.Value + 1L else 1L)
+    let dec (x : Nullable<int64>) = Nullable<_>(if x.HasValue then x.Value - 1L else -1L)
 
     static member Create(config : Configuration) = new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer)
 
@@ -86,14 +90,27 @@ type WorkerMonitor private (config, table : string) =
 
     member __.Current = current.Value.Value
 
+    member __.AddActiveTask () = async {
+        let! e = Table.transact<WorkerRecord> config table pk __.Current.RowKey (fun e -> e.ActiveTasks <- inc e.ActiveTasks)
+        return ()
+    }
+
+    member __.AddCompletedTask () = async {
+        let! e = Table.transact<WorkerRecord> config table pk __.Current.RowKey 
+                    (fun e -> e.ActiveTasks <- dec e.ActiveTasks
+                              e.CompletedTasks <- inc e.CompletedTasks)
+        return ()        
+    }
+
     member __.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
         let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
         let worker = __.Current
-        worker.ETag <- "*"
         let rec loop () = async {
             let counters = perfMon.GetCounters()
             worker.UpdateCounters(counters)
-            let! _ = Table.merge<WorkerRecord> config table worker
+            worker.ETag <- "*"
+            let! e = Table.merge<WorkerRecord> config table worker
+            current := Some e
             do! Async.Sleep (int ts.TotalMilliseconds)
             return! loop ()
         }

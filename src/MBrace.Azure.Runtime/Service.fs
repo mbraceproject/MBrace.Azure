@@ -94,4 +94,4 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
                 return! Async.Raise ex
         }
 
-    member __.Start() = Async.RunSynchronously(__.StartAsync())
+    member __.Start() = Async.RunSync(__.StartAsync())

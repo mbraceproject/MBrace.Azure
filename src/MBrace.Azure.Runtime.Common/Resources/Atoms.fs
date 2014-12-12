@@ -7,12 +7,13 @@ open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Store
 open Nessos.MBrace
+open Nessos.MBrace.Continuation
 
 [<AutoSerializableAttribute(true)>]
 type Atom<'T> internal (table, pk, rk, config) =
     interface ICloudAtom<'T> with
 
-        member this.Value : 'T = Async.RunSynchronously((this :> ICloudAtom<'T>).GetValue())
+        member this.Value : 'T = Async.RunSync((this :> ICloudAtom<'T>).GetValue())
         
         member this.Id = sprintf "%s/%s/%s" table pk rk
 

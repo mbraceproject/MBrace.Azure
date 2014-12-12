@@ -3,32 +3,19 @@
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
 open System.Runtime.Serialization
-open Microsoft.WindowsAzure.Storage
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
-open Microsoft.WindowsAzure.Storage.Table
 
 type IntCell internal (config : ConfigurationId, res : Uri) = 
     member __.Value = 
-        let e = Table.read<CounterEntity> config res.Table res.PartitionWithScheme "" |> Async.RunSynchronously
+        let e = Table.read<CounterEntity> config res.Table res.PartitionWithScheme "" |> Async.RunSync
         e.Value
     
     member internal __.Update(updatef : int -> int) = 
         async { 
-            let rec update() = 
-                async { 
-                    let! e = Table.read<CounterEntity> config res.Table res.PartitionWithScheme ""
-                    e.Value <- updatef e.Value
-                    let r = ref None
-                    let! result = Async.Catch <| Table.merge config res.Table e
-                    match result with
-                    | Choice1Of2 r -> 
-                        return r.Value
-                    | Choice2Of2 e when Table.PreconditionFailed e -> 
-                        return! update()
-                    | Choice2Of2 e -> return raise e
-                }
-            return! update()
+            let! e = Table.transact<CounterEntity> config res.Table res.PartitionWithScheme "" (fun e -> e.Value <- updatef e.Value)
+            return e.Value
         }
     
     interface IResource with

@@ -47,7 +47,7 @@ let initWorker (runtime : RuntimeState)
                             do! pmon.SetRunning(task.ProcessId)
 
                         logf "Starting task %s" (string task)
-                        logf "Task %s DeliveryCount %d" task.TaskId msg.DeliveryCount
+                        do! wmon.AddActiveTask()
                         let! renew = Async.StartChild(msg.RenewLoopAsync())
 
                         let sw = new Stopwatch()
@@ -62,7 +62,7 @@ let initWorker (runtime : RuntimeState)
                         | Choice2Of2 e -> 
                             do! msg.AbandonAsync()
                             logf "Task fault %s with:\n%O" (string task) e
-
+                        do! wmon.AddCompletedTask()
                         let _ = Interlocked.Decrement currentTaskCount
                         do! Async.Sleep 200
                     }

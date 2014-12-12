@@ -5,6 +5,7 @@ open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
 open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Runtime.Compiler
 open Nessos.MBrace.Runtime.Utils.PrettyPrinters
 open System
@@ -48,7 +49,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
     member __.Kill() = __.DistributedCancellationTokenSource.Cancel()
 
     member __.GetLogsAsync () = logger.GetLogs()
-    member __.GetLogs () = Async.RunSynchronously(__.GetLogsAsync())
+    member __.GetLogs () = Async.RunSync(__.GetLogsAsync())
     member __.ShowLogs () = printf "%s" <| LogReporter.Report(__.GetLogs(), sprintf "Process %s logs" pid, false)
 
     member __.ShowInfo () = printf "%s" <| ProcessReporter.Report([proc.Value], "Process", false)
@@ -57,7 +58,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
 type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) = 
     inherit Process(config, pid, typeof<'T>, pmon) 
 
-    override __.AwaitResultBoxed () : obj =__.AwaitResultBoxedAsync() |> Async.RunSynchronously 
+    override __.AwaitResultBoxed () : obj =__.AwaitResultBoxedAsync() |> Async.RunSync 
     override __.AwaitResultBoxedAsync () : Async<obj> =
         async {
             let rc : ResultCell<Result<'T>> = ResultCell.FromUri<_>(config, new Uri(__.ProcessEntity.Value.ResultUri))
@@ -66,7 +67,7 @@ type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) =
         }
 
 
-    member __.AwaitResult() : 'T = __.AwaitResultAsync() |> Async.RunSynchronously
+    member __.AwaitResult() : 'T = __.AwaitResultAsync() |> Async.RunSync
     member __.AwaitResultAsync() : Async<'T> = 
         async {
             let rc : ResultCell<Result<'T>> = ResultCell.FromUri<_>(config, new Uri(__.ProcessEntity.Value.ResultUri))

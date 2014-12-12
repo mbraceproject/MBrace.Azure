@@ -112,7 +112,7 @@ type ProcessLogger(config, table : string, loggerType : LoggerType) =
 
         override __.Log(entry : string) : unit = 
             let e = new LogRecord(pk, string loggerType, entry, DateTimeOffset.UtcNow)
-            Async.RunSynchronously(Table.insert<LogRecord> config table e)
+            Async.RunSync(Table.insert<LogRecord> config table e)
             base.Log(entry)
 
         member __.GetLogs () =

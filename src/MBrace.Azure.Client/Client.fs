@@ -4,6 +4,7 @@
     open System.Threading
 
     open Nessos.MBrace
+    open Nessos.MBrace.Continuation
     open Nessos.MBrace.Runtime
     open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Azure.Runtime.Common
@@ -18,7 +19,7 @@
     [<AutoSerializable(false)>]
     type Runtime private (config : Configuration) =
         let clientId = guid()
-        do Async.RunSynchronously(Configuration.Activate(config))
+        do Async.RunSync(Configuration.Activate(config))
         let state = RuntimeState.FromConfiguration(config)
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         let wmon = WorkerMonitor.Create(config)
@@ -40,7 +41,7 @@
             Async.StartAsTask(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy))
 
         member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken, ?faultPolicy) : Process<'T> =
-            Async.RunSynchronously(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy))
+            Async.RunSync(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy))
 
         member __.CreateProcessAsync(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken, ?faultPolicy) : Async<Process<'T>> =
             async {
@@ -92,22 +93,22 @@
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
         member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
-            __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSynchronously
+            __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
 
-        member __.GetWorkers () = Async.RunSynchronously <| __.GetWorkersAsync()
+        member __.GetWorkers () = Async.RunSync <| __.GetWorkersAsync()
         member __.GetWorkersAsync () = wmon.GetWorkerRefs()
         member __.ShowWorkers () = 
-            let ws = wmon.GetWorkers() |> Async.RunSynchronously
+            let ws = wmon.GetWorkers() |> Async.RunSync
             printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
-        member __.GetLogs () = Async.RunSynchronously <| __.GetLogsAsync()
+        member __.GetLogs () = Async.RunSync <| __.GetLogsAsync()
         member __.GetLogsAsync () = logger.GetLogsAsync()
         member __.ShowLogs () =
             let ls = __.GetLogs()
             printf "%s" <| LogReporter.Report(ls, "Logs", false)
 
-        member __.GetProcess(pid) = Async.RunSynchronously <| __.GetProcessAsync(pid)
+        member __.GetProcess(pid) = Async.RunSync <| __.GetProcessAsync(pid)
         member __.GetProcessAsync(pid) = 
             async {
                 let! e = pmon.GetProcess(pid)
@@ -119,7 +120,7 @@
             let ps = __.GetProcess(pid).ProcessEntity.Value
             printf "%s" <| ProcessReporter.Report([ps], "Process", false)
 
-        member __.GetProcesses () = Async.RunSynchronously <| __.GetProcessesAsync()
+        member __.GetProcesses () = Async.RunSync <| __.GetProcessesAsync()
         member __.GetProcessesAsync () : Async<seq<Process>> = 
             async {
                 let! ps = pmon.GetProcesses()
@@ -130,7 +131,7 @@
                 return rs :> seq<_>
             }
         member __.ShowProcesses () = 
-            let ps = pmon.GetProcesses() |> Async.RunSynchronously
+            let ps = pmon.GetProcesses() |> Async.RunSync
             printf "%s" <| ProcessReporter.Report(ps, "Processes", false)
 
         /// <summary>
@@ -151,5 +152,5 @@
                     return! loop ()
             }
 
-            Async.RunSynchronously(loop ())
+            Async.RunSync(loop ())
             runtime

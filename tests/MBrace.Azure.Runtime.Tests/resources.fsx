@@ -33,7 +33,7 @@ Configuration.DeleteResources(config)
 
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
-let (!) (task : Async<'T>) = Async.RunSynchronously task
+let (!) (task : Async<'T>) = Async.RunSync task
 
 
 let factory = ChannelProvider.Create(config.ConfigurationId)
@@ -64,13 +64,13 @@ let del x =
     ClientProvider.TableClient.ListTables(x)
     |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
     |> Async.Parallel
-    |> Async.RunSynchronously
+    |> Async.RunSync
 del "process"
 
 ClientProvider.BlobClient.ListContainers("process")
 |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)
 |> Async.Parallel
-|> Async.RunSynchronously
+|> Async.RunSync
 
 //-------------------------------------------------------------------
 
@@ -84,7 +84,7 @@ let l = !Latch.Init("tmp", 11)
 |> Array.map (fun _ -> async { do! l.Decrement() |> Async.Ignore })
 |> Async.Parallel
 |> Async.Ignore
-|> Async.RunSynchronously
+|> Async.RunSync
 
 l.Value
 

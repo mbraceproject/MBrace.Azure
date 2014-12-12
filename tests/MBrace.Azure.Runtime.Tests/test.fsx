@@ -24,8 +24,8 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-//Configuration.Activate(config) |> Async.RunSynchronously
-//Configuration.DeleteResources(config) |> Async.RunSynchronously
+//Configuration.Activate(config) |> Async.RunSync
+//Configuration.DeleteResources(config) |> Async.RunSync
 
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
@@ -59,7 +59,7 @@ let rec loop i = cloud {
 
 let wf = Cloud.Parallel [| loop 0; loop 1|]
 
-runtime.Run wf
+runtime.CreateProcess wf
 
 let ps = runtime.CreateProcess(cloud { return 42 }, name = "foo")
 ps.AwaitResult()
@@ -78,7 +78,7 @@ ps.ShowLogs()
 
 let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 
-let x = runtime.Run(f 10)
+let x = runtime.CreateProcess(f 10)
 
 
 runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 82 then Some 42 else None } ))
@@ -111,8 +111,8 @@ runtime.Run <| cloud { let! child = Cloud.StartChild(Cloud.Log "FOO", wr) in ret
 
 let atom = runtime.Run <| CloudAtom.New(12)
 
-atom.GetValue() |> Async.RunSynchronously
-atom.Update((+) 1) |> Async.RunSynchronously
+atom.GetValue() |> Async.RunSync
+atom.Update((+) 1) |> Async.RunSync
 
 runtime.Run <| CloudAtom.Transact(fun x -> x+1, x + 1) atom
 
@@ -121,7 +121,7 @@ atom.Id
 let cf = runtime.Run <| CloudFile.New((fun stream -> async { use sr = new StreamWriter(stream) in return sr.WriteLine("Foobar") }), "foo/bar")
 cf.FileName
 
-let s = cf.BeginRead() |> Async.RunSynchronously
+let s = cf.BeginRead() |> Async.RunSync
 let sr = new StreamReader(s)
 sr.ReadToEnd()
 s.Dispose()
@@ -139,7 +139,7 @@ let ps = runtime.CreateProcess(
                             printfn "%d" x })
 
 for i = 0 to 100 do
-    sp.Send(i) |> Async.RunSynchronously
+    sp.Send(i) |> Async.RunSync
 
 
 runtime.Run(cloud { return DateTime.Now })

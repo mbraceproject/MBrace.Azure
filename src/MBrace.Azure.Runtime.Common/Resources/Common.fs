@@ -156,6 +156,22 @@ module Table =
     let delete<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> =
         TableOperation.Delete(e) |> exec config table |> Async.Ignore
 
+    let transact<'T when 'T :> ITableEntity> config table pk rk (f : 'T -> unit) : Async<'T> =
+        async {
+            let rec transact e = async { 
+                f e
+                let r = ref None
+                let! result = Async.Catch <| merge<'T> config table e
+                match result with
+                | Choice1Of2 r -> return r
+                | Choice2Of2 ex when PreconditionFailed ex -> 
+                    let! e = read<'T> config table pk rk
+                    return! transact e
+                | Choice2Of2 ex -> return raise ex
+            }
+            let! e = read<'T> config table pk rk
+            return! transact e
+        }
 
 
 

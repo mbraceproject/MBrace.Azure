@@ -3,6 +3,7 @@
 open Nessos.MBrace.Azure.Client
 open System.Diagnostics
 open System.IO
+open Nessos.MBrace.Continuation
 
 /// BASE64 serialized argument parsing schema
 module internal Argument =
@@ -24,7 +25,7 @@ type private Helpers () =
     static member val exe = None with get, set
 
     static member InitWorkers config (count : int) exe =
-        Async.RunSynchronously(Nessos.MBrace.Azure.Runtime.Configuration.Activate(config))
+        Async.RunSync(Nessos.MBrace.Azure.Runtime.Configuration.Activate(config))
         if count < 1 then invalidArg "workerCount" "must be positive."  
         let args = Argument.ofConfiguration config 
         let psi = new ProcessStartInfo(exe, args)

@@ -4,6 +4,7 @@ open System
 open System.Threading
 open System.Runtime.Serialization
 open Nessos.MBrace.Azure.Runtime
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Azure.Runtime.Common
 open Microsoft.WindowsAzure.Storage.Table
 
@@ -38,9 +39,9 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     interface IResource with
         member __.Uri = res
     
-    member __.IsCancellationRequested = check() |> Async.RunSynchronously
+    member __.IsCancellationRequested = check() |> Async.RunSync
     
-    member __.Cancel() = cancel () |> Async.RunSynchronously
+    member __.Cancel() = cancel () |> Async.RunSync
     
     member __.GetLocalCancellationToken() = 
         let rec loop () = async {
