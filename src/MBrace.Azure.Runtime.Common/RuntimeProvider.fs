@@ -18,11 +18,11 @@ open Nessos.MBrace.Continuation
 open Nessos.MBrace.InMemoryRuntime
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies, context) =
+type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, procId, taskId, dependencies, context) =
 
     /// Creates a runtime provider instance for a provided task
-    static member FromTask state procId dependencies (task : Task) =
-        new RuntimeProvider(state, procId, task.TaskId, dependencies, Distributed)
+    static member FromTask state  wmon  procId dependencies (task : Task) =
+        new RuntimeProvider(state, wmon, procId, task.TaskId, dependencies, Distributed)
         
     interface IRuntimeProvider with
         member __.ProcessId = procId
@@ -30,7 +30,7 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext context = 
-            new RuntimeProvider(state, procId, taskId, dependencies, context) :> IRuntimeProvider
+            new RuntimeProvider(state, wmon, procId, taskId, dependencies, context) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
@@ -52,9 +52,9 @@ type RuntimeProvider private (state : RuntimeState, procId, taskId, dependencies
             | Sequential -> Sequential.StartChild computation
 
         member __.GetAvailableWorkers () = async { 
-            let! ws = state.ResourceFactory.WorkerMonitor.GetWorkerRefs()
+            let! ws = wmon.GetWorkerRefs()
             return ws |> Seq.map (fun w -> w :> IWorkerRef)
                       |> Seq.toArray 
             }
-        member __.CurrentWorker = state.ResourceFactory.WorkerMonitor.Current.AsWorkerRef() :> IWorkerRef
+        member __.CurrentWorker = wmon.Current.AsWorkerRef() :> IWorkerRef
         member __.Logger = state.ResourceFactory.RequestProcessLogger(Storage.processIdToStorageId procId, procId) :> ICloudLogger

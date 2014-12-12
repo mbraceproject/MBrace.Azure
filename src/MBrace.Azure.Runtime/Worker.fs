@@ -20,11 +20,15 @@ let initWorker (runtime : RuntimeState)
                (resources : ResourceRegistry)
                (maxConcurrentTasks : int) : Async<unit> = async {
 
+
+    let wmon = resources.Resolve<WorkerMonitor>()
+    let logger = resources.Resolve<ILogger>()
+
     let currentTaskCount = ref 0
     let runTask procId deps t =
-        let provider = RuntimeProvider.FromTask runtime procId deps t
+        let provider = RuntimeProvider.FromTask runtime wmon procId deps t
         Task.RunAsync provider resources deps t
-    let inline logf fmt = Printf.ksprintf runtime.ResourceFactory.Logger.Log fmt
+    let inline logf fmt = Printf.ksprintf logger.Log fmt
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then
@@ -38,8 +42,7 @@ let initWorker (runtime : RuntimeState)
                 | Some (msg, task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
-                        logf "Starting task %s/%s/%d/%O" procId task.TaskId msg.DeliveryCount task.Type
-                        logf "Task %s/%s/%A/%A" procId task.TaskId msg.IsQueueMessage msg.Affinity
+                        logf "Starting task %s" (string task)
 
                         let! renew = Async.StartChild(msg.RenewLoopAsync())
 
@@ -51,10 +54,10 @@ let initWorker (runtime : RuntimeState)
                         match result with
                         | Choice1Of2 () -> 
                             do! msg.CompleteAsync()
-                            logf "Completed task %s/%s/%O" procId task.TaskId sw.Elapsed
+                            logf "Completed task %s in %O" (string task) sw.Elapsed
                         | Choice2Of2 e -> 
                             do! msg.AbandonAsync()
-                            logf "Task fault %s/%s with: \n%O" procId task.TaskId e
+                            logf "Task fault %s with:\n%O" (string task) e
 
                         let _ = Interlocked.Decrement currentTaskCount
                         do! Async.Sleep 200

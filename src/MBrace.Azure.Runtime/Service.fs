@@ -48,9 +48,6 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
 
                 logf "Initializing RuntimeState"
                 let state = RuntimeState.FromConfiguration(config)
-                
-                state.ResourceFactory.Logger.Attach(logger)
-                logf "Logger attached"
 
                 state.TaskQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
@@ -63,21 +60,29 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
 
                 logf "CloudFileStore : %s" storeConfig.FileStore.Id
 
-                let! (e : WorkerRef) = state.ResourceFactory.WorkerMonitor.DeclareCurrent(serviceId)
+                let wmon = WorkerMonitor.Create(config)
+                let! e = wmon.DeclareCurrent(serviceId)
                 logf "Declared node %s : %d : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
-                Async.Start(state.ResourceFactory.WorkerMonitor.HeartbeatLoop())
+                Async.Start(wmon.HeartbeatLoop())
                 logf "Started heartbeat loop" 
 
-                logf "Starting worker loop"
-                logf "MaxTasks : %d" maxTasks
+                let pmon = ProcessMonitor.Create(config)
+                logf "ProcessMonitor created"
+
                 let resources = 
                     resource { 
                         yield serializer
                         yield storeConfig
                         yield atomConfig
                         yield channelConfig
+                        yield logger
+                        yield wmon
+                        yield pmon
                     }
+
+                logf "MaxTasks : %d" maxTasks
+                logf "Starting worker loop"
                 let! handle = Async.StartChild(Worker.initWorker state resources maxTasks)
                 logf "Worker loop started"
                 

@@ -70,7 +70,8 @@ type TaskExecutionMonitor () =
 
 type TaskType = 
     | Single
-    | Batch
+    | Parallel
+    | Choice
     | Affined of affinity : string
     | ProcessInitialization
     | ProcessCompletion
@@ -92,6 +93,9 @@ type Task =
         TaskType : TaskType
     }
 with
+    override this.ToString () =
+        sprintf "%A/%s/%s : %s" this.TaskType this.ProcessId this.TaskId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
+
     /// <summary>
     ///     Asynchronously executes task in the local process.
     /// </summary>
@@ -238,21 +242,24 @@ with
     /// <param name="wf">Input workflow.</param>
     /// <param name="name">Process name.</param>
     /// <param name="procId">Process id.</param>
-    member rt.StartAsProcess(procId, name, dependencies, cts, wf : Cloud<'T>) = async {
+    member rt.StartAsProcess(pmon : ProcessMonitor, procId, name, dependencies, cts, wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
+
+        let! _ = pmon.CreateRecord( procId, name, typeof<'T>, dependencies,
+                                    string (cts :> IResource).Uri, 
+                                    string (resultCell :> IResource).Uri)
 
         let processInitializationWf = cloud {
             let! pmon = Cloud.GetResource<ProcessMonitor>()
-            let! _ = pmon.CreateRecord( procId, name, typeof<'T>, dependencies,
-                                        string (cts :> IResource).Uri, 
-                                        string (resultCell :> IResource).Uri)
+            let! _ = pmon.SetRunning(procId)
                      |> Cloud.OfAsync
             return! wf
         }
-        
+
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
+                // TODO : Replace with processCompletionWf?
                 let pmon = ctx.Resources.Resolve<ProcessMonitor>()
                 match r with
                 | Completed _ 

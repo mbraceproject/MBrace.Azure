@@ -31,7 +31,6 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
     //member val Heartbeat = base.Timestamp with get, set
 
     member val CPU = Unchecked.defaultof<_> with get, set
-    member val CPUAverage = Unchecked.defaultof<_> with get, set
     member val TotalMemory = Unchecked.defaultof<_> with get, set
     member val Memory = Unchecked.defaultof<_> with get, set
     member val NetworkUp = Unchecked.defaultof<_> with get, set
@@ -44,17 +43,18 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
 
     member __.UpdateCounters(counters : NodePerformanceInfo) =
             __.CPU <- counters.CpuUsage
-            __.CPUAverage <- counters.CpuUsageAverage
             __.TotalMemory <- counters.TotalMemory
             __.Memory <- counters.MemoryUsage
             __.NetworkUp <- counters.NetworkUsageUp
             __.NetworkDown <- counters.NetworkUsageDown
 
-type WorkerMonitor internal (config, table : string) =
+type WorkerMonitor private (config, table : string) =
     let pk = "worker"
 
     let current = ref None
     let perfMon = new PerformanceMonitor()
+
+    static member Create(config : Configuration) = new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer)
 
     member __.DeclareCurrent(id : string) : Async<WorkerRef> = 
         async {

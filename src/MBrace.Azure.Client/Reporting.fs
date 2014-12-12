@@ -10,6 +10,7 @@ open Nessos.MBrace.Runtime.Utils.PrettyPrinters
 open System
 open System.IO
 open System.Threading
+open Microsoft.FSharp.Linq.NullableOperators
 
 type internal ProcessReporter() = 
     
@@ -20,6 +21,7 @@ type internal ProcessReporter() =
           Field.create "Completed" Left (fun p -> p.Completed)
           Field.create "Start Time" Left (fun p -> p.InitializationTime)
           Field.create "Execution Time" Left (fun p -> if p.Completed then p.CompletionTime - p.InitializationTime  else DateTimeOffset.UtcNow - p.InitializationTime)
+          Field.create "Completion Time" Left (fun p -> if p.Completed then string p.CompletionTime else "N/A")
           Field.create "Result Type" Left (fun p -> p.TypeName) 
         ]
     
@@ -30,16 +32,14 @@ type internal ProcessReporter() =
         Record.PrettyPrint(template, ps, title, borders)
 
 type internal WorkerReporter() = 
-    
     static let template : Field<WorkerRecord> list = 
         let printer (value : Nullable<double>) =
             if value.HasValue then sprintf "%.2f" value.Value else "N/A"
         [ Field.create "Id" Left (fun p -> p.Id)
           Field.create "Hostname" Left (fun p -> p.Hostname)
           Field.create "% CPU" Right (fun p -> printer p.CPU)
-          Field.create "% CPU (avg)" Right (fun p -> printer p.CPUAverage)
-          Field.create "Total Memory(MB)" Right (fun p -> printer p.TotalMemory)
           Field.create "% Memory" Right (fun p -> printer p.Memory)
+          Field.create "Total Memory(MB)" Right (fun p -> printer p.TotalMemory)
           Field.create "Network(ul/dl : kbps)"  Right (fun n -> sprintf "%s / %s" <| printer n.NetworkUp <| printer n.NetworkDown)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
@@ -47,6 +47,17 @@ type internal WorkerReporter() =
         ]
     
     static member Report(workers : WorkerRecord seq, title, borders) = 
+            // TODO : print summary
+//        let (cpu, memory, totalMemory, ul, dl, n) = 
+//            workers
+//            |> Seq.fold(fun (cpu, memory, totalMemory, ul, dl, n) w ->
+//                w.CPU ?+? cpu, 
+//                memory ?+? w.Memory ?*? w.TotalMemory, 
+//                totalMemory ?+? w.TotalMemory, 
+//                ul ?+? w.NetworkUp, 
+//                dl ?+? w.NetworkDown,
+//                n + 1) 
+//                (Nullable<_>(0.0), Nullable<_>(0.0), Nullable<_>(0.0), Nullable<_>(0.0), Nullable<_>(0.0), 0)
         let ws = workers
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList

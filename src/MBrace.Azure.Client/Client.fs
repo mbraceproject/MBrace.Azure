@@ -21,9 +21,8 @@
         do Async.RunSynchronously(Configuration.Activate(config))
         let state = RuntimeState.FromConfiguration(config)
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
-        do state.ResourceFactory.Logger.Attach(logger)
-        let wmon = state.ResourceFactory.WorkerMonitor
-        let pmon = state.ResourceFactory.ProcessMonitor
+        let wmon = WorkerMonitor.Create(config)
+        let pmon = ProcessMonitor.Create(config)
         do logger.Logf "Client %s created" clientId
 
         member private __.RuntimeState = state
@@ -56,7 +55,7 @@
                 let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 logger.Logf "Starting process %s" processId
-                let! resultCell = state.StartAsProcess(processId, pname, computation.Dependencies, cts, computation.Workflow)
+                let! resultCell = state.StartAsProcess(pmon, processId, pname, computation.Dependencies, cts, computation.Workflow)
                 logger.Logf "Created process %s" processId
                 return Process<'T>(config.ConfigurationId, processId, pmon)
             }

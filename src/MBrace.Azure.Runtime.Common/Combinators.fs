@@ -73,7 +73,7 @@ let Parallel (state : RuntimeState) procId dependencies (computations : seq<Clou
                 } |> TaskExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch(procId, dependencies, childCts, onSuccess, onException, onCancellation, computations, TaskType.Batch)
+                do! state.EnqueueTaskBatch(procId, dependencies, childCts, onSuccess, onException, onCancellation, computations, TaskType.Parallel)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
@@ -140,7 +140,7 @@ let Choice (state : RuntimeState) procId dependencies (computations : seq<Cloud<
                 } |> TaskExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch(procId, dependencies, childCts, (fun _ -> onSuccess), onException, onCancellation, computations, TaskType.Batch)
+                do! state.EnqueueTaskBatch(procId, dependencies, childCts, (fun _ -> onSuccess), onException, onCancellation, computations, TaskType.Choice)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     

@@ -12,7 +12,6 @@
     type NodePerformanceInfo =
         {
             CpuUsage            : Nullable<double>
-            CpuUsageAverage     : Nullable<double>
             TotalMemory         : Nullable<double>
             MemoryUsage         : Nullable<double>
             NetworkUsageUp      : Nullable<double>
@@ -88,29 +87,18 @@
                         |> Seq.average
                         |> fun v -> Nullable<_>(v)
     
-        let queues = dict [ TotalCpu, Queue<Nullable<double>>()
-                            TotalMemoryUsage, Queue<Nullable<double>>() ]
+        let cpuAvg = Queue<Nullable<double>>()
     
-        let newValue cnt : Nullable<double> = 
-            match cnt with
-            | TotalCpu -> cpuUsage
-            | TotalMemoryUsage -> memoryUsage
-            |> getPerfValue
-    
-        let updateQueues () =
-            queues
-            |> Seq.iter (fun (KeyValue (cnt, q)) ->
-                let newVal = newValue cnt
-    
-                if q.Count < maxSamplesCount then q.Enqueue newVal
-                else q.Dequeue() |> ignore; q.Enqueue newVal)
+        let updateCpuQueue () =
+            let newVal = getPerfValue cpuUsage
+            if cpuAvg.Count < maxSamplesCount then cpuAvg.Enqueue newVal
+            else cpuAvg.Dequeue() |> ignore; cpuAvg.Enqueue newVal
     
         let newNodePerformanceInfo () : NodePerformanceInfo =
             {
-                CpuUsage            = queues.[TotalCpu].Peek()
-                CpuUsageAverage     = queues.[TotalCpu] |> getAverage
-                TotalMemory         = totalMemory       |> getPerfValue
-                MemoryUsage         = queues.[TotalMemoryUsage].Peek()
+                CpuUsage            = cpuAvg                |> getAverage
+                TotalMemory         = totalMemory           |> getPerfValue
+                MemoryUsage         = memoryUsage           |> getPerfValue
                 NetworkUsageUp      = networkSentUsage      |> getPerfValue
                 NetworkUsageDown    = networkReceivedUsage  |> getPerfValue
             }
@@ -118,7 +106,7 @@
         let perfCounterActor = 
             new MailboxProcessor<Message>(fun inbox ->    
                 let rec agentLoop () : Async<unit> = async {
-                    updateQueues ()
+                    updateCpuQueue ()
     
                     while inbox.CurrentQueueLength <> 0 do
                         let! msg = inbox.Receive()
