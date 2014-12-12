@@ -161,8 +161,8 @@ let wf =
             return! Cloud.Sleep 20000 }
 
 let t1 = runtime.CreateProcess(wf, faultPolicy = FaultPolicy.NoRetry)
-
-let t2 = runtime.CreateProcess(wf,faultPolicy = FaultPolicy.Retry(3))
+t1.AwaitResult()
+let t2 = runtime.CreateProcess(wf,faultPolicy = FaultPolicy.Retry(1))
 t2.AwaitResult()
 
 

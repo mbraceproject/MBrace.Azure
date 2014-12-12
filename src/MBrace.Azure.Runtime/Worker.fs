@@ -20,7 +20,7 @@ let initWorker (runtime : RuntimeState)
                (resources : ResourceRegistry)
                (maxConcurrentTasks : int) : Async<unit> = async {
 
-
+    let pmon = resources.Resolve<ProcessMonitor>()
     let wmon = resources.Resolve<WorkerMonitor>()
     let logger = resources.Resolve<ILogger>()
 
@@ -42,6 +42,10 @@ let initWorker (runtime : RuntimeState)
                 | Some (msg, task, procId, dependencies) ->
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
+                        if task.TaskType = TaskType.Root then
+                            logf "Running root task for process %s" task.ProcessId
+                            do! pmon.SetRunning(task.ProcessId)
+
                         logf "Starting task %s" (string task)
                         logf "Task %s DeliveryCount %d" task.TaskId msg.DeliveryCount
                         let! renew = Async.StartChild(msg.RenewLoopAsync())

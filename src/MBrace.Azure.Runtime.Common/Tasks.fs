@@ -69,12 +69,11 @@ type TaskExecutionMonitor () =
     }
 
 type TaskType = 
+    | Root
     | Single
     | Parallel
     | Choice
     | Affined of affinity : string
-    | ProcessInitialization
-    | ProcessCompletion
 
 /// Defines a task to be executed in a worker node
 type Task = 
@@ -267,15 +266,6 @@ with
                                     string (cts :> IResource).Uri, 
                                     string (resultCell :> IResource).Uri)
 
-        let processInitializationWf = 
-            cloud {
-                let! pmon = Cloud.GetResource<ProcessMonitor>()
-                let! _ = pmon.SetRunning(procId)
-                            |> Cloud.OfAsync
-                let! handler = Cloud.WithFaultPolicy fp (Cloud.StartChild(wf))
-                return! handler
-            } 
-
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
@@ -291,7 +281,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask(procId, dependencies, cts, fp, scont, econt, ccont, processInitializationWf, TaskType.ProcessInitialization)
+        do! rt.EnqueueTask(procId, dependencies, cts, fp, scont, econt, ccont, wf, TaskType.Root)
         return resultCell
     }
 
