@@ -31,7 +31,7 @@ type private Helpers () =
         let psi = new ProcessStartInfo(exe, args)
         psi.WorkingDirectory <- Path.GetDirectoryName exe
         psi.UseShellExecute <- true
-        Array.init count (fun _ -> Process.Start psi)
+        Array.Parallel.init count (fun _ -> Process.Start psi)
 
 [<AutoOpen>] 
 module Extensions =

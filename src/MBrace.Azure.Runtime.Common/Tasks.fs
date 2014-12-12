@@ -155,12 +155,12 @@ type RuntimeState =
     }
 with
     /// Initialize a new runtime state in the local process
-    static member FromConfiguration (config : Configuration) =
-        {
-            TaskQueue = TaskQueue.Create(config.ConfigurationId, config.DefaultQueue, config.DefaultTopic) |> Async.RunSync
-            AssemblyManager = AssemblyManager.Create(config.ConfigurationId, config.DefaultTableOrContainer) 
-            ResourceFactory = ResourceFactory.Create(config) 
-        }
+    static member FromConfiguration (config : Configuration) = async {
+        let! taskQueue = TaskQueue.Create(config.ConfigurationId, config.DefaultQueue, config.DefaultTopic)
+        let assemblyManager = AssemblyManager.Create(config.ConfigurationId, config.DefaultTableOrContainer) 
+        let resourceFactory = ResourceFactory.Create(config) 
+        return { TaskQueue = taskQueue; AssemblyManager = assemblyManager ; ResourceFactory = resourceFactory }
+    }
 
     /// <summary>
     ///     Enqueue a cloud workflow with supplied continuations to the runtime task queue.

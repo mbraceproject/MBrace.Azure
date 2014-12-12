@@ -1,15 +1,8 @@
 ﻿namespace Nessos.MBrace.Azure.Client
 
-open Nessos.MBrace
-open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Azure.Runtime.Resources
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Runtime.Compiler
 open Nessos.MBrace.Runtime.Utils.PrettyPrinters
 open System
-open System.IO
-open System.Threading
 open Microsoft.FSharp.Linq.NullableOperators
 
 type internal ProcessReporter() = 
@@ -39,12 +32,10 @@ type internal WorkerReporter() =
             if value.HasValue then sprintf "%d" value.Value else "0"
         [ Field.create "Id" Left (fun p -> p.Id)
           Field.create "Hostname" Left (fun p -> p.Hostname)
-          Field.create "% CPU" Right (fun p -> double_printer p.CPU)
-          Field.create "% Memory" Right (fun p -> double_printer p.Memory)
-          Field.create "Total Memory(MB)" Right (fun p -> double_printer p.TotalMemory)
-          Field.create "Network(ul/dl : kbps)"  Right (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUp <| double_printer n.NetworkDown)
+          Field.create "% CPU / Cores" Center (fun p -> sprintf "%s / %d" (double_printer p.CPU) p.ProcessorCount)
+          Field.create "% Memory / Total(MB)" Center (fun p -> sprintf "%s / %s" <| double_printer p.Memory <| double_printer p.TotalMemory)
+          Field.create "Network(ul/dl : kbps)" Center (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUp <| double_printer n.NetworkDown)
           Field.create "Tasks" Center (fun p -> sprintf "%s / %s / %s" <| int_printer p.ActiveTasks <| int_printer p.CompletedTasks <| int_printer p.TotalTasks)
-          Field.create "Cores" Right (fun p -> p.ProcessorCount)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
           Field.create "Heartbeat" Left (fun p -> p.Timestamp)

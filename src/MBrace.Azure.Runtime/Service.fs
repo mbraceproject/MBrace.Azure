@@ -14,22 +14,24 @@ open Nessos.MBrace.Azure.Runtime.Resources
 open System.Diagnostics
 
 /// MBrace Runtime Service.
-type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileStoreConfiguration, serviceId : string) =
+type Service (config : Configuration, storeConfig : CloudFileStoreConfiguration, serviceId : string) =
 
     let logger = new NullLogger() :> ILogger
     let logf fmt = Printf.ksprintf logger.Log fmt
-
+    
     /// MBrace Runtime Service.
-    new(config : Configuration, maxTasks : int, store : CloudFileStoreConfiguration) = new Service (config, maxTasks, store, guid())
+    new(config : Configuration, store : CloudFileStoreConfiguration) = new Service (config, store, guid())
 
     member __.Configuration = config
     member __.Id = serviceId
     member __.AttachLogger(l) = logger.Attach(l)
-    member __.MaxConcurrentTasks = maxTasks
+    
+    member val MaxConcurrentTasks = Environment.ProcessorCount with get, set
+    
     member __.CloudFileStoreConfiguration = storeConfig
+    
     member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
-    member __.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(__.StartAsync(), cancellationToken = ct) :> _
-        
+    member __.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(__.StartAsync(), cancellationToken = ct) :> _     
     member __.StartAsync() : Async<unit> =
         async {
             try
@@ -46,11 +48,10 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
                 let serializer = Configuration.Serializer
                 logf "Serializer : %s" serializer.Id
 
+                // Fork RuntimeState initialization for speedup
                 logf "Initializing RuntimeState"
-                let state = RuntimeState.FromConfiguration(config)
+                let! stateHandle = Async.StartChild(RuntimeState.FromConfiguration(config))
 
-                state.TaskQueue.Affinity <- serviceId
-                logf "Subscription for %s created" serviceId
 
                 let atomConfig = { AtomProvider = AtomProvider.Create(config.ConfigurationId); DefaultContainer = config.DefaultTableOrContainer }
                 logf "AtomProvider : %s" atomConfig.AtomProvider.Id
@@ -81,9 +82,13 @@ type Service (config : Configuration, maxTasks : int, storeConfig : CloudFileSto
                         yield pmon
                     }
 
-                logf "MaxTasks : %d" maxTasks
+                let! state = stateHandle
+                state.TaskQueue.Affinity <- serviceId
+                logf "Subscription for %s created" serviceId
+
                 logf "Starting worker loop"
-                let! handle = Async.StartChild(Worker.initWorker state resources maxTasks)
+                logf "MaxConcurrentTasks : %d" __.MaxConcurrentTasks
+                let! handle = Async.StartChild(Worker.initWorker state resources __.MaxConcurrentTasks)
                 logf "Worker loop started"
                 
                 sw.Stop()

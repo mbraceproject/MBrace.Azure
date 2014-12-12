@@ -9,6 +9,7 @@
 #time "on"
 
 open Nessos.MBrace
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Client
 open System
@@ -31,7 +32,7 @@ let config =
 #r "MBrace.Azure.Runtime.Standalone"
 open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 8)
+Runtime.Spawn(config, 4)
 // inmemory-----
 //[1..1]
 //|> List.map(fun _ -> 
@@ -136,7 +137,7 @@ let ps = runtime.CreateProcess(
                     cloud { 
                         while true do 
                             let! x = CloudChannel.Receive(rp)
-                            printfn "%d" x })
+                            printfn "Got %d" x })
 
 for i = 0 to 100 do
     sp.Send(i) |> Async.RunSync
