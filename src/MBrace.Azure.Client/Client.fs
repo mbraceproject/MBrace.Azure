@@ -36,14 +36,15 @@
         /// Client logger.
         member __.ClientLogger = logger
 
-        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) =
-            Async.StartAsTask(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken))
+        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken, ?faultPolicy) =
+            Async.StartAsTask(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy))
 
-        member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Process<'T> =
-            Async.RunSynchronously(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken))
+        member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken, ?faultPolicy) : Process<'T> =
+            Async.RunSynchronously(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy))
 
-        member __.CreateProcessAsync(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken) : Async<Process<'T>> =
+        member __.CreateProcessAsync(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken, ?faultPolicy) : Async<Process<'T>> =
             async {
+                let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
                 let computation = CloudCompiler.Compile workflow
                 let processId = guid()
                 let pname = defaultArg name computation.Name
@@ -55,28 +56,43 @@
                 let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 logger.Logf "Starting process %s" processId
-                let! resultCell = state.StartAsProcess(pmon, processId, pname, computation.Dependencies, cts, computation.Workflow)
+                let! resultCell = state.StartAsProcess(pmon, processId, pname, computation.Dependencies, cts, faultPolicy, computation.Workflow)
                 logger.Logf "Created process %s" processId
                 return Process<'T>(config.ConfigurationId, processId, pmon)
             }
             
-        /// Asynchronously execute a workflow on the distributed runtime.
-        member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) = async {
-            let! p = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken)
+        /// <summary>
+        ///     Asynchronously execute a workflow on the distributed runtime.
+        /// </summary>
+        /// <param name="workflow">Workflow to be executed.</param>
+        /// <param name="cancellationToken">Cancellation token for computation.</param>
+        /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
+        member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) = async {
+            let! p = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             try
                 return p.AwaitResult()
             finally
                 p.DistributedCancellationTokenSource.Cancel()
         }
 
-        /// Execute a workflow on the distributed runtime as task.
-        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
-            let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken)
+        /// <summary>
+        ///     Execute a workflow on the distributed runtime as task.
+        /// </summary>
+        /// <param name="workflow">Workflow to be executed.</param>
+        /// <param name="cancellationToken">Cancellation token for computation.</param>
+        /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
+        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
+            let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             Async.StartAsTask(asyncwf)
 
-        /// Execute a workflow on the distributed runtime synchronously
-        member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken) =
-            __.RunAsync(workflow, ?cancellationToken = cancellationToken) |> Async.RunSynchronously
+        /// <summary>
+        ///     Execute a workflow on the distributed runtime synchronously
+        /// </summary>
+        /// <param name="workflow">Workflow to be executed.</param>
+        /// <param name="cancellationToken">Cancellation token for computation.</param>
+        /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
+        member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
+            __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSynchronously
 
 
         member __.GetWorkers () = Async.RunSynchronously <| __.GetWorkersAsync()

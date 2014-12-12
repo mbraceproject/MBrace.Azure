@@ -31,7 +31,7 @@ let config =
 #r "MBrace.Azure.Runtime.Standalone"
 open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 4)
+Runtime.Spawn(config, 8)
 // inmemory-----
 //[1..1]
 //|> List.map(fun _ -> 
@@ -155,3 +155,17 @@ let wf = cloud {
 
 let x = runtime.Run wf
 runtime.Run <| CloudSeq.New [1..10]
+
+let wf =
+    cloud { do! Cloud.Log "Foo" 
+            return! Cloud.Sleep 20000 }
+
+let t1 = runtime.CreateProcess(wf, faultPolicy = FaultPolicy.NoRetry)
+
+let t2 = runtime.CreateProcess(wf,faultPolicy = FaultPolicy.Retry(3))
+t2.AwaitResult()
+
+
+let t3 = runtime.CreateProcess(Cloud.WithFaultPolicy FaultPolicy.NoRetry (Cloud.Sleep 20000 <||> Cloud.Sleep 20000))
+
+runtime.ShowProcesses()

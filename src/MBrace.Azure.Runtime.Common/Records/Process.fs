@@ -52,16 +52,17 @@ type ProcessMonitor private (config, table : string) =
         let deps = Configuration.Pickler.Pickle(deps)
         let tyName = Runtime.Utils.PrettyPrinters.Type.prettyPrint ty
         let e = new ProcessRecord(pk, pid, name, ctsUri, string ProcessState.Posted, now, now, false, resultUri, pickledTy, tyName, deps)
-        do! Table.insert<ProcessRecord> config table e
+        do! Table.insertOrReplace<ProcessRecord> config table e
         return e
     }
 
     member this.SetRunning(pid : string) = async {
         let! e = Table.read<ProcessRecord> config table pk pid
-        e.State <- string ProcessState.Running
-        e.InitializationTime <- DateTimeOffset.Now
-        let! e' = Table.merge config table e
-        return ()
+        if e.State = string ProcessState.Posted then
+            e.State <- string ProcessState.Running
+            e.InitializationTime <- DateTimeOffset.Now
+            let! e' = Table.merge config table e
+            return ()
     }
 
     member this.SetKilled(pid : string) = async {

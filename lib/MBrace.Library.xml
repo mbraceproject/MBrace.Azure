@@ -281,6 +281,17 @@
 <member name="">
 
 </member>
+<member name="T:Nessos.MBrace.InMemoryRuntime.ConsoleLogger">
+<summary>
+ A logger that writes to the system console
+</summary>
+</member>
+<member name="M:Nessos.MBrace.InMemoryRuntime.InMemory.CreateResources(Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ICloudLogger})">
+ <summary>
+     Creates a resource bundle for in-memory cloud computations.
+ </summary>
+ <param name="logger">Logger for runtime. Defaults to no logging.</param>
+</member>
 <member name="">
 
 </member>
@@ -385,59 +396,10 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
+<member name="T:Nessos.MBrace.InMemoryRuntime.NullLogger">
+<summary>
+ A logger that ignores entries
+</summary>
 </member>
 <member name="M:Nessos.MBrace.InMemoryRuntime.ThreadPool.StartChild``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
@@ -465,6 +427,69 @@
 <summary>
  Collection of context-less combinators for 
  execution within local thread context.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.InMemoryRuntime.ThreadPoolRuntime.Create(Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ICloudLogger},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.FaultPolicy})">
+ <summary>
+     Creates a new threadpool runtime instance.
+ </summary>
+ <param name="logger">Logger for runtime. Defaults to no logging.</param>
+ <param name="faultPolicy">Fault policy for runtime. Defaults to Infinite retries.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.InMemoryRuntime.ThreadPoolRuntime">
+<summary>
+ .NET ThreadPool runtime provider
 </summary>
 </member>
 <member name="">

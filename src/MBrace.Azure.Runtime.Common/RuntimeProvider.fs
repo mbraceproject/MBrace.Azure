@@ -18,11 +18,11 @@ open Nessos.MBrace.Continuation
 open Nessos.MBrace.InMemoryRuntime
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, procId, taskId, dependencies, context) =
+type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, procId, faultPolicy, taskId, dependencies, context) =
 
     /// Creates a runtime provider instance for a provided task
     static member FromTask state  wmon  procId dependencies (task : Task) =
-        new RuntimeProvider(state, wmon, procId, task.TaskId, dependencies, Distributed)
+        new RuntimeProvider(state, wmon, procId, task.FaultPolicy, task.TaskId, dependencies, Distributed)
         
     interface IRuntimeProvider with
         member __.ProcessId = procId
@@ -30,24 +30,28 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, procId
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext context = 
-            new RuntimeProvider(state, wmon, procId, taskId, dependencies, context) :> IRuntimeProvider
+            new RuntimeProvider(state, wmon, procId, faultPolicy, taskId, dependencies, context) :> IRuntimeProvider
+
+        member __.FaultPolicy = faultPolicy
+        member __.WithFaultPolicy newPolicy = 
+            new RuntimeProvider(state, wmon, procId, newPolicy, taskId, dependencies, context) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
-            | Distributed -> Combinators.Parallel state procId dependencies computations
+            | Distributed -> Combinators.Parallel state procId dependencies faultPolicy computations
             | ThreadParallel -> ThreadPool.Parallel computations
             | Sequential -> Sequential.Parallel computations
 
         member __.ScheduleChoice computations = 
             match context with
-            | Distributed -> Combinators.Choice state procId dependencies computations
+            | Distributed -> Combinators.Choice state procId dependencies faultPolicy computations
             | ThreadParallel -> ThreadPool.Choice computations
             | Sequential -> Sequential.Choice computations
 
         member __.ScheduleStartChild(computation,wr,timeout) =
             if timeout.IsSome then raise <| NotImplementedException("StartChild with timeout")
             match context with
-            | Distributed -> Combinators.StartChild state procId dependencies computation wr
+            | Distributed -> Combinators.StartChild state procId dependencies faultPolicy computation wr
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
 

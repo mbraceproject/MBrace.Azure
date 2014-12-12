@@ -474,6 +474,133 @@
 <member name="T:Nessos.MBrace.Runtime.Serialization">
 
 </member>
+<member name="F:Nessos.MBrace.Runtime.Store.CacheBehavior.Default">
+<summary>
+ Cache on read/write.
+</summary>
+</member>
+<member name="F:Nessos.MBrace.Runtime.Store.CacheBehavior.OnRead">
+<summary>
+ Cache only on read.
+</summary>
+</member>
+<member name="F:Nessos.MBrace.Runtime.Store.CacheBehavior.OnWrite">
+<summary>
+ Cache only on write.
+</summary>
+</member>
+<member name="F:Nessos.MBrace.Runtime.Store.CacheBehavior.None">
+<summary>
+ Do not cache.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Store.CacheBehavior">
+<summary>
+ Defines cache behavior.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
 <member name="">
 
 </member>
@@ -638,6 +765,63 @@
 <summary>
  Store implementation that uses a filesystem as backend.
 </summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
 </member>
 <member name="">
 
@@ -875,6 +1059,116 @@
 <summary>
  Retry utilities
 </summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.String.Convert.StringToBase32(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Converts string to base32 representation using provided encoding.
+ </summary>
+ <param name="text">Input text.</param>
+ <param name="encoding">Encoding for string binary representation.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.String.Convert.BytesToBase32(System.Byte[])">
+<summary>
+ Converts binary data to Base32 (case-insensitive) encoding
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.String.Convert.Base32ToString(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Converts base32 string to text using provided encoding.
+ </summary>
+ <param name="encoded">Base-32 encoded string.</param>
+ <param name="encoding">Encoding used for output string.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.String.Convert.Base32ToBytes(System.String)">
+<summary>
+ Converts Base32-encoded string to binary data 
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Utils.String.String.indentWith(System.String,System.String)">
+<summary>
+ quick &apos;n&apos; dirty indentation insertion
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.String.String">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Utils.String">
+
+</member>
+<member name="">
+
 </member>
 <member name="">
 

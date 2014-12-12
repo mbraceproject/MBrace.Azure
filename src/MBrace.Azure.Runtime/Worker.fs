@@ -25,9 +25,9 @@ let initWorker (runtime : RuntimeState)
     let logger = resources.Resolve<ILogger>()
 
     let currentTaskCount = ref 0
-    let runTask procId deps t =
+    let runTask procId deps faultCount t =
         let provider = RuntimeProvider.FromTask runtime wmon procId deps t
-        Task.RunAsync provider resources deps t
+        Task.RunAsync provider resources deps faultCount t
     let inline logf fmt = Printf.ksprintf logger.Log fmt
 
     let rec loop () = async {
@@ -43,12 +43,12 @@ let initWorker (runtime : RuntimeState)
                     let _ = Interlocked.Increment currentTaskCount
                     let runTask () = async {
                         logf "Starting task %s" (string task)
-
+                        logf "Task %s DeliveryCount %d" task.TaskId msg.DeliveryCount
                         let! renew = Async.StartChild(msg.RenewLoopAsync())
 
                         let sw = new Stopwatch()
                         sw.Start()
-                        let! result = runTask procId dependencies task |> Async.Catch
+                        let! result = Async.Catch(runTask procId dependencies (msg.DeliveryCount-1) task)
                         sw.Stop()
 
                         match result with

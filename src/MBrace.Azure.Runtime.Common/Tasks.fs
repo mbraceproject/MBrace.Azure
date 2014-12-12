@@ -87,6 +87,10 @@ type Task =
         TaskId : string
         /// Triggers task execution with worker-provided execution context
         StartTask : ExecutionContext -> unit
+        /// Task fault policy
+        FaultPolicy : FaultPolicy
+        /// Exception Continuation
+        Econt : ExecutionContext -> ExceptionDispatchInfo -> unit
         /// Distributed cancellation token source bound to task
         CancellationTokenSource : DistributedCancellationTokenSource
         /// Type of task.
@@ -105,6 +109,7 @@ with
     static member RunAsync (runtimeProvider : IRuntimeProvider) 
                            (resources : ResourceRegistry)
                            (dependencies : AssemblyId list) 
+                           (faultCount : int)
                            (task : Task) = async {
         let tem = new TaskExecutionMonitor()
         let ctx =
@@ -119,7 +124,16 @@ with
                 CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
             }
 
-        do task.StartTask ctx
+        if faultCount > 0 then
+            let faultException = new FaultException(sprintf "Fault exception when running task '%s'." task.TaskId)
+            match task.FaultPolicy.Policy faultCount (faultException :> exn) with
+            | None -> task.Econt ctx <| ExceptionDispatchInfo.Capture faultException
+            | Some timeout ->
+                do! Async.Sleep (int timeout.TotalMilliseconds)
+                do task.StartTask ctx
+        else
+            do task.StartTask ctx
+
         return! TaskExecutionMonitor.AwaitCompletion tem
     }
 
@@ -159,7 +173,7 @@ with
     /// <param name="cc">Cancellation continuation</param>
     /// <param name="wf">Workflow</param>
     /// <param name="affinity">Optional task affinity.</param>
-    member rt.EnqueueTask(procId, dependencies, cts, sc, ec, cc, wf : Cloud<'T>, taskType : TaskType) : Async<unit> =
+    member rt.EnqueueTask(procId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, taskType : TaskType) : Async<unit> =
         let taskId = guid()
         let startTask ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
@@ -172,6 +186,8 @@ with
                 TaskId = taskId
                 StartTask = startTask
                 CancellationTokenSource = cts
+                FaultPolicy = fp
+                Econt = ec
                 TaskType = taskType
             }
         
@@ -190,7 +206,7 @@ with
     /// <param name="cc">Cancellation continuation.</param>
     /// <param name="wfs">Workflows</param>
     /// <param name="affinity">Optional task affinity.</param>
-    member rt.EnqueueTaskBatch(procId, dependencies, cts, scFactory, ec, cc, wfs : Cloud<'T> [], taskType) : Async<unit> =
+    member rt.EnqueueTaskBatch(procId, dependencies, cts, fp, scFactory, ec, cc, wfs : Cloud<'T> [], taskType) : Async<unit> =
         let tasks = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
             let taskId = guid()
@@ -204,6 +220,8 @@ with
                     TaskId = taskId
                     StartTask = startTask
                     CancellationTokenSource = cts
+                    FaultPolicy = fp
+                    Econt = ec
                     TaskType = taskType
                 }
 
@@ -218,7 +236,7 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCell(procId, dependencies, cts, wf : Cloud<'T>, taskType) = async {
+    member rt.StartAsCell(procId, dependencies, cts, fp, wf : Cloud<'T>, taskType) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
         let setResult ctx r = 
             async {
@@ -229,7 +247,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask(procId, dependencies, cts, scont, econt, ccont, wf, taskType)
+        do! rt.EnqueueTask(procId, dependencies, cts, fp, scont, econt, ccont, wf, taskType)
         return resultCell
     }
 
@@ -242,19 +260,21 @@ with
     /// <param name="wf">Input workflow.</param>
     /// <param name="name">Process name.</param>
     /// <param name="procId">Process id.</param>
-    member rt.StartAsProcess(pmon : ProcessMonitor, procId, name, dependencies, cts, wf : Cloud<'T>) = async {
+    member rt.StartAsProcess(pmon : ProcessMonitor, procId, name, dependencies, cts, fp, wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
 
         let! _ = pmon.CreateRecord( procId, name, typeof<'T>, dependencies,
                                     string (cts :> IResource).Uri, 
                                     string (resultCell :> IResource).Uri)
 
-        let processInitializationWf = cloud {
-            let! pmon = Cloud.GetResource<ProcessMonitor>()
-            let! _ = pmon.SetRunning(procId)
-                     |> Cloud.OfAsync
-            return! wf
-        }
+        let processInitializationWf = 
+            cloud {
+                let! pmon = Cloud.GetResource<ProcessMonitor>()
+                let! _ = pmon.SetRunning(procId)
+                            |> Cloud.OfAsync
+                let! handler = Cloud.WithFaultPolicy fp (Cloud.StartChild(wf))
+                return! handler
+            } 
 
         let setResult ctx r = 
             async {
@@ -271,7 +291,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask(procId, dependencies, cts, scont, econt, ccont, processInitializationWf, TaskType.ProcessInitialization)
+        do! rt.EnqueueTask(procId, dependencies, cts, fp, scont, econt, ccont, processInitializationWf, TaskType.ProcessInitialization)
         return resultCell
     }
 

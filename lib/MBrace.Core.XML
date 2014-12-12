@@ -2,35 +2,10 @@
 <doc>
 <assembly><name>MBrace.Core</name></assembly>
 <members>
-<member name="P:Nessos.MBrace.Cloud.CurrentWorker">
- <summary>
-     Gets information on the execution cluster.
- </summary>
-</member>
 <member name="P:Nessos.MBrace.Cloud.CancellationToken">
  <summary>
      Gets the current cancellation token.
  </summary>
-</member>
-<member name="M:Nessos.MBrace.Cloud.ToSequential``1(Nessos.MBrace.Cloud{``0})">
- <summary>
-     Force sequential execution semantics for given cloud workflow.
- </summary>
- <param name="workflow">Workflow to be executed.</param>
-</member>
-<member name="M:Nessos.MBrace.Cloud.ToLocal``1(Nessos.MBrace.Cloud{``0})">
- <summary>
-     Force thread local execution semantics for given cloud workflow.
- </summary>
- <param name="workflow">Workflow to be executed.</param>
-</member>
-<member name="M:Nessos.MBrace.Cloud.StartChild``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.IWorkerRef},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
- <summary>
-     Start cloud computation as child. Returns a cloud workflow that queries the result.
- </summary>
- <param name="computation">Computation to be executed.</param>
- <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
- <param name="timeoutMilliseconds">Timeout in milliseconds; defaults to infinite.</param>
 </member>
 <member name="M:Nessos.MBrace.Cloud.Sleep(System.Int32)">
  <summary>
@@ -44,29 +19,11 @@
  </summary>
  <param name="e">exception to be raised.</param>
 </member>
-<member name="M:Nessos.MBrace.Cloud.Parallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
- <summary>
-     Cloud.Parallel combinator
- </summary>
- <param name="computations">Input computations to be executed in parallel.</param>
-</member>
 <member name="M:Nessos.MBrace.Cloud.OfAsync``1(Microsoft.FSharp.Control.FSharpAsync{``0})">
  <summary>
      Wraps an asynchronous workflow into a cloud workflow.
  </summary>
  <param name="asyncWorkflow">Asynchronous workflow to be wrapped.</param>
-</member>
-<member name="M:Nessos.MBrace.Cloud.Logf(Microsoft.FSharp.Core.PrintfFormat{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.Unit},Microsoft.FSharp.Core.Unit,System.String,Nessos.MBrace.Cloud{Microsoft.FSharp.Core.Unit}})">
- <summary>
-     Writes an entry to a logging provider, if it exists.
- </summary>
- <param name="logEntry">Added log entry.</param>
-</member>
-<member name="M:Nessos.MBrace.Cloud.Log(System.String)">
- <summary>
-     Writes an entry to a logging provider, if it exists.
- </summary>
- <param name="logEntry">Added log entry.</param>
 </member>
 <member name="M:Nessos.MBrace.Cloud.Ignore``1(Nessos.MBrace.Cloud{``0})">
  <summary>
@@ -74,42 +31,11 @@
  </summary>
  <param name="workflow"></param>
 </member>
-<member name="M:Nessos.MBrace.Cloud.GetWorkerCount">
- <summary>
-     Gets total number of available workers in cluster context.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Cloud.GetTaskId">
- <summary>
-     Gets the assigned id of the currently running cloud task.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Cloud.GetSchedulingContext">
- <summary>
-     Gets the current scheduling context.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Cloud.GetProcessId">
- <summary>
-     Gets the assigned id of the currently running cloud process.
- </summary>
-</member>
-<member name="M:Nessos.MBrace.Cloud.GetAvailableWorkers">
- <summary>
-     Gets all workers in currently running cluster context.
- </summary>
-</member>
 <member name="M:Nessos.MBrace.Cloud.Dispose``1(``0)">
  <summary>
      Disposes of a distributed resource.
  </summary>
  <param name="disposable">Resource to be disposed.</param>
-</member>
-<member name="M:Nessos.MBrace.Cloud.Choice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
- <summary>
-     Cloud.Choice combinator
- </summary>
- <param name="computations">Input computations to be executed in parallel.</param>
 </member>
 <member name="M:Nessos.MBrace.Cloud.Catch``1(Nessos.MBrace.Cloud{``0})">
  <summary>
@@ -125,7 +51,7 @@
 </member>
 <member name="T:Nessos.MBrace.Cloud">
 <summary>
- Cloud workflows static methods
+ Cloud workflows user API
 </summary>
 </member>
 <member name="M:Nessos.MBrace.CloudAtom.Update``1(Microsoft.FSharp.Core.FSharpFunc{``0,``0},Nessos.MBrace.ICloudAtom{``0})">
@@ -257,6 +183,71 @@
 <summary>
  Representation of a cloud computation, which, when run 
  will produce a value of type &apos;T, or raise an exception.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.FaultException">
+<summary>
+ Exception indicating fault in MBrace runtime
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.FaultPolicy.NoRetry">
+<summary>
+ Makes no attempt at retrying, raising fault exception at the first occurrence.
+</summary>
+</member>
+<member name="M:Nessos.MBrace.FaultPolicy.Retry(System.Int32,Microsoft.FSharp.Core.FSharpOption{System.TimeSpan})">
+ <summary>
+     Retries at most a given number of times.
+ </summary>
+ <param name="maxRetries">Maximum number of retries.</param>
+ <param name="delay">Delay before each retry. Defaults to zero.</param>
+</member>
+<member name="M:Nessos.MBrace.FaultPolicy.MapDelay(System.Int32,Microsoft.FSharp.Core.FSharpFunc{System.Int32,System.TimeSpan})">
+ <summary>
+     Retries with delay mapped to attempt number.
+ </summary>
+ <param name="maxRetries">Maximum number of retries.</param>
+ <param name="delayF">Delay mapping function.</param>
+</member>
+<member name="M:Nessos.MBrace.FaultPolicy.InfiniteRetry(Microsoft.FSharp.Core.FSharpOption{System.TimeSpan})">
+ <summary>
+     Forever re-attempt faulted computations.
+ </summary>
+ <param name="delay">Delay before each retry. Defaults to zero.</param>
+</member>
+<member name="M:Nessos.MBrace.FaultPolicy.Filter``1(Microsoft.FSharp.Core.FSharpOption{System.TimeSpan})">
+ <summary>
+     Retries as long as exception of given type is raised.
+ </summary>
+ <param name="delay">Delay before each retry. Defaults to zero.</param>
+</member>
+<member name="M:Nessos.MBrace.FaultPolicy.ExponentialDelay(System.Int32,Microsoft.FSharp.Core.FSharpOption{System.TimeSpan})">
+ <summary>
+     Exponentially delays after each retry.
+ </summary>
+ <param name="maxRetries">Maximum number of retries.</param>
+ <param name="initialDelay">Initial delay. Defaults to 50ms</param>
+</member>
+<member name="T:Nessos.MBrace.FaultPolicy">
+<summary>
+ Fault recovery policy used in runtime execution;
+ takes number of attempts and fault exception returning
+ the recovery action: either fail or retry after given delay.
 </summary>
 </member>
 <member name="M:Nessos.MBrace.FileStore.ReadFile``1(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}},System.String)">
@@ -622,12 +613,12 @@
  <param name="resources">Resource registry passed to execution context.</param>
  <param name="cancellationToken">Local Cancellation token.</param>
 </member>
-<member name="M:Nessos.MBrace.Continuation.Cloud.SetSchedulingContext``1(Nessos.MBrace.Cloud{``0},Nessos.MBrace.SchedulingContext)">
+<member name="M:Nessos.MBrace.Continuation.Cloud.SetResource``2(Nessos.MBrace.Cloud{``0},``1)">
  <summary>
-     Sets a new scheduling context for target workflow.
+     Installs a new resource to executed workflow.
  </summary>
- <param name="workflow">Target workflow.</param>
- <param name="schedulingContext">Target scheduling context.</param>
+ <param name="workflow">Workflow to be wrapped.</param>
+ <param name="resource">Resource to be installed.</param>
 </member>
 <member name="M:Nessos.MBrace.Continuation.Cloud.RunSynchronously``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ResourceRegistry},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
  <summary>
@@ -655,7 +646,7 @@
 </member>
 <member name="T:Nessos.MBrace.Continuation.Cloud">
 <summary>
- Intrinsic cloud workflow methods
+ Cloud workflows continuation API
 </summary>
 </member>
 <member name="P:Nessos.MBrace.Continuation.Continuation`1.Cancellation">
@@ -783,6 +774,11 @@
  Gets the current logger instance.
 </summary>
 </member>
+<member name="P:Nessos.MBrace.Continuation.IRuntimeProvider.FaultPolicy">
+ <summary>
+     Gets the current fault policy.
+ </summary>
+</member>
 <member name="P:Nessos.MBrace.Continuation.IRuntimeProvider.CurrentWorker">
 <summary>
  Gets currently running worker
@@ -793,6 +789,12 @@
      Creates a new scheduler instance with updated scheduling context
  </summary>
  <param name="newContext">new scheduling context</param>
+</member>
+<member name="M:Nessos.MBrace.Continuation.IRuntimeProvider.WithFaultPolicy(Nessos.MBrace.FaultPolicy)">
+ <summary>
+     Creates a new scheduler instance with updated fault policy.
+ </summary>
+ <param name="newPolicy">new fault policy.</param>
 </member>
 <member name="M:Nessos.MBrace.Continuation.IRuntimeProvider.ScheduleStartChild``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.IWorkerRef},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
@@ -1025,14 +1027,14 @@
 <member name="T:Nessos.MBrace.Continuation.ResourceRegistryUtils">
 
 </member>
-<member name="M:Nessos.MBrace.Operators.op_LessDotGreater``2(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Cloud{``1})">
+<member name="M:Nessos.MBrace.RuntimeCombinators.op_LessDotGreater``2(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Cloud{``1})">
  <summary>
      Combines two cloud computations into one that executes them sequentially.
  </summary>
  <param name="left">The first cloud computation.</param>
  <param name="right">The second cloud computation.</param>
 </member>
-<member name="M:Nessos.MBrace.Operators.op_LessBarGreater``1(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Cloud{``0})">
+<member name="M:Nessos.MBrace.RuntimeCombinators.op_LessBarGreater``1(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Cloud{``0})">
  <summary>
      Combines two cloud computations into one that executes them in parallel and returns the
      result of the first computation that completes and cancels the other.
@@ -1040,18 +1042,108 @@
  <param name="left">The first cloud computation.</param>
  <param name="right">The second cloud computation.</param>
 </member>
-<member name="M:Nessos.MBrace.Operators.op_LessBarBarGreater``2(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Cloud{``1})">
+<member name="M:Nessos.MBrace.RuntimeCombinators.op_LessBarBarGreater``2(Nessos.MBrace.Cloud{``0},Nessos.MBrace.Cloud{``1})">
  <summary>
      Combines two cloud computations into one that executes them in parallel.
  </summary>
  <param name="left">The first cloud computation.</param>
  <param name="right">The second cloud computation.</param>
 </member>
-<member name="T:Nessos.MBrace.Operators">
-<summary>
- [omit]
- Contains common operators for cloud computation.
-</summary>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.WithFaultPolicy.Static``1(Nessos.MBrace.FaultPolicy,Nessos.MBrace.Cloud{``0})">
+ <summary>
+     Sets a new fault policy for given workflow.
+ </summary>
+ <param name="policy">Updated fault policy.</param>
+ <param name="workflow">Workflow to be used.</param>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.GetFaultPolicy.Static">
+ <summary>
+     Gets the current fault policy.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.ToSequential.Static``1(Nessos.MBrace.Cloud{``0})">
+ <summary>
+     Force sequential execution semantics for given cloud workflow.
+ </summary>
+ <param name="workflow">Workflow to be executed.</param>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.ToLocal.Static``1(Nessos.MBrace.Cloud{``0})">
+ <summary>
+     Force thread local execution semantics for given cloud workflow.
+ </summary>
+ <param name="workflow">Workflow to be executed.</param>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.WithSchedulingContext.Static``1(Nessos.MBrace.SchedulingContext,Nessos.MBrace.Cloud{``0})">
+ <summary>
+     Sets a new scheduling context for target workflow.
+ </summary>
+ <param name="workflow">Target workflow.</param>
+ <param name="schedulingContext">Target scheduling context.</param>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.GetSchedulingContext.Static">
+ <summary>
+     Gets the current scheduling context.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.GetTaskId.Static">
+ <summary>
+     Gets the assigned id of the currently running cloud task.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.GetProcessId.Static">
+ <summary>
+     Gets the assigned id of the currently running cloud process.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.GetWorkerCount.Static">
+ <summary>
+     Gets total number of available workers in cluster context.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.GetAvailableWorkers.Static">
+ <summary>
+     Gets all workers in currently running cluster context.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.get_CurrentWorker.Static">
+ <summary>
+     Gets information on the execution cluster.
+ </summary>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.StartChild.Static``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.IWorkerRef},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Start cloud computation as child. Returns a cloud workflow that queries the result.
+ </summary>
+ <param name="computation">Computation to be executed.</param>
+ <param name="target">Optional worker to execute the computation on; defaults to scheduler decision.</param>
+ <param name="timeoutMilliseconds">Timeout in milliseconds; defaults to infinite.</param>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.Choice.Static``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
+ <summary>
+     Cloud.Choice combinator
+ </summary>
+ <param name="computations">Input computations to be executed in parallel.</param>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.Parallel.Static``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
+ <summary>
+     Cloud.Parallel combinator
+ </summary>
+ <param name="computations">Input computations to be executed in parallel.</param>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.Logf.Static``1(Microsoft.FSharp.Core.PrintfFormat{``0,Microsoft.FSharp.Core.Unit,System.String,Nessos.MBrace.Cloud{Microsoft.FSharp.Core.Unit}})">
+ <summary>
+     Writes an entry to a logging provider, if it exists.
+ </summary>
+ <param name="logEntry">Added log entry.</param>
+</member>
+<member name="M:Nessos.MBrace.RuntimeCombinators.Cloud.Log.Static(System.String)">
+ <summary>
+     Writes an entry to a logging provider, if it exists.
+ </summary>
+ <param name="logEntry">Added log entry.</param>
+</member>
+<member name="T:Nessos.MBrace.RuntimeCombinators">
+
 </member>
 <member name="P:Nessos.MBrace.Store.AtomConfiguration.DefaultContainer">
 <summary>
