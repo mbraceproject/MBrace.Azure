@@ -40,14 +40,15 @@ let initWorker (runtime : RuntimeState)
                 match task with
                 | None -> do! Async.Sleep 500
                 | Some (msg, task, procId, dependencies) ->
-                    let _ = Interlocked.Increment currentTaskCount
+                    let count = Interlocked.Increment currentTaskCount
+                    do! wmon.SetCurrentTaskCount(count)
                     let runTask () = async {
                         if task.TaskType = TaskType.Root then
                             logf "Running root task for process %s" task.ProcessId
                             do! pmon.SetRunning(task.ProcessId)
 
                         logf "Starting task %s" (string task)
-                        do! wmon.AddActiveTask()
+                        do! wmon.IncreaseTotalTaskCount()
                         let! renew = Async.StartChild(msg.RenewLoopAsync())
 
                         let sw = new Stopwatch()
@@ -62,8 +63,9 @@ let initWorker (runtime : RuntimeState)
                         | Choice2Of2 e -> 
                             do! msg.AbandonAsync()
                             logf "Task fault %s with:\n%O" (string task) e
-                        do! wmon.AddCompletedTask()
-                        let _ = Interlocked.Decrement currentTaskCount
+                        do! wmon.IncreaseCompletedTaskCount()
+                        let count = Interlocked.Decrement currentTaskCount
+                        do! wmon.SetCurrentTaskCount(count)
                         do! Async.Sleep 200
                     }
         

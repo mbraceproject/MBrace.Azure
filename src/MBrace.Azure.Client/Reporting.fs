@@ -43,7 +43,7 @@ type internal WorkerReporter() =
           Field.create "% Memory" Right (fun p -> double_printer p.Memory)
           Field.create "Total Memory(MB)" Right (fun p -> double_printer p.TotalMemory)
           Field.create "Network(ul/dl : kbps)"  Right (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUp <| double_printer n.NetworkDown)
-          Field.create "Active/Completed Tasks" Center (fun p -> sprintf "%s / %s" <| int_printer p.ActiveTasks <| int_printer p.CompletedTasks)
+          Field.create "Tasks" Center (fun p -> sprintf "%s / %s / %s" <| int_printer p.ActiveTasks <| int_printer p.CompletedTasks <| int_printer p.TotalTasks)
           Field.create "Cores" Right (fun p -> p.ProcessorCount)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
