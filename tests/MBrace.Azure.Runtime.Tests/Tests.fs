@@ -193,18 +193,25 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : nested exception cancellation`` () =
+        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
         cloud {
             let worker i j = cloud {
-                if i = 5 && j = 5 then
+                if i = 0 && j = 0 then
+                    do! Cloud.Sleep 100
                     invalidOp "failure"
                 else
-                    return! Cloud.Sleep 1000
+                    do! Cloud.Sleep 1000
+                    let _ = counter.Incr()
+                    return ()
             }
-            let cluster i = Array.init 10 (worker i) |> Cloud.Parallel |> Cloud.Ignore
-            do! Array.init 10 cluster |> Cloud.Parallel |> Cloud.Ignore
-            return raise <| new exn("Cloud.Parallel should not have completed succesfully.")
-        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
+            try
+                let cluster i = Array.init 10 (worker i) |> Cloud.Parallel |> Cloud.Ignore
+                do! Array.init 10 cluster |> Cloud.Parallel |> Cloud.Ignore
+                return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
+            with :? InvalidOperationException ->
+                return counter.Value
+        } |> run |> Choice.shouldMatch(fun i -> i < 50)
 
     [<Test>]
     [<Repeat(repeats)>]
