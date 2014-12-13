@@ -76,7 +76,7 @@ type ``Azure Runtime Tests`` () =
         printfn "config.ServiceBus : %s" <| print cfg.ServiceBusConnectionString
         Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
         printfn "WorkerExecutable : %s" Runtime.WorkerExecutable
-        runtime <- Some <| Runtime.InitLocal(cfg, 4)
+        runtime <- Some <| Runtime.InitLocal(cfg, 4, 10)
         config <- cfg.ConfigurationId
         printfn "Runtime initialized"
         runtime.Value.ClientLogger.Attach(new Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger()) 

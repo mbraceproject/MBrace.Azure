@@ -32,7 +32,7 @@ let config =
 #r "MBrace.Azure.Runtime.Standalone"
 open Nessos.MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 4)
+Runtime.Spawn(config, 4, 16)
 // inmemory-----
 //[1..1]
 //|> List.map(fun _ -> 

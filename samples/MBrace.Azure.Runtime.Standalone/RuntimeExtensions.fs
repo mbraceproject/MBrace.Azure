@@ -6,26 +6,29 @@ open System.IO
 open Nessos.MBrace.Continuation
 
 /// BASE64 serialized argument parsing schema
+
 module internal Argument =
     open Nessos.MBrace.Azure.Runtime
     open Nessos.MBrace.Runtime
     open Nessos.MBrace.Runtime.Vagrant
+    
+    type Config = { Configuration : Configuration; MaxTasks : int}
 
-    let ofConfiguration (runtime : Configuration) =
+    let ofConfiguration (config : Config) =
         Configuration.Initialize()
-        let pickle = VagrantRegistry.Pickler.Pickle(runtime)
+        let pickle = VagrantRegistry.Pickler.Pickle(config)
         System.Convert.ToBase64String pickle
 
     let toConfiguration (args : string []) =
         Configuration.Initialize()
         let bytes = System.Convert.FromBase64String(args.[0])
-        VagrantRegistry.Pickler.UnPickle<Configuration> bytes
+        VagrantRegistry.Pickler.UnPickle<Config> bytes
 
 type private Helpers () =
     static member val exe = None with get, set
 
-    static member InitWorkers config (count : int) exe =
-        Async.RunSync(Nessos.MBrace.Azure.Runtime.Configuration.Activate(config))
+    static member InitWorkers (config : Argument.Config) (count : int) exe =
+        Async.RunSync(Nessos.MBrace.Azure.Runtime.Configuration.Activate(config.Configuration))
         if count < 1 then invalidArg "workerCount" "must be positive."  
         let args = Argument.ofConfiguration config 
         let psi = new ProcessStartInfo(exe, args)
@@ -35,16 +38,19 @@ type private Helpers () =
 
 [<AutoOpen>] 
 module Extensions =
+    open System
+
     [<System.Runtime.CompilerServices.Extension>]
     type Runtime with
         /// Initialize a new local runtime instance with supplied worker count.
-        static member Spawn(config, workerCount) =
-            Helpers.InitWorkers config workerCount Runtime.WorkerExecutable
+        static member Spawn(config, workerCount, ?maxTasks : int) =
+            let cfg = { Argument.Configuration = config; Argument.MaxTasks = defaultArg maxTasks Environment.ProcessorCount}
+            Helpers.InitWorkers cfg workerCount Runtime.WorkerExecutable
             |> ignore
         
         /// Initialize a new local runtime instance with supplied worker count and return a handle.
-        static member InitLocal(config, workerCount : int) =
-            Runtime.Spawn(config, workerCount)
+        static member InitLocal(config, workerCount : int, ?maxTasks : int) =
+            Runtime.Spawn(config, workerCount, ?maxTasks = maxTasks)
             Runtime.GetHandle(config)
 
         /// Gets or sets the worker executable location.
