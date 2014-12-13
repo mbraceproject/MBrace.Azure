@@ -8,30 +8,24 @@ open Nessos.MBrace.Continuation
 open Nessos.MBrace.Azure.Runtime.Common
 open Microsoft.WindowsAzure.Storage.Table
 
-// Note : Each dcts checks for cancelation itself and parent dcts (but no other predecessors)
-// This works as long as all parent dcts run the GetLocalCancellationToken loop.
-// Fault tolerance?
-
 type DistributedCancellationTokenSource internal (config, res : Uri) = 
-    let cancel () =
+    let rec cancel table pk =
        async { 
-            let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, null, IsCancellationRequested = true, ETag = "*")
-            let! u = Table.merge config res.Table e
+            let! children = Table.queryPK<TableEntity> config table pk
+            do! children 
+                |> Seq.filter (fun e -> e.RowKey <> String.Empty)
+                |> Seq.map (fun e -> cancel table e.RowKey)
+                |> Async.Parallel
+                |> Async.Ignore
+            let e = new CancellationTokenSourceEntity(pk, IsCancellationRequested = true, ETag = "*")
+            let! u = Table.replace config res.Table e
             return ()
         }
 
     let check() = 
         async { 
-            let! e = Table.read<CancellationTokenSourceEntity> config res.Table res.PartitionWithScheme ""
-            if e.IsCancellationRequested then return true
-            elif e.Link <> null then
-                let link = new Uri(e.Link)
-                let! p = Table.read<CancellationTokenSourceEntity> config link.Table link.PartitionWithScheme ""
-                if p.IsCancellationRequested then
-                    do! cancel ()
-                    return true
-                else return false
-            else return false
+            let! e = Table.read<CancellationTokenSourceEntity> config res.Table res.PartitionWithScheme String.Empty
+            return e.IsCancellationRequested
         }
     
     let cts = lazy new CancellationTokenSource()
@@ -41,7 +35,7 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     
     member __.IsCancellationRequested = check() |> Async.RunSync
     
-    member __.Cancel() = cancel () |> Async.RunSync
+    member __.Cancel() = cancel res.Table res.PartitionWithScheme |> Async.RunSync
     
     member __.GetLocalCancellationToken() = 
         let rec loop () = async {
@@ -49,7 +43,7 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
             if isCancelled then
                 cts.Value.Cancel()
             else
-                do! Async.Sleep 500
+                do! Async.Sleep 200
                 return! loop ()
         }
 
@@ -71,12 +65,14 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     static member FromUri(config : ConfigurationId, uri) = new DistributedCancellationTokenSource(config, uri)
     static member Create(config, container : string, ?parent : DistributedCancellationTokenSource) = 
         async { 
-            let link = 
-                match parent with
-                | None -> null
-                | Some p -> (p :> IResource).Uri.ToString()
-            let res = DistributedCancellationTokenSource.GetUri(container, guid())
-            let e = new CancellationTokenSourceEntity(res.PartitionWithScheme, link)
-            do! Table.insert config res.Table e
-            return new DistributedCancellationTokenSource(config, res)
+            let childUri = DistributedCancellationTokenSource.GetUri(container, guid())
+            let ctse = new CancellationTokenSourceEntity(childUri.PartitionWithScheme)         
+            do! Table.insert<CancellationTokenSourceEntity> config childUri.Table ctse
+            match parent with
+            | None -> ()
+            | Some p -> 
+                let parentUri = (p :> IResource).Uri
+                let link = new CancellationTokenLinkEntity(parentUri.PartitionWithScheme, childUri.PartitionWithScheme)
+                do! Table.insert<CancellationTokenLinkEntity> config childUri.Table link
+            return new DistributedCancellationTokenSource(config, childUri)
         }

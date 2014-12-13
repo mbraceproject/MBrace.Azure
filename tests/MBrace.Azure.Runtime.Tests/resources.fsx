@@ -3,19 +3,17 @@
 #r "MBrace.Library.dll"
 #r "FsPickler.dll"
 #r "Vagrant.dll"
-#r "Microsoft.WindowsAzure.Storage.dll"
-#r "Microsoft.ServiceBus.dll"
 #r "MBrace.Azure.Runtime.Common.dll"
 #r "MBrace.Azure.Runtime.dll"
 #r "MBrace.Azure.Client.dll"
 #time "on"
 
 open Nessos.MBrace
-open Nessos.MBrace.Runtime
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Client
 open System
-open System.Threading
+open System.IO
 
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
@@ -27,13 +25,13 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-Configuration.Activate(config)
+Configuration.Activate(config) |> Async.RunSynchronously
 Configuration.DeleteResources(config)
 
 
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Azure.Runtime.Resources
-let (!) (task : Async<'T>) = Async.RunSync task
+let (!) (task : Async<'T>) = Async.RunSynchronously task
 
 
 let factory = ChannelProvider.Create(config.ConfigurationId)
@@ -143,7 +141,8 @@ let x = !ra.ToArray()
 //-------------------------------------------------------------------
 type DCTS = DistributedCancellationTokenSource
 
-let dcts0 = !DCTS.Init("tmp")
+let dcts0 = !(DCTS.Create(config.ConfigurationId, "tmp"))
+
 let ct0 = dcts0.GetLocalCancellationToken()
 
 let t1 = async { while true do 
@@ -153,8 +152,8 @@ let t1 = async { while true do
 Async.Start(t1, ct0)
 dcts0.Cancel()
 
-let root = !DCTS.Init("tmp")
-let chain = Seq.fold (fun dcts _ -> let d = !DCTS.Init("tmp", dcts) in ignore(d.GetLocalCancellationToken()) ; d ) root {1..10}
+let root = !(DCTS.Create(config.ConfigurationId, "tmp"))
+let chain = Seq.fold (fun dcts _ -> let d = !(DCTS.Create(config.ConfigurationId, "tmp", dcts)) in ignore(d.GetLocalCancellationToken()) ; d ) root {1..10}
 
 Async.Start(t1, chain.GetLocalCancellationToken())
 root.Cancel()

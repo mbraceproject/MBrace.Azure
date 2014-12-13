@@ -52,11 +52,14 @@ type ResultAggregatorEntity(name : string, index : int, bloburi : string) =
     member val Uri = bloburi with get, set
     new () = new ResultAggregatorEntity(null, -1, null)
 
-type CancellationTokenSourceEntity(name : string, link : string) =
+type CancellationTokenSourceEntity(name : string) =
     inherit TableEntity(name, String.Empty)
     member val IsCancellationRequested = false with get, set
-    member val Link = link with get, set
-    new () = new CancellationTokenSourceEntity(null, null)
+    new () = new CancellationTokenSourceEntity(null)
+
+type CancellationTokenLinkEntity(parentUri : string, childUri : string) =
+    inherit TableEntity(parentUri, childUri)
+    new () = new CancellationTokenLinkEntity(null, null)
 
 /// A lightweight object for low latency communication with the azure storage.
 /// Lightweight : payload size up to 15 * 64K = 960K.

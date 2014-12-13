@@ -72,7 +72,7 @@ let initWorker (runtime : RuntimeState)
                     let! handle = Async.StartChild(runTask())
                     ()
             with e -> 
-                logf "WORKER FAULT: %O" e
+                logf "WORKER FAULT: %A" e
                 do! Async.Sleep 1000
 
             return! loop ()

@@ -82,7 +82,7 @@ let f i = Cloud.Parallel <| List.init i (fun x -> cloud { return x+1 })
 let x = runtime.CreateProcess(f 10)
 
 
-runtime.Run(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 82 then Some 42 else None } ))
+let p = runtime.CreateProcess(Cloud.Choice <| List.init 100 (fun i -> cloud { return if i = 42 then Some i else None } ))
 
 
 type Foo = { Value : int }
