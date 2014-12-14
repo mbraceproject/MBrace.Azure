@@ -46,7 +46,7 @@ let rec wf i max =
         [|  cloud { return if i = max then Some 42 else None }
             cloud { return! wf (i+1) max }
             cloud { return! wf (i+1) max }
-        |]             
+        |]
 
 let ps = runtime.CreateProcess (wf 0 3)
 ps.AwaitResult()

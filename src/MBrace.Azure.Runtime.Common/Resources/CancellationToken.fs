@@ -74,5 +74,9 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
                 let parentUri = (p :> IResource).Uri
                 let link = new CancellationTokenLinkEntity(parentUri.PartitionWithScheme, childUri.PartitionWithScheme)
                 do! Table.insert<CancellationTokenLinkEntity> config childUri.Table link
-            return new DistributedCancellationTokenSource(config, childUri)
+            let dcts = new DistributedCancellationTokenSource(config, childUri)
+            match parent with
+            | Some p when p.IsCancellationRequested -> dcts.Cancel()
+            | _ -> ()
+            return dcts
         }
