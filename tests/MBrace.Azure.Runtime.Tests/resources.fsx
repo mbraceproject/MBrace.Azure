@@ -159,6 +159,20 @@ Async.Start(t1, chain.GetLocalCancellationToken())
 root.Cancel()
 chain.IsCancellationRequested
 
+let root = !(DCTS.Create(config.ConfigurationId, "tmp"))
+let rec foo cts i n = 
+    async {
+        if i = n then return cts
+        else 
+            let! c1 = DCTS.Create(config.ConfigurationId, "tmp", cts)
+            let! c2 = DCTS.Create(config.ConfigurationId, "tmp", cts)
+            let! c1' = foo c1 (i+1) n
+            let! c2' = foo c2 (i+1) n
+            return c2'
+    }
+
+let tok = !(foo root 0 5)
+root.Cancel()
 
 //--------------------------------------------------------------------
 let exp = AssemblyManager.Init("tmp")

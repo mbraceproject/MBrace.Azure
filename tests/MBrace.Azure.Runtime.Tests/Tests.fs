@@ -19,7 +19,7 @@ open Nessos.MBrace.Azure.Runtime.Resources
 module Helpers =
     [<Literal>]
 #if DEBUG
-    let repeats = 5
+    let repeats = 3
 #else
     let repeats = 1
 #endif
@@ -76,7 +76,7 @@ type ``Azure Runtime Tests`` () =
         printfn "config.ServiceBus : %s" <| print cfg.ServiceBusConnectionString
         Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
         printfn "WorkerExecutable : %s" Runtime.WorkerExecutable
-        runtime <- Some <| Runtime.InitLocal(cfg, 4, 10)
+        runtime <- Some <| Runtime.InitLocal(cfg, 4, 16)
         config <- cfg.ConfigurationId
         printfn "Runtime initialized"
         runtime.Value.ClientLogger.Attach(new Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger()) 
@@ -171,65 +171,49 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : exception cancellation`` () =
-        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
         cloud {
             let worker i = cloud { 
                 if i = 0 then
-                    do! Cloud.Sleep 100
                     invalidOp "failure"
                 else
-                    do! Cloud.Sleep 1000
-                    let _ = counter.Incr()
                     return ()
             }
 
-            try
-                let! _ = Array.init 20 worker |> Cloud.Parallel
-                return raise <| new exn("Cloud.Parallel should not have completed succesfully.")
-            with :? InvalidOperationException ->
-                return counter.Value
-        } |> run |> Choice.shouldMatch(fun i -> i < 5)
+
+            let! _ = Array.init 20 worker |> Cloud.Parallel
+            return raise <| new exn("Cloud.Parallel should not have completed succesfully.")
+        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : nested exception cancellation`` () =
-        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
         cloud {
             let worker i j = cloud {
                 if i = 0 && j = 0 then
-                    do! Cloud.Sleep 100
                     invalidOp "failure"
                 else
-                    do! Cloud.Sleep 1000
-                    let _ = counter.Incr()
                     return ()
             }
 
-            try
-                let cluster i = Array.init 10 (worker i) |> Cloud.Parallel |> Cloud.Ignore
-                do! Array.init 10 cluster |> Cloud.Parallel |> Cloud.Ignore
-                return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
-            with :? InvalidOperationException ->
-                return counter.Value
-        } |> run |> Choice.shouldMatch(fun i -> i < 50)
+            let cluster i = Array.init 5 (worker i) |> Cloud.Parallel |> Cloud.Ignore
+            do! Array.init 5 cluster |> Cloud.Parallel |> Cloud.Ignore
+            return raise <| new AssertionException("Cloud.Parallel should not have completed succesfully.")
+        } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : simple cancellation`` () =
         let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
         runCts(fun cts -> cloud {
-            let f i = cloud {
-                if i = 0 then cts.Cancel() 
-                do! Cloud.Sleep 3000 
-                return counter.Incr() 
+            let f _ = cloud {
+                if counter.Incr() = 1 then cts.Cancel() 
+                else return! Cloud.Sleep 1000
             }
 
             let! _ = Array.init 10 f |> Cloud.Parallel
 
             return ()
         }) |> Choice.shouldFailwith<_, OperationCanceledException>
-
-        counter.Value |> should equal 0
 
 
     [<Test>]
@@ -271,7 +255,7 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : balanced map/reduce`` () =
-        wordCount 100 MapReduce.mapReduce |> run |> Choice.shouldEqual 500
+        wordCount 20 MapReduce.mapReduce |> run |> Choice.shouldEqual 100
 
     [<Test>]
     member __.``2. Choice : empty input`` () =
@@ -280,35 +264,29 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``2. Choice : all inputs 'None'`` () =
-        let count = Counter.Create(config, testContainer, 0) |> Async.RunSync
         cloud {
             let worker _ = cloud {
-                let _ = count.Incr()
                 return None
             }
 
             let! result = Array.init 20 worker |> Cloud.Choice
-            return (count.Value, result)
-        } |> run |> Choice.shouldEqual (20, None)
+            return result
+        } |> run |> Choice.shouldEqual None
 
 
     [<Test>]
     [<Repeat(repeats)>]
     member __.``2. Choice : one input 'Some'`` () =
-        let count = Counter.Create(config, testContainer, 0) |> Async.RunSync
         cloud {
             let worker i = cloud {
                 if i = 0 then return Some i
                 else
-                    do! Cloud.Sleep 1000
-                    // check proper cancellation while we're at it.
-                    let _ = count.Incr()
                     return None
             }
 
             let! result = Array.init 20 worker |> Cloud.Choice
-            return result, count.Value
-        } |> run |> Choice.shouldEqual(Some 0,0)
+            return result
+        } |> run |> Choice.shouldEqual(Some 0)
 
     [<Test>]
     [<Repeat(repeats)>]
@@ -327,52 +305,45 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``2. Choice : simple nested`` () =
-        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
         cloud {
             let worker i j = cloud {
-                if i = 0 && j = 0 then
+                if i = 3 && j = 3 then
                     return Some(i,j)
                 else
-                    do! Cloud.Sleep 100
-                    let _ = counter.Incr()
                     return None
             }
 
             let cluster i = Array.init 4 (worker i) |> Cloud.Choice
             let! result = Array.init 5 cluster |> Cloud.Choice
             return result
-        } |> run |> Choice.shouldEqual (Some (0,0))
+        } |> run |> Choice.shouldEqual (Some (3,3))
 
-        counter.Value |> should be (lessThan 20)
 
     [<Test>]
     [<Repeat(repeats)>]
     member __.``2. Choice : nested exception cancellation`` () =
-        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
         cloud {
             let worker i j = cloud {
                 if i = 0 && j = 0 then
                     return invalidOp "failure"
                 else
-                    do! Cloud.Sleep 3000
-                    let _ = counter.Incr()
-                    return Some 42
+                    do! Cloud.Sleep 1000
+                    return None
             }
 
             let cluster i = Array.init 5 (worker i) |> Cloud.Choice
             return! Array.init 4 cluster |> Cloud.Choice
         } |> run |> Choice.shouldFailwith<_, InvalidOperationException>
 
-        counter.Value |> should be (lessThan 20)
-
     [<Test>]
     [<Repeat(repeats)>]
     member __.``2. Choice : simple cancellation`` () =
+        let mutex = Counter.Create(config, testContainer, 0) |> Async.RunSync
         let taskCount = Counter.Create(config, testContainer, 0) |> Async.RunSync
         runCts(fun cts ->
             cloud {
-                let worker i = cloud {
-                    if i = 0 then cts.Cancel()
+                let worker _ = cloud {
+                    if mutex.Incr() = 1 then cts.Cancel()
                     do! Cloud.Sleep 3000
                     let _ = taskCount.Incr()
                     return Some 42
@@ -391,6 +362,7 @@ type ``Azure Runtime Tests`` () =
             let counter = ref 0
             let seqWorker i = cloud {
                 if i = 16 then
+                    do! Cloud.Sleep 100
                     return Some i
                 else
                     let _ = Interlocked.Increment counter

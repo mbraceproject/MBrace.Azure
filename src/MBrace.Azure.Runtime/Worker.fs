@@ -32,13 +32,13 @@ let initWorker (runtime : RuntimeState)
 
     let rec loop () = async {
         if !currentTaskCount >= maxConcurrentTasks then
-            do! Async.Sleep 500
+            do! Async.Sleep 100
             return! loop ()
         else
             try
                 let! task = runtime.TryDequeue()
                 match task with
-                | None -> do! Async.Sleep 500
+                | None -> do! Async.Sleep 100
                 | Some (msg, task, procId, dependencies) ->
                     let count = Interlocked.Increment currentTaskCount
                     do! wmon.SetCurrentTaskCount(count)
