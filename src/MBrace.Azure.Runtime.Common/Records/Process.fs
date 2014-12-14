@@ -90,3 +90,13 @@ type ProcessMonitor private (config, table : string) =
     member this.GetProcesses () = async {
         return! Table.queryPK<ProcessRecord> config table pk
     }
+
+    member this.ClearProcessStorage (pid : string) = async {
+        let container = Storage.processIdToStorageId pid
+        let provider = ConfigurationRegistry.Resolve<ClientProvider>(config)
+        let tableRef = provider.TableClient.GetTableReference(container)
+        do! tableRef.DeleteIfExistsAsync()
+        let containerRef = provider.BlobClient.GetContainerReference(container)
+        do! containerRef.DeleteIfExistsAsync()
+        return ()
+    }

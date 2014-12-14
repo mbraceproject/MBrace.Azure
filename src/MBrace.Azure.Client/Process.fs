@@ -54,6 +54,11 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
 
     member __.ShowInfo () = printf "%s" <| ProcessReporter.Report([proc.Value], "Process", false)
 
+    /// Deletes process created blob storage containers and tables.
+    member __.ClearProcessResources () = 
+        if not __.Completed then invalidOp "Process is not completed."
+        pmon.ClearProcessStorage(pid)
+
 [<AutoSerializable(false)>]
 type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) = 
     inherit Process(config, pid, typeof<'T>, pmon) 
@@ -65,7 +70,6 @@ type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) =
             let! r = rc.AwaitResult()
             return r.Value :> obj
         }
-
 
     member __.AwaitResult() : 'T = __.AwaitResultAsync() |> Async.RunSync
     member __.AwaitResultAsync() : Async<'T> = 

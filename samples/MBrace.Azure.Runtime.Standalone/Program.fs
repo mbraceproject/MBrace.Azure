@@ -12,10 +12,8 @@
             let ps = Process.GetCurrentProcess()
             let cfg = Argument.toConfiguration args
             let config = cfg.Configuration
-            let store = new BlobStore(config.StorageConnectionString);
-            let storeconfig = { FileStore = store ; DefaultDirectory = "mbracestore" }
 
-            let svc = new Service(config, storeconfig)
+            let svc = new Service(config)
             svc.MaxConcurrentTasks <- cfg.MaxTasks
             Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
 

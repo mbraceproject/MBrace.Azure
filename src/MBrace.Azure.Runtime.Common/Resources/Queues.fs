@@ -17,7 +17,7 @@ module private Constants =
     //let SubscriptionRenewInterval = TimeSpan.FromSeconds(30.)
 
 type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) = 
-    let completed = ref false
+    let mutable completed = false
     let affinity = 
         match msg.Properties.TryGetValue(AffinityPropertyName) with
         | false, _ -> None
@@ -33,20 +33,20 @@ type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) =
     
     member __.CompleteAsync() = 
         async { 
-            completed := true
+            completed <- true
             do! msg.CompleteAsync()
         }
     
     member __.AbandonAsync() = 
         async { 
-            completed := true
+            completed <- true
             do! msg.AbandonAsync()
         }
     
     member __.RenewLoopAsync() = 
         let rec loop() = 
             async { 
-                if !completed then return ()
+                if completed then return ()
                 else 
                     do! msg.RenewLockAsync()
                     do! Async.Sleep RenewLockInverval

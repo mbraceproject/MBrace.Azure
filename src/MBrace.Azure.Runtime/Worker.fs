@@ -17,8 +17,11 @@ open Nessos.MBrace.Store
 /// <param name="runtime">Runtime to subscribe to.</param>
 /// <param name="maxConcurrentTasks">Maximum tasks to be executed concurrently by worker.</param>
 let initWorker (runtime : RuntimeState) 
+               (maxConcurrentTasks : int)
                (resources : ResourceRegistry)
-               (maxConcurrentTasks : int) : Async<unit> = async {
+               (store : ICloudFileStore)
+               (channel : ICloudChannelProvider)
+               (atom : ICloudAtomProvider) : Async<unit> = async {
 
     let pmon = resources.Resolve<ProcessMonitor>()
     let wmon = resources.Resolve<WorkerMonitor>()
@@ -27,6 +30,14 @@ let initWorker (runtime : RuntimeState)
     let currentTaskCount = ref 0
     let runTask procId deps faultCount t =
         let provider = RuntimeProvider.FromTask runtime wmon procId deps t
+        // TODO : Make procId -> ProcessInfo
+        let container = Storage.processIdToStorageId procId
+        let resources = resource { 
+            yield! resources
+            yield { FileStore = store; DefaultDirectory = container }
+            yield { AtomProvider = atom; DefaultContainer = container }
+            yield { ChannelProvider = channel; DefaultContainer = container }
+        }
         Task.RunAsync provider resources deps faultCount t
     let inline logf fmt = Printf.ksprintf logger.Log fmt
 
@@ -49,7 +60,7 @@ let initWorker (runtime : RuntimeState)
 
                         logf "Starting task %s" (string task)
                         do! wmon.IncreaseTotalTaskCount()
-                        let! renew = Async.StartChild(msg.RenewLoopAsync())
+                        let! _ = Async.StartChild(msg.RenewLoopAsync())
 
                         let sw = new Stopwatch()
                         sw.Start()

@@ -12,23 +12,33 @@ open Nessos.MBrace.Continuation
 open Nessos.MBrace.Store
 open Nessos.MBrace.Azure.Runtime.Resources
 open System.Diagnostics
+open Nessos.MBrace.Azure.Store
 
 /// MBrace Runtime Service.
-type Service (config : Configuration, storeConfig : CloudFileStoreConfiguration, serviceId : string) =
-
+type Service (config : Configuration, serviceId : string) =
+    // TODO : Add locks
+    let mutable running = false
+    let mutable storeProvider   = None
+    let mutable channelProvider = None
+    let mutable atomProvider    = None
+    let mutable resources = ResourceRegistry.Empty
     let logger = new NullLogger() :> ILogger
     let logf fmt = Printf.ksprintf logger.Log fmt
+    let check () = if running then failwith "Service is active"
     
     /// MBrace Runtime Service.
-    new(config : Configuration, store : CloudFileStoreConfiguration) = new Service (config, store, guid())
+    new(config : Configuration) = new Service (config, guid())
 
     member __.Configuration = config
     member __.Id = serviceId
-    member __.AttachLogger(l) = logger.Attach(l)
+    member __.AttachLogger(l) = check(); logger.Attach(l)
     
     member val MaxConcurrentTasks = Environment.ProcessorCount with get, set
     
-    member __.CloudFileStoreConfiguration = storeConfig
+    member __.RegisterStoreProvider(store : ICloudFileStore) =  check () ; storeProvider <- Some store
+    member __.RegisterAtomProvider(atom : ICloudAtomProvider) = check () ; atomProvider <- Some atom
+    member __.RegisterChannelProvider(channel : ICloudChannelProvider) = check () ; channelProvider <- Some channel
+    member __.RegisterResource(resource : 'TResource) = check () ; resources <- resources.Register(resource)
     
     member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
     member __.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(__.StartAsync(), cancellationToken = ct) :> _     
@@ -52,14 +62,14 @@ type Service (config : Configuration, storeConfig : CloudFileStoreConfiguration,
                 logf "Initializing RuntimeState"
                 let! stateHandle = Async.StartChild(RuntimeState.FromConfiguration(config))
 
+                storeProvider <- Some(defaultArg storeProvider (BlobStore(config.StorageConnectionString) :> _))
+                logf "CloudFileStore : %s" storeProvider.Value.Id
 
-                let atomConfig = { AtomProvider = AtomProvider.Create(config.ConfigurationId); DefaultContainer = config.DefaultTableOrContainer }
-                logf "AtomProvider : %s" atomConfig.AtomProvider.Id
+                atomProvider <- Some(defaultArg atomProvider (AtomProvider.Create(config.ConfigurationId)))
+                logf "AtomProvider : %s" atomProvider.Value.Id
 
-                let channelConfig = { ChannelProvider = ChannelProvider.Create(config.ConfigurationId); DefaultContainer = String.Empty }
-                logf "ChannelProvider : %s" channelConfig.ChannelProvider.Id
-
-                logf "CloudFileStore : %s" storeConfig.FileStore.Id
+                channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ConfigurationId)))
+                logf "ChannelProvider : %s" channelProvider.Value.Id
 
                 let wmon = WorkerMonitor.Create(config)
                 let! e = wmon.DeclareCurrent(serviceId)
@@ -71,16 +81,7 @@ type Service (config : Configuration, storeConfig : CloudFileStoreConfiguration,
                 let pmon = ProcessMonitor.Create(config)
                 logf "ProcessMonitor created"
 
-                let resources = 
-                    resource { 
-                        yield serializer
-                        yield storeConfig
-                        yield atomConfig
-                        yield channelConfig
-                        yield logger
-                        yield wmon
-                        yield pmon
-                    }
+                let resources = resource { yield! resources; yield serializer; yield logger; yield wmon; yield pmon }
 
                 let! state = stateHandle
                 state.TaskQueue.Affinity <- serviceId
@@ -88,7 +89,9 @@ type Service (config : Configuration, storeConfig : CloudFileStoreConfiguration,
 
                 logf "Starting worker loop"
                 logf "MaxConcurrentTasks : %d" __.MaxConcurrentTasks
-                let! handle = Async.StartChild(Worker.initWorker state resources __.MaxConcurrentTasks)
+                let! handle = 
+                    Worker.initWorker state __.MaxConcurrentTasks resources storeProvider.Value channelProvider.Value atomProvider.Value 
+                    |> Async.StartChild
                 logf "Worker loop started"
                 
                 sw.Stop()

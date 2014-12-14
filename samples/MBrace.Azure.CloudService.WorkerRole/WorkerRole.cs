@@ -35,11 +35,8 @@ namespace Nessos.MBrace.Azure.CloudService.WorkerRole
             var config = Configuration.Default
                             .WithStorageConnectionString("")
                             .WithServiceBusConnectionString("");
-            
-            var blobStore = new BlobStore(config.StorageConnectionString);
-            var storeConfig = new CloudFileStoreConfiguration(blobStore, defaultDirectory : "mbracestore");
-            
-            _svc = new Service(config, storeConfig : storeConfig, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
+
+            _svc = new Service(config, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
             _svc.AttachLogger(new CustomLogger(s => Trace.WriteLine(s)));
             
             return result;
