@@ -54,14 +54,21 @@ type ``Azure Runtime Tests`` () =
     let testContainer = "tests"
     let mutable runtime : Runtime option = None
     let mutable config : ConfigurationId = Unchecked.defaultof<_>
-    
-    let run (workflow : Cloud<'T>) = Option.get(runtime).RunAsync(workflow) |> Async.Catch |> Async.RunSync
+    let processes = new ResizeArray<Process>()
+
+    let run (workflow : Cloud<'T>) = 
+        let ps = Option.get(runtime).CreateProcess(workflow) 
+        processes.Add(ps)
+        ps.AwaitResultAsync() |> Async.Catch |> Async.RunSync
+
     let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = Option.get runtime
             let! dcts = DistributedCancellationTokenSource.Create(config, testContainer) 
             let ct = dcts.GetLocalCancellationToken()
-            return! runtime.RunAsync(workflow dcts, cancellationToken = ct) |> Async.Catch
+            let ps = runtime.CreateProcess(workflow dcts, cancellationToken = ct) 
+            processes.Add(ps)
+            return! ps.AwaitResultAsync() |> Async.Catch 
         } |> Async.RunSync
     
     [<TestFixtureSetUp>]
@@ -83,6 +90,10 @@ type ``Azure Runtime Tests`` () =
 
     [<TestFixtureTearDown>]
     member __.Fini () =
+        [for p in processes -> p.ClearProcessResources() ]
+        |> Async.Parallel
+        |> Async.Ignore
+        |> Async.RunSync
         runtime <- None
 
 

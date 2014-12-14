@@ -48,5 +48,6 @@ let rec wf i max =
             cloud { return! wf (i+1) max }
         |]             
 
-let ps = runtime.CreateProcess (wf 0 5)
+let ps = runtime.CreateProcess (wf 0 3)
 ps.AwaitResult()
+ps.ClearProcessResources()
