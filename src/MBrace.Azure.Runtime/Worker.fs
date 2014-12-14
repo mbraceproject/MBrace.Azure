@@ -40,8 +40,8 @@ let initWorker (runtime : RuntimeState)
                 match task with
                 | None -> do! Async.Sleep 100
                 | Some (msg, task, procId, dependencies) ->
-                    let count = Interlocked.Increment currentTaskCount
-                    do! wmon.SetCurrentTaskCount(count)
+                    let _ = Interlocked.Increment currentTaskCount
+                    do! wmon.IncreaseCurrentTaskCount()
                     let runTask () = async {
                         if task.TaskType = TaskType.Root then
                             logf "Running root task for process %s" task.ProcessId
@@ -64,12 +64,12 @@ let initWorker (runtime : RuntimeState)
                             do! msg.AbandonAsync()
                             logf "Task fault %s with:\n%O" (string task) e
                         do! wmon.IncreaseCompletedTaskCount()
-                        let count = Interlocked.Decrement currentTaskCount
-                        do! wmon.SetCurrentTaskCount(count)
+                        let _ = Interlocked.Decrement currentTaskCount
+                        do! wmon.DecreaseCurrentTaskCount()
                         do! Async.Sleep 200
                     }
         
-                    let! handle = Async.StartChild(runTask())
+                    let! _ = Async.StartChild(runTask())
                     ()
             with e -> 
                 logf "WORKER FAULT: %A" e

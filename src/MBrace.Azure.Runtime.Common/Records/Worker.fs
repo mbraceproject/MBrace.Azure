@@ -2,11 +2,8 @@
 
 open System
 open Microsoft.WindowsAzure.Storage.Table
-open Microsoft.ServiceBus
-open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime
 open System.Net
-open Nessos.MBrace
 
 type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset) =    
     interface Nessos.MBrace.IWorkerRef with
@@ -70,6 +67,7 @@ type WorkerMonitor private (config, table : string) =
                 let joined = DateTimeOffset.UtcNow
                 let w = new WorkerRecord(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined)
                 w.UpdateCounters(perfMon.Value.GetCounters())
+                w.ActiveTasks <- Nullable<_> 0
                 do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
                 current := Some w
                 return w.AsWorkerRef()
@@ -89,9 +87,15 @@ type WorkerMonitor private (config, table : string) =
 
     member __.Current = current.Value.Value
 
-    member __.SetCurrentTaskCount (count : int) = async {
+    member __.IncreaseCurrentTaskCount () = async {
         return! Table.transact<WorkerRecord> config table pk __.Current.RowKey 
-                    (fun e -> e.ActiveTasks <- Nullable<_> count)
+                    (fun e -> e.ActiveTasks <- inc e.ActiveTasks)
+                |> Async.Ignore
+    }
+
+    member __.DecreaseCurrentTaskCount () = async {
+        return! Table.transact<WorkerRecord> config table pk __.Current.RowKey 
+                    (fun e -> e.ActiveTasks <- dec e.ActiveTasks)
                 |> Async.Ignore
     }
 
