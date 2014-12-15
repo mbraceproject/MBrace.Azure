@@ -2,6 +2,7 @@
 
 open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace
+open Nessos.MBrace.Continuation
 open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open Nessos.MBrace.Store
@@ -11,10 +12,11 @@ open System.Runtime.Serialization
 
 // Implementation of Channels over ServiceBus Queues.
 // TODO : Revise Channel semantics.
+// TODO : Channels are broken, use queue sessions.
 
 type SendPort<'T> internal (queueName, config : ConfigurationId) =
     
-    let queueClient = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(queueName)
+    let queueClient = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(queueName, ReceiveMode.ReceiveAndDelete)
 
     interface ISendPort<'T> with
 
@@ -37,7 +39,7 @@ type SendPort<'T> internal (queueName, config : ConfigurationId) =
         new SendPort<'T>(queueName, config)
 
 type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
-    let queueClient = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(queueName)
+    let queueClient = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(queueName, ReceiveMode.ReceiveAndDelete)
 
     interface IReceivePort<'T> with
 
@@ -48,21 +50,25 @@ type ReceivePort<'T> internal (queueName, config : ConfigurationId) =
 
         member __.Receive(?timeout : int) : Async<'T> =
             async {
-                let timeout = 
+                let! msg =
                     match timeout with 
-                    | Some timeout -> TimeSpan.FromMilliseconds(float timeout)
-                    | None -> TimeSpan.MaxValue
+                    | Some timeout -> 
+                        async {
+                            let timeout = TimeSpan.FromMilliseconds(float timeout)
+                            let! msg = queueClient.ReceiveAsync(timeout)
+                            if msg <> null then return msg
+                            else return! Async.Raise(TimeoutException())
+                        }
+                    | None -> 
+                        let rec aux _ = async {
+                            let! msg = queueClient.ReceiveAsync()
+                            if msg <> null then return msg
+                            else return! aux ()
+                        }
+                        aux ()
 
-                let! (msg : BrokeredMessage) = queueClient.ReceiveAsync(timeout)
-
-                if msg <> null then 
-                    try
-                        use stream = msg.GetBody<Stream>()
-                        return Configuration.Pickler.Deserialize<'T>(stream)
-                    finally
-                        msg.Complete()
-                else
-                    return raise <| TimeoutException()
+                use stream = msg.GetBody<Stream>()
+                return Configuration.Pickler.Deserialize<'T>(stream)
             }
 
 
@@ -93,7 +99,7 @@ type ChannelProvider private (config : ConfigurationId) =
 
         member __.CreateChannel<'T> (_ : string) =
             async {
-                let queueName = guid()
+                let queueName = sprintf "channel_%s" <| guid()
                 let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
                 let qd = new QueueDescription(queueName)
                 qd.EnablePartitioning <- true

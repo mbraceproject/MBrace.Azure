@@ -151,7 +151,7 @@ type internal Topic (config, topic) =
 
 /// Queue implementation.
 type internal Queue (config : ConfigurationId, res : Uri) = 
-    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Queue)
+    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Queue, ReceiveMode.PeekLock)
     let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
     
     member __.Path = queue.Path

@@ -90,7 +90,7 @@ type ``Azure Runtime Tests`` () =
 
     [<TestFixtureTearDown>]
     member __.Fini () =
-        [for p in processes -> p.ClearProcessResources() ]
+        [for p in processes -> p.ClearProcessResourcesAsync() ]
         |> Async.Parallel
         |> Async.Ignore
         |> Async.RunSync

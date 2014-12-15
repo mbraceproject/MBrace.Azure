@@ -49,5 +49,23 @@ let rec wf i max =
         |]
 
 let ps = runtime.CreateProcess (wf 0 2)
-ps.AwaitResult()
+ps.AwaitResult() 
 ps.ClearProcessResources()
+
+
+let sp, rp = runtime.Run()
+
+let ps = 
+    runtime.CreateProcess(
+        cloud {
+            while true do
+                let! msg = CloudChannel.Receive(rp)
+                printfn "%d" msg
+        })
+
+async {for i = 0 to 20 do do! sp.Send(i) } |> Async.RunSynchronously
+
+rp.Receive() |> Async.RunSynchronously
+
+
+

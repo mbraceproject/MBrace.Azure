@@ -83,7 +83,7 @@ type internal ClientProvider (config : Configuration) =
     member __.TableClient = acc.CreateCloudTableClient()
     member __.BlobClient = acc.CreateCloudBlobClient()
     member __.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
-    member __.QueueClient(queue : string) = QueueClient.CreateFromConnectionString(config.ServiceBusConnectionString, queue)
+    member __.QueueClient(queue : string, mode) = QueueClient.CreateFromConnectionString(config.ServiceBusConnectionString, queue, mode)
     member __.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic, name)
     member __.TopicClient(topic) = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic)
 
