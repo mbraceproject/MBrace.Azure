@@ -4,6 +4,7 @@ open System
 open Microsoft.WindowsAzure.Storage.Table
 open Nessos.MBrace.Azure.Runtime
 open System.Net
+open System.Threading
 
 type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset) =    
     interface Nessos.MBrace.IWorkerRef with
@@ -51,8 +52,10 @@ type WorkerMonitor private (config, table : string) =
 
     let current = ref None
     let perfMon = lazy new PerformanceMonitor()
-    let inc (x : Nullable<int>) = Nullable<_>(if x.HasValue then x.Value + 1 else 1)
-    let dec (x : Nullable<int>) = Nullable<_>(if x.HasValue then x.Value - 1 else -1)
+
+    let mutable totalTasks = 0
+    let mutable completedTasks = 0
+    let mutable activeTasks = 0
 
     static member Create(config : Configuration) = new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer)
 
@@ -73,6 +76,38 @@ type WorkerMonitor private (config, table : string) =
                 return w.AsWorkerRef()
         }
 
+    member __.Current = current.Value.Value
+
+    member __.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
+        let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
+        let worker = __.Current
+        let rec loop () = async {
+            let counters = perfMon.Value.GetCounters()
+            worker.UpdateCounters(counters)
+            worker.ActiveTasks <- Nullable<_> activeTasks
+            worker.CompletedTasks <- Nullable<_> completedTasks
+            worker.TotalTasks <- Nullable<_> totalTasks
+            worker.ETag <- "*"
+            let! e = Table.merge<WorkerRecord> config table worker
+            current := Some e
+            do! Async.Sleep (int ts.TotalMilliseconds)
+            return! loop ()
+        }
+        return! loop ()
+    }
+
+    member __.ActiveTasks = activeTasks
+    member __.CompletedTasks = completedTasks
+    member __.TotalTasks = totalTasks
+
+    member __.IncrementTaskCount () = 
+        Interlocked.Increment(&activeTasks) |> ignore
+        Interlocked.Increment(&totalTasks)  |> ignore
+
+    member __.DecrementTaskCount () = 
+        Interlocked.Decrement(&activeTasks) |> ignore
+        Interlocked.Increment(&completedTasks) |> ignore
+
     member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerRecord seq> = async {
         let timespan = defaultArg timespan <| TimeSpan.FromMinutes 5.
         let! ws = Table.queryPK<WorkerRecord> config table pk
@@ -84,45 +119,4 @@ type WorkerMonitor private (config, table : string) =
             let! wr = __.GetWorkers(?timespan = timespan)
             return wr |> Seq.map (fun w -> w.AsWorkerRef())
         }
-
-    member __.Current = current.Value.Value
-
-    member __.IncreaseCurrentTaskCount () = async {
-        return! Table.transact<WorkerRecord> config table pk __.Current.RowKey 
-                    (fun e -> e.ActiveTasks <- inc e.ActiveTasks)
-                |> Async.Ignore
-    }
-
-    member __.DecreaseCurrentTaskCount () = async {
-        return! Table.transact<WorkerRecord> config table pk __.Current.RowKey 
-                    (fun e -> e.ActiveTasks <- dec e.ActiveTasks)
-                |> Async.Ignore
-    }
-
-    member __.IncreaseTotalTaskCount () = async {
-        return! Table.transact<WorkerRecord> config table pk __.Current.RowKey 
-                    (fun e -> e.TotalTasks <- inc e.TotalTasks)
-                |> Async.Ignore
-    }
-
-    member __.IncreaseCompletedTaskCount () = async {
-        return! Table.transact<WorkerRecord> config table pk __.Current.RowKey 
-                    (fun e -> e.CompletedTasks <- inc e.CompletedTasks)
-                |> Async.Ignore
-    }
-
-    member __.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
-        let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
-        let worker = __.Current
-        let rec loop () = async {
-            let counters = perfMon.Value.GetCounters()
-            worker.UpdateCounters(counters)
-            worker.ETag <- "*"
-            let! e = Table.merge<WorkerRecord> config table worker
-            current := Some e
-            do! Async.Sleep (int ts.TotalMilliseconds)
-            return! loop ()
-        }
-        return! loop ()
-    }
 

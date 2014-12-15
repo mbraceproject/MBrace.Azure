@@ -27,7 +27,6 @@ let initWorker (runtime : RuntimeState)
     let wmon = resources.Resolve<WorkerMonitor>()
     let logger = resources.Resolve<ILogger>()
 
-    let currentTaskCount = ref 0
     let runTask procId deps faultCount t =
         let provider = RuntimeProvider.FromTask runtime wmon procId deps t
         // TODO : Make procId -> ProcessInfo
@@ -42,7 +41,7 @@ let initWorker (runtime : RuntimeState)
     let inline logf fmt = Printf.ksprintf logger.Log fmt
 
     let rec loop () = async {
-        if !currentTaskCount >= maxConcurrentTasks then
+        if wmon.ActiveTasks >= maxConcurrentTasks then
             do! Async.Sleep 100
             return! loop ()
         else
@@ -51,15 +50,13 @@ let initWorker (runtime : RuntimeState)
                 match task with
                 | None -> do! Async.Sleep 100
                 | Some (msg, task, procId, dependencies) ->
-                    let _ = Interlocked.Increment currentTaskCount
-                    do! wmon.IncreaseCurrentTaskCount()
+                    wmon.IncrementTaskCount()
                     let runTask () = async {
                         if task.TaskType = TaskType.Root then
                             logf "Running root task for process %s" task.ProcessId
                             do! pmon.SetRunning(task.ProcessId)
 
                         logf "Starting task %s" (string task)
-                        do! wmon.IncreaseTotalTaskCount()
                         let! _ = Async.StartChild(msg.RenewLoopAsync())
 
                         let sw = new Stopwatch()
@@ -74,9 +71,7 @@ let initWorker (runtime : RuntimeState)
                         | Choice2Of2 e -> 
                             do! msg.AbandonAsync()
                             logf "Task fault %s with:\n%O" (string task) e
-                        do! wmon.IncreaseCompletedTaskCount()
-                        let _ = Interlocked.Decrement currentTaskCount
-                        do! wmon.DecreaseCurrentTaskCount()
+                        wmon.DecrementTaskCount()
                         do! Async.Sleep 200
                     }
         
