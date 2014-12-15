@@ -52,3 +52,50 @@ let ps = runtime.CreateProcess (wf 0 2)
 ps.AwaitResult() 
 ps.ClearProcessResources()
 
+
+
+
+
+
+
+
+
+
+
+[<AutoOpen>]
+module FaultPolicyExtensions =
+    type FaultPolicyBuilder (debug, fp : FaultPolicy) =
+        inherit CloudBuilder()
+
+        member __.Run(wf : Cloud<'T>) = 
+            cloud {
+                let! handle = cloud { printfn "%s" debug
+                                      return! wf }
+                              |> Cloud.StartChild
+                              |> Cloud.WithFaultPolicy fp
+                return! handle
+            }
+
+    let exactlyOnce = new FaultPolicyBuilder("exactlyOnce", FaultPolicy.NoRetry) //:> CloudBuilder
+    let retry n = new FaultPolicyBuilder("retry n", FaultPolicy.Retry(n)) //:> CloudBuilder
+    let infinite = new FaultPolicyBuilder("infinite", FaultPolicy.InfiniteRetry()) //:> CloudBuilder
+
+let wf = exactlyOnce {
+    let! x = infinite { 
+                do! Cloud.Sleep 10000 
+                return 42
+            }
+    let! z = retry 3 {
+                do! Cloud.Sleep 10000
+                return 44
+            }
+    let! y = exactlyOnce { 
+                do! Cloud.Sleep 10000
+                return 43 
+            }
+    return x, z, y
+}
+
+
+let ps = runtime.CreateProcess(wf, faultPolicy = FaultPolicy.NoRetry)
+ps.AwaitResult()
