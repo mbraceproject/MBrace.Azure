@@ -57,11 +57,6 @@ ps.ClearProcessResources()
 
 
 
-
-
-
-
-
 [<AutoOpen>]
 module FaultPolicyExtensions =
     type FaultPolicyBuilder (debug, fp : FaultPolicy) =
@@ -95,6 +90,8 @@ let wf = exactlyOnce {
             }
     return x, z, y
 }
+
+
 
 
 let ps = runtime.CreateProcess(wf, faultPolicy = FaultPolicy.NoRetry)

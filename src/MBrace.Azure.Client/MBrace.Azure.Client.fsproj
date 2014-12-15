@@ -73,6 +73,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Reporting.fs" />
     <Compile Include="Process.fs" />
+    <Compile Include="StoreClient.fs" />
     <Compile Include="Client.fs" />
     <Content Include="app.config" />
     <Content Include="packages.config" />
@@ -81,6 +82,9 @@
     <Reference Include="FsPickler">
       <HintPath>..\..\packages\FsPickler.1.0.6\lib\net45\FsPickler.dll</HintPath>
       <Private>True</Private>
+    </Reference>
+    <Reference Include="MBrace.Azure.Store">
+      <HintPath>..\..\lib\MBrace.Azure.Store.dll</HintPath>
     </Reference>
     <Reference Include="MBrace.Core">
       <HintPath>..\..\lib\MBrace.Core.dll</HintPath>

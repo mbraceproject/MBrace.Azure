@@ -24,9 +24,12 @@
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         let wmon = WorkerMonitor.Create(config)
         let pmon = ProcessMonitor.Create(config)
+        let storeClient = StoreClient.Create(config)
         do logger.Logf "Client %s created" clientId
 
         member private __.RuntimeState = state
+
+        member __.StoreClient with get () = storeClient
 
         /// Instance identifier.
         member __.ClientId = clientId
