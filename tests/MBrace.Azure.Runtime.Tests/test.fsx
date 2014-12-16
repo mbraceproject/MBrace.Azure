@@ -53,8 +53,13 @@ ps.AwaitResult()
 ps.ClearProcessResources()
 
 
+let sc = StoreClient.Create(config)
 
+let sp, rp = sc.CloudChannel.New<int>() |> Async.RunSync
 
+sp.Send(43) |> Async.RunSync
+
+rp.Receive() |> Async.RunSync
 
 
 [<AutoOpen>]

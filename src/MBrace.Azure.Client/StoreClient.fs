@@ -195,6 +195,7 @@ type CloudFileStore internal (registry : ResourceRegistry) =
 /// Provides methods for interacting with cloud storage.
 [<Sealed; AutoSerializable(false)>]
 type StoreClient internal (config : Configuration) =
+    do Async.RunSynchronously(Configuration.Activate(config))
     let mutable storeProvider   = BlobStore(config.StorageConnectionString) :> ICloudFileStore
     let mutable atomProvider    = AtomProvider.Create(config.ConfigurationId)
     let mutable channelProvider = ChannelProvider.Create(config.ConfigurationId)
@@ -225,7 +226,7 @@ type StoreClient internal (config : Configuration) =
         and set(channel : ICloudChannelProvider) = channelProvider <- channel 
 
     member __.CloudAtom with get () = new CloudAtom(resources())
-    member __.CloudChannel with get () = new CloudAtom(resources())
+    member __.CloudChannel with get () = new CloudChannel(resources())
     member __.CloudFileStore with get () = new CloudFileStore(resources())
 
     static member Create(config : Configuration) = new StoreClient(config)
