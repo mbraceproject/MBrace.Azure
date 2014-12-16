@@ -79,7 +79,8 @@ type ProcessMonitor private (config, table : string) =
 
     member this.AddFaultedTask(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
-            (fun pr -> pr.FaultedTasks <- pr.FaultedTasks + 1)
+            (fun pr -> pr.FaultedTasks <- pr.FaultedTasks + 1
+                       pr.TotalTasks <- pr.TotalTasks + 1)
         |> Async.Ignore
 
     member this.AddCompletedTask(pid : string) = 
