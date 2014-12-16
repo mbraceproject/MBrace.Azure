@@ -50,15 +50,18 @@ let initWorker (runtime : RuntimeState)
                 match task with
                 | None -> do! Async.Sleep 100
                 | Some (msg, task, procId, dependencies) ->
-                    wmon.IncrementTaskCount()
                     let runTask () = async {
+                        let! _ = Async.StartChild(msg.RenewLoopAsync())
+
                         if task.TaskType = TaskType.Root then
                             logf "Running root task for process %s" task.ProcessId
                             do! pmon.SetRunning(task.ProcessId)
 
-                        logf "Starting task %s" (string task)
-                        let! _ = Async.StartChild(msg.RenewLoopAsync())
+                        if msg.DeliveryCount = 1 then
+                            do! pmon.AddActiveTask(task.ProcessId)
+                        wmon.IncrementTaskCount()
 
+                        logf "Starting task %s" (string task)
                         let sw = new Stopwatch()
                         sw.Start()
                         let! result = Async.Catch(runTask procId dependencies (msg.DeliveryCount-1) task)
@@ -67,9 +70,11 @@ let initWorker (runtime : RuntimeState)
                         match result with
                         | Choice1Of2 () -> 
                             do! msg.CompleteAsync()
+                            do! pmon.AddCompletedTask(task.ProcessId)
                             logf "Completed task %s in %O" (string task) sw.Elapsed
                         | Choice2Of2 e -> 
                             do! msg.AbandonAsync()
+                            do! pmon.AddFaultedTask(task.ProcessId)
                             logf "Task fault %s with:\n%O" (string task) e
                         wmon.DecrementTaskCount()
                         do! Async.Sleep 200

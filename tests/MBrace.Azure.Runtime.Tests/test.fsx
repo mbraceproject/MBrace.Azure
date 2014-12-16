@@ -41,14 +41,14 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
-let rec wf i max =
-    Cloud.Choice 
-        [|  cloud { return if i = max then Some 42 else None }
-            cloud { return! wf (i+1) max }
-            cloud { return! wf (i+1) max }
-        |]
+let rec wf i max = 
+    cloud { 
+        if i = max then return 42 
+        else return! wf (i + 1) max  <|> wf (i + 1) max
+    }
 
-let ps = runtime.CreateProcess (wf 0 2)
+let ps = runtime.CreateProcess(wf 0 3)
+ps.ShowInfo()
 ps.AwaitResult() 
 ps.ClearProcessResources()
 

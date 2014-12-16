@@ -30,14 +30,14 @@ type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) =
     member __.IsQueueMessage = isQueueMessage 
 
     member __.DeliveryCount = msg.DeliveryCount
-    
-    member __.CompleteAsync() = 
+
+    member this.CompleteAsync() = 
         async { 
             completed <- true
             do! msg.CompleteAsync()
         }
     
-    member __.AbandonAsync() = 
+    member this.AbandonAsync() = 
         async { 
             completed <- true
             do! msg.AbandonAsync()

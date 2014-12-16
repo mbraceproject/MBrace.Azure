@@ -139,9 +139,7 @@ with
 /// TaskQueue message type.
 type TaskItem = Pickle<Task> * string * AssemblyId list
 
-/// Defines a handle to the state of a runtime instance
-/// All information pertaining to the runtime execution state
-/// is contained in a single process -- the initializing client.
+/// Defines a handle to the state of a runtime instance.
 type RuntimeState =
     {
         /// Reference to the global task queue employed by the runtime
@@ -152,6 +150,8 @@ type RuntimeState =
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
+        /// Process monitoring.
+        ProcessMonitor : ProcessMonitor
     }
 with
     /// Initialize a new runtime state in the local process
@@ -159,7 +159,8 @@ with
         let! taskQueue = TaskQueue.Create(config.ConfigurationId, config.DefaultQueue, config.DefaultTopic)
         let assemblyManager = AssemblyManager.Create(config.ConfigurationId, config.DefaultTableOrContainer) 
         let resourceFactory = ResourceFactory.Create(config) 
-        return { TaskQueue = taskQueue; AssemblyManager = assemblyManager ; ResourceFactory = resourceFactory }
+        let pmon = ProcessMonitor.Create(config)
+        return { TaskQueue = taskQueue; AssemblyManager = assemblyManager ; ResourceFactory = resourceFactory ; ProcessMonitor = pmon }
     }
 
     /// <summary>
@@ -192,7 +193,10 @@ with
         
         let taskp = VagrantRegistry.Pickler.PickleTyped task
         let taskItem = (taskp, procId, dependencies)
-        rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
+        async {
+            do! rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
+            do! rt.ProcessMonitor.IncreaseTotalTasks(procId)
+        }
 
     /// <summary>
     ///     Enqueue a batch of cloud workflows with supplied continuations to the runtime task queue.
@@ -226,7 +230,10 @@ with
 
             let taskp = VagrantRegistry.Pickler.PickleTyped task
             tasks.[i] <- (taskp, procId, dependencies)
-        rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
+        async {
+            do! rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
+            do! rt.ProcessMonitor.IncreaseTotalTasks(procId, tasks.Length)
+        }
 
     /// <summary>
     ///     Schedules a cloud workflow as a distributed result cell.
@@ -259,17 +266,17 @@ with
     /// <param name="wf">Input workflow.</param>
     /// <param name="name">Process name.</param>
     /// <param name="procId">Process id.</param>
-    member rt.StartAsProcess(pmon : ProcessMonitor, procId, name, dependencies, cts, fp, wf : Cloud<'T>) = async {
+    member rt.StartAsProcess(procId, name, dependencies, cts, fp, wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
 
-        let! _ = pmon.CreateRecord( procId, name, typeof<'T>, dependencies,
+        let! _ = rt.ProcessMonitor
+                   .CreateRecord( procId, name, typeof<'T>, dependencies,
                                     string (cts :> IResource).Uri, 
                                     string (resultCell :> IResource).Uri)
 
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
-                // TODO : Replace with processCompletionWf?
                 let pmon = ctx.Resources.Resolve<ProcessMonitor>()
                 match r with
                 | Completed _ 
@@ -287,7 +294,6 @@ with
 
     /// Attempt to dequeue a task from the runtime task queue
     member rt.TryDequeue () = async {
-        // TODO : revise
         let! item = rt.TaskQueue.TryDequeue()
 
         match item with

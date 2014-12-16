@@ -81,9 +81,9 @@ type Service (config : Configuration, serviceId : string) =
                 let pmon = ProcessMonitor.Create(config)
                 logf "ProcessMonitor created"
 
-                let resources = resource { yield! resources; yield serializer; yield logger; yield wmon; yield pmon }
 
                 let! state = stateHandle
+                let resources = resource { yield! resources; yield serializer; yield logger; yield wmon; yield state.ProcessMonitor }
                 state.TaskQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 

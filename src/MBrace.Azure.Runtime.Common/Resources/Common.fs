@@ -107,6 +107,7 @@ type FatEntity (pk, rk, binary) =
 module Table =
     let PreconditionFailed (e : exn) =
         match e with
+        | :? StorageException as e -> e.RequestInformation.HttpStatusCode = 412 
         | :? AggregateException as e ->
             let e = e.InnerException
             e :? StorageException && (e :?> StorageException).RequestInformation.HttpStatusCode = 412 

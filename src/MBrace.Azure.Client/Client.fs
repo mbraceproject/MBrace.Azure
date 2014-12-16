@@ -23,8 +23,8 @@
         let state = Async.RunSync(RuntimeState.FromConfiguration(config))
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         let wmon = WorkerMonitor.Create(config)
-        let pmon = ProcessMonitor.Create(config)
         let storeClient = StoreClient.Create(config)
+        let pmon = state.ProcessMonitor
         do logger.Logf "Client %s created" clientId
 
         member private __.RuntimeState = state
@@ -54,13 +54,15 @@
                 let pname = defaultArg name computation.Name
                 logger.Logf "Creating process %s %s" processId pname
                 let storageId = Storage.processIdToStorageId processId
-                logger.Logf "Uploading dependencies %O" computation.Dependencies
+                logger.Logf "Uploading dependencies" 
+                for d in computation.Dependencies do
+                    logger.Logf "%s" d.FullName
                 do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
                 logger.Logf "Creating DistributedCancellationToken"
                 let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
                 logger.Logf "Starting process %s" processId
-                let! resultCell = state.StartAsProcess(pmon, processId, pname, computation.Dependencies, cts, faultPolicy, computation.Workflow)
+                let! resultCell = state.StartAsProcess(processId, pname, computation.Dependencies, cts, faultPolicy, computation.Workflow)
                 logger.Logf "Created process %s" processId
                 return Process<'T>(config.ConfigurationId, processId, pmon)
             }

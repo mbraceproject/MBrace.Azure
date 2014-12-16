@@ -15,30 +15,41 @@ open Nessos.Vagrant
 type ProcessState = 
     | Posted
     | Running
-    | Killed
     | Completed
+    | Cancelling
+    | Killed
     override this.ToString() = 
         match this with
         | Posted -> "Posted"
         | Running -> "Running"
         | Killed -> "Killed"
+        | Cancelling -> "Cancelling"
         | Completed -> "Completed"
 
 type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, typeName, deps) = 
     inherit TableEntity(pk, pid)
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
+
     member val State : string = state with get, set
     member val InitializationTime : DateTimeOffset = createdt with get, set
     member val CompletionTime : DateTimeOffset = completedt with get, set
     member val Completed : bool = completed with get, set
+    
     member val ResultUri : string = resultUri with get, set
     member val CancellationUri : string = cancellationUri with get, set
+    
+    member val TotalTasks = 0 with get, set
+    member val ActiveTasks = 0 with get, set
+    member val CompletedTasks = 0 with get, set
+    member val FaultedTasks = 0 with get, set
+
     member val TypeName : string = typeName with get, set
     member val Type : byte [] = ty with get, set
     member val Dependencies : byte [] = deps with get, set
     member __.UnpickleType () = Configuration.Pickler.UnPickle<Type> __.Type
     member __.UnpickleDependencies () = Configuration.Pickler.UnPickle<AssemblyId list> __.Dependencies
+    
     new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null, null)
 
 type ProcessMonitor private (config, table : string) = 
@@ -56,12 +67,34 @@ type ProcessMonitor private (config, table : string) =
         return e
     }
 
+    // TODO : These methods cannot be used atomically
+    member this.IncreaseTotalTasks(pid : string, ?count) = 
+        let count = defaultArg count 1
+        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.TotalTasks <- pr.TotalTasks + count)
+        |> Async.Ignore
+
+    member this.AddActiveTask(pid : string) = 
+        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.ActiveTasks <- pr.ActiveTasks + 1)
+        |> Async.Ignore
+
+    member this.AddFaultedTask(pid : string) = 
+        Table.transact<ProcessRecord> config table pk pid 
+            (fun pr -> pr.FaultedTasks <- pr.FaultedTasks + 1)
+        |> Async.Ignore
+
+    member this.AddCompletedTask(pid : string) = 
+        Table.transact<ProcessRecord> config table pk pid 
+            (fun pr -> 
+                pr.ActiveTasks <- pr.ActiveTasks - 1
+                pr.CompletedTasks <- pr.CompletedTasks + 1)
+        |> Async.Ignore
+
     member this.SetRunning(pid : string) = async {
         let! e = Table.read<ProcessRecord> config table pk pid
         if e.State = string ProcessState.Posted then
             e.State <- string ProcessState.Running
             e.InitializationTime <- DateTimeOffset.Now
-            let! e' = Table.merge config table e
+            let! e' = Table.replace config table e
             return ()
     }
 
@@ -70,7 +103,14 @@ type ProcessMonitor private (config, table : string) =
         e.State <- string ProcessState.Killed
         e.CompletionTime <- DateTimeOffset.Now
         e.Completed <- true
-        let! e' = Table.merge config table e
+        let! e' = Table.replace config table e
+        return ()
+    }
+
+    member this.SetCancelling(pid : string) = async {
+        let! e = Table.read<ProcessRecord> config table pk pid
+        e.State <- string ProcessState.Cancelling
+        let! e' = Table.replace config table e
         return ()
     }
 
@@ -79,7 +119,7 @@ type ProcessMonitor private (config, table : string) =
         e.State <- string ProcessState.Completed
         e.CompletionTime <- DateTimeOffset.UtcNow
         e.Completed <- true
-        let! e' = Table.merge config table e
+        let! e' = Table.replace config table e
         return ()
     }
 

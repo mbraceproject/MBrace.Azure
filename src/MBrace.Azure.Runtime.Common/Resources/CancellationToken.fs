@@ -18,7 +18,7 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
                 |> Async.Parallel
                 |> Async.Ignore
             let e = new CancellationTokenSourceEntity(pk, IsCancellationRequested = true, ETag = "*")
-            let! u = Table.replace config res.Table e
+            let! u = Table.merge config res.Table e
             return ()
         }
 
@@ -35,7 +35,8 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     
     member __.IsCancellationRequested = check() |> Async.RunSync
     
-    member __.Cancel() = cancel res.Table res.PartitionWithScheme |> Async.RunSync
+    member __.Cancel() = Async.RunSync(__.CancelAsync())
+    member __.CancelAsync() = cancel res.Table res.PartitionWithScheme
     
     member __.GetLocalCancellationToken() = 
         let rec loop () = async {

@@ -12,24 +12,25 @@ type internal ProcessReporter() =
           Field.create "Process Id" Right (fun p -> p.Id)
           Field.create "State" Right (fun p -> p.State)
           Field.create "Completed" Left (fun p -> p.Completed)
-          Field.create "Start Time" Left (fun p -> p.InitializationTime)
           Field.create "Execution Time" Left (fun p -> if p.Completed then p.CompletionTime - p.InitializationTime  else DateTimeOffset.UtcNow - p.InitializationTime)
-          Field.create "Completion Time" Left (fun p -> if p.Completed then string p.CompletionTime else "N/A")
+          Field.create "Tasks" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveTasks p.FaultedTasks p.CompletedTasks p.TotalTasks)
           Field.create "Result Type" Left (fun p -> p.TypeName) 
+          Field.create "Start Time" Left (fun p -> p.InitializationTime)
+          Field.create "Completion Time" Left (fun p -> if p.Completed then string p.CompletionTime else "N/A")
         ]
     
     static member Report(processes : ProcessRecord seq, title, borders) = 
         let ps = processes 
                  |> Seq.sortBy (fun p -> p.InitializationTime)
                  |> Seq.toList
-        Record.PrettyPrint(template, ps, title, borders)
+        sprintf "%s\nTasks : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)
 
 type internal WorkerReporter() = 
     static let template : Field<WorkerRecord> list = 
         let double_printer (value : Nullable<double>)   =
             if value.HasValue then sprintf "%.2f" value.Value else "N/A"
         let int_printer (value : Nullable<_>)   =
-            if value.HasValue then sprintf "%d" value.Value else "0"
+            if value.HasValue then sprintf "%3d" value.Value else "0"
         [ Field.create "Id" Left (fun p -> p.Id)
           Field.create "Hostname" Left (fun p -> p.Hostname)
           Field.create "% CPU / Cores" Center (fun p -> sprintf "%s / %d" (double_printer p.CPU) p.ProcessorCount)
@@ -56,7 +57,7 @@ type internal WorkerReporter() =
         let ws = workers
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList
-        Record.PrettyPrint(template, ws, title, borders)
+        sprintf "%s\nTasks : Active / Completed / Total\n" <| Record.PrettyPrint(template, ws, title, borders)
 
 type internal LogReporter() = 
     
