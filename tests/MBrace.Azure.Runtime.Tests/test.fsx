@@ -44,10 +44,10 @@ runtime.ShowLogs()
 let rec wf i max = 
     cloud { 
         if i = max then return 42 
-        else return! wf (i + 1) max  <|> wf (i + 1) max
+        else return! wf (i + 1) max <|> wf (i + 1) max
     }
 
-let ps = runtime.CreateProcess(wf 0 3)
+let ps = runtime.CreateProcess(wf 0 5)
 ps.ShowInfo()
 ps.AwaitResult() 
 ps.ClearProcessResources()

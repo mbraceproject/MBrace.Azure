@@ -90,47 +90,37 @@ type ProcessMonitor private (config, table : string) =
                 pr.CompletedTasks <- pr.CompletedTasks + 1)
         |> Async.Ignore
 
-    member this.SetRunning(pid : string) = async {
-        let! e = Table.read<ProcessRecord> config table pk pid
-        if e.State = string ProcessState.Posted then
-            e.State <- string ProcessState.Running
-            e.InitializationTime <- DateTimeOffset.Now
-            let! e' = Table.replace config table e
-            return ()
-    }
+    member this.SetRunning(pid : string) = 
+        Table.transact<ProcessRecord> config table pk pid 
+           (fun pr -> 
+               if pr.State = string ProcessState.Posted then
+                   pr.State <- string ProcessState.Running
+                   pr.InitializationTime <- DateTimeOffset.Now)
+        |> Async.Ignore
 
-    member this.SetKilled(pid : string) = async {
-        let! e = Table.read<ProcessRecord> config table pk pid
-        e.State <- string ProcessState.Killed
-        e.CompletionTime <- DateTimeOffset.Now
-        e.Completed <- true
-        let! e' = Table.replace config table e
-        return ()
-    }
+    member this.SetKilled(pid : string) = 
+        Table.transact<ProcessRecord> config table pk pid 
+          (fun pr -> 
+              pr.State <- string ProcessState.Killed
+              pr.CompletionTime <- DateTimeOffset.Now
+              pr.Completed <- true)
+        |> Async.Ignore
 
-    member this.SetCancelling(pid : string) = async {
-        let! e = Table.read<ProcessRecord> config table pk pid
-        e.State <- string ProcessState.Cancelling
-        let! e' = Table.replace config table e
-        return ()
-    }
+    member this.SetCancelling(pid : string) = 
+        Table.transact<ProcessRecord> config table pk pid 
+          (fun pr -> pr.State <- string ProcessState.Cancelling)
+        |> Async.Ignore
 
-    member this.SetCompleted(pid : string) = async {
-        let! e = Table.read<ProcessRecord> config table pk pid
-        e.State <- string ProcessState.Completed
-        e.CompletionTime <- DateTimeOffset.UtcNow
-        e.Completed <- true
-        let! e' = Table.replace config table e
-        return ()
-    }
+    member this.SetCompleted(pid : string) =
+        Table.transact<ProcessRecord> config table pk pid 
+          (fun pr ->  pr.State <- string ProcessState.Completed
+                      pr.CompletionTime <- DateTimeOffset.UtcNow
+                      pr.Completed <- true)
+        |> Async.Ignore
 
-    member this.GetProcess(pid : string) = async {
-        return! Table.read<ProcessRecord> config table pk pid
-    }
+    member this.GetProcess(pid : string) = Table.read<ProcessRecord> config table pk pid
 
-    member this.GetProcesses () = async {
-        return! Table.queryPK<ProcessRecord> config table pk
-    }
+    member this.GetProcesses () = Table.queryPK<ProcessRecord> config table pk
 
     member this.ClearProcessStorage (pid : string) = async {
         let container = Storage.processIdToStorageId pid
