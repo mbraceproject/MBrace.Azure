@@ -51,13 +51,6 @@ let r = !rp.Receive()
 r.Length
 
 
-
-
-
-
-
-
-
 let del x =
     ClientProvider.TableClient.ListTables(x)
     |> Seq.map (fun t -> t.DeleteAsync() |> Async.AwaitIAsyncResult)

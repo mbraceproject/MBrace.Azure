@@ -64,32 +64,34 @@ rp.Receive() |> Async.RunSync
 
 [<AutoOpen>]
 module FaultPolicyExtensions =
-    type FaultPolicyBuilder (debug, fp : FaultPolicy) =
+    type FaultPolicyBuilder (fp : FaultPolicy) =
         inherit CloudBuilder()
 
         member __.Run(wf : Cloud<'T>) = 
             cloud {
-                let! handle = cloud { printfn "%s" debug
-                                      return! wf }
+                let! handle = wf
                               |> Cloud.StartChild
                               |> Cloud.WithFaultPolicy fp
                 return! handle
             }
 
-    let exactlyOnce = new FaultPolicyBuilder("exactlyOnce", FaultPolicy.NoRetry) //:> CloudBuilder
-    let retry n = new FaultPolicyBuilder("retry n", FaultPolicy.Retry(n)) //:> CloudBuilder
-    let infinite = new FaultPolicyBuilder("infinite", FaultPolicy.InfiniteRetry()) //:> CloudBuilder
+    let exactlyOnce = new FaultPolicyBuilder(FaultPolicy.NoRetry) //:> CloudBuilder
+    let retry n = new FaultPolicyBuilder(FaultPolicy.Retry(n)) //:> CloudBuilder
+    let infinite = new FaultPolicyBuilder(FaultPolicy.InfiniteRetry()) //:> CloudBuilder
 
-let wf = exactlyOnce {
+let wf = cloud {
     let! x = infinite { 
+                printfn "infinite"
                 do! Cloud.Sleep 10000 
                 return 42
             }
     let! z = retry 3 {
+                printfn "retry 3"
                 do! Cloud.Sleep 10000
                 return 44
             }
     let! y = exactlyOnce { 
+                printfn "exactlyOnce"
                 do! Cloud.Sleep 10000
                 return 43 
             }
@@ -99,5 +101,5 @@ let wf = exactlyOnce {
 
 
 
-let ps = runtime.CreateProcess(wf, faultPolicy = FaultPolicy.NoRetry)
+let ps = runtime.CreateProcess(wf)
 ps.AwaitResult()
