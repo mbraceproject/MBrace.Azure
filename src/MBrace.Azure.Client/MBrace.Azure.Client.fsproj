@@ -79,12 +79,14 @@
     <Content Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\MBrace.Azure.Store\MBrace.Azure.Store.fsproj">
+      <Name>MBrace.Azure.Store</Name>
+      <Project>{90db3185-8f34-47e3-84a2-3b385e1a7493}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <Reference Include="FsPickler">
       <HintPath>..\..\packages\FsPickler.1.0.6\lib\net45\FsPickler.dll</HintPath>
       <Private>True</Private>
-    </Reference>
-    <Reference Include="MBrace.Azure.Store">
-      <HintPath>..\..\lib\MBrace.Azure.Store.dll</HintPath>
     </Reference>
     <Reference Include="MBrace.Core">
       <HintPath>..\..\lib\MBrace.Core.dll</HintPath>

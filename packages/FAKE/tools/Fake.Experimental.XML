@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <doc>
-<assembly><name>MBrace.Azure.Store</name></assembly>
+<assembly><name>Fake.Experimental</name></assembly>
 <members>
 <member name="">
 
@@ -68,39 +68,13 @@
 <member name="">
 
 </member>
-<member name="">
+<member name="T:Fake.ComputationExpressions">
 
 </member>
 <member name="">
 
 </member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.Azure.Store.BlobStore">
-<summary>
-  Store implementation that uses a Azure Blob Storage as backend.
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.Azure.Store.Utils">
+<member name="T:System.AssemblyVersionInformation">
 
 </member>
 </members>

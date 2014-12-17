@@ -59,9 +59,6 @@
     <Reference Include="FsPickler">
       <HintPath>..\..\packages\FsPickler.1.0.6\lib\net45\FsPickler.dll</HintPath>
     </Reference>
-    <Reference Include="MBrace.Azure.Store">
-      <HintPath>..\..\lib\MBrace.Azure.Store.dll</HintPath>
-    </Reference>
     <Reference Include="MBrace.Core">
       <HintPath>..\..\lib\MBrace.Core.dll</HintPath>
     </Reference>
@@ -138,6 +135,10 @@
     <ProjectReference Include="..\..\src\MBrace.Azure.Runtime\MBrace.Azure.Runtime.fsproj">
       <Project>{c823708c-9dcf-407c-aa67-d41ab128f172}</Project>
       <Name>MBrace.Azure.Runtime</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\..\src\MBrace.Azure.Store\MBrace.Azure.Store.fsproj">
+      <Project>{90db3185-8f34-47e3-84a2-3b385e1a7493}</Project>
+      <Name>MBrace.Azure.Store</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
