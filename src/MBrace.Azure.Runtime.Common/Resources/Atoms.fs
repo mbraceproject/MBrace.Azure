@@ -92,16 +92,5 @@ type AtomProvider private(config : ConfigurationId) =
                 do! ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(container).DeleteIfExistsAsync()
             }
 
-        member this.GetAtomProviderDescriptor() : ICloudAtomProviderDescriptor = 
-            let this = this :> ICloudAtomProvider
-            let id = this.Id
-            let name = this.Name
-            let config = config
-            { new ICloudAtomProviderDescriptor with
-                  member x.Id : string = id
-                  member x.Name : string = name
-                  member x.Recover() : ICloudAtomProvider = new AtomProvider(config) :> _
-            }
-
     static member Create(config : ConfigurationId) : ICloudAtomProvider =
         new AtomProvider(config) :> _

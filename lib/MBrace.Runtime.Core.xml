@@ -447,30 +447,6 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
 <member name="T:Nessos.MBrace.Runtime.Serialization">
 
 </member>
@@ -553,8 +529,20 @@
 <member name="">
 
 </member>
-<member name="">
-
+<member name="M:Nessos.MBrace.Runtime.Store.FileStoreCache.RegisterLocalFileSystemCache(Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.Store.CacheBehavior})">
+ <summary>
+     Defines a locally specified file system cache store.
+ </summary>
+ <param name="cacheContext">Cache context identifier. Must be identical in all caching nodes.</param>
+ <param name="cacheBehavior">Caching behavior. Defaults to all.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.FileStoreCache.RegisterLocalCacheStore(Nessos.MBrace.Store.ICloudFileStore,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Runtime.Store.CacheBehavior})">
+ <summary>
+     Installs a local file store cache under given context.
+ </summary>
+ <param name="localCacheStore">Local cache store.</param>
+ <param name="cacheContext">Cache context identifier. Must be identical in all caching nodes.</param>
+ <param name="cacheBehavior">Caching behavior. Defaults to all.</param>
 </member>
 <member name="">
 
@@ -595,6 +583,16 @@
 <member name="">
 
 </member>
+<member name="M:Nessos.MBrace.Runtime.Store.FileStoreCache.CreateCachedStore(Nessos.MBrace.Store.ICloudFileStore,Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a file store cache instance.
+ </summary>
+ <param name="target">Target file store to be cached.</param>
+ <param name="cacheContext">Caching context identifier. Must be identical in all caching nodes.</param>
+</member>
+<member name="">
+
+</member>
 <member name="">
 
 </member>
@@ -603,6 +601,14 @@
 </member>
 <member name="">
 
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Store.FileStoreCache">
+<summary>
+ File store caching facility
+</summary>
 </member>
 <member name="">
 
@@ -614,9 +620,6 @@
 <summary>
  Initializes a FileSystemStore instance on the local system temp path.
 </summary>
-</member>
-<member name="">
-
 </member>
 <member name="">
 
@@ -648,9 +651,6 @@
 <summary>
  File system based atom implementation with pessimistic concurrency.
 </summary>
-</member>
-<member name="">
-
 </member>
 <member name="">
 
@@ -738,9 +738,6 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
 <member name="M:Nessos.MBrace.Runtime.Store.FileSystemStore.Create(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
  <summary>
      Creates a new FileSystemStore instance on given path.
@@ -765,6 +762,77 @@
 <summary>
  Store implementation that uses a filesystem as backend.
 </summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.InMemoryCache.TryFind(System.String)">
+ <summary>
+     Look up cached entry by key.
+ </summary>
+ <param name="key">Key</param>
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.InMemoryCache.Get(System.String)">
+ <summary>
+     Look up cached entry by key.
+ </summary>
+ <param name="key">Key</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.InMemoryCache.Delete(System.String)">
+ <summary>
+     Delete existing key from cache.
+ </summary>
+ <param name="key">Key.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.InMemoryCache.Create(Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Creates a new in-memory cache instance.
+ </summary>
+ <param name="name">Cache name. Defaults to self-assigned.</param>
+ <param name="physicalMemoryLimitPercentage">Physical memory percentage threshold. Defaults to 60.</param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.InMemoryCache.ContainsKey(System.String)">
+ <summary>
+     Checks if cache contains provided key.
+ </summary>
+ <param name="key"></param>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.InMemoryCache.Add``1(System.String,``0)">
+ <summary>
+     Try adding a new key to cache.
+ </summary>
+ <param name="key">Key.</param>
+ <param name="value">Value.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Runtime.Store.InMemoryCache">
+<summary>
+ In-Memory caching mechanism using System.Runtime.Caching.MemoryCache
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Runtime.Store.StorageEntity.GatherStoreEntitiesInObjectGraph``1(``0)">
+ <summary>
+     Gathers all store entities that occur in object graph.
+     Can be used by runtime implementers to keep track of caching.
+ </summary>
+ <param name="graph">Serializable object graph to be traversed.</param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
 </member>
 <member name="">
 
@@ -1165,6 +1233,9 @@
 
 </member>
 <member name="T:Nessos.MBrace.Runtime.Utils.String">
+
+</member>
+<member name="">
 
 </member>
 <member name="">

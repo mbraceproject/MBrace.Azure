@@ -11,7 +11,7 @@ open Nessos.MBrace.Azure.Runtime.Resources
 open System.IO
 
 /// Atom methods for MBrace.
-type CloudAtom internal (registry : ResourceRegistry) =
+type CloudAtomProvider internal (registry : ResourceRegistry) =
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
     
     /// <summary>
@@ -60,7 +60,7 @@ type CloudAtom internal (registry : ResourceRegistry) =
     member __.IsSupportedValue(value : 'T) = Nessos.MBrace.CloudAtom.IsSupportedValue value |> toAsync
 
 /// Channel methods for MBrace.
-type CloudChannel internal (registry : ResourceRegistry) =
+type CloudChannelProvider internal (registry : ResourceRegistry) =
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
 
     /// Creates a new channel instance.
@@ -82,7 +82,7 @@ type CloudChannel internal (registry : ResourceRegistry) =
 
 
 /// Collection of file store operations
-type CloudFileStore internal (registry : ResourceRegistry) =
+type CloudFileProvider internal (registry : ResourceRegistry) =
     let toAsync (wf : Cloud<'T>) : Async<'T> = Cloud.ToAsync(wf, registry)
 
     /// <summary>
@@ -225,8 +225,8 @@ type StoreClient internal (config : Configuration) =
         with get () = channelProvider
         and set(channel : ICloudChannelProvider) = channelProvider <- channel 
 
-    member __.CloudAtom with get () = new CloudAtom(resources())
-    member __.CloudChannel with get () = new CloudChannel(resources())
-    member __.CloudFileStore with get () = new CloudFileStore(resources())
+    member __.CloudAtom with get () = new CloudAtomProvider(resources())
+    member __.CloudChannel with get () = new CloudChannelProvider(resources())
+    member __.CloudFile with get () = new CloudFileProvider(resources())
 
     static member Create(config : Configuration) = new StoreClient(config)

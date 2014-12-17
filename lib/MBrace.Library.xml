@@ -8,12 +8,9 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
 <member name="P:Nessos.MBrace.CloudFile.StoreId">
 <summary>
- Cloud service unique identifier
+ Cloud store service unique identifier
 </summary>
 </member>
 <member name="P:Nessos.MBrace.CloudFile.Path">
@@ -124,8 +121,12 @@
 <member name="">
 
 </member>
-<member name="">
-
+<member name="M:Nessos.MBrace.CloudFile.Create(System.String,Nessos.MBrace.Store.ICloudFileStore)">
+ <summary>
+     Create a new CloudFile instance.
+ </summary>
+ <param name="path">Path to cloud file.</param>
+ <param name="fileStore">File store instance.</param>
 </member>
 <member name="M:Nessos.MBrace.CloudFile.CopyToStream(System.IO.Stream)">
  <summary>
@@ -152,6 +153,13 @@
  </summary>
  <param name="cloudRef">CloudRef to be dereferenced.</param>
 </member>
+<member name="M:Nessos.MBrace.CloudRef.Parse``1(System.String,Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
+ <summary>
+     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+ </summary>
+ <param name="path">Path to cloud ref.</param>
+ <param name="serializer">Serializer for cloud ref.</param>
+</member>
 <member name="M:Nessos.MBrace.CloudRef.New``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
  <summary>
      Creates a new cloud reference to the underlying store with provided value.
@@ -176,10 +184,30 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
 <member name="P:Nessos.MBrace.CloudRef`1.Value">
 <summary>
  Synchronously dereferences the cloud ref.
 </summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.CloudRef`1.Parse(System.String,Nessos.MBrace.Store.ICloudFileStore,Nessos.MBrace.Store.ISerializer)">
+ <summary>
+     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+ </summary>
+ <param name="path">Path to cloud ref.</param>
+ <param name="fileStore">File store instance.</param>
+ <param name="serializer">Serializer instance.</param>
 </member>
 <member name="M:Nessos.MBrace.CloudRef`1.GetValue">
 <summary>
@@ -189,8 +217,14 @@
 <member name="">
 
 </member>
-<member name="">
-
+<member name="M:Nessos.MBrace.CloudRef`1.Create(`0,System.String,Nessos.MBrace.Store.ICloudFileStore,Nessos.MBrace.Store.ISerializer)">
+ <summary>
+     Creates a new cloud ref in underlying file store with given serializer.
+ </summary>
+ <param name="value">Value to be stored in cloud ref.</param>
+ <param name="directory">Containing directory in file store.</param>
+ <param name="fileStore">File store instance.</param>
+ <param name="serializer">Serializer instance.</param>
 </member>
 <member name="">
 
@@ -201,6 +235,13 @@
  object that is persisted in the underlying store.
  Cloud references cached locally for performance.
 </summary>
+</member>
+<member name="M:Nessos.MBrace.CloudSeq.Parse``1(System.String,Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
+ <summary>
+     Parses an already existing sequence of given type in provided file store.
+ </summary>
+ <param name="path">Path to cloud sequence.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
 </member>
 <member name="M:Nessos.MBrace.CloudSeq.New``1(System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
  <summary>
@@ -232,15 +273,38 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
 <member name="P:Nessos.MBrace.CloudSeq`1.Path">
 <summary>
- Path to CloudSeq in store
+ Path to Cloud sequence in store
 </summary>
 </member>
-<member name="P:Nessos.MBrace.CloudSeq`1.Length">
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.CloudSeq`1.Count">
 <summary>
- Sequence length
+ Cloud sequence element count
 </summary>
+</member>
+<member name="M:Nessos.MBrace.CloudSeq`1.Parse(System.String,Nessos.MBrace.Store.ICloudFileStore,Nessos.MBrace.Store.ISerializer)">
+ <summary>
+     Parses an already existing sequence of given type in provided file store.
+ </summary>
+ <param name="path">Path to cloud sequence.</param>
+ <param name="fileStore">File store instance.</param>
+ <param name="serializer">Serializer instance.</param>
 </member>
 <member name="M:Nessos.MBrace.CloudSeq`1.GetSequenceAsync">
 <summary>
@@ -256,8 +320,14 @@
 <member name="">
 
 </member>
-<member name="">
-
+<member name="M:Nessos.MBrace.CloudSeq`1.Create(System.Collections.Generic.IEnumerable{`0},System.String,Nessos.MBrace.Store.ICloudFileStore,Nessos.MBrace.Store.ISerializer)">
+ <summary>
+     Creates a new cloud sequence with given values in provided file store.
+ </summary>
+ <param name="values">Sequence to be serialized.</param>
+ <param name="directory">Containing directory in file store.</param>
+ <param name="fileStore">File store instance.</param>
+ <param name="serializer">Serializer instance.</param>
 </member>
 <member name="">
 
@@ -291,12 +361,6 @@
      Creates a resource bundle for in-memory cloud computations.
  </summary>
  <param name="logger">Logger for runtime. Defaults to no logging.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
 </member>
 <member name="">
 
@@ -575,6 +639,57 @@
 <member name="T:Nessos.MBrace.MapReduce">
 <summary>
  Collection of mapReduce and related workflows
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:Nessos.MBrace.Store.CloudRefCache.InstalledCache">
+<summary>
+ Gets the global CloudRef In-Memory cache.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="M:Nessos.MBrace.Store.CloudRefCache.SetCache(Nessos.MBrace.Store.ICloudRefCache)">
+<summary>
+ Sets the global CloudRef In-Memory cache.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:Nessos.MBrace.Store.CloudRefCache">
+<summary>
+ CloudRef cache registration point
+</summary>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudRefCache.TryFind``1(System.String)">
+ <summary>
+     Attempt to recover value of given type from cache.
+ </summary>
+ <param name="key"></param>
+</member>
+<member name="M:Nessos.MBrace.Store.ICloudRefCache.TryAdd``1(System.String,``0)">
+ <summary>
+     Attempt to add key/value pair to cache.
+ </summary>
+ <param name="key"></param>
+ <param name="value"></param>
+</member>
+<member name="T:Nessos.MBrace.Store.ICloudRefCache">
+<summary>
+ CloudRef in-memory caching abstraction
 </summary>
 </member>
 <member name="">

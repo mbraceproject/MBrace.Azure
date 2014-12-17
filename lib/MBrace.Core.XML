@@ -1206,12 +1206,6 @@
  </summary>
  <param name="value">Value to be checked.</param>
 </member>
-<member name="M:Nessos.MBrace.Store.ICloudAtomProvider.GetAtomProviderDescriptor">
-<summary>
- Returns a serializable atom provider descriptor
- that can be used in remote processes.
-</summary>
-</member>
 <member name="M:Nessos.MBrace.Store.ICloudAtomProvider.DisposeContainer(System.String)">
  <summary>
      Disposes all atoms in provided container
@@ -1235,27 +1229,6 @@
  Defines a factory for distributed atoms
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Store.ICloudAtomProviderDescriptor.Name">
-<summary>
- Implementation name
-</summary>
-</member>
-<member name="P:Nessos.MBrace.Store.ICloudAtomProviderDescriptor.Id">
-<summary>
- Descriptor Identifier
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Store.ICloudAtomProviderDescriptor.Recover">
-<summary>
- Recovers the atom provider instance locally
-</summary>
-</member>
-<member name="T:Nessos.MBrace.Store.ICloudAtomProviderDescriptor">
-<summary>
- Defines a serializable atom provider descriptor
- used for recovering instances in remote processes.
-</summary>
-</member>
 <member name="P:Nessos.MBrace.Store.ICloudChannelProvider.Name">
 <summary>
  Implementation name
@@ -1264,12 +1237,6 @@
 <member name="P:Nessos.MBrace.Store.ICloudChannelProvider.Id">
 <summary>
  unique cloud channel source identifier
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Store.ICloudChannelProvider.GetChannelProviderDescriptor">
-<summary>
- Returns a serializable channel provider descriptor
- that can be used in remote processes.
 </summary>
 </member>
 <member name="M:Nessos.MBrace.Store.ICloudChannelProvider.DisposeContainer(System.String)">
@@ -1292,27 +1259,6 @@
 <member name="T:Nessos.MBrace.Store.ICloudChannelProvider">
 <summary>
  Defines a factory for distributed channels
-</summary>
-</member>
-<member name="P:Nessos.MBrace.Store.ICloudChannelProviderDescriptor.Name">
-<summary>
- Implementation name
-</summary>
-</member>
-<member name="P:Nessos.MBrace.Store.ICloudChannelProviderDescriptor.Id">
-<summary>
- Descriptor Identifier
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Store.ICloudChannelProviderDescriptor.Recover">
-<summary>
- Recovers the channel provider instance locally
-</summary>
-</member>
-<member name="T:Nessos.MBrace.Store.ICloudChannelProviderDescriptor">
-<summary>
- Defines a serializable channel provider descriptor
- used for recovering instances in remote processes.
 </summary>
 </member>
 <member name="P:Nessos.MBrace.Store.ICloudFileStore.Name">
@@ -1348,12 +1294,6 @@
 <member name="M:Nessos.MBrace.Store.ICloudFileStore.GetRootDirectory">
 <summary>
  Returns the root directory for cloud store instance.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Store.ICloudFileStore.GetFileStoreDescriptor">
-<summary>
- Returns a serializable file store descriptor
- that can be used in remote processes.
 </summary>
 </member>
 <member name="M:Nessos.MBrace.Store.ICloudFileStore.GetFileSize(System.String)">
@@ -1445,25 +1385,19 @@
  Defines a cloud file storage abstraction
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Store.ICloudFileStoreDescriptor.Name">
+<member name="P:Nessos.MBrace.Store.ICloudStorageEntity.Type">
 <summary>
- Implementation name
+ Type identifier for entity
 </summary>
 </member>
-<member name="P:Nessos.MBrace.Store.ICloudFileStoreDescriptor.Id">
+<member name="P:Nessos.MBrace.Store.ICloudStorageEntity.Id">
 <summary>
- Descriptor Identifier
+ Entity unique identifier
 </summary>
 </member>
-<member name="M:Nessos.MBrace.Store.ICloudFileStoreDescriptor.Recover">
+<member name="T:Nessos.MBrace.Store.ICloudStorageEntity">
 <summary>
- Recovers the file store instance locally
-</summary>
-</member>
-<member name="T:Nessos.MBrace.Store.ICloudFileStoreDescriptor">
-<summary>
- Defines a serializable file store descriptor
- used for recovering instances in remote processes.
+ Cloud storage entity identifier
 </summary>
 </member>
 <member name="P:Nessos.MBrace.Store.ISerializer.Id">
@@ -1480,24 +1414,17 @@
 </member>
 <member name="M:Nessos.MBrace.Store.ISerializer.SeqSerialize``1(System.IO.Stream,System.Collections.Generic.IEnumerable{``0},System.Boolean)">
  <summary>
-     Serializes a sequence to stream.
+     Lazily serializes a sequence to stream.
  </summary>
  <param name="target">Target stream.</param>
  <param name="values">Input sequence.</param>
  <returns>Serialized element count.</returns>
 </member>
-<member name="M:Nessos.MBrace.Store.ISerializer.SeqDeserialize``1(System.IO.Stream,System.Int32,System.Boolean)">
+<member name="M:Nessos.MBrace.Store.ISerializer.SeqDeserialize``1(System.IO.Stream,System.Boolean)">
  <summary>
-     Deserialize a sequence from stream.
+     Lazily deserialize a sequence from stream.
  </summary>
  <param name="source">Source stream.</param>
- <param name="length">Expected number of elements.</param>
-</member>
-<member name="M:Nessos.MBrace.Store.ISerializer.GetSerializerDescriptor">
-<summary>
- Creates a serializable descriptor used for 
- re-establishing serializer instances in remote processes
-</summary>
 </member>
 <member name="M:Nessos.MBrace.Store.ISerializer.Deserialize``1(System.IO.Stream,System.Boolean)">
  <summary>
@@ -1508,22 +1435,6 @@
 <member name="T:Nessos.MBrace.Store.ISerializer">
 <summary>
  Serialization abstraction
-</summary>
-</member>
-<member name="P:Nessos.MBrace.Store.ISerializerDescriptor.Id">
-<summary>
- Descriptor Identifier
-</summary>
-</member>
-<member name="M:Nessos.MBrace.Store.ISerializerDescriptor.Recover">
-<summary>
- Recovers the serializer instance locally
-</summary>
-</member>
-<member name="T:Nessos.MBrace.Store.ISerializerDescriptor">
-<summary>
- Serializable serializer identifier
- that can be recovered in remote processes.
 </summary>
 </member>
 <member name="M:Nessos.MBrace.Store.CloudFileStoreUtils.ICloudFileStore.EnumerateRootDirectories(Nessos.MBrace.Store.ICloudFileStore)">

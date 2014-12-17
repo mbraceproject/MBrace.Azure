@@ -110,15 +110,5 @@ type ChannelProvider private (config : ConfigurationId) =
                         new ReceivePort<'T>(queueName, config) :> IReceivePort<'T>
             }
 
-        member this.GetChannelProviderDescriptor() : ICloudChannelProviderDescriptor = 
-            let this = this :> ICloudChannelProvider
-            let id = this.Id
-            let name = this.Name
-            let config = config
-            { new ICloudChannelProviderDescriptor with
-                  member x.Id : string = id
-                  member x.Name : string = name
-                  member x.Recover() : ICloudChannelProvider = new ChannelProvider(config) :> _ }
-
     static member Create(config : ConfigurationId) : ICloudChannelProvider =
         new ChannelProvider(config) :> _

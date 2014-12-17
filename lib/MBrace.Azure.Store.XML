@@ -77,9 +77,6 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
 <member name="T:Nessos.MBrace.Azure.Store.BlobStore">
 <summary>
   Store implementation that uses a Azure Blob Storage as backend.

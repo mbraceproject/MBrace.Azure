@@ -62,6 +62,27 @@ sp.Send(43) |> Async.RunSync
 rp.Receive() |> Async.RunSync
 
 
+let wf = cloud {
+    let! sp, rp = CloudChannel.New<int>()
+    do! cloud {
+            for i = 0 to 100 do
+                do! Cloud.Sleep 1000
+                do! CloudChannel.Send i sp
+                printfn "send %d" i
+            return ()
+        } 
+        <||>
+        cloud {
+            let i = ref 0
+            while i.Value <> 100 do
+                let! x = CloudChannel.Receive rp
+                printfn "recv %d" x
+                i := x
+        } |> Cloud.Ignore
+}
+
+runtime.Run(wf)
+
 [<AutoOpen>]
 module FaultPolicyExtensions =
     type FaultPolicyBuilder (fp : FaultPolicy) =
