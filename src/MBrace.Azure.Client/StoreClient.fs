@@ -196,7 +196,7 @@ type CloudFileProvider internal (registry : ResourceRegistry) =
 [<Sealed; AutoSerializable(false)>]
 type StoreClient internal (config : Configuration) =
     do Async.RunSynchronously(Configuration.Activate(config))
-    let mutable storeProvider   = BlobStore(config.StorageConnectionString) :> ICloudFileStore
+    let mutable storeProvider   = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
     let mutable atomProvider    = AtomProvider.Create(config.ConfigurationId)
     let mutable channelProvider = ChannelProvider.Create(config.ConfigurationId)
 

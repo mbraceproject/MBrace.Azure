@@ -85,7 +85,6 @@
     <Compile Include="Resources\Cells.fs" />
     <Compile Include="Resources\Queues.fs" />
     <Compile Include="Resources\Channels.fs" />
-    <Compile Include="Resources\Atoms.fs" />
     <Compile Include="Resources\CancellationToken.fs" />
     <Compile Include="Resources\AssemblyManager.fs" />
     <Compile Include="Resources\Result.fs" />

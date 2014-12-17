@@ -11,7 +11,7 @@ open Microsoft.WindowsAzure.Storage.Blob
 
 ///  Store implementation that uses a Azure Blob Storage as backend.
 [<Sealed; DataContract>]
-type BlobStore (connectionString : string) =
+type BlobStore private (connectionString : string) =
 
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
@@ -25,6 +25,9 @@ type BlobStore (connectionString : string) =
 
     let getBlobRef = getBlobRef acc
     let getContainer = getContainer acc
+
+    ///  Store implementation that uses a Azure Blob Storage as backend.
+    static member Create(connectionString : string) = new BlobStore(connectionString)
 
     interface ICloudFileStore with
         member this.Name = "MBrace.Azure.Store.BlobStore"
