@@ -24,7 +24,7 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-//Configuration.Activate(config) |> Async.RunSync
+//Configuration.Activate(config)
 //Configuration.DeleteResources(config) |> Async.RunSync
 
 // local only---
@@ -47,7 +47,7 @@ let rec wf i max =
         else return! wf (i + 1) max <|> wf (i + 1) max
     }
 
-let ps = runtime.CreateProcess(wf 0 5)
+let ps = runtime.CreateProcess(wf 0 3)
 ps.ShowInfo()
 ps.AwaitResult() 
 ps.ClearProcessResources()
@@ -58,14 +58,12 @@ let sc = StoreClient.Create(config)
 let sp, rp = sc.CloudChannel.New<int>() |> Async.RunSync
 
 sp.Send(43) |> Async.RunSync
-
 rp.Receive() |> Async.RunSync
-
 
 let wf = cloud {
     let! sp, rp = CloudChannel.New<int>()
     do! cloud {
-            for i = 0 to 100 do
+            for i = 0 to 10 do
                 do! Cloud.Sleep 1000
                 do! CloudChannel.Send i sp
                 printfn "send %d" i
@@ -74,14 +72,25 @@ let wf = cloud {
         <||>
         cloud {
             let i = ref 0
-            while i.Value <> 100 do
+            while i.Value <> 10 do
                 let! x = CloudChannel.Receive rp
                 printfn "recv %d" x
                 i := x
         } |> Cloud.Ignore
+    do! Cloud.OfAsync <| rp.Dispose()
 }
 
-runtime.Run(wf)
+let wf = cloud {
+    let! atom = CloudAtom.New(42)
+    do! [1..10] 
+        |> Seq.map (fun _ -> CloudAtom.Update(fun x -> x + 1) atom)
+        |> Cloud.Parallel
+        |> Cloud.Ignore
+    return atom
+}
+
+let atom = runtime.Run(wf)
+atom.Value
 
 [<AutoOpen>]
 module FaultPolicyExtensions =

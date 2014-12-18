@@ -155,13 +155,16 @@ module Configuration =
     let Initialize () = init ()
 
     /// Activates the given configuration.
-    let Activate(config : Configuration) : Async<unit> = 
+    let ActivateAsync(config : Configuration) : Async<unit> = 
       async {
         init ()
         let cp = new ClientProvider(config)
         do! cp.InitAll()
         ConfigurationRegistry.Register<ClientProvider>(config.ConfigurationId, cp)
     }
+
+    /// Activates the given configuration.
+    let Activate(config : Configuration) = Async.RunSynchronously(ActivateAsync(config))
 
     /// Warning : Deletes all queues, tables and containers described in the given configuration.
     /// Does not delete process created resources.

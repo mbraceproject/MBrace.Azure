@@ -19,7 +19,7 @@
     [<AutoSerializable(false)>]
     type Runtime private (config : Configuration) =
         let clientId = guid()
-        do Async.RunSync(Configuration.Activate(config))
+        do Configuration.Activate(config)
         let state = Async.RunSync(RuntimeState.FromConfiguration(config))
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         let wmon = WorkerMonitor.Create(config)

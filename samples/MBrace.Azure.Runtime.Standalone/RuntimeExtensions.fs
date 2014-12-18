@@ -28,7 +28,7 @@ type private Helpers () =
     static member val exe = None with get, set
 
     static member InitWorkers (config : Argument.Config) (count : int) exe =
-        Async.RunSync(Nessos.MBrace.Azure.Runtime.Configuration.Activate(config.Configuration))
+        Nessos.MBrace.Azure.Runtime.Configuration.Activate(config.Configuration)
         if count < 1 then invalidArg "workerCount" "must be positive."  
         let args = Argument.ofConfiguration config 
         let psi = new ProcessStartInfo(exe, args)
@@ -39,20 +39,24 @@ type private Helpers () =
 [<AutoOpen>] 
 module Extensions =
     open System
+    open System.Runtime.CompilerServices
 
-    [<System.Runtime.CompilerServices.Extension>]
+    [<Extension>]
     type Runtime with
+        [<Extension>]
         /// Initialize a new local runtime instance with supplied worker count.
         static member Spawn(config, workerCount, ?maxTasks : int) =
             let cfg = { Argument.Configuration = config; Argument.MaxTasks = defaultArg maxTasks Environment.ProcessorCount}
             Helpers.InitWorkers cfg workerCount Runtime.WorkerExecutable
             |> ignore
-        
+
+        [<Extension>]
         /// Initialize a new local runtime instance with supplied worker count and return a handle.
         static member InitLocal(config, workerCount : int, ?maxTasks : int) =
             Runtime.Spawn(config, workerCount, ?maxTasks = maxTasks)
             Runtime.GetHandle(config)
 
+        [<Extension>]
         /// Gets or sets the worker executable location.
         static member WorkerExecutable
             with get () = match Helpers.exe with None -> invalidOp "unset executable path." | Some e -> e

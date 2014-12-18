@@ -49,7 +49,7 @@ type Service (config : Configuration, serviceId : string) =
                 let sw = new Stopwatch() in sw.Start()
 
                 logf "Activating Configuration"
-                do! Configuration.Activate(config)
+                do! Configuration.ActivateAsync(config)
 
                 logf "Creating storage logger"
                 let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Worker(id = __.Id))
@@ -62,13 +62,14 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Initializing RuntimeState"
                 let! stateHandle = Async.StartChild(RuntimeState.FromConfiguration(config))
 
-                storeProvider <- Some(defaultArg storeProvider (BlobStore(config.StorageConnectionString) :> _))
+                storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
-                atomProvider <- Some(defaultArg atomProvider (AtomProvider.Create(config.ConfigurationId)))
+                atomProvider <- Some(defaultArg atomProvider ({ new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
+                                                                    override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider))
                 logf "AtomProvider : %s" atomProvider.Value.Id
 
-                channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ConfigurationId)))
+                channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)))
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
                 let wmon = WorkerMonitor.Create(config)

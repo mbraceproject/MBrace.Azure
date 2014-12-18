@@ -195,11 +195,13 @@ type CloudFileProvider internal (registry : ResourceRegistry) =
 /// Provides methods for interacting with cloud storage.
 [<Sealed; AutoSerializable(false)>]
 type StoreClient internal (config : Configuration) =
-    do Async.RunSynchronously(Configuration.Activate(config))
-    let mutable storeProvider   = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
-    let mutable atomProvider    = AtomProvider.Create(config.ConfigurationId)
-    let mutable channelProvider = ChannelProvider.Create(config.ConfigurationId)
-
+    do Configuration.Activate(config)
+    let mutable storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
+    let mutable atomProvider = 
+        { new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
+            override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider
+    let mutable channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)
+    
     let mutable defaultStoreContainer = config.DefaultTableOrContainer
     let mutable defaultAtomContainer = config.DefaultTableOrContainer
     let mutable defaultChannelContainer = ""

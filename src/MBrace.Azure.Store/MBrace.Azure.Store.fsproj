@@ -80,6 +80,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="BlobStore.fs" />
     <Compile Include="Atom.fs" />
+    <Compile Include="Channel.fs" />
     <None Include="test.fsx" />
     <Content Include="packages.config" />
     <Content Include="app.config" />

@@ -12,8 +12,23 @@ open System.IO
 [<AutoSerializable(true) ; Sealed; DataContract>]
 type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : ISerializer) =
     
+    [<DataMember(Name = "ConnectionString")>]
+    let connectionString = connectionString
+    [<DataMember(Name = "Serializer")>]
+    let serializer = serializer
+    [<DataMember(Name = "Table")>]
+    let table = table
+    [<DataMember(Name = "PartitionKey")>]
+    let pk = pk
+    [<DataMember(Name = "RowKey")>]
+    let rk = rk
+
     [<IgnoreDataMember>]
-    let client = Table.getClient(CloudStorageAccount.Parse connectionString)
+    let mutable client = Table.getClient(CloudStorageAccount.Parse connectionString)
+
+    [<OnDeserialized>]
+    let onDeserialized (_ : StreamingContext) =
+        client <- Table.getClient(CloudStorageAccount.Parse connectionString )
 
     interface ICloudAtom<'T> with
 
@@ -71,7 +86,7 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
 
 ///  Store implementation that uses a Azure Blob Storage as backend.
 [<AbstractClass; DataContract>]
-type AtomProvider private (connectionString : string, serializer : ISerializer) =
+type AtomProvider (connectionString : string, serializer : ISerializer) =
     
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
@@ -100,15 +115,15 @@ type AtomProvider private (connectionString : string, serializer : ISerializer) 
         
         member this.CreateUniqueContainerName() = (guid()).Substring(0,5) // TODO : Change
 
-        member this.CreateAtom(container, initial: 'T) = 
+        member this.CreateAtom(path, initial: 'T) = 
                 async {
                     let binary = pickle initial serializer
                     let e = new FatEntity(guid(), String.Empty, binary)
-                    do! Table.insert<FatEntity> client container e
-                    return new Atom<'T>(container, e.PartitionKey, e.RowKey, connectionString, serializer) :> ICloudAtom<'T>
+                    do! Table.insert<FatEntity> client path e
+                    return new Atom<'T>(path, e.PartitionKey, e.RowKey, connectionString, serializer) :> ICloudAtom<'T>
                 }
 
-        member this.DisposeContainer(container) =
+        member this.DisposeContainer(path) =
             async {
-                do! client.GetTableReference(container).DeleteIfExistsAsync()
+                do! client.GetTableReference(path).DeleteIfExistsAsync()
             }
