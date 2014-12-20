@@ -72,16 +72,12 @@ type Service (config : Configuration, serviceId : string) =
                 channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)))
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
-                let wmon = WorkerMonitor.Create(config)
+                let wmon = WorkerMonitor.Create(config, MaxTasks = __.MaxConcurrentTasks)
                 let! e = wmon.DeclareCurrent(serviceId)
                 logf "Declared node %s : %d : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
                 Async.Start(wmon.HeartbeatLoop())
                 logf "Started heartbeat loop" 
-
-                let pmon = ProcessMonitor.Create(config)
-                logf "ProcessMonitor created"
-
 
                 let! state = stateHandle
                 let resources = resource { yield! resources; yield serializer; yield logger; yield wmon; yield state.ProcessMonitor }

@@ -133,3 +133,9 @@ let wf = cloud {
 
 let ps = runtime.CreateProcess(wf)
 ps.AwaitResult()
+
+#r "MBrace.Library"
+open Nessos.MBrace.Store
+
+let cr = runtime.Run(CloudRef.New(42))
+cr.Value

@@ -86,7 +86,7 @@ type ProcessMonitor private (config, table : string) =
     member this.AddCompletedTask(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
             (fun pr -> 
-                pr.ActiveTasks <- pr.ActiveTasks - 1
+                pr.ActiveTasks <- if pr.ActiveTasks = 0 then 0 else pr.ActiveTasks - 1
                 pr.CompletedTasks <- pr.CompletedTasks + 1)
         |> Async.Ignore
 

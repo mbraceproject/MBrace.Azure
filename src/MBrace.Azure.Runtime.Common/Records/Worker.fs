@@ -24,9 +24,8 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
     member val ProcessName :string = pname with get, set
     member val InitializationTime : DateTimeOffset = joined with get, set
     
-    member val TotalTasks     : Nullable<int> = Unchecked.defaultof<_> with get, set
-    member val ActiveTasks    : Nullable<int> = Unchecked.defaultof<_> with get, set
-    member val CompletedTasks : Nullable<int> = Unchecked.defaultof<_> with get, set
+    member val MaxTasks = 0 with get, set
+    member val ActiveTasks = 0 with get, set
 
     member val ProcessorCount = System.Environment.ProcessorCount with get, set
     member val CPU = Unchecked.defaultof<_> with get, set
@@ -53,13 +52,11 @@ type WorkerMonitor private (config, table : string) =
     let current = ref None
     let perfMon = lazy new PerformanceMonitor()
 
-    let mutable totalTasks = 0
-    let mutable completedTasks = 0
     let mutable activeTasks = 0
 
     static member Create(config : Configuration) = new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer)
 
-    member __.DeclareCurrent(id : string) : Async<WorkerRef> = 
+    member this.DeclareCurrent(id : string) : Async<WorkerRef> = 
         async {
             match current.Value with 
             | Some w -> 
@@ -70,7 +67,6 @@ type WorkerMonitor private (config, table : string) =
                 let joined = DateTimeOffset.UtcNow
                 let w = new WorkerRecord(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined)
                 w.UpdateCounters(perfMon.Value.GetCounters())
-                w.ActiveTasks <- Nullable<_> 0
                 do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
                 current := Some w
                 return w.AsWorkerRef()
@@ -78,15 +74,14 @@ type WorkerMonitor private (config, table : string) =
 
     member __.Current = current.Value.Value
 
-    member __.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
+    member this.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
         let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
-        let worker = __.Current
+        let worker = this.Current
+        worker.MaxTasks <- this.MaxTasks
         let rec loop () = async {
             let counters = perfMon.Value.GetCounters()
             worker.UpdateCounters(counters)
-            worker.ActiveTasks <- Nullable<_> activeTasks
-            worker.CompletedTasks <- Nullable<_> completedTasks
-            worker.TotalTasks <- Nullable<_> totalTasks
+            worker.ActiveTasks <- activeTasks
             worker.ETag <- "*"
             let! e = Table.merge<WorkerRecord> config table worker
             current := Some e
@@ -97,16 +92,12 @@ type WorkerMonitor private (config, table : string) =
     }
 
     member __.ActiveTasks = activeTasks
-    member __.CompletedTasks = completedTasks
-    member __.TotalTasks = totalTasks
+    
+    member val MaxTasks = 0 with get, set
 
-    member __.IncrementTaskCount () = 
-        Interlocked.Increment(&activeTasks) |> ignore
-        Interlocked.Increment(&totalTasks)  |> ignore
+    member __.IncrementTaskCount () = Interlocked.Increment(&activeTasks) |> ignore
 
-    member __.DecrementTaskCount () = 
-        Interlocked.Decrement(&activeTasks) |> ignore
-        Interlocked.Increment(&completedTasks) |> ignore
+    member __.DecrementTaskCount () = Interlocked.Decrement(&activeTasks) |> ignore
 
     member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerRecord seq> = async {
         let timespan = defaultArg timespan <| TimeSpan.FromMinutes 5.
