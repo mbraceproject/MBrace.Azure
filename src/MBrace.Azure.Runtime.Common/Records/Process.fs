@@ -95,14 +95,14 @@ type ProcessMonitor private (config, table : string) =
            (fun pr -> 
                if pr.State = string ProcessState.Posted then
                    pr.State <- string ProcessState.Running
-                   pr.InitializationTime <- DateTimeOffset.Now)
+                   pr.InitializationTime <- DateTimeOffset.UtcNow)
         |> Async.Ignore
 
     member this.SetKilled(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
           (fun pr -> 
               pr.State <- string ProcessState.Killed
-              pr.CompletionTime <- DateTimeOffset.Now
+              pr.CompletionTime <- DateTimeOffset.UtcNow
               pr.Completed <- true)
         |> Async.Ignore
 
