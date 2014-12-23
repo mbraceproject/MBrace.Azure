@@ -5,9 +5,14 @@ open Microsoft.WindowsAzure.Storage.Table
 open Nessos.MBrace.Azure.Runtime
 open System.Net
 open System.Threading
+open Nessos.MBrace
 
 type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset) =    
-    interface Nessos.MBrace.IWorkerRef with
+    interface IWorkerRef with
+        member x.CompareTo(obj: obj): int = 
+            match obj with
+            | :? WorkerRef as y -> compare id ((y :> IWorkerRef).Id) 
+            | _ -> invalidArg "obj" "Invalid IWorkerRef instance."
         member __.Id = id
         member __.Type = "MBrace.Azure.Worker"
     member __.Hostname = hostname 

@@ -15,7 +15,7 @@ open Nessos.MBrace.Azure.Runtime
 open Nessos.MBrace.Azure.Runtime.Common
 open System
 open Nessos.MBrace.Continuation
-open Nessos.MBrace.InMemoryRuntime
+open Nessos.MBrace.Runtime.InMemory
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, procId, faultPolicy, taskId, dependencies, context) =

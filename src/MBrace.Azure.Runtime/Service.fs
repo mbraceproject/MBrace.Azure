@@ -13,6 +13,7 @@ open Nessos.MBrace.Store
 open Nessos.MBrace.Azure.Runtime.Resources
 open System.Diagnostics
 open Nessos.MBrace.Azure.Store
+open Nessos.MBrace.Runtime.Store
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
@@ -65,6 +66,12 @@ type Service (config : Configuration, serviceId : string) =
                 storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
+                logf "Creating InMemoryCache"
+                FileStoreCache.RegisterLocalFileSystemCache()
+                InMemoryCacheRegistry.SetCache (InMemoryCache.Create())
+                logf "Creating CachedStore"
+                let store = FileStoreCache.CreateCachedStore(storeProvider.Value) :> ICloudFileStore
+
                 atomProvider <- Some(defaultArg atomProvider ({ new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
                                                                     override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider))
                 logf "AtomProvider : %s" atomProvider.Value.Id
@@ -87,7 +94,7 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Starting worker loop"
                 logf "MaxConcurrentTasks : %d" __.MaxConcurrentTasks
                 let! handle = 
-                    Worker.initWorker state __.MaxConcurrentTasks resources storeProvider.Value channelProvider.Value atomProvider.Value 
+                    Worker.initWorker state __.MaxConcurrentTasks resources store channelProvider.Value atomProvider.Value 
                     |> Async.StartChild
                 logf "Worker loop started"
                 

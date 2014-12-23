@@ -23,9 +23,6 @@ type BlobStore private (connectionString : string) =
     let onDeserialized (_ : StreamingContext) =
         acc <- CloudStorageAccount.Parse(connectionString)
 
-    let getBlobRef = getBlobRef acc
-    let getContainer = getContainer acc
-
     ///  Store implementation that uses a Azure Blob Storage as backend.
     static member Create(connectionString : string) = new BlobStore(connectionString)
 
@@ -48,14 +45,14 @@ type BlobStore private (connectionString : string) =
 
         member this.GetFileSize(path: string) : Async<int64> = 
             async {
-                let! blob = getBlobRef path
+                let! blob = getBlobRef acc path
                 let! _ = Async.AwaitIAsyncResult <| blob.FetchAttributesAsync()
                 return blob.Properties.Length
             }
         member this.FileExists(path: string) : Async<bool> = 
             async {
-                let container, file = splitPath path
-                let container = getContainer container
+                let directory, file = splitPath path
+                let container = getContainer acc directory
                 
                 let! b1 = Async.AwaitTask(container.ExistsAsync())
                 if b1 then
@@ -67,7 +64,7 @@ type BlobStore private (connectionString : string) =
 
         member this.EnumerateFiles(container : string) : Async<string []> = 
             async {
-                let containerRef = getContainer container
+                let containerRef = getContainer acc container
                 let blobs = new ResizeArray<string>()
                 let rec aux (token : BlobContinuationToken) = async {
                     let! (result : BlobResultSegment) = containerRef.ListBlobsSegmentedAsync(token)
@@ -83,20 +80,20 @@ type BlobStore private (connectionString : string) =
         
         member this.DeleteFile(path: string) : Async<unit> = 
             async {
-                let! blob = getBlobRef path
+                let! blob = getBlobRef acc path
                 let! _ =  Async.AwaitIAsyncResult <| blob.DeleteAsync()
                 return ()
             }
 
         member this.DirectoryExists(container: string) : Async<bool> = 
             async {
-                let container = getContainer container
+                let container = getContainer acc container
                 return! Async.AwaitTask <| container.ExistsAsync()
             }
         
         member this.CreateDirectory(container: string) : Async<unit> = 
             async {
-                let container = getContainer container
+                let container = getContainer acc container
                 let! _ =  container.CreateIfNotExistsAsync()
                 return ()
             }
@@ -104,7 +101,7 @@ type BlobStore private (connectionString : string) =
         member this.DeleteDirectory(container: string, recursiveDelete : bool) : Async<unit> = 
             async {
                 ignore recursiveDelete
-                let container = getContainer container
+                let container = getContainer acc container
                 let! _ = container.DeleteIfExistsAsync()
                 return ()
             }
@@ -119,27 +116,27 @@ type BlobStore private (connectionString : string) =
 
         member this.BeginWrite(path: string) : Async<Stream> = 
             async {
-                let! blob = getBlobRef path
+                let! blob = getBlobRef acc path
                 let! stream = blob.OpenWriteAsync()
                 return stream :> Stream
             } 
         
         member this.BeginRead(path: string) : Async<Stream> = 
             async {
-                let! blob = getBlobRef path
+                let! blob = getBlobRef acc path
                 return! Async.AwaitTask(blob.OpenReadAsync())
             }
 
         member this.OfStream(source: Stream, target: string) : Async<unit> = 
             async {
-                let! blob = getBlobRef target
+                let! blob = getBlobRef acc target
                 let! _ = Async.AwaitIAsyncResult <| blob.UploadFromStreamAsync(source)
                 return ()
             }
         
         member this.ToStream(sourceFile: string, target: Stream) : Async<unit> = 
             async {
-                let! blob = getBlobRef sourceFile
+                let! blob = getBlobRef acc sourceFile
                 let! _ = Async.AwaitIAsyncResult <| blob.DownloadToStreamAsync(target)
                 return ()
             }

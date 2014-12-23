@@ -24,6 +24,7 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
+
 //Configuration.Activate(config)
 //Configuration.DeleteResources(config) |> Async.RunSync
 
@@ -137,5 +138,7 @@ ps.AwaitResult()
 #r "MBrace.Library"
 open Nessos.MBrace.Store
 
-let cr = runtime.Run(CloudRef.New(42))
-cr.Value
+let ps = runtime.CreateProcess(CloudSequence.New([42]))
+let cr = ps.AwaitResult()
+cr |> Seq.toArray
+cr.Size

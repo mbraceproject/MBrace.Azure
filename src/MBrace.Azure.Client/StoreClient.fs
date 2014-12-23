@@ -9,6 +9,7 @@ open Nessos.MBrace.Azure.Store
 open Nessos.MBrace
 open Nessos.MBrace.Azure.Runtime.Resources
 open System.IO
+open Nessos.MBrace.Runtime.Store
 
 /// Atom methods for MBrace.
 type CloudAtomProvider internal (registry : ResourceRegistry) =
@@ -196,6 +197,8 @@ type CloudFileProvider internal (registry : ResourceRegistry) =
 [<Sealed; AutoSerializable(false)>]
 type StoreClient internal (config : Configuration) =
     do Configuration.Activate(config)
+    do FileStoreCache.RegisterLocalFileSystemCache()
+    do InMemoryCacheRegistry.SetCache (InMemoryCache.Create())
     let mutable storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
     let mutable atomProvider = 
         { new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with

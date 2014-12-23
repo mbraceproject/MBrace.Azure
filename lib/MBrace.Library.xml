@@ -2,470 +2,7 @@
 <doc>
 <assembly><name>MBrace.Library</name></assembly>
 <members>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="P:Nessos.MBrace.CloudFile.StoreId">
-<summary>
- Cloud store service unique identifier
-</summary>
-</member>
-<member name="P:Nessos.MBrace.CloudFile.Path">
-<summary>
- Full path to cloud file.
-</summary>
-</member>
-<member name="P:Nessos.MBrace.CloudFile.FileName">
-<summary>
- File name
-</summary>
-</member>
-<member name="P:Nessos.MBrace.CloudFile.DirectoryName">
-<summary>
- Path of containing folder
-</summary>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.WriteLines(System.Collections.Generic.IEnumerable{System.String},Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary>
-     Writes a sequence of lines to a given CloudFile path.
- </summary>
- <param name="lines">Lines to be written.</param>
- <param name="encoding">Text encoding.</param>
- <param name="path">Path to CloudFile.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.WriteAllText(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary>
-     Writes string contents to given CloudFile.
- </summary>
- <param name="text">Input text.</param>
- <param name="encoding">Output encoding.</param>
- <param name="path">Path to Cloud file.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.WriteAllBytes(System.Byte[],Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary>
-     Write buffer contents to CloudFile.
- </summary>
- <param name="buffer">Source buffer.</param>
- <param name="path">Path to Cloud file.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.ReadLines(Nessos.MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
- <summary>
-     Reads a CloudFile as a sequence of lines.
- </summary>
- <param name="file">Input CloudFile.</param>
- <param name="encoding">Text encoding.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.ReadAllText(Nessos.MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
- <summary>
-     Dump all file contents to a single string.
- </summary>
- <param name="file">Input CloudFile.</param>
- <param name="encoding">Text encoding.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.ReadAllBytes(Nessos.MBrace.CloudFile)">
- <summary>
-     Dump the contents of given CloudFile as byte[].
- </summary>
- <param name="file">Input CloudFile.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.Read``1(Nessos.MBrace.CloudFile,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
- <summary> 
-     Read the contents of a CloudFile using the given deserialize/reader function.
- </summary>
- <param name="cloudFile">CloudFile to read.</param>
- <param name="deserializer">Function that reads data from the underlying stream.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.Read``1(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
- <summary>
-     Reads the contents of provided cloud file using provided deserializer.
- </summary>
- <param name="file">cloud file to be read.</param>
- <param name="deserializer">deserializing function.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.New(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},System.String,System.String)">
- <summary> 
-     Create a new file in the storage with the specified folder and name.
-     Use the serialize function to write to the underlying stream.
- </summary>
- <param name="serializer">Function that will write data on the underlying stream.</param>
- <param name="path">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.New(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary> 
-     Create a new file in the storage with the specified folder and name.
-     Use the serialize function to write to the underlying stream.
- </summary>
- <param name="serializer">Function that will write data on the underlying stream.</param>
- <param name="path">Target uri for given cloud file. Defaults to runtime-assigned path.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.GetSizeAsync">
-<summary>
- Returns the file size in bytes
-</summary>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.FromPath(System.String)">
- <summary>
-     Returns an existing cloud file instance from provided path.
- </summary>
- <param name="path">Input path to cloud file.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.Enumerate(Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary> 
-     Returns all files in given directory as CloudFiles.
- </summary>
- <param name="directory">Directory to enumerate. Defaults to execution context.</param>
-</member>
-<member name="">
-
-</member>
-<member name="M:Nessos.MBrace.CloudFile.Create(System.String,Nessos.MBrace.Store.ICloudFileStore)">
- <summary>
-     Create a new CloudFile instance.
- </summary>
- <param name="path">Path to cloud file.</param>
- <param name="fileStore">File store instance.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.CopyToStream(System.IO.Stream)">
- <summary>
-     Copy file contents to local stream.
- </summary>
- <param name="target">Target stream.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudFile.BeginRead">
-<summary>
- Asynchronously returns a reading stream to file.
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.CloudFile">
-<summary>
- Represents a file reference bound to specific cloud store instance
-</summary>
-</member>
-<member name="M:Nessos.MBrace.CloudRef.Read``1(Nessos.MBrace.CloudRef{``0})">
- <summary>
-     Dereference a Cloud reference.
- </summary>
- <param name="cloudRef">CloudRef to be dereferenced.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudRef.Parse``1(System.String,Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
- <summary>
-     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
- </summary>
- <param name="path">Path to cloud ref.</param>
- <param name="serializer">Serializer for cloud ref.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudRef.New``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
- <summary>
-     Creates a new cloud reference to the underlying store with provided value.
-     Cloud references are immutable and cached locally for performance.
- </summary>
- <param name="value">Cloud reference value.</param>
- <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
- <param name="serializer">Serialization used for object serialization. Defaults to runtime context.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="P:Nessos.MBrace.CloudRef`1.Value">
-<summary>
- Synchronously dereferences the cloud ref.
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="M:Nessos.MBrace.CloudRef`1.Parse(System.String,Nessos.MBrace.Store.ICloudFileStore,Nessos.MBrace.Store.ISerializer)">
- <summary>
-     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
- </summary>
- <param name="path">Path to cloud ref.</param>
- <param name="fileStore">File store instance.</param>
- <param name="serializer">Serializer instance.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudRef`1.GetValue">
-<summary>
- Asynchronously dereferences the cloud ref.
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="M:Nessos.MBrace.CloudRef`1.Create(`0,System.String,Nessos.MBrace.Store.ICloudFileStore,Nessos.MBrace.Store.ISerializer)">
- <summary>
-     Creates a new cloud ref in underlying file store with given serializer.
- </summary>
- <param name="value">Value to be stored in cloud ref.</param>
- <param name="directory">Containing directory in file store.</param>
- <param name="fileStore">File store instance.</param>
- <param name="serializer">Serializer instance.</param>
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.CloudRef`1">
-<summary>
- Represents an immutable reference to an
- object that is persisted in the underlying store.
- Cloud references cached locally for performance.
-</summary>
-</member>
-<member name="M:Nessos.MBrace.CloudSeq.Parse``1(System.String,Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
- <summary>
-     Parses an already existing sequence of given type in provided file store.
- </summary>
- <param name="path">Path to cloud sequence.</param>
- <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudSeq.New``1(System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Store.ISerializer})">
- <summary>
-     Creates a new cloud sequence with given values in the underlying store.
-     Cloud sequences are cached locally for performance.
- </summary>
- <param name="values">Collection to populate the cloud sequence with.</param>
- <param name="directory">FileStore directory used for cloud seq. Defaults to execution context.</param>
- <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="P:Nessos.MBrace.CloudSeq`1.Path">
-<summary>
- Path to Cloud sequence in store
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="P:Nessos.MBrace.CloudSeq`1.Count">
-<summary>
- Cloud sequence element count
-</summary>
-</member>
-<member name="M:Nessos.MBrace.CloudSeq`1.Parse(System.String,Nessos.MBrace.Store.ICloudFileStore,Nessos.MBrace.Store.ISerializer)">
- <summary>
-     Parses an already existing sequence of given type in provided file store.
- </summary>
- <param name="path">Path to cloud sequence.</param>
- <param name="fileStore">File store instance.</param>
- <param name="serializer">Serializer instance.</param>
-</member>
-<member name="M:Nessos.MBrace.CloudSeq`1.GetSequenceAsync">
-<summary>
- Asynchronously fetches the sequence
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="M:Nessos.MBrace.CloudSeq`1.Create(System.Collections.Generic.IEnumerable{`0},System.String,Nessos.MBrace.Store.ICloudFileStore,Nessos.MBrace.Store.ISerializer)">
- <summary>
-     Creates a new cloud sequence with given values in provided file store.
- </summary>
- <param name="values">Sequence to be serialized.</param>
- <param name="directory">Containing directory in file store.</param>
- <param name="fileStore">File store instance.</param>
- <param name="serializer">Serializer instance.</param>
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.CloudSeq`1">
-<summary>
- Represents a finite and immutable sequence of
- elements that is stored in the underlying CloudStore
- and will be enumerated on demand.
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.InMemoryRuntime.ConsoleLogger">
-<summary>
- A logger that writes to the system console
-</summary>
-</member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.InMemory.CreateResources(Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ICloudLogger})">
- <summary>
-     Creates a resource bundle for in-memory cloud computations.
- </summary>
- <param name="logger">Logger for runtime. Defaults to no logging.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.InMemoryRuntime.InMemoryChannelProvider">
-<summary>
- Defines an in-memory channel factory using mailbox processor
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.InMemoryRuntime.NullLogger">
-<summary>
- A logger that ignores entries
-</summary>
-</member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.ThreadPool.StartChild``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+<member name="M:Nessos.MBrace.ThreadPool.StartChild``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
      Provides a context-less Cloud.StartChild implementation
      for execution within the thread pool.
@@ -473,146 +10,21 @@
  <param name="computation">Input computation.</param>
  <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
 </member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.ThreadPool.Parallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
+<member name="M:Nessos.MBrace.ThreadPool.Parallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
  <summary>
      Provides a context-less Cloud.Parallel implementation
      for execution within the thread pool.
  </summary>
  <param name="computations">Input computations</param>
 </member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.ThreadPool.Choice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
+<member name="M:Nessos.MBrace.ThreadPool.Choice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
  <summary>
      Provides a context-less Cloud.Choice implementation
      for execution within the thread pool.
  </summary>
  <param name="computations">Input computations</param>
 </member>
-<member name="T:Nessos.MBrace.InMemoryRuntime.ThreadPool">
-<summary>
- Collection of context-less combinators for 
- execution within local thread context.
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.ThreadPoolRuntime.Create(Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.Continuation.ICloudLogger},Microsoft.FSharp.Core.FSharpOption{Nessos.MBrace.FaultPolicy})">
- <summary>
-     Creates a new threadpool runtime instance.
- </summary>
- <param name="logger">Logger for runtime. Defaults to no logging.</param>
- <param name="faultPolicy">Fault policy for runtime. Defaults to Infinite retries.</param>
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.InMemoryRuntime.ThreadPoolRuntime">
-<summary>
- .NET ThreadPool runtime provider
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:Nessos.MBrace.InMemoryRuntime.SchedulerInternals">
-
-</member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.Sequential.StartChild``1(Nessos.MBrace.Cloud{``0})">
- <summary>
-     Provides a context-less Cloud.StartChild implementation
-     for execution within the current thread context.
- </summary>
- <param name="computation">Input computation</param>
-</member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.Sequential.Choice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
- <summary>
-     Provides a context-less Cloud.Choice implementation
-     for execution within the current thread.
- </summary>
- <param name="computations">Input computations</param>
-</member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.Sequential.Parallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
- <summary>
-     Provides a context-less Cloud.Parallel implementation
-     for execution within the current thread.
- </summary>
- <param name="computations">Input computations</param>
-</member>
-<member name="M:Nessos.MBrace.InMemoryRuntime.Sequential.fold``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,Nessos.MBrace.Cloud{``0}}},``0,System.Collections.Generic.IEnumerable{``1})">
- <summary>
-     Provides a context-less sequential fold implementation.
- </summary>
- <param name="folder">Folding function.</param>
- <param name="init">Initial state function.</param>
- <param name="ts">Input sequence.</param>
-</member>
-<member name="T:Nessos.MBrace.InMemoryRuntime.Sequential">
+<member name="T:Nessos.MBrace.ThreadPool">
 <summary>
  Collection of context-less combinators for 
  execution within local thread context.
@@ -647,18 +59,14 @@
 <member name="">
 
 </member>
-<member name="P:Nessos.MBrace.Store.CloudRefCache.InstalledCache">
-<summary>
- Gets the global CloudRef In-Memory cache.
-</summary>
+<member name="">
+
 </member>
 <member name="">
 
 </member>
-<member name="M:Nessos.MBrace.Store.CloudRefCache.SetCache(Nessos.MBrace.Store.ICloudRefCache)">
-<summary>
- Sets the global CloudRef In-Memory cache.
-</summary>
+<member name="">
+
 </member>
 <member name="">
 
@@ -669,27 +77,42 @@
 <member name="">
 
 </member>
-<member name="T:Nessos.MBrace.Store.CloudRefCache">
-<summary>
- CloudRef cache registration point
-</summary>
+<member name="T:Nessos.MBrace.SchedulerInternals">
+
 </member>
-<member name="M:Nessos.MBrace.Store.ICloudRefCache.TryFind``1(System.String)">
+<member name="M:Nessos.MBrace.Sequential.StartChild``1(Nessos.MBrace.Cloud{``0})">
  <summary>
-     Attempt to recover value of given type from cache.
+     Provides a context-less Cloud.StartChild implementation
+     for execution within the current thread context.
  </summary>
- <param name="key"></param>
+ <param name="computation">Input computation</param>
 </member>
-<member name="M:Nessos.MBrace.Store.ICloudRefCache.TryAdd``1(System.String,``0)">
+<member name="M:Nessos.MBrace.Sequential.Choice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
  <summary>
-     Attempt to add key/value pair to cache.
+     Provides a context-less Cloud.Choice implementation
+     for execution within the current thread.
  </summary>
- <param name="key"></param>
- <param name="value"></param>
+ <param name="computations">Input computations</param>
 </member>
-<member name="T:Nessos.MBrace.Store.ICloudRefCache">
+<member name="M:Nessos.MBrace.Sequential.Parallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
+ <summary>
+     Provides a context-less Cloud.Parallel implementation
+     for execution within the current thread.
+ </summary>
+ <param name="computations">Input computations</param>
+</member>
+<member name="M:Nessos.MBrace.Sequential.fold``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,Nessos.MBrace.Cloud{``0}}},``0,System.Collections.Generic.IEnumerable{``1})">
+ <summary>
+     Provides a context-less sequential fold implementation.
+ </summary>
+ <param name="folder">Folding function.</param>
+ <param name="init">Initial state function.</param>
+ <param name="ts">Input sequence.</param>
+</member>
+<member name="T:Nessos.MBrace.Sequential">
 <summary>
- CloudRef in-memory caching abstraction
+ Collection of context-less combinators for 
+ execution within local thread context.
 </summary>
 </member>
 <member name="">
