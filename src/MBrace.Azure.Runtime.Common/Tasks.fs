@@ -266,13 +266,13 @@ with
     /// <param name="wf">Input workflow.</param>
     /// <param name="name">Process name.</param>
     /// <param name="procId">Process id.</param>
-    member rt.StartAsProcess(procId, name, dependencies, cts, fp, wf : Cloud<'T>) = async {
+    member rt.StartAsProcess(procId, name, dependencies, (cts : DistributedCancellationTokenSource), fp, wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
 
         let! _ = rt.ProcessMonitor
                    .CreateRecord( procId, name, typeof<'T>, dependencies,
-                                    string (cts :> IResource).Uri, 
-                                    string (resultCell :> IResource).Uri)
+                                    string cts.Uri, 
+                                    string resultCell.Uri)
 
         let setResult ctx r = 
             async {

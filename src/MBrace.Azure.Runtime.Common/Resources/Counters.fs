@@ -18,8 +18,7 @@ type IntCell internal (config : ConfigurationId, res : Uri) =
             return e.Value
         }
     
-    interface IResource with
-        member __.Uri = res
+    member __.Uri = res
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
@@ -46,8 +45,7 @@ type Latch internal (config, res : Uri) =
 
     member __.Decrement() = base.Update(fun v -> v - 1)
 
-    interface IResource with 
-        override __.Uri = res
+    member __.Uri = res
     
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
@@ -75,8 +73,7 @@ type Counter internal (config, res : Uri) =
     
     member __.Increment() = base.Update(fun x -> x + 1)
     
-    interface IResource with 
-        override __.Uri = res
+    member __.Uri = res
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 

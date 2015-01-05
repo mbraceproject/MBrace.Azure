@@ -30,8 +30,7 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     
     let cts = lazy new CancellationTokenSource()
     
-    interface IResource with
-        member __.Uri = res
+    member __.Uri = res
     
     member __.IsCancellationRequested = check() |> Async.RunSync
     
@@ -72,7 +71,7 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
             match parent with
             | None -> ()
             | Some p -> 
-                let parentUri = (p :> IResource).Uri
+                let parentUri = p.Uri
                 let link = new CancellationTokenLinkEntity(parentUri.PartitionWithScheme, childUri.PartitionWithScheme)
                 do! Table.insert<CancellationTokenLinkEntity> config childUri.Table link
             let dcts = new DistributedCancellationTokenSource(config, childUri)
