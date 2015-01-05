@@ -16,14 +16,18 @@ open System
 
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
-        Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine))
-    |> function | null, s | s, null | s, _ -> s
+      Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
+        Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Process))
+    |> function 
+       | s, _, _ when not <| String.IsNullOrEmpty(s) -> s
+       | _, s, _ when not <| String.IsNullOrEmpty(s) -> s
+       | _, _, s when not <| String.IsNullOrEmpty(s) -> s
+       | _ -> failwith "Variable not found"
 
 let config = 
     { Configuration.Default with
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
-
 
 //Configuration.Activate(config)
 //Configuration.DeleteResources(config) |> Async.RunSync
