@@ -87,7 +87,6 @@ Target "Build" (fun _ ->
 let testAssemblies = 
     [
         yield "bin/MBrace.Azure.Runtime.Tests.dll"
-        //if not ignoreClusterTests then yield "bin/MBrace.SampleRuntime.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->
@@ -171,4 +170,4 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "Release"
 
 //// start build
-RunTargetOrDefault "Default"
+RunTargetOrDefault "Build"

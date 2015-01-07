@@ -97,7 +97,7 @@ type internal Topic (config, topic) =
                       |> Array.map (fun (x, affinity) -> 
                              async { 
                                  let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> x)
-                                 let msg = new BrokeredMessage((bc :> IResource).Uri)
+                                 let msg = new BrokeredMessage(bc.Uri)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
                              })
@@ -111,7 +111,7 @@ type internal Topic (config, topic) =
                       |> Array.map (fun x -> 
                              async { 
                                  let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> x)
-                                 let msg = new BrokeredMessage((bc :> IResource).Uri)
+                                 let msg = new BrokeredMessage(bc.Uri)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
                              })
@@ -122,7 +122,7 @@ type internal Topic (config, topic) =
     member __.Enqueue<'T>(t : 'T, affinity : string) = 
         async { 
             let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> t)
-            let msg = new BrokeredMessage((bc :> IResource).Uri)
+            let msg = new BrokeredMessage(bc.Uri)
             msg.Properties.Add(AffinityPropertyName, affinity)
             do! tc.SendAsync(msg)
         }
@@ -162,7 +162,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
         async { 
             let! ys = xs
                       |> Array.map (fun x -> async { let! bc = BlobCell.CreateIfNotExists(config, res.Queue, fun () -> x)
-                                                     return new BrokeredMessage((bc :> IResource).Uri) })
+                                                     return new BrokeredMessage(bc.Uri) })
                       |> Async.Parallel
             do! queue.SendBatchAsync(ys)
         }
@@ -170,7 +170,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
     member __.Enqueue<'T>(t : 'T) = 
         async { 
             let! bc = BlobCell.CreateIfNotExists(config, res.Queue, fun () -> t)
-            let msg = new BrokeredMessage((bc :> IResource).Uri)
+            let msg = new BrokeredMessage(bc.Uri)
             do! queue.SendAsync(msg)
         }
     
@@ -181,8 +181,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
             else return Some(QueueMessage(config, msg, true))
         }
     
-    interface IResource with
-        member __.Uri = res
+    member __.Uri = res
     
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 

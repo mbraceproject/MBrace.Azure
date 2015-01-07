@@ -296,13 +296,13 @@ with
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
     /// <param name="psInfo">ProcessInfo.</param>
-    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>) = async {
+    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, cts : DistributedCancellationTokenSource, fp, wf : Cloud<'T>) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(psInfo.DefaultDirectory)
 
         let! _ = rt.ProcessMonitor
                    .CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies,
-                                   string (cts :> IResource).Uri, 
-                                   string (resultCell :> IResource).Uri)
+                                   string cts.Uri, 
+                                   string resultCell.Uri)
 
         let setResult ctx r = 
             async {

@@ -15,6 +15,7 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
+            //TODO : Add assembly hash(?)
             return! BlobCell.CreateIfNotExists(config, res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
         }
     

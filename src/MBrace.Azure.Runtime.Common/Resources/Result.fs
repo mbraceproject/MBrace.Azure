@@ -28,7 +28,7 @@ type ResultCell<'T> internal (config, res : Uri) =
     member __.SetResult(result : 'T) : Async<unit> =
         async {
             let! bc = BlobCell.CreateIfNotExists(config, res.Container, fun () -> result)
-            let uri = (bc :> IResource).Uri
+            let uri = bc.Uri
             let e = new LightCellEntity(res.PartitionWithScheme, uri.ToString(), ETag = "*")
             let! u = Table.merge config res.Table e
             return ()
@@ -52,8 +52,7 @@ type ResultCell<'T> internal (config, res : Uri) =
             | Some r -> return r
         }
     
-    interface IResource with
-        member __.Uri = res
+    member __.Uri = res
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
@@ -88,7 +87,7 @@ type ResultAggregator<'T> internal (config, res : Uri) =
         async { 
             let e = new ResultAggregatorEntity(res.PartitionWithScheme, index, null, ETag = "*")
             let! bc = BlobCell.CreateIfNotExists(config, res.Container, fun () -> value)
-            e.Uri <- (bc :> IResource).Uri.ToString()
+            e.Uri <- bc.Uri.ToString()
             let! u = Table.replace config res.Table e
             return __.Complete
         }
@@ -117,8 +116,7 @@ type ResultAggregator<'T> internal (config, res : Uri) =
                 return re
         }
     
-    interface IResource with 
-        member __.Uri = res
+    member __.Uri = res
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 

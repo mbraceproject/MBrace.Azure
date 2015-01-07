@@ -14,8 +14,7 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
             return Configuration.Pickler.Deserialize<'T>(s) 
         }
     
-    interface IResource with 
-        member __.Uri = res
+    member __.Uri = res
     
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 

@@ -9,12 +9,6 @@ open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
 open Nessos.MBrace.Azure.Runtime
 
-
-type IResource = 
-    inherit ISerializable
-    //inherit IDisposable
-    abstract Uri : Uri 
-
 //
 // Table storage entities
 //
