@@ -68,36 +68,67 @@ type TaskExecutionMonitor () =
             return! Async.Raise e.InnerException
     }
 
-type TaskType = 
+
+// TODO : Merge with ProcessRecord.
+/// Process information record.
+type ProcessInfo =
+    {
+        /// Cloud process unique identifier.
+        Id : string
+        /// Process name.
+        Name : string
+
+        /// Default file store container for process.
+        DefaultDirectory : string
+        /// Default atom container for process.
+        DefaultAtomContainer : string
+        /// Default channel container for process.
+        DefaultChannelContainer : string
+
+        /// Optional filestore for this process.
+        FileStore : ICloudFileStore option
+        /// Optional atom provider for this process.
+        AtomProvider : ICloudAtomProvider option
+        /// Optional channel provider for this process.
+        ChannelProvider : ICloudChannelProvider option
+    }
+
+/// Task kind.
+type TaskType =
+    /// Root task for process.
     | Root
-    | Single
-    | Parallel
-    | Choice
+    /// Task created by Cloud.StartChild.
+    | StartChild
+    /// Task created by Cloud.StartChild with affinity.
     | Affined of affinity : string
+    /// Task created by Cloud.Parallel
+    | Parallel
+    /// Task created by Cloud.Choice
+    | Choice
 
 /// Defines a task to be executed in a worker node
 type Task = 
     {
         /// Return type of the defining cloud workflow.
         Type : Type
-        /// Cloud process unique identifier
-        ProcessId : string
-        /// Task unique identifier
+        /// Process information record.
+        ProcessInfo : ProcessInfo
+        /// Task unique identifier.
         TaskId : string
-        /// Triggers task execution with worker-provided execution context
+        /// Triggers task execution with worker-provided execution context.
         StartTask : ExecutionContext -> unit
-        /// Task fault policy
+        /// Task fault policy.
         FaultPolicy : FaultPolicy
-        /// Exception Continuation
+        /// Exception Continuation.
         Econt : ExecutionContext -> ExceptionDispatchInfo -> unit
-        /// Distributed cancellation token source bound to task
+        /// Distributed cancellation token source bound to task.
         CancellationTokenSource : DistributedCancellationTokenSource
         /// Type of task.
         TaskType : TaskType
     }
 with
     override this.ToString () =
-        sprintf "%A/%s/%s : %s" this.TaskType this.ProcessId this.TaskId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
+        sprintf "%A/%s/%s : %s" this.TaskType this.ProcessInfo.Id this.TaskId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
 
     /// <summary>
     ///     Asynchronously executes task in the local process.
@@ -137,7 +168,7 @@ with
     }
 
 /// TaskQueue message type.
-type TaskItem = Pickle<Task> * string * AssemblyId list
+type TaskItem = Pickle<Task> * AssemblyId list
 
 /// Defines a handle to the state of a runtime instance.
 type RuntimeState =
@@ -173,7 +204,7 @@ with
     /// <param name="cc">Cancellation continuation</param>
     /// <param name="wf">Workflow</param>
     /// <param name="affinity">Optional task affinity.</param>
-    member rt.EnqueueTask(procId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, taskType : TaskType) : Async<unit> =
+    member rt.EnqueueTask(psInfo, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, taskType : TaskType) : Async<unit> =
         let taskId = guid()
         let startTask ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
@@ -182,7 +213,7 @@ with
         let task = 
             { 
                 Type = typeof<'T>
-                ProcessId = procId
+                ProcessInfo = psInfo
                 TaskId = taskId
                 StartTask = startTask
                 CancellationTokenSource = cts
@@ -192,10 +223,10 @@ with
             }
         
         let taskp = VagrantRegistry.Pickler.PickleTyped task
-        let taskItem = (taskp, procId, dependencies)
+        let taskItem = (taskp, dependencies)
         async {
             do! rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
-            do! rt.ProcessMonitor.IncreaseTotalTasks(procId)
+            do! rt.ProcessMonitor.IncreaseTotalTasks(psInfo.Id)
         }
 
     /// <summary>
@@ -209,7 +240,7 @@ with
     /// <param name="cc">Cancellation continuation.</param>
     /// <param name="wfs">Workflows</param>
     /// <param name="affinity">Optional task affinity.</param>
-    member rt.EnqueueTaskBatch(procId, dependencies, cts, fp, scFactory, ec, cc, wfs : Cloud<'T> [], taskType) : Async<unit> =
+    member rt.EnqueueTaskBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : Cloud<'T> [], taskType) : Async<unit> =
         let tasks = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
             let taskId = guid()
@@ -219,7 +250,7 @@ with
             let task = 
                 { 
                     Type = typeof<'T>
-                    ProcessId = procId
+                    ProcessInfo = psInfo
                     TaskId = taskId
                     StartTask = startTask
                     CancellationTokenSource = cts
@@ -229,10 +260,10 @@ with
                 }
 
             let taskp = VagrantRegistry.Pickler.PickleTyped task
-            tasks.[i] <- (taskp, procId, dependencies)
+            tasks.[i] <- (taskp, dependencies)
         async {
             do! rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
-            do! rt.ProcessMonitor.IncreaseTotalTasks(procId, tasks.Length)
+            do! rt.ProcessMonitor.IncreaseTotalTasks(psInfo.Id, tasks.Length)
         }
 
     /// <summary>
@@ -242,8 +273,8 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCell(procId, dependencies, cts, fp, wf : Cloud<'T>, taskType) = async {
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
+    member rt.StartAsCell(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, taskType) = async {
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(psInfo.DefaultDirectory)
         let setResult ctx r = 
             async {
                 let! success = resultCell.SetResult r
@@ -253,7 +284,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask(procId, dependencies, cts, fp, scont, econt, ccont, wf, taskType)
+        do! rt.EnqueueTask(psInfo, dependencies, cts, fp, scont, econt, ccont, wf, taskType)
         return resultCell
     }
 
@@ -264,15 +295,14 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    /// <param name="name">Process name.</param>
-    /// <param name="procId">Process id.</param>
-    member rt.StartAsProcess(procId, name, dependencies, cts, fp, wf : Cloud<'T>) = async {
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(processIdToStorageId procId)
+    /// <param name="psInfo">ProcessInfo.</param>
+    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>) = async {
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(psInfo.DefaultDirectory)
 
         let! _ = rt.ProcessMonitor
-                   .CreateRecord( procId, name, typeof<'T>, dependencies,
-                                    string (cts :> IResource).Uri, 
-                                    string (resultCell :> IResource).Uri)
+                   .CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies,
+                                   string (cts :> IResource).Uri, 
+                                   string (resultCell :> IResource).Uri)
 
         let setResult ctx r = 
             async {
@@ -280,15 +310,15 @@ with
                 let pmon = ctx.Resources.Resolve<ProcessMonitor>()
                 match r with
                 | Completed _ 
-                | Exception _ -> do! pmon.SetCompleted(procId)
-                | Cancelled _ -> do! pmon.SetKilled(procId)
+                | Exception _ -> do! pmon.SetCompleted(psInfo.Id)
+                | Cancelled _ -> do! pmon.SetKilled(psInfo.Id)
                 TaskExecutionMonitor.TriggerCompletion ctx
             } |> TaskExecutionMonitor.ProtectAsync ctx
 
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask(procId, dependencies, cts, fp, scont, econt, ccont, wf, TaskType.Root)
+        do! rt.EnqueueTask(psInfo, dependencies, cts, fp, scont, econt, ccont, wf, TaskType.Root)
         return resultCell
     }
 
@@ -299,8 +329,8 @@ with
         match item with
         | None -> return None
         | Some msg -> 
-            let! (tp, procId, deps) = msg.GetPayloadAsync<TaskItem>()
+            let! (tp, deps) = msg.GetPayloadAsync<TaskItem>()
             do! rt.AssemblyManager.LoadDependencies deps
             let task = VagrantRegistry.Pickler.UnPickleTyped<Task> tp
-            return Some (msg, task, procId, deps)
+            return Some (msg, task, deps)
     }

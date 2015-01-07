@@ -211,7 +211,7 @@ type StoreClient internal (config : Configuration) =
 
     let resources () = 
         resource { 
-            yield { FileStore = storeProvider; DefaultDirectory = defaultStoreContainer }
+            yield ({ FileStore = storeProvider; DefaultDirectory = defaultStoreContainer } : CloudFileStoreConfiguration)
             yield { AtomProvider = atomProvider; DefaultContainer = defaultAtomContainer }
             yield { ChannelProvider = channelProvider; DefaultContainer = defaultChannelContainer } 
         }
