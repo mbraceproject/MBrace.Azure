@@ -266,7 +266,7 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : balanced map/reduce`` () =
-        wordCount 20 MapReduce.mapReduce |> run |> Choice.shouldEqual 100
+        wordCount 1000 MapReduce.mapReduce |> run |> Choice.shouldEqual 5000
 
     [<Test>]
     member __.``2. Choice : empty input`` () =
