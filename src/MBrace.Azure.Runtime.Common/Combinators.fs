@@ -21,7 +21,7 @@ let inline private withCancellationToken (cts : DistributedCancellationTokenSour
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
-let Parallel (state : RuntimeState) procId dependencies fp (computations : seq<Cloud<'T>>) =
+let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T>>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -34,7 +34,7 @@ let Parallel (state : RuntimeState) procId dependencies fp (computations : seq<C
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
-            let storageId = processIdToStorageId procId
+            let storageId = psInfo.DefaultDirectory
             let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource> ()
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts)
             let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(storageId, computations.Length)
@@ -73,13 +73,13 @@ let Parallel (state : RuntimeState) procId dependencies fp (computations : seq<C
                 } |> TaskExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch(procId, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, TaskType.Parallel)
+                do! state.EnqueueTaskBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, TaskType.Parallel)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
-let Choice (state : RuntimeState) procId dependencies fp (computations : seq<Cloud<'T option>>) =
+let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T option>>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -89,7 +89,7 @@ let Choice (state : RuntimeState) procId dependencies fp (computations : seq<Clo
         | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
-            let storageId = processIdToStorageId procId
+            let storageId = psInfo.DefaultDirectory
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource>()
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, currentCts)
@@ -140,17 +140,17 @@ let Choice (state : RuntimeState) procId dependencies fp (computations : seq<Clo
                 } |> TaskExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch(procId, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, TaskType.Choice)
+                do! state.EnqueueTaskBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, TaskType.Choice)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartChild (state : RuntimeState) procId dependencies fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
+let StartChild (state : RuntimeState) psInfo dependencies fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
     let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
-    let taskType = match affinity with None -> TaskType.Single | Some wr -> TaskType.Affined wr.Id
-    let! resultCell = Cloud.OfAsync <| state.StartAsCell(procId, dependencies, cts, fp, computation, taskType)
+    let taskType = match affinity with None -> TaskType.StartChild | Some wr -> TaskType.Affined wr.Id
+    let! resultCell = Cloud.OfAsync <| state.StartAsCell(psInfo, dependencies, cts, fp, computation, taskType)
     return cloud { 
         let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
         return result.Value

@@ -18,40 +18,40 @@ open MBrace.Continuation
 open MBrace.Runtime.InMemory
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, procId, faultPolicy, taskId, dependencies, context) =
+type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultPolicy, taskId, psInfo, dependencies, context) =
 
     /// Creates a runtime provider instance for a provided task
-    static member FromTask state  wmon  procId dependencies (task : Task) =
-        new RuntimeProvider(state, wmon, procId, task.FaultPolicy, task.TaskId, dependencies, Distributed)
+    static member FromTask state  wmon  dependencies (task : Task) =
+        new RuntimeProvider(state, wmon, task.FaultPolicy, task.TaskId, task.ProcessInfo, dependencies, Distributed)
         
     interface IRuntimeProvider with
-        member __.ProcessId = procId
+        member __.ProcessId = psInfo.Id
         member __.TaskId = taskId
 
         member __.SchedulingContext = context
         member __.WithSchedulingContext context = 
-            new RuntimeProvider(state, wmon, procId, faultPolicy, taskId, dependencies, context) :> IRuntimeProvider
+            new RuntimeProvider(state, wmon, faultPolicy, taskId, psInfo, dependencies, context) :> IRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, wmon, procId, newPolicy, taskId, dependencies, context) :> IRuntimeProvider
+            new RuntimeProvider(state, wmon, newPolicy, taskId, psInfo, dependencies, context) :> IRuntimeProvider
 
         member __.ScheduleParallel computations = 
             match context with
-            | Distributed -> Combinators.Parallel state procId dependencies faultPolicy computations
+            | Distributed -> Combinators.Parallel state psInfo dependencies faultPolicy computations
             | ThreadParallel -> ThreadPool.Parallel computations
             | Sequential -> Sequential.Parallel computations
 
         member __.ScheduleChoice computations = 
             match context with
-            | Distributed -> Combinators.Choice state procId dependencies faultPolicy computations
+            | Distributed -> Combinators.Choice state psInfo dependencies faultPolicy computations
             | ThreadParallel -> ThreadPool.Choice computations
             | Sequential -> Sequential.Choice computations
 
         member __.ScheduleStartChild(computation,wr,timeout) =
             if timeout.IsSome then raise <| NotImplementedException("StartChild with timeout")
             match context with
-            | Distributed -> Combinators.StartChild state procId dependencies faultPolicy computation wr
+            | Distributed -> Combinators.StartChild state psInfo dependencies faultPolicy computation wr
             | ThreadParallel -> ThreadPool.StartChild computation
             | Sequential -> Sequential.StartChild computation
 
@@ -61,4 +61,4 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, procId
                       |> Seq.toArray 
             }
         member __.CurrentWorker = wmon.Current.AsWorkerRef() :> IWorkerRef
-        member __.Logger = state.ResourceFactory.RequestProcessLogger(Storage.processIdToStorageId procId, procId) :> ICloudLogger
+        member __.Logger = state.ResourceFactory.RequestProcessLogger(psInfo.DefaultDirectory, psInfo.Id) :> ICloudLogger

@@ -12,6 +12,7 @@
 
     #nowarn "40"
     open System
+    open Nessos.MBrace.Store
 
     /// <summary>
     /// Windows Azure Runtime client.
@@ -40,31 +41,54 @@
         /// Client logger.
         member __.ClientLogger = logger
 
-        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken, ?faultPolicy) =
-            Async.StartAsTask(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy))
+        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) =
+            __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
+            |> Async.StartAsTask
 
-        member __.CreateProcess(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken, ?faultPolicy) : Process<'T> =
-            Async.RunSync(__.CreateProcessAsync(workflow, ?name = name, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy))
+        member __.CreateProcess(workflow : Cloud<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : CancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
+            __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
+            |> Async.RunSynchronously
 
-        member __.CreateProcessAsync(workflow : Cloud<'T>, ?name : string, ?cancellationToken : CancellationToken, ?faultPolicy) : Async<Process<'T>> =
+        member __.CreateProcessAsync(workflow : Cloud<'T>, 
+                                     ?name : string, 
+                                     ?defaultDirectory : string,
+                                     ?fileStore : ICloudFileStore,
+                                     ?defaultAtomContainer : string,
+                                     ?atomProvider : ICloudAtomProvider,
+                                     ?defaultChannelContainer : string,
+                                     ?channelProvider : ICloudChannelProvider,
+                                     ?cancellationToken : CancellationToken, 
+                                     ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
                 let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
                 let computation = CloudCompiler.Compile workflow
-                let processId = guid()
-                let pname = defaultArg name computation.Name
-                logger.Logf "Creating process %s %s" processId pname
-                let storageId = Storage.processIdToStorageId processId
+                
+                let info = 
+                    let pid = guid ()
+                    let defaultContainer = Storage.processIdToStorageId pid
+                    { 
+                        Id = pid
+                        Name = defaultArg name computation.Name
+                        DefaultDirectory = defaultArg defaultDirectory defaultContainer
+                        FileStore = fileStore
+                        DefaultAtomContainer = defaultArg defaultAtomContainer defaultContainer
+                        AtomProvider = atomProvider
+                        DefaultChannelContainer = defaultArg defaultChannelContainer defaultContainer
+                        ChannelProvider = channelProvider 
+                    }
+
+                logger.Logf "Creating process %s %s" info.Id info.Name
                 logger.Logf "Uploading dependencies" 
                 for d in computation.Dependencies do
                     logger.Logf "%s" d.FullName
                 do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
                 logger.Logf "Creating DistributedCancellationToken"
-                let! cts = state.ResourceFactory.RequestCancellationTokenSource(storageId)
+                let! cts = state.ResourceFactory.RequestCancellationTokenSource(info.DefaultDirectory)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-                logger.Logf "Starting process %s" processId
-                let! resultCell = state.StartAsProcess(processId, pname, computation.Dependencies, cts, faultPolicy, computation.Workflow)
-                logger.Logf "Created process %s" processId
-                return Process<'T>(config.ConfigurationId, processId, pmon)
+                logger.Logf "Starting process %s" info.Id
+                let! resultCell = state.StartAsProcess(info, computation.Dependencies, cts, faultPolicy, computation.Workflow)
+                logger.Logf "Created process %s" info.Id
+                return Process<'T>(config.ConfigurationId, info.Id, pmon)
             }
             
         /// <summary>

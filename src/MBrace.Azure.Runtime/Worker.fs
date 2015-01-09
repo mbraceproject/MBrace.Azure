@@ -27,17 +27,16 @@ let initWorker (runtime : RuntimeState)
     let wmon = resources.Resolve<WorkerMonitor>()
     let logger = resources.Resolve<ILogger>()
 
-    let runTask procId deps faultCount t =
-        let provider = RuntimeProvider.FromTask runtime wmon procId deps t
-        // TODO : Make procId -> ProcessInfo
-        let container = Storage.processIdToStorageId procId
+    let runTask task deps faultCount  =
+        let provider = RuntimeProvider.FromTask runtime wmon deps task
+        let info = task.ProcessInfo
         let resources = resource { 
             yield! resources
-            yield { FileStore = store; DefaultDirectory = container }
-            yield { AtomProvider = atom; DefaultContainer = container }
-            yield { ChannelProvider = channel; DefaultContainer = container }
+            yield { FileStore = defaultArg info.FileStore store ; DefaultDirectory = info.DefaultDirectory }
+            yield { AtomProvider = defaultArg info.AtomProvider atom ; DefaultContainer = info.DefaultAtomContainer }
+            yield { ChannelProvider = defaultArg info.ChannelProvider channel; DefaultContainer = info.DefaultChannelContainer }
         }
-        Task.RunAsync provider resources deps faultCount t
+        Task.RunAsync provider resources deps faultCount task
     let inline logf fmt = Printf.ksprintf logger.Log fmt
 
     let rec loop () = async {
@@ -49,32 +48,32 @@ let initWorker (runtime : RuntimeState)
                 let! task = runtime.TryDequeue()
                 match task with
                 | None -> do! Async.Sleep 100
-                | Some (msg, task, procId, dependencies) ->
+                | Some (msg, task, dependencies) ->
                     let runTask () = async {
                         let! _ = Async.StartChild(msg.RenewLoopAsync())
 
                         if task.TaskType = TaskType.Root then
-                            logf "Running root task for process %s" task.ProcessId
-                            do! pmon.SetRunning(task.ProcessId)
+                            logf "Running root task for process %s %s" task.ProcessInfo.Id task.ProcessInfo.Name
+                            do! pmon.SetRunning(task.ProcessInfo.Id)
 
                         if msg.DeliveryCount = 1 then
-                            do! pmon.AddActiveTask(task.ProcessId)
+                            do! pmon.AddActiveTask(task.ProcessInfo.Id)
                         wmon.IncrementTaskCount()
 
                         logf "Starting task %s" (string task)
                         let sw = new Stopwatch()
                         sw.Start()
-                        let! result = Async.Catch(runTask procId dependencies (msg.DeliveryCount-1) task)
+                        let! result = Async.Catch(runTask task dependencies (msg.DeliveryCount-1))
                         sw.Stop()
 
                         match result with
                         | Choice1Of2 () -> 
                             do! msg.CompleteAsync()
-                            do! pmon.AddCompletedTask(task.ProcessId)
+                            do! pmon.AddCompletedTask(task.ProcessInfo.Id)
                             logf "Completed task %s in %O" (string task) sw.Elapsed
                         | Choice2Of2 e -> 
                             do! msg.AbandonAsync()
-                            do! pmon.AddFaultedTask(task.ProcessId)
+                            do! pmon.AddFaultedTask(task.ProcessInfo.Id)
                             logf "Task fault %s with:\n%O" (string task) e
                         wmon.DecrementTaskCount()
                         do! Async.Sleep 200

@@ -58,7 +58,7 @@ ps.AwaitResult()
 ps.ClearProcessResources()
 
 
-let sc = StoreClient.Create(config)
+let sc = runtime.StoreClient
 
 let sp, rp = sc.CloudChannel.New<int>() |> Async.RunSync
 
