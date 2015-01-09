@@ -8,10 +8,10 @@
 #r "MBrace.Azure.Client.dll"
 #time "on"
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Client
+open MBrace
+open MBrace.Continuation
+open MBrace.Azure.Runtime
+open MBrace.Azure.Client
 open System
 open System.IO
 
@@ -29,8 +29,8 @@ Configuration.Activate(config) |> Async.RunSynchronously
 Configuration.DeleteResources(config)
 
 
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Resources
 let (!) (task : Async<'T>) = Async.RunSynchronously task
 
 

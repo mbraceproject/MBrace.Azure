@@ -1,9 +1,9 @@
-﻿namespace Nessos.MBrace.Azure.Store
+﻿namespace MBrace.Azure.Store
 
 open Microsoft.ServiceBus.Messaging
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
+open MBrace
+open MBrace.Continuation
+open MBrace.Store
 open System
 open System.IO
 open System.Runtime.Serialization

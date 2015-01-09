@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Common
 
 open System
 open System.Runtime.Serialization
@@ -6,13 +6,13 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
-open Nessos.MBrace.Azure.Runtime
+open MBrace.Azure.Runtime
 
 open System.Net
 open System.Diagnostics
-open Nessos.MBrace
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Continuation
+open MBrace
+open MBrace.Runtime
+open MBrace.Continuation
 open System.Collections.Concurrent
 
 type ILogger =

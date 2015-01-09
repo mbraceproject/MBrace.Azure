@@ -1,16 +1,16 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Standalone
+﻿namespace MBrace.Azure.Runtime.Standalone
 
-open Nessos.MBrace.Azure.Client
+open MBrace.Azure.Client
 open System.Diagnostics
 open System.IO
-open Nessos.MBrace.Continuation
+open MBrace.Continuation
 
 /// BASE64 serialized argument parsing schema
 
 module internal Argument =
-    open Nessos.MBrace.Azure.Runtime
-    open Nessos.MBrace.Runtime
-    open Nessos.MBrace.Runtime.Vagrant
+    open MBrace.Azure.Runtime
+    open MBrace.Runtime
+    open MBrace.Runtime.Vagrant
     
     type Config = { Configuration : Configuration; MaxTasks : int}
 
@@ -28,7 +28,7 @@ type private Helpers () =
     static member val exe = None with get, set
 
     static member InitWorkers (config : Argument.Config) (count : int) exe =
-        Nessos.MBrace.Azure.Runtime.Configuration.Activate(config.Configuration)
+        MBrace.Azure.Runtime.Configuration.Activate(config.Configuration)
         if count < 1 then invalidArg "workerCount" "must be positive."  
         let args = Argument.ofConfiguration config 
         let psi = new ProcessStartInfo(exe, args)

@@ -1,11 +1,11 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Resources
 
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
 open System.Runtime.Serialization
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Common
+open MBrace.Continuation
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
 
 type IntCell internal (config : ConfigurationId, res : Uri) = 
     member __.Value = 

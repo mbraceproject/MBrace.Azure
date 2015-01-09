@@ -1,10 +1,10 @@
-﻿module internal Nessos.MBrace.Azure.Runtime.Standalone.Program 
+﻿module internal MBrace.Azure.Runtime.Standalone.Program 
     open System
-    open Nessos.MBrace.Azure.Runtime
-    open Nessos.MBrace.Azure.Runtime.Common
+    open MBrace.Azure.Runtime
+    open MBrace.Azure.Runtime.Common
     open System.Diagnostics
-    open Nessos.MBrace.Azure.Store
-    open Nessos.MBrace.Store
+    open MBrace.Azure.Store
+    open MBrace.Store
 
     [<EntryPoint>]
     let main (args : string []) =

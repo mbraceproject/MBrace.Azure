@@ -1,13 +1,13 @@
-﻿namespace Nessos.MBrace.Azure.Client
+﻿namespace MBrace.Azure.Client
 
-open Nessos.MBrace
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Azure.Runtime.Resources
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime.Compiler
-open Nessos.MBrace.Runtime.Utils.PrettyPrinters
+open MBrace
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Resources
+open MBrace.Runtime
+open MBrace.Continuation
+open MBrace.Runtime.Compiler
+open MBrace.Runtime.Utils.PrettyPrinters
 open System
 open System.IO
 open System.Threading

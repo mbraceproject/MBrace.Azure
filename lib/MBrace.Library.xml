@@ -2,7 +2,7 @@
 <doc>
 <assembly><name>MBrace.Library</name></assembly>
 <members>
-<member name="M:Nessos.MBrace.ThreadPool.StartChild``1(Nessos.MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+<member name="M:MBrace.ThreadPool.StartChild``1(MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
      Provides a context-less Cloud.StartChild implementation
      for execution within the thread pool.
@@ -10,27 +10,27 @@
  <param name="computation">Input computation.</param>
  <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
 </member>
-<member name="M:Nessos.MBrace.ThreadPool.Parallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
+<member name="M:MBrace.ThreadPool.Parallel``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{``0}})">
  <summary>
      Provides a context-less Cloud.Parallel implementation
      for execution within the thread pool.
  </summary>
  <param name="computations">Input computations</param>
 </member>
-<member name="M:Nessos.MBrace.ThreadPool.Choice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
+<member name="M:MBrace.ThreadPool.Choice``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
  <summary>
      Provides a context-less Cloud.Choice implementation
      for execution within the thread pool.
  </summary>
  <param name="computations">Input computations</param>
 </member>
-<member name="T:Nessos.MBrace.ThreadPool">
+<member name="T:MBrace.ThreadPool">
 <summary>
  Collection of context-less combinators for 
  execution within local thread context.
 </summary>
 </member>
-<member name="M:Nessos.MBrace.MapReduce.mapReduce``2(Microsoft.FSharp.Core.FSharpFunc{``0,Nessos.MBrace.Cloud{``1}},``1,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``1,Nessos.MBrace.Cloud{``1}}},``0[])">
+<member name="M:MBrace.MapReduce.mapReduce``2(Microsoft.FSharp.Core.FSharpFunc{``0,MBrace.Cloud{``1}},``1,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``1,MBrace.Cloud{``1}}},``0[])">
  <summary>
      Map/Reduce implementation.
  </summary>
@@ -39,7 +39,7 @@
  <param name="reducer">Reducer function.</param>
  <param name="inputs">Inputs.</param>
 </member>
-<member name="M:Nessos.MBrace.MapReduce.parFold``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,Nessos.MBrace.Cloud{``0}}},``0,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``0,Nessos.MBrace.Cloud{``0}}},``1[])">
+<member name="M:MBrace.MapReduce.parFold``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,MBrace.Cloud{``0}}},``0,Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``0,MBrace.Cloud{``0}}},``1[])">
  <summary>
      Parallel fold combinator
  </summary>
@@ -48,7 +48,7 @@
  <param name="reducer">Reducing function.</param>
  <param name="inputs">Inputs</param>
 </member>
-<member name="T:Nessos.MBrace.MapReduce">
+<member name="T:MBrace.MapReduce">
 <summary>
  Collection of mapReduce and related workflows
 </summary>
@@ -77,31 +77,31 @@
 <member name="">
 
 </member>
-<member name="T:Nessos.MBrace.SchedulerInternals">
+<member name="T:MBrace.SchedulerInternals">
 
 </member>
-<member name="M:Nessos.MBrace.Sequential.StartChild``1(Nessos.MBrace.Cloud{``0})">
+<member name="M:MBrace.Sequential.StartChild``1(MBrace.Cloud{``0})">
  <summary>
      Provides a context-less Cloud.StartChild implementation
      for execution within the current thread context.
  </summary>
  <param name="computation">Input computation</param>
 </member>
-<member name="M:Nessos.MBrace.Sequential.Choice``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
+<member name="M:MBrace.Sequential.Choice``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
  <summary>
      Provides a context-less Cloud.Choice implementation
      for execution within the current thread.
  </summary>
  <param name="computations">Input computations</param>
 </member>
-<member name="M:Nessos.MBrace.Sequential.Parallel``1(System.Collections.Generic.IEnumerable{Nessos.MBrace.Cloud{``0}})">
+<member name="M:MBrace.Sequential.Parallel``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{``0}})">
  <summary>
      Provides a context-less Cloud.Parallel implementation
      for execution within the current thread.
  </summary>
  <param name="computations">Input computations</param>
 </member>
-<member name="M:Nessos.MBrace.Sequential.fold``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,Nessos.MBrace.Cloud{``0}}},``0,System.Collections.Generic.IEnumerable{``1})">
+<member name="M:MBrace.Sequential.fold``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,MBrace.Cloud{``0}}},``0,System.Collections.Generic.IEnumerable{``1})">
  <summary>
      Provides a context-less sequential fold implementation.
  </summary>
@@ -109,7 +109,7 @@
  <param name="init">Initial state function.</param>
  <param name="ts">Input sequence.</param>
 </member>
-<member name="T:Nessos.MBrace.Sequential">
+<member name="T:MBrace.Sequential">
 <summary>
  Collection of context-less combinators for 
  execution within local thread context.
@@ -121,40 +121,40 @@
 <member name="">
 
 </member>
-<member name="M:Nessos.MBrace.Utils.List.split``1(Microsoft.FSharp.Collections.FSharpList{``0})">
+<member name="M:MBrace.Utils.List.split``1(Microsoft.FSharp.Collections.FSharpList{``0})">
  <summary>
      split list in half
  </summary>
  <param name="xs">input list</param>
 </member>
-<member name="M:Nessos.MBrace.Utils.List.splitAt``1(System.Int32,Microsoft.FSharp.Collections.FSharpList{``0})">
+<member name="M:MBrace.Utils.List.splitAt``1(System.Int32,Microsoft.FSharp.Collections.FSharpList{``0})">
  <summary>
      split list at given length
  </summary>
  <param name="n">splitting point.</param>
  <param name="xs">input list.</param>
 </member>
-<member name="T:Nessos.MBrace.Utils.List">
+<member name="T:MBrace.Utils.List">
 
 </member>
-<member name="M:Nessos.MBrace.Utils.Array.splitByChunkSize``1(System.Int32,``0[])">
+<member name="M:MBrace.Utils.Array.splitByChunkSize``1(System.Int32,``0[])">
  <summary>
      partitions an array into chunks of given size
  </summary>
  <param name="chunkSize">chunk size.</param>
  <param name="ts">Input array.</param>
 </member>
-<member name="M:Nessos.MBrace.Utils.Array.splitByPartitionCount``1(System.Int32,``0[])">
+<member name="M:MBrace.Utils.Array.splitByPartitionCount``1(System.Int32,``0[])">
  <summary>
      partitions an array into a predetermined number of uniformly sized chunks.
  </summary>5 
  <param name="partitions">number of partitions.</param>
  <param name="input">Input array.</param>
 </member>
-<member name="T:Nessos.MBrace.Utils.Array">
+<member name="T:MBrace.Utils.Array">
 
 </member>
-<member name="T:Nessos.MBrace.Utils">
+<member name="T:MBrace.Utils">
 
 </member>
 </members>

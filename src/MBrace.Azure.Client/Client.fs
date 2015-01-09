@@ -1,14 +1,14 @@
-﻿namespace Nessos.MBrace.Azure.Client
+﻿namespace MBrace.Azure.Client
 
     open System.IO
     open System.Threading
 
-    open Nessos.MBrace
-    open Nessos.MBrace.Continuation
-    open Nessos.MBrace.Runtime
-    open Nessos.MBrace.Azure.Runtime
-    open Nessos.MBrace.Azure.Runtime.Common
-    open Nessos.MBrace.Runtime.Compiler
+    open MBrace
+    open MBrace.Continuation
+    open MBrace.Runtime
+    open MBrace.Azure.Runtime
+    open MBrace.Azure.Runtime.Common
+    open MBrace.Runtime.Compiler
 
     #nowarn "40"
     open System

@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Store
+﻿namespace MBrace.Azure.Store
 
 open System
 open System.IO
@@ -8,7 +8,7 @@ open Microsoft.WindowsAzure.Storage.Table
 
 [<AutoOpen>]
 module internal Utils =
-    open Nessos.MBrace.Store
+    open MBrace.Store
 
     let guid() = Guid.NewGuid().ToString("N")
     let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt

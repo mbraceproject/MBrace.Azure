@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Runtime
+﻿namespace MBrace.Azure.Runtime
 
 //
 //  Implements the scheduling context for sample runtime.
@@ -8,14 +8,14 @@
 
 open System.Diagnostics
 
-open Nessos.MBrace
-open Nessos.MBrace.Runtime
+open MBrace
+open MBrace.Runtime
 
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
 open System
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime.InMemory
+open MBrace.Continuation
+open MBrace.Runtime.InMemory
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, procId, faultPolicy, taskId, dependencies, context) =

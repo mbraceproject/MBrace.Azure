@@ -1,9 +1,9 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Resources
 
 open System
 open System.Runtime.Serialization
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
 
 
 type BlobCell<'T> internal (config : ConfigurationId, res : Uri) = 

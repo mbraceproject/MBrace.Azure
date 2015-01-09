@@ -1,7 +1,7 @@
-﻿namespace Nessos.MBrace.Azure.Client
+﻿namespace MBrace.Azure.Client
 
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Runtime.Utils.PrettyPrinters
+open MBrace.Azure.Runtime.Common
+open MBrace.Runtime.Utils.PrettyPrinters
 open System
 
 type internal ProcessReporter() = 

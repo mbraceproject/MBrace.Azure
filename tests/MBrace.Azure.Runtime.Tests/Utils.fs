@@ -1,12 +1,12 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Tests
+﻿namespace MBrace.Azure.Runtime.Tests
 
 open System.Threading
 
 open NUnit.Framework
 open FsUnit
 
-open Nessos.MBrace
-open Nessos.MBrace.Runtime
+open MBrace
+open MBrace.Runtime
 
 module Utils =
     open System

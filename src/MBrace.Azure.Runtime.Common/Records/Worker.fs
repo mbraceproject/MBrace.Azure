@@ -1,11 +1,11 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Common
 
 open System
 open Microsoft.WindowsAzure.Storage.Table
-open Nessos.MBrace.Azure.Runtime
+open MBrace.Azure.Runtime
 open System.Net
 open System.Threading
-open Nessos.MBrace
+open MBrace
 
 type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset) =    
     interface IWorkerRef with

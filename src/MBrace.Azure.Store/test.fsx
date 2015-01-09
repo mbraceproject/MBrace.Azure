@@ -7,9 +7,9 @@
 #r "MBrace.Core"
 
 open System
-open Nessos.MBrace.Store
-open Nessos.MBrace.Azure.Store
-open Nessos.MBrace
+open MBrace.Store
+open MBrace.Azure.Store
+open MBrace
 
 // Define your library scripting code here
 

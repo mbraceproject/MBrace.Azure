@@ -1,10 +1,10 @@
-﻿namespace Nessos.MBrace.Azure.Runtime
+﻿namespace MBrace.Azure.Runtime
 
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
 open Microsoft.WindowsAzure.Storage
 open Nessos.FsPickler
-open Nessos.MBrace.Runtime
+open MBrace.Runtime
 open Nessos.Vagrant
 open System
 open System.Collections.Concurrent
@@ -120,7 +120,7 @@ type ConfigurationRegistry private () =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Configuration =
-    open Nessos.MBrace.Runtime.Vagrant
+    open MBrace.Runtime.Vagrant
 
     let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 

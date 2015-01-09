@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Common
 
     open System
     open System.Threading.Tasks
@@ -44,7 +44,7 @@
             member u.RowKey = u.Segments.[2]
 
     module Storage =
-        open Nessos.MBrace.Azure.Runtime
+        open MBrace.Azure.Runtime
 
         let processIdToStorageId (pid : string) = 
             sprintf "process%s" <| Guid.Parse(pid).ToString("N").Substring(0,7) // TODO : change

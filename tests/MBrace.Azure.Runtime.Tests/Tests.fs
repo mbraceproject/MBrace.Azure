@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Tests
+﻿namespace MBrace.Azure.Runtime.Tests
 
 open System
 open System.IO
@@ -7,13 +7,13 @@ open System.Threading
 open NUnit.Framework
 open FsUnit
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Azure.Client
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Standalone
-open Nessos.MBrace.Azure.Runtime.Resources
+open MBrace
+open MBrace.Continuation
+open MBrace.Runtime
+open MBrace.Azure.Client
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Standalone
+open MBrace.Azure.Runtime.Resources
 
 [<AutoOpen>]
 module Helpers =
@@ -86,7 +86,7 @@ type ``Azure Runtime Tests`` () =
         runtime <- Some <| Runtime.InitLocal(cfg, 4, 16)
         config <- cfg.ConfigurationId
         printfn "Runtime initialized"
-        runtime.Value.ClientLogger.Attach(new Nessos.MBrace.Azure.Runtime.Common.ConsoleLogger()) 
+        runtime.Value.ClientLogger.Attach(new MBrace.Azure.Runtime.Common.ConsoleLogger()) 
 
     [<TestFixtureTearDown>]
     member __.Fini () =

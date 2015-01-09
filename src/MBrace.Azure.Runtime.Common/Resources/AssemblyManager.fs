@@ -1,15 +1,15 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Resources
 
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Azure.Runtime.Resources
-open Nessos.MBrace.Runtime
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Resources
+open MBrace.Runtime
 open Nessos.Vagrant
 open System
 open System.Runtime.Serialization
 open System.Threading
-open Nessos.MBrace.Azure.Runtime.Common.Storage
-open Nessos.MBrace.Runtime.Vagrant
+open MBrace.Azure.Runtime.Common.Storage
+open MBrace.Runtime.Vagrant
 
 type AssemblyManager private (config : ConfigurationId, res : Uri) = 
     

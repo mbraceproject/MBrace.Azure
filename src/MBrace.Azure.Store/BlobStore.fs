@@ -1,11 +1,11 @@
-﻿namespace Nessos.MBrace.Azure.Store
+﻿namespace MBrace.Azure.Store
 
 open System
 open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
-open Nessos.MBrace.Store
+open MBrace.Store
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Blob
 

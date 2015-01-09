@@ -1,12 +1,12 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Resources
 
 open System
 open System.Collections.Concurrent
 open System.Runtime.Serialization
 open Microsoft.WindowsAzure.Storage
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Runtime
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
+open MBrace.Runtime
 open Microsoft.WindowsAzure.Storage.Table
 
 type ResourceFactory private (config : Configuration) =

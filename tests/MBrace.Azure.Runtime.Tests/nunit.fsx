@@ -13,9 +13,9 @@
 
 open System
 open System.IO
-open Nessos.MBrace
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Client
+open MBrace
+open MBrace.Azure.Runtime
+open MBrace.Azure.Client
 open NUnit.Core
 
 
@@ -24,7 +24,7 @@ let remoteTestRunner = new RemoteTestRunner()
 remoteTestRunner.Load(testPackage)
 let testResult = remoteTestRunner.Run(QueuingEventListener(), TestFilter.Empty, true, LoggingThreshold.All)
 
-let tests = Nessos.MBrace.Azure.Runtime.Tests.``Azure Runtime Tests``()
+let tests = MBrace.Azure.Runtime.Tests.``Azure Runtime Tests``()
 tests.Init()
 
 tests.``1. Parallel : empty input``()

@@ -8,10 +8,10 @@
 #r "MBrace.Azure.Client.dll"
 #time "on"
 
-open Nessos.MBrace
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Client
+open MBrace
+open MBrace.Continuation
+open MBrace.Azure.Runtime
+open MBrace.Azure.Client
 open System
 
 let selectEnv name =
@@ -34,7 +34,7 @@ let config =
 
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
-open Nessos.MBrace.Azure.Runtime.Standalone
+open MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
 Runtime.Spawn(config, 4, 16)
 // ----------------------------
@@ -140,7 +140,7 @@ let ps = runtime.CreateProcess(wf)
 ps.AwaitResult()
 
 #r "MBrace.Library"
-open Nessos.MBrace.Store
+open MBrace.Store
 
 let ps = runtime.CreateProcess(CloudSequence.New([42]))
 let cr = ps.AwaitResult()

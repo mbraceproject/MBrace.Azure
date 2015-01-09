@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Common
 
     open System
     open System.Net

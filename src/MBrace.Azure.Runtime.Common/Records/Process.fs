@@ -1,11 +1,11 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Common
 
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
-open Nessos.MBrace
-open Nessos.MBrace.Azure.Runtime
+open MBrace
+open MBrace.Azure.Runtime
 open System
 open System.Diagnostics
 open System.Net

@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Runtime
+﻿namespace MBrace.Azure.Runtime
 
 // Provides facility for the execution of tasks.
 // In this context, a task denotes a single work item to be sent
@@ -13,16 +13,16 @@ open System.Threading.Tasks
 
 open Nessos.Vagrant
 
-open Nessos.MBrace
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Runtime.Serialization
-open Nessos.MBrace.Azure.Runtime.Resources
-open Nessos.MBrace.Azure.Runtime.Common.Storage
-open Nessos.MBrace.Continuation
+open MBrace
+open MBrace.Runtime
+open MBrace.Azure.Runtime.Common
+open MBrace.Runtime.Serialization
+open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Common.Storage
+open MBrace.Continuation
 open Nessos.FsPickler
-open Nessos.MBrace.Runtime.Vagrant
-open Nessos.MBrace.Store
+open MBrace.Runtime.Vagrant
+open MBrace.Store
 
 // Tasks are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that

@@ -9,12 +9,12 @@ using Microsoft.WindowsAzure;
 using Microsoft.WindowsAzure.Diagnostics;
 using Microsoft.WindowsAzure.ServiceRuntime;
 using Microsoft.WindowsAzure.Storage;
-using Nessos.MBrace.Azure.Runtime;
-using Nessos.MBrace.Azure.Runtime.Common;
-using Nessos.MBrace.Azure.Store;
-using Nessos.MBrace.Store;
+using MBrace.Azure.Runtime;
+using MBrace.Azure.Runtime.Common;
+using MBrace.Azure.Store;
+using MBrace.Store;
 
-namespace Nessos.MBrace.Azure.CloudService.WorkerRole
+namespace MBrace.Azure.CloudService.WorkerRole
 {
     public class WorkerRole : RoleEntryPoint
     {

@@ -1,14 +1,14 @@
-﻿module internal Nessos.MBrace.Azure.Runtime.Worker
+﻿module internal MBrace.Azure.Runtime.Worker
 
 open System.Diagnostics
 open System.Threading
 
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace.Azure.Runtime.Resources
-open Nessos.MBrace.Store
+open MBrace.Runtime
+open MBrace.Continuation
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Resources
+open MBrace.Store
 
 /// <summary>
 ///     Initializes a worker loop. Worker polls task queue of supplied

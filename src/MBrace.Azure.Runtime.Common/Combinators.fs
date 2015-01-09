@@ -1,18 +1,18 @@
-﻿module Nessos.MBrace.Azure.Runtime.Combinators
+﻿module MBrace.Azure.Runtime.Combinators
 
 //
 //  Provides distributed implementations for Cloud.Parallel, Cloud.Choice and Cloud.StartChild
 //
 
-open Nessos.MBrace
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Azure.Runtime
+open MBrace
+open MBrace.Runtime
+open MBrace.Azure.Runtime
 
 #nowarn "444"
 
-open Nessos.MBrace.Azure.Runtime.Resources
-open Nessos.MBrace.Azure.Runtime.Common.Storage
-open Nessos.MBrace.Continuation
+open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Common.Storage
+open MBrace.Continuation
 
 let inline private withCancellationToken (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
     let token = cts.GetLocalCancellationToken()

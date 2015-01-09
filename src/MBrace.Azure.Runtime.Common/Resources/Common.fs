@@ -1,4 +1,4 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Common
 
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
@@ -7,7 +7,7 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
-open Nessos.MBrace.Azure.Runtime
+open MBrace.Azure.Runtime
 
 //
 // Table storage entities

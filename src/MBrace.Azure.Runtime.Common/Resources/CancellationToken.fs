@@ -1,11 +1,11 @@
-﻿namespace Nessos.MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Resources
 
 open System
 open System.Threading
 open System.Runtime.Serialization
-open Nessos.MBrace.Azure.Runtime
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime
+open MBrace.Continuation
+open MBrace.Azure.Runtime.Common
 open Microsoft.WindowsAzure.Storage.Table
 
 type DistributedCancellationTokenSource internal (config, res : Uri) = 

@@ -1,19 +1,19 @@
-﻿namespace Nessos.MBrace.Azure.Runtime
+﻿namespace MBrace.Azure.Runtime
 
 open System
 open System.Threading
 open System.Threading.Tasks
-open Nessos.MBrace.Azure.Runtime
+open MBrace.Azure.Runtime
 open System.Runtime.InteropServices
-open Nessos.MBrace.Azure.Runtime.Common
-open Nessos.MBrace
-open Nessos.MBrace.Runtime
-open Nessos.MBrace.Continuation
-open Nessos.MBrace.Store
-open Nessos.MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Common
+open MBrace
+open MBrace.Runtime
+open MBrace.Continuation
+open MBrace.Store
+open MBrace.Azure.Runtime.Resources
 open System.Diagnostics
-open Nessos.MBrace.Azure.Store
-open Nessos.MBrace.Runtime.Store
+open MBrace.Azure.Store
+open MBrace.Runtime.Store
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
