@@ -72,7 +72,6 @@ type internal Subscription (config, topic, affinity : string, deadLetterPath : s
             sd.DefaultMessageTimeToLive <- MaxTTL
             sd.LockDuration <- MaxLockDuration
             sd.AutoDeleteOnIdle <- SubscriptionAutoDeleteInterval
-            sd.ForwardDeadLetteredMessagesTo <- deadLetterPath
             let filter = new SqlFilter(sprintf "%s = '%s'" AffinityPropertyName affinity)
             ns.CreateSubscription(sd, filter) |> ignore
     

@@ -12,7 +12,7 @@
 
     #nowarn "40"
     open System
-    open Nessos.MBrace.Store
+    open MBrace.Store
 
     /// <summary>
     /// Windows Azure Runtime client.
