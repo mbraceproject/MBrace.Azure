@@ -157,8 +157,11 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System.Xml" />
+    <Reference Include="Unquote">
+      <HintPath>..\..\lib\Unquote.dll</HintPath>
+    </Reference>
     <Reference Include="Vagrant">
-      <HintPath>..\..\packages\Vagrant.0.2.7\lib\net45\Vagrant.dll</HintPath>
+      <HintPath>..\..\packages\Vagrant.0.2.9\lib\net45\Vagrant.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>

@@ -114,9 +114,9 @@
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
-    <Reference Include="Vagrant, Version=0.2.7.0, Culture=neutral, processorArchitecture=MSIL">
+    <Reference Include="Vagrant, Version=0.2.9.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\..\packages\Vagrant.0.2.7\lib\net45\Vagrant.dll</HintPath>
+      <HintPath>..\..\packages\Vagrant.0.2.9\lib\net45\Vagrant.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
@@ -128,6 +128,10 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\MBrace.Azure.Client\MBrace.Azure.Client.fsproj">
+      <Project>{5aae037c-f0c3-4a04-a5f4-46001ec513bf}</Project>
+      <Name>MBrace.Azure.Client</Name>
+    </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Azure.Runtime.Common\MBrace.Azure.Runtime.Common.fsproj">
       <Project>{5ed05ec2-a9a0-4247-bb66-4d4c866f43ad}</Project>
       <Name>MBrace.Azure.Runtime.Common</Name>
