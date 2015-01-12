@@ -2,6 +2,4 @@ version: 0.0.1.{build}
 
 configuration: Release
 
-test:
-  assemblies:
-    - MBrace.Azure.Runtime.Tests.dll
+test: off
