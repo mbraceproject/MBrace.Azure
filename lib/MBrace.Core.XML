@@ -278,6 +278,9 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
 <member name="P:MBrace.CloudFile.StoreId">
 <summary>
  Cloud store service unique identifier
@@ -323,6 +326,9 @@
  </summary>
  <param name="buffer">Source buffer.</param>
  <param name="path">Path to Cloud file.</param>
+</member>
+<member name="">
+
 </member>
 <member name="M:MBrace.CloudFile.ReadLines(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
  <summary>
@@ -483,10 +489,16 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
 <member name="P:MBrace.CloudRef`1.Size">
 <summary>
  Returns size of cloud ref in bytes
 </summary>
+</member>
+<member name="">
+
 </member>
 <member name="">
 
@@ -978,6 +990,29 @@
  Disable static check warnings being generated for current workflow.
 </summary>
 </member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.PartitionedEnumerable`1">
+<summary>
+ Partition a seq&lt;&apos;T&gt; to seq&lt;seq&lt;&apos;T&gt;&gt; using a predicate
+</summary>
+</member>
 <member name="T:MBrace.SchedulingContext.Distributed">
 <summary>
  Distributed scheduling context
@@ -1106,6 +1141,15 @@
  <param name="right">The second cloud computation.</param>
 </member>
 <member name="T:MBrace.CloudCombinators">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.CloudFileUtils">
 
 </member>
 <member name="M:MBrace.Continuation.Cloud.WithMappedContinuation``2(Microsoft.FSharp.Core.FSharpFunc{MBrace.Continuation.Continuation{``0},MBrace.Continuation.Continuation{``1}},MBrace.Cloud{``1})">
@@ -1942,38 +1986,6 @@
  <param name="path">Path to file. Defaults to auto-generated path.</param>
 </member>
 <member name="T:MBrace.Store.CloudFileStoreUtils">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:MBrace.Store.Utils.PartitionedEnumerable`1">
-<summary>
- Partition a seq&lt;&apos;T&gt; to seq&lt;seq&lt;&apos;T&gt;&gt; using a predicate
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:MBrace.Store.Utils">
 
 </member>
 </members>
