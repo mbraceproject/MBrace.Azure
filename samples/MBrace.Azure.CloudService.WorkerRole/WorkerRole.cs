@@ -33,10 +33,10 @@ namespace MBrace.Azure.CloudService.WorkerRole
             bool result = base.OnStart();
 
             var config = Configuration.Default
-                            .WithStorageConnectionString(CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"))
-                            .WithServiceBusConnectionString(CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString"));
+                            .WithStorageConnectionString(CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString"))
+                            .WithServiceBusConnectionString(CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"));
 
-            _svc = new Service(config, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
+            _svc = new Service(config);
             _svc.AttachLogger(new CustomLogger(s => Trace.WriteLine(s)));
 
             RoleEnvironment.Changed += RoleEnvironment_Changed;
