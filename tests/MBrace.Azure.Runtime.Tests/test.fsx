@@ -46,6 +46,8 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
+runtime.Run <| cloud { return 42 }
+
 let rec wf i max = 
     cloud { 
         if i = max then return 42 

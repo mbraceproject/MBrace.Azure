@@ -13,15 +13,16 @@ open MBrace.Runtime.Vagrant
 
 type AssemblyManager private (config : ConfigurationId, res : Uri) = 
     
+    let filename id = sprintf "%s-%s" id.FullName (Convert.toBase32String id.ImageHash)
+    
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            //TODO : Add assembly hash(?)
-            return! BlobCell.CreateIfNotExists(config, res.Container, pkg.FullName, fun () -> pkg) |> Async.Ignore
+            return! BlobCell.CreateIfNotExists(config, res.Container, filename pkg.Id, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
         async { 
-            let uri = BlobCell<_>.GetUri(res.Container, id.FullName)
+            let uri = BlobCell<_>.GetUri(res.Container, filename id)
             let cell = BlobCell.OfUri(config, uri)
             return! cell.GetValue()
         }
