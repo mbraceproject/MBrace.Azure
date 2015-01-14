@@ -22,6 +22,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable storeProvider   = None
     let mutable channelProvider = None
     let mutable atomProvider    = None
+    let mutable cache           = None
     let mutable resources = ResourceRegistry.Empty
     let logger = new NullLogger() :> ILogger
     let logf fmt = Printf.ksprintf logger.Log fmt
@@ -36,9 +37,18 @@ type Service (config : Configuration, serviceId : string) =
     
     member val MaxConcurrentTasks = Environment.ProcessorCount with get, set
     
-    member __.RegisterStoreProvider(store : ICloudFileStore) =  check () ; storeProvider <- Some store
-    member __.RegisterAtomProvider(atom : ICloudAtomProvider) = check () ; atomProvider <- Some atom
-    member __.RegisterChannelProvider(channel : ICloudChannelProvider) = check () ; channelProvider <- Some channel
+    member __.RegisterStoreProvider(store : ICloudFileStore) =
+        check () ; storeProvider <- Some store
+    
+    member __.RegisterAtomProvider(atom : ICloudAtomProvider) = 
+        check () ; atomProvider <- Some atom
+    
+    member __.RegisterChannelProvider(channel : ICloudChannelProvider) = 
+        check () ; channelProvider <- Some channel
+    
+    member __.RegisterCache(cacheStore : ICloudFileStore) =
+        check () ; cache <- Some <| FileStoreCache.CreateCachedStore(cacheStore)
+
     member __.RegisterResource(resource : 'TResource) = check () ; resources <- resources.Register(resource)
     
     member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
@@ -67,10 +77,18 @@ type Service (config : Configuration, serviceId : string) =
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
                 logf "Creating InMemoryCache"
-                FileStoreCache.RegisterLocalFileSystemCache()
                 InMemoryCacheRegistry.SetCache (InMemoryCache.Create())
-                logf "Creating CachedStore"
+                
+                match cache with 
+                | None -> 
+                    logf "Registering local filesystem cache"
+                    FileStoreCache.RegisterLocalFileSystemCache()
+                | Some c -> 
+                    logf "Registering cache store %s" c.SourceStore.Id
+                    FileStoreCache.RegisterLocalCacheStore(c)
+
                 let store = FileStoreCache.CreateCachedStore(storeProvider.Value) :> ICloudFileStore
+                logf "CachedStore created"
 
                 atomProvider <- Some(defaultArg atomProvider ({ new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
                                                                     override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider))
