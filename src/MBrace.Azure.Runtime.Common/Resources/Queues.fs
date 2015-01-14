@@ -211,6 +211,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
 type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) = 
     let mutable affinity : string option = None
     let mutable subscription : Subscription option = None 
+    let mutable flag = false
 
     member __.Affinity 
         with get () = affinity.Value
@@ -218,12 +219,22 @@ type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic)
             affinity <- Some aff
             subscription <- Some(topic.GetSubscription(aff, queue.Path))
 
+
     member __.TryDequeue() : Async<QueueMessage option> =
         async {
-            let! msg = subscription.Value.TryDequeue()
-            match msg with
-            | Some _ -> return msg
-            | None -> return! queue.TryDequeue()
+            let! msg = async {
+                if not flag then
+                    let! msg = subscription.Value.TryDequeue()
+                    match msg with
+                    | Some _ -> return msg
+                    | None -> return! queue.TryDequeue()
+                else
+                    let! msg = queue.TryDequeue()
+                    match msg with
+                    | Some _ -> return msg
+                    | None -> return! subscription.Value.TryDequeue() }
+            flag <- not flag
+            return msg
         }
 
     member __.Enqueue<'T>(item : 'T, ?affinity) : Async<unit> =
