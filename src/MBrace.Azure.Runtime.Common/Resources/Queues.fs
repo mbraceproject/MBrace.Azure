@@ -13,8 +13,8 @@ module private Constants =
     let MaxTTL = TimeSpan.MaxValue
     let ServerWaitTime = TimeSpan.FromMilliseconds(100.)
     let AffinityPropertyName = "Affinity"
-    let SubscriptionAutoDeleteInterval = TimeSpan.FromMinutes(5.) // 5min is the minimum duration
-    //let SubscriptionRenewInterval = TimeSpan.FromSeconds(30.)
+    let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
+    let SubscriptionRenewInterval = TimeSpan.FromSeconds(30.)
 
 type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) = 
     let mutable completed = false
