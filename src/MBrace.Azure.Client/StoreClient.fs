@@ -198,7 +198,7 @@ type CloudFileProvider internal (registry : ResourceRegistry) =
 type StoreClient internal (config : Configuration) =
     do Configuration.Activate(config)
     do FileStoreCache.RegisterLocalFileSystemCache()
-    do InMemoryCacheRegistry.SetCache (InMemoryCache.Create())
+
     let mutable storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
     let mutable atomProvider = 
         { new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
