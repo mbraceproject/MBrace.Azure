@@ -144,6 +144,10 @@ ps.AwaitResult()
 #r "MBrace.Library"
 open MBrace.Store
 
+let ps = runtime.CreateProcess(CloudRef.New(42))
+let c = ps.AwaitResult()
+c.Value
+
 let ps = runtime.CreateProcess(CloudSequence.New([42]))
 let cr = ps.AwaitResult()
 cr |> Seq.toArray
