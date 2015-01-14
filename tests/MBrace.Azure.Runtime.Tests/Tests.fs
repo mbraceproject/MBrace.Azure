@@ -48,12 +48,16 @@ module Helpers =
         }
 
 
-[<TestFixture>]
-type ``Azure Runtime Tests`` () =
-   
+[<AbstractClass; TestFixture>]
+type ``Azure Runtime Tests`` (sbus, storage) =
+    let config = 
+        { Configuration.Default with
+            StorageConnectionString = storage
+            ServiceBusConnectionString = sbus }
+    
     let testContainer = "tests"
     let mutable runtime : Runtime option = None
-    let mutable config : ConfigurationId = Unchecked.defaultof<_>
+    let configId : ConfigurationId = config.ConfigurationId
     let processes = new ResizeArray<Process>()
 
     let run (workflow : Cloud<'T>) = 
@@ -64,28 +68,20 @@ type ``Azure Runtime Tests`` () =
     let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = Option.get runtime
-            let! dcts = DistributedCancellationTokenSource.Create(config, testContainer) 
+            let! dcts = DistributedCancellationTokenSource.Create(configId, testContainer) 
             let ct = dcts.GetLocalCancellationToken()
             let ps = runtime.CreateProcess(workflow dcts, cancellationToken = ct) 
             processes.Add(ps)
             return! ps.AwaitResultAsync() |> Async.Catch 
         } |> Async.RunSync
     
-    [<TestFixtureSetUp>]
-    member __.Init () =
-        let cfg = 
-            { Configuration.Default with
-                StorageConnectionString = Utils.selectEnv "azurestorageconn"
-                ServiceBusConnectionString = Utils.selectEnv "azureservicebusconn" }
+    member __.Configuration = config
 
-        let print (s : string) = if s = null then "<null>" else sprintf "%s . . ." <| s.Substring(0,15)
-        printfn "config.Storage : %s" <| print cfg.StorageConnectionString
-        printfn "config.ServiceBus : %s" <| print cfg.ServiceBusConnectionString
-        Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-        printfn "WorkerExecutable : %s" Runtime.WorkerExecutable
-        runtime <- Some <| Runtime.InitLocal(cfg, 4, 16)
-        config <- cfg.ConfigurationId
-        printfn "Runtime initialized"
+    abstract Init : unit -> unit
+    [<TestFixtureSetUp>]
+    default __.Init () =
+        runtime <- Some <| MBrace.Azure.Client.Runtime.GetHandle(config)
+        printfn "Got Handle for runtime"
         runtime.Value.ClientLogger.Attach(new MBrace.Azure.Runtime.Common.ConsoleLogger()) 
 
     [<TestFixtureTearDown>]
@@ -111,7 +107,7 @@ type ``Azure Runtime Tests`` () =
 
     [<Test>]
     member __.``1. Parallel : use binding`` () =
-        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
+        let counter = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         cloud {
             use foo = { new ICloudDisposable with member __.Dispose () = async { return counter.Incr() |> ignore } }
             let! _ = cloud { return counter.Incr() } <||> cloud { return counter.Incr() }
@@ -133,7 +129,7 @@ type ``Azure Runtime Tests`` () =
 
     [<Test>]
     member __.``1. Parallel : finally`` () =
-        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
+        let counter = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         cloud {
             try
                 let! x,y = cloud { return 1 } <||> cloud { return invalidOp "failure" }
@@ -165,7 +161,7 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : exception contention`` () =
-        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
+        let counter = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         cloud {
             try
                 let! _ = Array.init 20 (fun _ -> cloud { return invalidOp "failure" }) |> Cloud.Parallel
@@ -214,7 +210,7 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : simple cancellation`` () =
-        let counter = Counter.Create(config, testContainer, 0) |> Async.RunSync
+        let counter = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         runCts(fun cts -> cloud {
             let f _ = cloud {
                 if counter.Incr() = 1 then cts.Cancel() 
@@ -302,7 +298,7 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``2. Choice : all inputs 'Some'`` () =
-        let successcounter = Counter.Create(config, testContainer, 0) |> Async.RunSync
+        let successcounter = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         cloud {
             let worker _ = cloud { return Some 42 }
             let! result = Array.init 20 worker |> Cloud.Choice
@@ -349,8 +345,8 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``2. Choice : simple cancellation`` () =
-        let mutex = Counter.Create(config, testContainer, 0) |> Async.RunSync
-        let taskCount = Counter.Create(config, testContainer, 0) |> Async.RunSync
+        let mutex = Counter.Create(configId, testContainer, 0) |> Async.RunSync
+        let taskCount = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         runCts(fun cts ->
             cloud {
                 let worker _ = cloud {
@@ -409,7 +405,7 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``3. StartChild: task with success`` () =
-        let count = Counter.Create(config, testContainer, 0) |> Async.RunSync
+        let count = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         cloud {
             let task = cloud {
                 return count.Incr()
@@ -434,7 +430,7 @@ type ``Azure Runtime Tests`` () =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``3. StartChild: task with cancellation`` () =
-        let count = Counter.Create(config, testContainer, 0) |> Async.RunSync
+        let count = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         runCts(fun cts ->
             cloud {
                 let task = cloud {
@@ -469,11 +465,20 @@ type ``Azure Runtime Tests`` () =
     member __.``4. Runtime : Get task id`` () =
         run (Cloud.GetTaskId()) |> Choice.shouldMatch (fun _ -> true)
 
-//    [<Test>]
-//    [<Repeat(repeats)>]
-//    member __.``5. Fault Tolerance : map/reduce`` () =
-//        let t = runtime.Value.RunAsTask(wordCount 20 mapReduceRec)
-//        do Thread.Sleep 4000
-//        runtime.Value.KillAllWorkers()
-//        runtime.Value.AppendWorkers 4
-//        t.Result |> should equal 100
+
+type ``Compute Emulator`` () =
+    inherit ``Azure Runtime Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
+    
+    [<TestFixtureSetUpAttribute>]
+    override __.Init() =
+        // TODO : Check if emulator is up?
+        base.Init()    
+
+type ``InitLocal`` () =
+    inherit ``Azure Runtime Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
+    
+    [<TestFixtureSetUpAttribute>]
+    override __.Init() =
+        Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+        Runtime.Spawn(base.Configuration, 4, 16) 
+        base.Init()    
