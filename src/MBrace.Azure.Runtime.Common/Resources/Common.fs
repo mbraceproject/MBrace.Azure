@@ -85,6 +85,12 @@ module Table =
             return e.Result :?> 'T
         }
     
+    let query<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table query =
+        async {
+            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+            return t.ExecuteQuery<'T>(query)
+        }
+
     let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table pk : Async<'T seq> = 
         async {  
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)

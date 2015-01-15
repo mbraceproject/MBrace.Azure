@@ -86,6 +86,9 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
 
         member __.GetLogsAsync () = Table.queryPK<LogRecord> config table pk
 
+        member __.GetLogsAsync (loggerType : LoggerType, fromDate : DateTimeOffset, toDate : DateTimeOffset) =
+            raise <| NotImplementedException()        
+
 type NullLogger () =
     inherit LoggerBase () 
 
