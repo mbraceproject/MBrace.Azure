@@ -93,7 +93,6 @@ type ProcessInfo =
         ChannelProvider : ICloudChannelProvider option
     }
 
-// TODO : Add ParallelAffined/ChoiceAffined
 /// Task kind.
 type TaskType =
     /// Root task for process.
@@ -102,10 +101,14 @@ type TaskType =
     | StartChild
     /// Task created by Cloud.StartChild with affinity.
     | Affined of affinity : string
-    /// Task created by Cloud.Parallel
+    /// Task created by Cloud.Parallel.
     | Parallel
-    /// Task created by Cloud.Choice
+    /// Task created by Cloud.Choice.
     | Choice
+    /// Task created by Cloud.Parallel with affinity.
+    | ParallelAffined of affinity : string
+    /// Task created by Cloud.Choice with affinity.
+    | ChoiceAffined of affinity : string
 
 /// Defines a task to be executed in a worker node
 type Task = 
@@ -248,6 +251,14 @@ with
             let startTask ctx =
                 let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
                 Cloud.StartWithContinuations(fst wfs.[i], cont, ctx)
+            let taskType aff  =
+                match taskType, aff with
+                | (Parallel | Choice) as t, None -> t
+                | Parallel, Some a -> ParallelAffined a
+                | Choice, Some a -> ChoiceAffined a
+                | t -> failwith "Invalid TaskType %A in EnqueueBatch." t
+
+            let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
             let task = 
                 { 
                     Type = typeof<'T>
@@ -257,11 +268,10 @@ with
                     CancellationTokenSource = cts
                     FaultPolicy = fp
                     Econt = ec
-                    TaskType = taskType 
+                    TaskType = taskType affinity
                 }
 
             let taskp = VagrantRegistry.Pickler.PickleTyped task
-            let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
             tasks.[i] <- (taskp, dependencies), affinity
         async {
             do! rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)

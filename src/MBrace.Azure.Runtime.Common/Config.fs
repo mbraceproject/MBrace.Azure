@@ -130,9 +130,9 @@ module Configuration =
     let private init =
         runOnce(fun () ->
             let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
-            let ignored = Assembly.GetExecutingAssembly() :: List.ofSeq ignoredAssemblies
-            VagrantRegistry.Initialize(ignoredAssemblies = ignored, loadPolicy = AssemblyLoadPolicy.ResolveAll))
-
+            ignoredAssemblies.Add(Assembly.GetExecutingAssembly()) |> ignore
+            VagrantRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
+            
     /// Default Pickler.
     let Pickler = init () ; VagrantRegistry.Pickler
 
@@ -152,7 +152,11 @@ module Configuration =
     }
 
     let AddIgnoredAssembly(asm : Assembly) =
+        // MUST BE CALLED BEFORE INIT.
         ignore <| ignoredAssemblies.Add(asm)
+
+    let GetIgnoredAssemblies() : seq<Assembly> =
+        ignoredAssemblies :> _
 
     /// Activates the given configuration.
     let Activate(config : Configuration) = Async.RunSynchronously(ActivateAsync(config))

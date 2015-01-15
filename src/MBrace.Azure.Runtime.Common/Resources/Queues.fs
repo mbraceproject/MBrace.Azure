@@ -11,11 +11,10 @@ module private Constants =
     let RenewLockInverval = 10000
     let MaxLockDuration = TimeSpan.FromMilliseconds(3. * float RenewLockInverval)
     let MaxTTL = TimeSpan.MaxValue
-    let ServerWaitTime = TimeSpan.FromMilliseconds(100.)
+    let ServerWaitTime = TimeSpan.FromSeconds(5.)
     let AffinityPropertyName = "Affinity"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
-    let SubscriptionRenewInterval = TimeSpan.FromSeconds(30.)
-
+    
 type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) = 
     let mutable completed = false
     let affinity = 
@@ -24,10 +23,6 @@ type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) =
         | true, affinity -> Some (string affinity)
 
     member __.Affinity = affinity
-
-    /// Defines if the message belongs to a Queue or a Topic.
-    /// Queue messages with Affinity are messages that failed to Complete in a Subscription.
-    member __.IsQueueMessage = isQueueMessage 
 
     member __.DeliveryCount = msg.DeliveryCount
 
@@ -61,7 +56,7 @@ type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) =
             return! t.GetValue()
         }
 
-type internal Subscription (config, topic, affinity : string, deadLetterPath : string) = 
+type internal Subscription (config, topic, affinity : string) = 
     let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
     let subscription = sprintf "affinity_%s" affinity
 
@@ -88,7 +83,7 @@ type internal Topic (config, topic) =
     let ns = cp.NamespaceClient
     let tc = cp.TopicClient(topic)
     member __.Name = topic
-    member __.GetSubscription(affinity, deadLetterPath) : Subscription = new Subscription(config, topic, affinity, deadLetterPath)
+    member __.GetSubscription(affinity) : Subscription = new Subscription(config, topic, affinity)
     
     member __.EnqueueBatch<'T>(xs : ('T * string) []) = 
         async { 
@@ -217,7 +212,7 @@ type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic)
         with get () = affinity.Value
         and set aff = 
             affinity <- Some aff
-            subscription <- Some(topic.GetSubscription(aff, queue.Path))
+            subscription <- Some(topic.GetSubscription(aff))
 
 
     member __.TryDequeue() : Async<QueueMessage option> =
