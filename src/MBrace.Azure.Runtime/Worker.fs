@@ -53,13 +53,13 @@ let initWorker (runtime : RuntimeState)
                         let! _ = Async.StartChild(msg.RenewLoopAsync())
 
                         if task.TaskType = TaskType.Root then
-                            logf "Running root task for process %s %s" task.ProcessInfo.Id task.ProcessInfo.Name
+                            logf "Starting Root task for Process\n\tId:\"%s\"\n\tName:\"%s\"" task.ProcessInfo.Id task.ProcessInfo.Name
                             do! pmon.SetRunning(task.ProcessInfo.Id)
 
                         if msg.DeliveryCount = 1 then
                             do! pmon.AddActiveTask(task.ProcessInfo.Id)
 
-                        logf "Starting task %s" (string task)
+                        logf "Starting task\n\t%s" (string task)
                         let sw = new Stopwatch()
                         sw.Start()
                         let! result = Async.Catch(runTask task dependencies (msg.DeliveryCount-1))
@@ -70,7 +70,7 @@ let initWorker (runtime : RuntimeState)
                             | Choice1Of2 () -> 
                                 do! msg.CompleteAsync()
                                 do! pmon.AddCompletedTask(task.ProcessInfo.Id)
-                                logf "Completed task %s in %O" (string task) sw.Elapsed
+                                logf "Completed task\n\t%s\n\tTime:%O" (string task) sw.Elapsed
                             | Choice2Of2 e -> 
                                 do! msg.AbandonAsync()
                                 do! pmon.AddFaultedTask(task.ProcessInfo.Id)

@@ -132,7 +132,7 @@ type Task =
     }
 with
     override this.ToString () =
-        sprintf "%A/%s/%s : %s" this.TaskType this.ProcessInfo.Id this.TaskId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
+        sprintf "TaskType:\"%A\"\n\tProcess:\"%s\"\n\tTaskId:\"%s\"\n\tReturnType:\"%s\" " this.TaskType this.ProcessInfo.Id this.TaskId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
 
     /// <summary>
     ///     Asynchronously executes task in the local process.

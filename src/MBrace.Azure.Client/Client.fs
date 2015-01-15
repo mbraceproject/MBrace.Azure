@@ -79,7 +79,7 @@
                     }
 
                 logger.Logf "Creating process %s %s" info.Id info.Name
-                logger.Logf "Uploading dependencies" 
+                logger.Logf "Calculating dependencies" 
                 for d in computation.Dependencies do
                     logger.Logf "%s" d.FullName
                 do! state.AssemblyManager.UploadDependencies(computation.Dependencies)

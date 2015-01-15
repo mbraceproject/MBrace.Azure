@@ -84,7 +84,7 @@ type Service (config : Configuration, serviceId : string) =
                     logf "Registering local filesystem cache"
                     FileStoreCache.RegisterLocalFileSystemCache()
                 | Some c -> 
-                    logf "Registering cache store %s" c.SourceStore.Id
+                    logf "Registering cache store : %s" c.SourceStore.Id
                     FileStoreCache.RegisterLocalCacheStore(c)
 
                 let store = FileStoreCache.CreateCachedStore(storeProvider.Value) :> ICloudFileStore
@@ -99,7 +99,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 let wmon = WorkerMonitor.Create(config, MaxTasks = __.MaxConcurrentTasks)
                 let! e = wmon.DeclareCurrent(serviceId)
-                logf "Declared node %s : %d : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
+                logf "Declared node\n\tHostname \"%s\"\n\tPID:\"%d\"\n\tServiceId:\"%s\"" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
                 Async.Start(wmon.HeartbeatLoop())
                 logf "Started heartbeat loop" 

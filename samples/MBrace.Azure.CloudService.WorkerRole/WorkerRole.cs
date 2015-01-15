@@ -42,7 +42,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
                             .WithServiceBusConnectionString(CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"));
 
             _svc = new Service(config);
-            _svc.AttachLogger(new CustomLogger(s => Trace.WriteLine(s)));
+            _svc.AttachLogger(new CustomLogger(s => Trace.WriteLine(String.Format("{0} : {1}", DateTime.UtcNow,s))));
 
             RoleEnvironment.Changed += RoleEnvironment_Changed;
 
