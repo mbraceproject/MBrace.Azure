@@ -114,11 +114,11 @@ type BlobStore private (connectionString : string) =
                        |> Seq.toArray
             }
 
-        member this.BeginWrite(path: string) : Async<Stream> = 
+        member this.Write(path: string, writer : Stream -> Async<'R>) : Async<'R> = 
             async {
                 let! blob = getBlobRef acc path
-                let! stream = blob.OpenWriteAsync()
-                return stream :> Stream
+                use! stream = blob.OpenWriteAsync()
+                return! writer(stream)
             } 
         
         member this.BeginRead(path: string) : Async<Stream> = 

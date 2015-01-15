@@ -95,7 +95,7 @@ type ``Azure Runtime Tests`` (sbus, storage) =
 
     [<Test>]
     member __.``1. Parallel : empty input`` () =
-        run (Cloud.Parallel [||]) |> Choice.shouldEqual [||]
+        run (Cloud.Parallel Seq.empty<Cloud<int>>) |> Choice.shouldEqual [||]
 
     [<Test>]
     member __.``1. Parallel : simple inputs`` () =
@@ -266,7 +266,7 @@ type ``Azure Runtime Tests`` (sbus, storage) =
 
     [<Test>]
     member __.``2. Choice : empty input`` () =
-        Cloud.Choice [] |> run |> Choice.shouldEqual None
+        Cloud.Choice Seq.empty<Cloud<int option>> |> run |> Choice.shouldEqual None
 
     [<Test>]
     [<Repeat(repeats)>]

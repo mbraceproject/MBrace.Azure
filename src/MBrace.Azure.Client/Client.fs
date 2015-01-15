@@ -20,6 +20,7 @@
     [<AutoSerializable(false)>]
     type Runtime private (config : Configuration) =
         let clientId = guid()
+        do Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
         do Configuration.Activate(config)
         let state = Async.RunSync(RuntimeState.FromConfiguration(config))
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))

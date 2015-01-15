@@ -19,11 +19,18 @@ open MBrace.Runtime.InMemory
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultPolicy, taskId, psInfo, dependencies, context) =
+        
+    let failTargetWorker () = invalidOp <| sprintf "Cannot target worker when running in '%A' execution context" context
+
+    let extractComputations (computations : seq<Cloud<_> * IWorkerRef option>) =
+        computations
+        |> Seq.map (fun (c,w) -> if Option.isSome w then failTargetWorker () else c)
+        |> Seq.toArray
 
     /// Creates a runtime provider instance for a provided task
     static member FromTask state  wmon  dependencies (task : Task) =
         new RuntimeProvider(state, wmon, task.FaultPolicy, task.TaskId, task.ProcessInfo, dependencies, Distributed)
-        
+
     interface IRuntimeProvider with
         member __.ProcessId = psInfo.Id
         member __.TaskId = taskId
@@ -36,17 +43,22 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultP
         member __.WithFaultPolicy newPolicy = 
             new RuntimeProvider(state, wmon, newPolicy, taskId, psInfo, dependencies, context) :> IRuntimeProvider
 
+        member __.IsTargetedWorkerSupported = 
+            match context with
+            | Distributed -> true
+            | _ -> false
+
         member __.ScheduleParallel computations = 
             match context with
             | Distributed -> Combinators.Parallel state psInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Parallel computations
-            | Sequential -> Sequential.Parallel computations
+            | ThreadParallel -> ThreadPool.Parallel <| extractComputations computations
+            | Sequential -> Sequential.Parallel <| extractComputations computations
 
         member __.ScheduleChoice computations = 
             match context with
             | Distributed -> Combinators.Choice state psInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Choice computations
-            | Sequential -> Sequential.Choice computations
+            | ThreadParallel -> ThreadPool.Choice <| extractComputations computations
+            | Sequential -> Sequential.Choice <| extractComputations computations
 
         member __.ScheduleStartChild(computation,wr,timeout) =
             if timeout.IsSome then raise <| NotImplementedException("StartChild with timeout")

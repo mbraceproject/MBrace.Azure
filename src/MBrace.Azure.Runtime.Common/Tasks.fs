@@ -93,6 +93,7 @@ type ProcessInfo =
         ChannelProvider : ICloudChannelProvider option
     }
 
+// TODO : Add ParallelAffined/ChoiceAffined
 /// Task kind.
 type TaskType =
     /// Root task for process.
@@ -240,13 +241,13 @@ with
     /// <param name="cc">Cancellation continuation.</param>
     /// <param name="wfs">Workflows</param>
     /// <param name="affinity">Optional task affinity.</param>
-    member rt.EnqueueTaskBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : Cloud<'T> [], taskType) : Async<unit> =
+    member rt.EnqueueTaskBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : (Cloud<'T> * IWorkerRef option) [], taskType) : Async<unit> =
         let tasks = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
             let taskId = guid()
             let startTask ctx =
                 let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
-                Cloud.StartWithContinuations(wfs.[i], cont, ctx)
+                Cloud.StartWithContinuations(fst wfs.[i], cont, ctx)
             let task = 
                 { 
                     Type = typeof<'T>
@@ -256,11 +257,12 @@ with
                     CancellationTokenSource = cts
                     FaultPolicy = fp
                     Econt = ec
-                    TaskType = taskType
+                    TaskType = taskType 
                 }
 
             let taskp = VagrantRegistry.Pickler.PickleTyped task
-            tasks.[i] <- (taskp, dependencies)
+            let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
+            tasks.[i] <- (taskp, dependencies), affinity
         async {
             do! rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
             do! rt.ProcessMonitor.IncreaseTotalTasks(psInfo.Id, tasks.Length)

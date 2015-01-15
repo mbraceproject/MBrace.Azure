@@ -121,29 +121,17 @@ type ConfigurationRegistry private () =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Configuration =
     open MBrace.Runtime.Vagrant
+    open System.Collections.Generic
+
+    let private ignoredAssemblies = new HashSet<Assembly>()
 
     let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
     let private init =
         runOnce(fun () ->
             let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
-
-            // vagrant initialization
-            let ignoredAssemblies =
-                let this = Assembly.GetExecutingAssembly()
-                let dependencies = Utilities.ComputeAssemblyDependencies(this, requireLoadedInAppDomain = false)
-                new System.Collections.Generic.HashSet<_>(dependencies)
-            let ignoredNames =
-                set [ "MBrace.Azure.Runtime"
-                      "MBrace.Azure.Runtime.Common"
-                      "MBrace.Azure.Client" 
-                      "MBrace.Azure.Store"
-                      "MBrace.Azure.Runtime.Standalone"  ]
-            let ignore assembly =
-                // TODO : change
-                ignoredAssemblies.Contains(assembly) || ignoredNames.Contains(assembly.GetName().Name)
-
-            VagrantRegistry.Initialize(ignoreAssembly = ignore, loadPolicy = AssemblyLoadPolicy.ResolveAll))
+            let ignored = Assembly.GetExecutingAssembly() :: List.ofSeq ignoredAssemblies
+            VagrantRegistry.Initialize(ignoredAssemblies = ignored, loadPolicy = AssemblyLoadPolicy.ResolveAll))
 
     /// Default Pickler.
     let Pickler = init () ; VagrantRegistry.Pickler
@@ -163,14 +151,17 @@ module Configuration =
         ConfigurationRegistry.Register<ClientProvider>(config.ConfigurationId, cp)
     }
 
+    let AddIgnoredAssembly(asm : Assembly) =
+        ignore <| ignoredAssemblies.Add(asm)
+
     /// Activates the given configuration.
     let Activate(config : Configuration) = Async.RunSynchronously(ActivateAsync(config))
 
     /// Warning : Deletes all queues, tables and containers described in the given configuration.
     /// Does not delete process created resources.
-    let DeleteResources (config : Configuration) : Async<unit> =
-      async {
-        init ()
-        let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
-        do! cp.ClearAll()
-    }
+    let DeleteResources (config : Configuration) =
+        async {
+            init ()
+            let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
+            do! cp.ClearAll()
+        } |> Async.RunSynchronously

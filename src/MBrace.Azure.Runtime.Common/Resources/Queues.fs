@@ -247,7 +247,21 @@ type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic)
 
     //member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = topic.EnqueueBatch<'T>(xs, affinity)
 
-    //member __.EnqueueBatch<'T>(xs : ('T * string) []) = topic.EnqueueBatch<'T>(xs)
+    member __.EnqueueBatch<'T>(xs : ('T * string option) []) = async {
+            let topicTasks = 
+                xs 
+                |> Seq.filter (function (_, Some _) -> true | _ -> false)
+                |> Seq.map (function (t, Some a) -> t, a | _ -> failwith "Invalid topic task.")
+                |> Seq.toArray
+
+            let queueTasks = 
+                xs 
+                |> Seq.filter (function (_, None) -> true | _ -> false)
+                |> Seq.map (fst)
+                |> Seq.toArray
+            do! topic.EnqueueBatch<'T>(topicTasks)
+            do! queue.EnqueueBatch(queueTasks)
+        }
 
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 

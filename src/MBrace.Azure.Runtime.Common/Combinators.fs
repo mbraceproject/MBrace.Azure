@@ -21,14 +21,14 @@ let inline private withCancellationToken (cts : DistributedCancellationTokenSour
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
-let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T>>) =
+let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx [||]
         // schedule single-child parallel workflows in current task
         // note that this invalidates expected workflow semantics w.r.t. mutability.
-        | Choice1Of2 [| comp |] ->
+        | Choice1Of2 [| (comp, None) |] ->
             let cont' = Continuation.map (fun t -> [| t |]) cont
             Cloud.StartWithContinuations(comp, cont', ctx)
 
@@ -79,14 +79,14 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
                     
             TaskExecutionMonitor.TriggerCompletion ctx })
 
-let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T option>>) =
+let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T option> * IWorkerRef option>)  =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx None
         // schedule single-child parallel workflows in current task
         // note that this invalidates expected workflow semantics w.r.t. mutability.
-        | Choice1Of2 [| comp |] -> Cloud.StartWithContinuations(comp, cont, ctx)
+        | Choice1Of2 [| comp, None |] -> Cloud.StartWithContinuations(comp, cont, ctx)
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let storageId = psInfo.DefaultDirectory

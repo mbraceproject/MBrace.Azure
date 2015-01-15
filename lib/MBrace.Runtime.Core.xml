@@ -572,6 +572,9 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
 <member name="M:MBrace.Runtime.InMemory.ThreadPoolRuntime.Create(Microsoft.FSharp.Core.FSharpOption{MBrace.Continuation.ICloudLogger},Microsoft.FSharp.Core.FSharpOption{MBrace.FaultPolicy})">
  <summary>
      Creates a new threadpool runtime instance.
@@ -718,6 +721,9 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
 <member name="M:MBrace.Runtime.Store.FileStoreCache.RegisterLocalFileSystemCache(Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Runtime.Store.CacheBehavior})">
  <summary>
      Defines a locally specified file system cache store.
@@ -738,6 +744,12 @@
 </member>
 <member name="">
 
+</member>
+<member name="M:MBrace.Runtime.Store.FileStoreCache.GetLocalCacheStore(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+ Returns locally installed cache stores under given context.
+ </summary>
+ <param name="cacheContext">Cache context identifier.</param>
 </member>
 <member name="">
 
@@ -778,9 +790,6 @@
  </summary>
  <param name="target">Target file store to be cached.</param>
  <param name="cacheContext">Caching context identifier. Must be identical in all caching nodes.</param>
-</member>
-<member name="">
-
 </member>
 <member name="">
 
@@ -927,6 +936,9 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
 <member name="M:MBrace.Runtime.Store.FileSystemStore.Create(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
  <summary>
      Creates a new FileSystemStore instance on given path.
@@ -934,9 +946,6 @@
  <param name="path">Local or UNC path.</param>
  <param name="create">Create directory if missing. Defaults to false</param>
  <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
-</member>
-<member name="">
-
 </member>
 <member name="">
 
@@ -1457,9 +1466,6 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
 <member name="P:MBrace.Runtime.Vagrant.VagrantRegistry.Vagrant">
 <summary>
  Gets the registered vagrant instance.
@@ -1473,7 +1479,7 @@
  Gets the registered FsPickler serializer instance.
 </summary>
 </member>
-<member name="M:MBrace.Runtime.Vagrant.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpOption{Microsoft.FSharp.Core.FSharpFunc{System.Reflection.Assembly,System.Boolean}},Microsoft.FSharp.Core.FSharpOption{Nessos.Vagrant.AssemblyLoadPolicy},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+<member name="M:MBrace.Runtime.Vagrant.VagrantRegistry.Initialize(Microsoft.FSharp.Core.FSharpOption{System.Collections.Generic.IEnumerable{System.Reflection.Assembly}},Microsoft.FSharp.Core.FSharpOption{Nessos.Vagrant.AssemblyLoadPolicy},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
  <summary>
      Initializes vagrant using default settings.
  </summary>

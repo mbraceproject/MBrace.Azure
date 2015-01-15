@@ -58,9 +58,30 @@
  </summary>
  <param name="e">exception to be raised.</param>
 </member>
+<member name="M:MBrace.Cloud.Parallel``1(System.Collections.Generic.IEnumerable{System.Tuple{MBrace.Cloud{``0},MBrace.IWorkerRef}})">
+ <summary>
+     Creates a cloud computation that will execute given computations to targeted workers
+     possibly in parallel and if successful returns the array of gathered results.
+     This operator may create distribution.
+     Exceptions raised by children carry cancellation semantics.
+ </summary>
+ <param name="computations">Input computations to be executed in parallel.</param>
+</member>
+<member name="M:MBrace.Cloud.Parallel``1(MBrace.Cloud{``0})">
+ <summary>
+     Creates a cloud computation that will execute provided computation on every available worker
+     in the cluster and if successful returns the array of gathered results.
+     This operator may create distribution.
+     Any exception raised by children carry cancellation semantics.
+ </summary>
+ <param name="computation">Computation to be executed in every worker.</param>
+</member>
 <member name="M:MBrace.Cloud.Parallel``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{``0}})">
  <summary>
-     Cloud.Parallel combinator
+     Creates a cloud computation that will execute the given computations
+     possibly in parallel and if successful returns the array of gathered results.
+     This operator may create distribution.
+     Exceptions raised by children carry cancellation semantics.
  </summary>
  <param name="computations">Input computations to be executed in parallel.</param>
 </member>
@@ -124,9 +145,36 @@
  </summary>
  <param name="disposable">Resource to be disposed.</param>
 </member>
+<member name="M:MBrace.Cloud.Choice``1(System.Collections.Generic.IEnumerable{System.Tuple{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}},MBrace.IWorkerRef}})">
+ <summary>
+     Returns a cloud computation that will execute the given computation on every available worker
+     possibly in parallel and will return when any of the supplied computations
+     have returned a successful value or if all of them fail to succeed. 
+     If a computation succeeds the rest of them are canceled.
+     The success of a computation is encoded as an option type.
+     This operator may create distribution.
+ </summary>
+ <param name="computations">Input computations to be executed in parallel.</param>
+</member>
+<member name="M:MBrace.Cloud.Choice``1(MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}})">
+ <summary>
+     Returns a cloud computation that will execute the given computation on every available worker
+     possibly in parallel and will return when any of the supplied computations
+     have returned a successful value or if all of them fail to succeed. 
+     If a computation succeeds the rest of them are canceled.
+     The success of a computation is encoded as an option type.
+     This operator may create distribution.
+ </summary>
+ <param name="computation">Input computation to be executed everywhere.</param>
+</member>
 <member name="M:MBrace.Cloud.Choice``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
  <summary>
-     Cloud.Choice combinator
+     Returns a cloud computation that will execute given computations
+     possibly in parallel and will return when any of the supplied computations
+     have returned a successful value or if all of them fail to succeed. 
+     If a computation succeeds the rest of them are canceled.
+     The success of a computation is encoded as an option type.
+     This operator may create distribution.
  </summary>
  <param name="computations">Input computations to be executed in parallel.</param>
 </member>
@@ -1341,7 +1389,7 @@
 </member>
 <member name="T:MBrace.Continuation.ICloudLogger">
  <summary>
-     Abstract logger.
+     Abstract logger for cloud workflows.
  </summary>
 </member>
 <member name="P:MBrace.Continuation.IRuntimeProvider.TaskId">
@@ -1362,6 +1410,11 @@
 <member name="P:MBrace.Continuation.IRuntimeProvider.Logger">
 <summary>
  Gets the current logger instance.
+</summary>
+</member>
+<member name="P:MBrace.Continuation.IRuntimeProvider.IsTargetedWorkerSupported">
+<summary>
+ Specifies whether runtime supports submission of tasks to specific worker nodes
 </summary>
 </member>
 <member name="P:MBrace.Continuation.IRuntimeProvider.FaultPolicy">
@@ -1394,17 +1447,17 @@
  <param name="target">Explicitly specify a target worker for execution.</param>
  <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
 </member>
-<member name="M:MBrace.Continuation.IRuntimeProvider.ScheduleParallel``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{``0}})">
+<member name="M:MBrace.Continuation.IRuntimeProvider.ScheduleParallel``1(System.Collections.Generic.IEnumerable{System.Tuple{MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{MBrace.IWorkerRef}}})">
  <summary>
      Parallel fork/join implementation.
  </summary>
- <param name="computations">Computations to be executed.</param>
+ <param name="computations">Computations to be executed. Contains optional target worker.</param>
 </member>
-<member name="M:MBrace.Continuation.IRuntimeProvider.ScheduleChoice``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
+<member name="M:MBrace.Continuation.IRuntimeProvider.ScheduleChoice``1(System.Collections.Generic.IEnumerable{System.Tuple{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}},Microsoft.FSharp.Core.FSharpOption{MBrace.IWorkerRef}}})">
  <summary>
      Parallel nondeterministic choice implementation.
  </summary>
- <param name="computations">Computations to be executed.</param>
+ <param name="computations">Computations to be executed. Contains optional target worker.</param>
 </member>
 <member name="M:MBrace.Continuation.IRuntimeProvider.GetAvailableWorkers">
 <summary>
@@ -1767,6 +1820,13 @@
  Store identifier
 </summary>
 </member>
+<member name="M:MBrace.Store.ICloudFileStore.Write``1(System.String,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
+ <summary>
+     Creates a new file in store. If successful returns a writing stream.
+ </summary>
+ <param name="path">Path to new file.</param>
+ <param name="writer">Asynchronous writer function.</param>
+</member>
 <member name="M:MBrace.Store.ICloudFileStore.TryGetFullPath(System.String)">
  <summary>
      Returns a normal form for path. Returns None if invalid format.
@@ -1863,12 +1923,6 @@
      Combines an array of paths into a path.
  </summary>
  <param name="paths">Strings to be combined.</param>
-</member>
-<member name="M:MBrace.Store.ICloudFileStore.BeginWrite(System.String)">
- <summary>
-     Creates a new file in store. If successful returns a writing stream.
- </summary>
- <param name="path">Path to new file.</param>
 </member>
 <member name="M:MBrace.Store.ICloudFileStore.BeginRead(System.String)">
  <summary>
@@ -1971,19 +2025,12 @@
  </summary>
  <param name="directory">Container directory.</param>
 </member>
-<member name="M:MBrace.Store.CloudFileStoreUtils.ICloudFileStore.ReadAsync``1(MBrace.Store.ICloudFileStore,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}},System.String)">
+<member name="M:MBrace.Store.CloudFileStoreUtils.ICloudFileStore.Read``1(MBrace.Store.ICloudFileStore,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}},System.String)">
  <summary>
      Reads file in store with provided deserializer function.
  </summary>
  <param name="deserializer">Deserializer function.</param>
  <param name="path">Path to file.</param>
-</member>
-<member name="M:MBrace.Store.CloudFileStoreUtils.ICloudFileStore.Create(MBrace.Store.ICloudFileStore,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},System.String)">
- <summary>
-     Creates a new file in store with provided serializer function.
- </summary>
- <param name="serializer">Serializer function.</param>
- <param name="path">Path to file. Defaults to auto-generated path.</param>
 </member>
 <member name="T:MBrace.Store.CloudFileStoreUtils">
 

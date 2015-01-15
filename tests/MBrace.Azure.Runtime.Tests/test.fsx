@@ -30,7 +30,7 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 //Configuration.Activate(config)
-//Configuration.DeleteResources(config) |> Async.RunSync
+//Configuration.DeleteResources(config)
 
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
