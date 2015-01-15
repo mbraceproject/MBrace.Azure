@@ -58,7 +58,6 @@ let initWorker (runtime : RuntimeState)
 
                         if msg.DeliveryCount = 1 then
                             do! pmon.AddActiveTask(task.ProcessInfo.Id)
-                        wmon.IncrementTaskCount()
 
                         logf "Starting task %s" (string task)
                         let sw = new Stopwatch()
@@ -66,19 +65,21 @@ let initWorker (runtime : RuntimeState)
                         let! result = Async.Catch(runTask task dependencies (msg.DeliveryCount-1))
                         sw.Stop()
 
-                        match result with
-                        | Choice1Of2 () -> 
-                            do! msg.CompleteAsync()
-                            do! pmon.AddCompletedTask(task.ProcessInfo.Id)
-                            logf "Completed task %s in %O" (string task) sw.Elapsed
-                        | Choice2Of2 e -> 
-                            do! msg.AbandonAsync()
-                            do! pmon.AddFaultedTask(task.ProcessInfo.Id)
-                            logf "Task fault %s with:\n%O" (string task) e
-                        wmon.DecrementTaskCount()
+                        try
+                            match result with
+                            | Choice1Of2 () -> 
+                                do! msg.CompleteAsync()
+                                do! pmon.AddCompletedTask(task.ProcessInfo.Id)
+                                logf "Completed task %s in %O" (string task) sw.Elapsed
+                            | Choice2Of2 e -> 
+                                do! msg.AbandonAsync()
+                                do! pmon.AddFaultedTask(task.ProcessInfo.Id)
+                                logf "Task fault %s with:\n%O" (string task) e
+                        finally
+                            wmon.DecrementTaskCount()
                         do! Async.Sleep 200
                     }
-        
+                    wmon.IncrementTaskCount()
                     let! _ = Async.StartChild(runTask())
                     ()
             with e -> 
