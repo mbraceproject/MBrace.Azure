@@ -132,10 +132,13 @@
             let ws = wmon.GetWorkers() |> Async.RunSync
             printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
-        member __.GetLogs () = Async.RunSync <| __.GetLogsAsync()
-        member __.GetLogsAsync () = logger.GetLogsAsync()
-        member __.ShowLogs () =
-            let ls = __.GetLogs()
+        member __.GetLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
+            Async.RunSync <| __.GetLogsAsync(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
+        member __.GetLogsAsync(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
+            let loggerType = worker |> Option.map (fun w -> Worker w.Id)
+            logger.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
+        member __.ShowLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+            let ls = __.GetLogs(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
             printf "%s" <| LogReporter.Report(ls, "Logs", false)
 
         member __.GetProcess(pid) = Async.RunSync <| __.GetProcessAsync(pid)

@@ -48,7 +48,6 @@ runtime.ShowLogs()
 
 runtime.Run(Cloud.Parallel(cloud { return System.Diagnostics.Process.GetCurrentProcess().Id }))
 
-
 runtime.Run <| cloud { return 42 }
 
 let rec wf i max = 

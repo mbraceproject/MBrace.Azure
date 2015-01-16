@@ -24,7 +24,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable atomProvider    = None
     let mutable cache           = None
     let mutable resources = ResourceRegistry.Empty
-    let logger = new NullLogger() :> ILogger
+    let mutable logger = new NullLogger() :> ILogger
     let logf fmt = Printf.ksprintf logger.Log fmt
     let check () = if running then failwith "Service is active"
     
@@ -64,14 +64,14 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "Creating storage logger"
                 let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Worker(id = __.Id))
-                logger.Attach(storageLogger)
-                
+                storageLogger.Attach(logger)
+                logger <- storageLogger
+
                 let serializer = Configuration.Serializer
                 logf "Serializer : %s" serializer.Id
 
-                // Fork RuntimeState initialization for speedup
                 logf "Initializing RuntimeState"
-                let! stateHandle = Async.StartChild(RuntimeState.FromConfiguration(config))
+                let! state = RuntimeState.FromConfiguration(config)
 
                 storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
@@ -104,8 +104,13 @@ type Service (config : Configuration, serviceId : string) =
                 Async.Start(wmon.HeartbeatLoop())
                 logf "Started heartbeat loop" 
 
-                let! state = stateHandle
-                let resources = resource { yield! resources; yield serializer; yield logger; yield wmon; yield state.ProcessMonitor }
+                let resources = resource { 
+                    yield! resources
+                    yield serializer
+                    yield logger
+                    yield wmon
+                    yield state.ProcessMonitor 
+                }
                 state.TaskQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 

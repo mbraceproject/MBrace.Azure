@@ -76,12 +76,15 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
         }
 
     /// Asynchronously returns all cloud logs for this process.
-    member __.GetLogsAsync () = logger.GetLogs()
+    member __.GetLogsAsync(?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
+        logger.GetLogs(?fromDate = fromDate, ?toDate = toDate)
     /// Returns all cloud logs for this process.
-    member __.GetLogs () = Async.RunSync(__.GetLogsAsync())
+    member __.GetLogs(?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+        Async.RunSync(__.GetLogsAsync(?fromDate = fromDate, ?toDate = toDate))
 
     /// Prints all cloud logs for this process.
-    member __.ShowLogs () = printf "%s" <| LogReporter.Report(__.GetLogs(), sprintf "Process %s logs" pid, false)
+    member __.ShowLogs(?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
+        printf "%s" <| LogReporter.Report(__.GetLogs(?fromDate = fromDate, ?toDate = toDate), sprintf "Process %s logs" pid, false)
 
     /// Prints a detailed report for this process.
     member __.ShowInfo () = printf "%s" <| ProcessReporter.Report([proc.Value], "Process", false)

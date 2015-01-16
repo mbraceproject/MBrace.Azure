@@ -57,12 +57,12 @@ type internal WorkerReporter() =
 
 type internal LogReporter() = 
     static let template : Field<LogRecord> list = 
-        [ Field.create "Source" Left (fun p -> p.Type)
+        [ Field.create "Source" Left (fun p -> p.PartitionKey)
           Field.create "Timestamp" Right (fun p -> p.Time)
           Field.create "Message" Left (fun p -> p.Message) ]
     
     static member Report(logs : LogRecord seq, title, borders) = 
         let ls = logs 
-                 |> Seq.sortBy (fun l -> l.Time, l.Type)
+                 |> Seq.sortBy (fun l -> l.Time, l.PartitionKey)
                  |> Seq.toList
         Record.PrettyPrint(template, ls, title, borders)
