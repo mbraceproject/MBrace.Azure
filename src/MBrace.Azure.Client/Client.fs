@@ -153,19 +153,15 @@
             let ps = __.GetProcess(pid).ProcessEntity.Value
             printf "%s" <| ProcessReporter.Report([ps], "Process", false)
 
-        member __.GetProcesses () = Async.RunSync <| __.GetProcessesAsync()
-        member __.GetProcessesAsync () : Async<seq<Process>> = 
-            async {
-                let! ps = pmon.GetProcesses()
-                let rs = new ResizeArray<Process>()
-                for p in ps do
-                    let! proc = __.GetProcessAsync(p.Id)
-                    rs.Add(proc)
-                return rs :> seq<_>
-            }
         member __.ShowProcesses () = 
             let ps = pmon.GetProcesses() |> Async.RunSync
             printf "%s" <| ProcessReporter.Report(ps, "Processes", false)
+
+        member __.ClearProcess(pid) = __.ClearProcessAsync(pid) |> Async.RunSync
+        member __.ClearProcessAsync(pid) = pmon.ClearProcess(pid)
+        
+        member __.ClearAllProcesses () = __.ClearAllProcessesAsync() |> Async.RunSync
+        member __.ClearAllProcessesAsync () = pmon.ClearAllProcesses()
 
         /// <summary>
         /// Gets a handle for a remote runtime.

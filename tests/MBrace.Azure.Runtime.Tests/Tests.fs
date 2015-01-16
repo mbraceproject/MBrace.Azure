@@ -86,7 +86,7 @@ type ``Azure Runtime Tests`` (sbus, storage) =
 
     [<TestFixtureTearDown>]
     member __.Fini () =
-        [for p in processes -> p.ClearProcessResourcesAsync() ]
+        [for p in processes -> runtime.Value.ClearProcessAsync(p.Id) ]
         |> Async.Parallel
         |> Async.Ignore
         |> Async.RunSync

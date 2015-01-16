@@ -90,11 +90,11 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
     member __.ShowInfo () = printf "%s" <| ProcessReporter.Report([proc.Value], "Process", false)
 
     /// Deletes process created blob storage containers and tables.
-    member __.ClearProcessResourcesAsync () = 
-        if not __.Completed then invalidOp "Process is not completed."
-        pmon.ClearProcessStorage(pid)
+    //member __.ClearProcessResourcesAsync () = 
+    //    if not __.Completed then invalidOp "Process is not completed."
+    //    pmon.ClearProcess(pid)
     /// Deletes process created blob storage containers and tables.
-    member __.ClearProcessResources () = Async.RunSync(__.ClearProcessResourcesAsync())
+    //member __.ClearProcessResources () = Async.RunSync(__.ClearProcessResourcesAsync())
 
 [<AutoSerializable(false)>]
 /// Represents a cloud process.

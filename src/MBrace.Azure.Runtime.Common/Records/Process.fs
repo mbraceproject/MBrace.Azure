@@ -122,7 +122,11 @@ type ProcessMonitor private (config, table : string) =
 
     member this.GetProcesses () = Table.queryPK<ProcessRecord> config table pk
 
-    member this.ClearProcessStorage (pid : string) = async {
+    member this.ClearProcess (pid : string) = async {
+        let! record = this.GetProcess(pid)
+        if not record.Completed then
+            failwith "Cannot clear process that is not Killed or Completed." 
+        do! Table.delete<ProcessRecord> config table record
         let container = Storage.processIdToStorageId pid
         let provider = ConfigurationRegistry.Resolve<ClientProvider>(config)
         let tableRef = provider.TableClient.GetTableReference(container)
@@ -130,4 +134,9 @@ type ProcessMonitor private (config, table : string) =
         let containerRef = provider.BlobClient.GetContainerReference(container)
         do! containerRef.DeleteIfExistsAsync()
         return ()
+    }
+
+    member this.ClearAllProcesses () = async {
+        let! ps = this.GetProcesses()
+        for p in ps do do! this.ClearProcess(p.Id)
     }
