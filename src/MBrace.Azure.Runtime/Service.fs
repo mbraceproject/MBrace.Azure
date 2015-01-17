@@ -18,24 +18,33 @@ open MBrace.Runtime.Store
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
     // TODO : Add locks
-    let mutable running = false
+    let mutable running         = false
     let mutable storeProvider   = None
     let mutable channelProvider = None
     let mutable atomProvider    = None
     let mutable cache           = None
-    let mutable resources = ResourceRegistry.Empty
-    let mutable logger = new NullLogger() :> ILogger
+    let mutable resources       = ResourceRegistry.Empty
+    let mutable logger          = new NullLogger() :> ILogger
+    let mutable config          = config
+    let mutable maxTasks        = Environment.ProcessorCount
+    let worker                  = new Worker()
+    
     let logf fmt = Printf.ksprintf logger.Log fmt
-    let check () = if running then failwith "Service is active"
+    let check () = if worker.IsActive then invalidOp "Cannot change Service while it is active."
     
     /// MBrace Runtime Service.
     new(config : Configuration) = new Service (config, guid())
 
-    member __.Configuration = config
     member __.Id = serviceId
     member __.AttachLogger(l) = check(); logger.Attach(l)
     
-    member val MaxConcurrentTasks = Environment.ProcessorCount with get, set
+    member __.Configuration  
+        with get () = config
+        and set c = check (); config <- c
+
+    member __.MaxConcurrentTasks 
+        with get () = maxTasks
+        and set c = check (); maxTasks <- c
     
     member __.RegisterStoreProvider(store : ICloudFileStore) =
         check () ; storeProvider <- Some store
@@ -114,11 +123,20 @@ type Service (config : Configuration, serviceId : string) =
                 state.TaskQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 
-                logf "Starting worker loop"
                 logf "MaxConcurrentTasks : %d" __.MaxConcurrentTasks
-                let! handle = 
-                    Worker.initWorker state __.MaxConcurrentTasks resources store channelProvider.Value atomProvider.Value 
-                    |> Async.StartChild
+                logf "Starting worker loop"
+                let config = { 
+                    State = state
+                    MaxConcurrentTasks = __.MaxConcurrentTasks
+                    Resources = resources
+                    Store = store
+                    Channel = channelProvider.Value
+                    Atom = atomProvider.Value
+                    Logger = logger
+                    WorkerMonitor = wmon
+                    ProcessMonitor = state.ProcessMonitor 
+                }
+                let! handle = Async.StartChild <| async { do worker.Start(config) }
                 logf "Worker loop started"
                 
                 sw.Stop()
@@ -130,3 +148,5 @@ type Service (config : Configuration, serviceId : string) =
         }
 
     member __.Start() = Async.RunSync(__.StartAsync())
+
+    member __.Stop () = worker.Stop() // TODO : stop heartbeats

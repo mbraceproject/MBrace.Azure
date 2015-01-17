@@ -60,7 +60,6 @@ let rec wf i max =
 let ps = runtime.CreateProcess(wf 0 3)
 ps.ShowInfo()
 ps.AwaitResult() 
-ps.ClearProcessResources()
 
 
 let sc = runtime.StoreClient

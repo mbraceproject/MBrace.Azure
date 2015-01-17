@@ -19,6 +19,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
     public class WorkerRole : RoleEntryPoint
     {
         private Service _svc;
+        private Configuration _config;
 
         public override void Run()
         {
@@ -37,11 +38,11 @@ namespace MBrace.Azure.CloudService.WorkerRole
 
             bool result = base.OnStart();
 
-            var config = Configuration.Default
-                            .WithStorageConnectionString(CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString"))
-                            .WithServiceBusConnectionString(CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"));
+            _config = Configuration.Default
+                        .WithStorageConnectionString(CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString"))
+                        .WithServiceBusConnectionString(CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"));
 
-            _svc = new Service(config);
+            _svc = new Service(_config);
             _svc.AttachLogger(new CustomLogger(s => Trace.WriteLine(String.Format("{0} : {1}", DateTime.UtcNow,s))));
 
             RoleEnvironment.Changed += RoleEnvironment_Changed;
@@ -64,7 +65,12 @@ namespace MBrace.Azure.CloudService.WorkerRole
                 if (item.ConfigurationSettingName == "MBrace.ServiceBusConnectionString"
                     || item.ConfigurationSettingName == "MBrace.StorageConnectionString")
                 {
-                    // alter the service configuration
+                    _config = Configuration.Default
+                                .WithStorageConnectionString(CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString"))
+                                .WithServiceBusConnectionString(CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"));
+                    _svc.Stop();
+                    _svc.Configuration = _config;
+                    _svc.Start();
                 }
             }
         }
@@ -72,6 +78,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
         public override void OnStop()
         {
             base.OnStop();
+            _svc.Stop();
         }
     }
 }
