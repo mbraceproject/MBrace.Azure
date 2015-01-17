@@ -1,16 +1,13 @@
 ﻿namespace MBrace.Azure.Runtime
 
 open System.Diagnostics
-open System.Threading
-
-open MBrace.Runtime
 open MBrace.Continuation
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
 open MBrace.Store
 
-type WorkerConfig = 
+type internal WorkerConfig = 
     { State              : RuntimeState
       MaxConcurrentTasks : int
       Resources          : ResourceRegistry
@@ -21,7 +18,7 @@ type WorkerConfig =
       WorkerMonitor      : WorkerMonitor
       ProcessMonitor     : ProcessMonitor }
 
-type WorkerMessage =
+type internal WorkerMessage =
     | Start of WorkerConfig  * AsyncReplyChannel<unit>
     | Update of WorkerConfig * AsyncReplyChannel<unit>
     | Stop of AsyncReplyChannel<unit>
@@ -31,7 +28,7 @@ type private WorkerState =
     | Idle
     | Running of WorkerConfig * AsyncReplyChannel<unit>
 
-type Worker () =
+type internal Worker () =
 
     let workerLoopAgent =
         let receiveTimeout = 100
@@ -102,6 +99,7 @@ type Worker () =
                 | Some(Start(config, handle)), Idle ->
                     return! workerLoop(Running(config, handle))
                 | Some(Stop ch), Running(config, handle) ->
+                    // TODO : Add WorkerMonitor finalizations.
                     config.Logger.Log "Stop requested. Waiting for pending tasks."
                     let rec wait () = async {
                         if config.WorkerMonitor.ActiveTasks > 0 then
@@ -139,6 +137,6 @@ type Worker () =
     member __.Stop() =
         workerLoopAgent.PostAndReply(fun ch -> Stop(ch))
 
-    member __.Restart (configuration) =
+    member __.Restart(configuration) =
         __.Stop()
         __.Start(configuration)

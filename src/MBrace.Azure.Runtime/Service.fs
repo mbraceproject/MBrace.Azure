@@ -2,15 +2,11 @@
 
 open System
 open System.Threading
-open System.Threading.Tasks
 open MBrace.Azure.Runtime
-open System.Runtime.InteropServices
 open MBrace.Azure.Runtime.Common
 open MBrace
-open MBrace.Runtime
 open MBrace.Continuation
 open MBrace.Store
-open MBrace.Azure.Runtime.Resources
 open System.Diagnostics
 open MBrace.Azure.Store
 open MBrace.Runtime.Store
@@ -18,7 +14,6 @@ open MBrace.Runtime.Store
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
     // TODO : Add locks
-    let mutable running         = false
     let mutable storeProvider   = None
     let mutable channelProvider = None
     let mutable atomProvider    = None
@@ -126,15 +121,15 @@ type Service (config : Configuration, serviceId : string) =
                 logf "MaxConcurrentTasks : %d" __.MaxConcurrentTasks
                 logf "Starting worker loop"
                 let config = { 
-                    State = state
+                    State              = state
                     MaxConcurrentTasks = __.MaxConcurrentTasks
-                    Resources = resources
-                    Store = store
-                    Channel = channelProvider.Value
-                    Atom = atomProvider.Value
-                    Logger = logger
-                    WorkerMonitor = wmon
-                    ProcessMonitor = state.ProcessMonitor 
+                    Resources          = resources
+                    Store              = store
+                    Channel            = channelProvider.Value
+                    Atom               = atomProvider.Value
+                    Logger             = logger
+                    WorkerMonitor      = wmon
+                    ProcessMonitor     = state.ProcessMonitor 
                 }
                 let! handle = Async.StartChild <| async { do worker.Start(config) }
                 logf "Worker loop started"
@@ -149,4 +144,4 @@ type Service (config : Configuration, serviceId : string) =
 
     member __.Start() = Async.RunSync(__.StartAsync())
 
-    member __.Stop () = worker.Stop() // TODO : stop heartbeats
+    member __.Stop () = worker.Stop()
