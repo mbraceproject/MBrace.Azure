@@ -61,13 +61,6 @@ ps.ShowInfo()
 ps.AwaitResult() 
 
 
-let sc = runtime.StoreClient
-
-let sp, rp = sc.CloudChannel.New<int>() |> Async.RunSync
-
-sp.Send(43) |> Async.RunSync
-rp.Receive() |> Async.RunSync
-
 let wf = cloud {
     let! sp, rp = CloudChannel.New<int>()
     do! cloud {
@@ -85,8 +78,10 @@ let wf = cloud {
                 printfn "recv %d" x
                 i := x
         } |> Cloud.Ignore
-    do! Cloud.OfAsync <| rp.Dispose()
+    do! rp.Dispose()
 }
+
+runtime.Run wf
 
 let wf = cloud {
     let! atom = CloudAtom.New(42)
@@ -98,7 +93,7 @@ let wf = cloud {
 }
 
 let atom = runtime.Run(wf)
-atom.Value
+atom.Value |> runtime.RunLocal
 
 [<AutoOpen>]
 module FaultPolicyExtensions =

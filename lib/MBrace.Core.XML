@@ -874,6 +874,11 @@
  Generic FileStore utilities
 </summary>
 </member>
+<member name="P:MBrace.ICloudAtom`1.Value">
+<summary>
+ Gets the current value of the atom.
+</summary>
+</member>
 <member name="P:MBrace.ICloudAtom`1.Id">
 <summary>
  Cloud atom identifier
@@ -885,11 +890,6 @@
  </summary>
  <param name="updater">Value updating function</param>
  <param name="maxRetries">Maximum retries under optimistic semantics. Defaults to infinite.</param>
-</member>
-<member name="M:MBrace.ICloudAtom`1.GetValue">
-<summary>
- Asynchronously returns the current value of atom.
-</summary>
 </member>
 <member name="M:MBrace.ICloudAtom`1.Force(`0)">
  <summary>
@@ -1015,11 +1015,6 @@
      Performs transaction on atom.
  </summary>
  <param name="transaction">Transaction function.</param>
-</member>
-<member name="M:MBrace.CloudAtomUtils.ICloudAtom`1.get_Value``1(MBrace.ICloudAtom{``0})">
-<summary>
- Returns the current value of atom.
-</summary>
 </member>
 <member name="T:MBrace.CloudAtomUtils">
 

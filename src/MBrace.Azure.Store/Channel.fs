@@ -34,13 +34,13 @@ type SendPort<'T> internal (queuePath, connectionString, serializer : ISerialize
     interface ISendPort<'T> with
         member x.Id : string = queuePath
         
-        member __.Send(message : 'T) : Async<unit> = 
+        member __.Send(message : 'T) : Cloud<unit> = 
             async {
                 let bin = pickle message serializer
                 use ms = new MemoryStream(bin) in ms.Position <- 0L
                 let msg = new BrokeredMessage(ms)
                 do! client.SendAsync(msg)
-            }
+            } |> Cloud.OfAsync
 
 [<AutoSerializable(true) ; Sealed; DataContract>]
 type ReceivePort<'T> internal (queuePath, connectionString, serializer : ISerializer) =
@@ -69,7 +69,7 @@ type ReceivePort<'T> internal (queuePath, connectionString, serializer : ISerial
             |> Async.AwaitTask
             |> Cloud.OfAsync
 
-        member __.Receive(?timeout : int) : Async<'T> =
+        member __.Receive(?timeout : int) : Cloud<'T> =
             async {
                 let! msg =
                     match timeout with 
@@ -90,7 +90,7 @@ type ReceivePort<'T> internal (queuePath, connectionString, serializer : ISerial
 
                 use stream = msg.GetBody<Stream>()
                 return serializer.Deserialize<'T>(stream, false)
-            }
+            } |> Cloud.OfAsync
 
 [<Sealed; DataContract>]
 type ChannelProvider private (connectionString : string, serializer : ISerializer) =

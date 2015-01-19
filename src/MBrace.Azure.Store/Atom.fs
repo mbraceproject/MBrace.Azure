@@ -34,7 +34,7 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
 
         member this.Id = sprintf "%s/%s/%s" table pk rk
 
-        member this.Update(updater: 'T -> 'T, ?maxRetries : int): Async<unit> = 
+        member this.Update(updater: 'T -> 'T, ?maxRetries : int): Cloud<unit> = 
             async {
                 let interval = let r = new Random() in r.Next(2,10) 
                 let maxInterval = 5000
@@ -58,7 +58,8 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
                 }
 
                 return! update interval 0
-            }       
+            } |> Cloud.OfAsync
+             
         member this.Dispose(): Cloud<unit> = 
             cloud {
                 return! Cloud.OfAsync <| async {
@@ -68,21 +69,21 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
             }
         
 
-        member this.Force(newValue: 'T): Async<unit> = 
+        member this.Force(newValue: 'T): Cloud<unit> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 let newBinary = pickle newValue serializer
                 let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge client table e
                 return ()
-            }
+            } |> Cloud.OfAsync
 
-        member this.GetValue(): Async<'T> = 
+        member this.Value : Cloud<'T> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 let value = unpickle(e.GetPayload()) serializer
                 return value
-            }
+            } |> Cloud.OfAsync
 
 ///  Store implementation that uses a Azure Blob Storage as backend.
 [<AbstractClass; DataContract>]
