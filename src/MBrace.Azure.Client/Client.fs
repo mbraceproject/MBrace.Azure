@@ -42,6 +42,18 @@
         /// Client logger.
         member __.ClientLogger = logger
 
+        member __.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
+            async {
+                let storeResources = storeClient.StoreResources
+                let runtimeProvider = MBrace.Runtime.InMemory.ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
+                let rsc = resource { yield! storeResources; yield runtimeProvider :> IRuntimeProvider }
+                return! Cloud.ToAsync(workflow, rsc)
+            }
+
+        member __.RunLocal(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
+            __.RunLocalAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
+            |> Async.RunSynchronously
+
         member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) =
             __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
             |> Async.StartAsTask

@@ -109,7 +109,7 @@ type ``Azure Runtime Tests`` (sbus, storage) =
     member __.``1. Parallel : use binding`` () =
         let counter = Counter.Create(configId, testContainer, 0) |> Async.RunSync
         cloud {
-            use foo = { new ICloudDisposable with member __.Dispose () = async { return counter.Incr() |> ignore } }
+            use foo = { new ICloudDisposable with member __.Dispose () = cloud { return counter.Incr() |> ignore } }
             let! _ = cloud { return counter.Incr() } <||> cloud { return counter.Incr() }
             return counter.Value
         } |> run |> Choice.shouldEqual 2

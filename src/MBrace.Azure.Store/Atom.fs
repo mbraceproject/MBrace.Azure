@@ -32,8 +32,6 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
 
     interface ICloudAtom<'T> with
 
-        member this.Value : 'T = Async.RunSync((this :> ICloudAtom<'T>).GetValue())
-        
         member this.Id = sprintf "%s/%s/%s" table pk rk
 
         member this.Update(updater: 'T -> 'T, ?maxRetries : int): Async<unit> = 
@@ -61,10 +59,12 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
 
                 return! update interval 0
             }       
-        member this.Dispose(): Async<unit> = 
-            async {
-                let! e = Table.read<FatEntity> client table pk rk
-                return! Table.delete<FatEntity> client table e
+        member this.Dispose(): Cloud<unit> = 
+            cloud {
+                return! Cloud.OfAsync <| async {
+                    let! e = Table.read<FatEntity> client table pk rk
+                    return! Table.delete<FatEntity> client table e
+                }
             }
         
 

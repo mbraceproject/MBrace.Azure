@@ -51,7 +51,7 @@ type Service (config : Configuration, serviceId : string) =
         check () ; channelProvider <- Some channel
     
     member __.RegisterCache(cacheStore : ICloudFileStore) =
-        check () ; cache <- Some <| FileStoreCache.CreateCachedStore(cacheStore)
+        check () ; cache <- Some <| cacheStore
 
     member __.RegisterResource(resource : 'TResource) = check () ; resources <- resources.Register(resource)
     
@@ -81,18 +81,13 @@ type Service (config : Configuration, serviceId : string) =
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
                 logf "Creating InMemoryCache"
-                InMemoryCacheRegistry.SetCache (InMemoryCache.Create())
+                let inMemoryCache = InMemoryCache.Create()
                 
-                match cache with 
-                | None -> 
-                    logf "Registering local filesystem cache"
-                    FileStoreCache.RegisterLocalFileSystemCache()
-                | Some c -> 
-                    logf "Registering cache store : %s" c.SourceStore.Id
-                    FileStoreCache.RegisterLocalCacheStore(c)
+                cache <- Some(defaultArg cache (FileSystemStore.CreateUniqueLocal() :> ICloudFileStore))
 
-                let store = FileStoreCache.CreateCachedStore(storeProvider.Value) :> ICloudFileStore
-                logf "CachedStore created"
+                logf "Local Cache Store %s" cache.Value.Id
+                let store = FileStoreCache.Create(storeProvider.Value, cache.Value) :> ICloudFileStore
+                logf "CachedStore %s created" store.Id
 
                 atomProvider <- Some(defaultArg atomProvider ({ new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
                                                                     override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider))
@@ -127,6 +122,7 @@ type Service (config : Configuration, serviceId : string) =
                     Store              = store
                     Channel            = channelProvider.Value
                     Atom               = atomProvider.Value
+                    Cache              = inMemoryCache
                     Logger             = logger
                     WorkerMonitor      = wmon
                     ProcessMonitor     = state.ProcessMonitor 

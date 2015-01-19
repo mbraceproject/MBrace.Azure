@@ -32,6 +32,8 @@ type SendPort<'T> internal (queuePath, connectionString, serializer : ISerialize
         nsClient <- NamespaceManager.CreateFromConnectionString(connectionString)
 
     interface ISendPort<'T> with
+        member x.Id : string = queuePath
+        
         member __.Send(message : 'T) : Async<unit> = 
             async {
                 let bin = pickle message serializer
@@ -60,8 +62,12 @@ type ReceivePort<'T> internal (queuePath, connectionString, serializer : ISerial
         nsClient <- NamespaceManager.CreateFromConnectionString(connectionString)
 
     interface IReceivePort<'T> with
+        member __.Id : string = queuePath
 
-        member __.Dispose () : Async<unit> = async { do! nsClient.DeleteQueueAsync(queuePath) }
+        member __.Dispose () : Cloud<unit> = 
+            nsClient.DeleteQueueAsync(queuePath)
+            |> Async.AwaitTask
+            |> Cloud.OfAsync
 
         member __.Receive(?timeout : int) : Async<'T> =
             async {

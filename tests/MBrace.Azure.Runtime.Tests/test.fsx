@@ -147,9 +147,20 @@ open MBrace.Store
 
 let ps = runtime.CreateProcess(CloudRef.New(42))
 let c = ps.AwaitResult()
-c.Value
+
+c.Value |> runtime.RunLocal
+c.Size |> runtime.RunLocal
 
 let ps = runtime.CreateProcess(CloudSequence.New([42]))
 let cr = ps.AwaitResult()
-cr |> Seq.toArray
-cr.Size
+cr.Count |> runtime.RunLocal
+cr.Size |> runtime.RunLocal
+cr.ToEnumerable() |> runtime.RunLocal
+
+
+cloud { 
+    return! cloud { return 1 } <||> cloud { return 2 }
+}
+|> runtime.RunLocal
+
+

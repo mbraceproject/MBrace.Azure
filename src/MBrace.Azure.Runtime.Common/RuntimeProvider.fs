@@ -36,8 +36,12 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultP
         member __.TaskId = taskId
 
         member __.SchedulingContext = context
-        member __.WithSchedulingContext context = 
-            new RuntimeProvider(state, wmon, faultPolicy, taskId, psInfo, dependencies, context) :> IRuntimeProvider
+        member __.WithSchedulingContext ctx =
+            match ctx, context with
+            | Distributed, (ThreadParallel | Sequential)
+            | ThreadParallel, Sequential ->
+                invalidOp <| sprintf "Cannot set scheduling context to '%A' when it already is '%A'." ctx context
+            | _ -> new RuntimeProvider(state, wmon, faultPolicy, taskId, psInfo, dependencies, context) :> IRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 

@@ -426,18 +426,6 @@
 <member name="">
 
 </member>
-<member name="M:MBrace.Runtime.InMemory.InMemory.CreateResources(Microsoft.FSharp.Core.FSharpOption{MBrace.Continuation.ICloudLogger})">
- <summary>
-     Creates a resource bundle for in-memory cloud computations.
- </summary>
- <param name="logger">Logger for runtime. Defaults to no logging.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
 <member name="">
 
 </member>
@@ -724,75 +712,38 @@
 <member name="">
 
 </member>
-<member name="M:MBrace.Runtime.Store.FileStoreCache.RegisterLocalFileSystemCache(Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Runtime.Store.CacheBehavior})">
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:MBrace.Runtime.Store.FileStoreCache.Create(MBrace.Store.ICloudFileStore,MBrace.Store.ICloudFileStore,Microsoft.FSharp.Core.FSharpOption{MBrace.Runtime.Store.CacheBehavior},Microsoft.FSharp.Core.FSharpOption{System.String})">
  <summary>
-     Defines a locally specified file system cache store.
+     Wraps a file store instance in an instance that caches files to a local file store.
  </summary>
- <param name="cacheContext">Cache context identifier. Must be identical in all caching nodes.</param>
- <param name="cacheBehavior">Caching behavior. Defaults to all.</param>
-</member>
-<member name="M:MBrace.Runtime.Store.FileStoreCache.RegisterLocalCacheStore(MBrace.Store.ICloudFileStore,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Runtime.Store.CacheBehavior})">
- <summary>
-     Installs a local file store cache under given context.
- </summary>
- <param name="localCacheStore">Local cache store.</param>
- <param name="cacheContext">Cache context identifier. Must be identical in all caching nodes.</param>
- <param name="cacheBehavior">Caching behavior. Defaults to all.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="M:MBrace.Runtime.Store.FileStoreCache.GetLocalCacheStore(Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary>
- Returns locally installed cache stores under given context.
- </summary>
- <param name="cacheContext">Cache context identifier.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="M:MBrace.Runtime.Store.FileStoreCache.CreateCachedStore(MBrace.Store.ICloudFileStore,Microsoft.FSharp.Core.FSharpOption{System.String})">
- <summary>
-     Creates a file store cache instance.
- </summary>
- <param name="target">Target file store to be cached.</param>
- <param name="cacheContext">Caching context identifier. Must be identical in all caching nodes.</param>
-</member>
-<member name="">
-
+ <param name="target">Target file store to cache files from.</param>
+ <param name="localCacheStore">Local file store to cache files to.</param>
+ <param name="cacheBehavior">Caching behavior. Defaults to Read/Write caching.</param>
+ <param name="localCacheContainer">Directory in local store to contain cached files. Defaults to self-assigned.</param>
 </member>
 <member name="">
 
@@ -814,11 +765,6 @@
 <member name="">
 
 </member>
-<member name="P:MBrace.Runtime.Store.FileSystemAtomProvider.LocalTemp">
-<summary>
- Initializes a FileSystemStore instance on the local system temp path.
-</summary>
-</member>
 <member name="">
 
 </member>
@@ -834,11 +780,11 @@
 <member name="">
 
 </member>
-<member name="M:MBrace.Runtime.Store.FileSystemAtomProvider.Create(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+<member name="M:MBrace.Runtime.Store.FileSystemAtomProvider.Create(Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{System.Boolean},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
  <summary>
      Creates a new FileSystemAtomProvider instance on given path.
  </summary>
- <param name="path">Local or UNC path.</param>
+ <param name="path">Local or UNC path. Defaults to system temp folder.</param>
  <param name="create">Create directory if missing. Defaults to false</param>
  <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
 </member>
@@ -883,11 +829,6 @@
 <member name="">
 
 </member>
-<member name="P:MBrace.Runtime.Store.FileSystemStore.LocalTemp">
-<summary>
- Initializes a FileSystemStore instance on the local system temp path.
-</summary>
-</member>
 <member name="">
 
 </member>
@@ -930,11 +871,18 @@
 <member name="">
 
 </member>
-<member name="">
-
+<member name="M:MBrace.Runtime.Store.FileSystemStore.CreateUniqueLocal">
+ <summary>
+     Creates a local file system store that is unique to the current process.
+ </summary>
 </member>
 <member name="">
 
+</member>
+<member name="M:MBrace.Runtime.Store.FileSystemStore.CreateSharedLocal">
+ <summary>
+     Creates a local file system store that can be shared between local processes.
+ </summary>
 </member>
 <member name="">
 
@@ -944,8 +892,8 @@
      Creates a new FileSystemStore instance on given path.
  </summary>
  <param name="path">Local or UNC path.</param>
- <param name="create">Create directory if missing. Defaults to false</param>
- <param name="cleanup">Cleanup directory if it exists. Defaults to false</param>
+ <param name="create">Create directory if missing. Defaults to false.</param>
+ <param name="cleanup">Cleanup directory if it exists. Defaults to false.</param>
 </member>
 <member name="">
 
@@ -976,9 +924,6 @@
  </summary>
  <param name="key">Key</param>
 </member>
-<member name="">
-
-</member>
 <member name="M:MBrace.Runtime.Store.InMemoryCache.Get(System.String)">
  <summary>
      Look up cached entry by key.
@@ -1007,7 +952,10 @@
  </summary>
  <param name="key"></param>
 </member>
-<member name="M:MBrace.Runtime.Store.InMemoryCache.Add``1(System.String,``0)">
+<member name="">
+
+</member>
+<member name="M:MBrace.Runtime.Store.InMemoryCache.Add(System.String,System.Object)">
  <summary>
      Try adding a new key to cache.
  </summary>
@@ -1028,66 +976,6 @@
      Can be used by runtime implementers to keep track of caching.
  </summary>
  <param name="graph">Serializable object graph to be traversed.</param>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
 </member>
 <member name="">
 
