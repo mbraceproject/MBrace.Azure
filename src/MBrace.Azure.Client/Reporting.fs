@@ -36,6 +36,7 @@ type internal WorkerReporter() =
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
           Field.create "Heartbeat" Left (fun p -> p.Timestamp)
+          Field.create "Is active" Left (fun p -> p.IsActive)
         ]
     
     static member Report(workers : WorkerRecord seq, title, borders) = 

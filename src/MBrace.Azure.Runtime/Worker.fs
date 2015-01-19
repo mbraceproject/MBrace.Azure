@@ -99,7 +99,6 @@ type internal Worker () =
                 | Some(Start(config, handle)), Idle ->
                     return! workerLoop(Running(config, handle))
                 | Some(Stop ch), Running(config, handle) ->
-                    // TODO : Add WorkerMonitor finalizations.
                     config.Logger.Log "Stop requested. Waiting for pending tasks."
                     let rec wait () = async {
                         if config.WorkerMonitor.ActiveTasks > 0 then
@@ -107,6 +106,10 @@ type internal Worker () =
                             return! wait ()
                     }
                     do! wait ()
+                    config.Logger.Log "No active tasks."
+                    config.Logger.Log "Unregister current worker."
+                    do! config.WorkerMonitor.UnregisterCurrent()
+                    config.Logger.Log "Worker stopped."
                     ch.Reply ()
                     handle.Reply()
                     return! workerLoop Idle

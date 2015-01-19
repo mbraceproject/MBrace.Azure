@@ -102,7 +102,7 @@ type Service (config : Configuration, serviceId : string) =
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
                 let wmon = WorkerMonitor.Create(config, MaxTasks = __.MaxConcurrentTasks)
-                let! e = wmon.DeclareCurrent(serviceId)
+                let! e = wmon.RegisterCurrent(serviceId)
                 logf "Declared node\n\tHostname \"%s\"\n\tPID:\"%d\"\n\tServiceId:\"%s\"" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
                 Async.Start(wmon.HeartbeatLoop())
@@ -138,10 +138,20 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Service %s started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
                 return! handle
             with ex ->
-                logf "Service %s failed with %A" __.Id  ex
+                logf "Service Start for %s failed with %A" __.Id  ex
                 return! Async.Raise ex
         }
 
     member __.Start() = Async.RunSync(__.StartAsync())
 
-    member __.Stop () = worker.Stop()
+    member __.Stop () =
+        async {
+            try
+                logf "Stopping Service %s." serviceId
+                //TODO : Add other finalizations.
+                worker.Stop()
+                logf "Service %s stopped." serviceId
+            with ex ->
+                logf "Service Stop for %s failed with %A" __.Id  ex
+                return! Async.Raise ex
+        }

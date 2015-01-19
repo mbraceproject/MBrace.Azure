@@ -28,7 +28,8 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
     member val ProcessId :int = pid with get, set
     member val ProcessName :string = pname with get, set
     member val InitializationTime : DateTimeOffset = joined with get, set
-    
+    member val IsActive : bool = true with get, set
+
     member val MaxTasks = 0 with get, set
     member val ActiveTasks = 0 with get, set
 
@@ -56,45 +57,10 @@ type WorkerMonitor private (config, table : string) =
 
     let current = ref None
     let perfMon = lazy new PerformanceMonitor()
-
+    let mutable active = false
     let mutable activeTasks = 0
 
     static member Create(config : Configuration) = new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer)
-
-    member this.DeclareCurrent(id : string) : Async<WorkerRef> = 
-        async {
-            match current.Value with 
-            | Some w -> 
-                return failwithf "Worker %A is active" w
-            | None ->
-                perfMon.Value.Start()
-                let ps = Diagnostics.Process.GetCurrentProcess()
-                let joined = DateTimeOffset.UtcNow
-                let w = new WorkerRecord(pk, id, Dns.GetHostName(), ps.Id, ps.ProcessName, joined)
-                w.UpdateCounters(perfMon.Value.GetCounters())
-                do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
-                current := Some w
-                return w.AsWorkerRef()
-        }
-
-    member __.Current = current.Value.Value
-
-    member this.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
-        let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
-        let worker = this.Current
-        worker.MaxTasks <- this.MaxTasks
-        let rec loop () = async {
-            let counters = perfMon.Value.GetCounters()
-            worker.UpdateCounters(counters)
-            worker.ActiveTasks <- activeTasks
-            worker.ETag <- "*"
-            let! e = Table.merge<WorkerRecord> config table worker
-            current := Some e
-            do! Async.Sleep (int ts.TotalMilliseconds)
-            return! loop ()
-        }
-        return! loop ()
-    }
 
     member __.ActiveTasks = activeTasks
     
@@ -103,6 +69,68 @@ type WorkerMonitor private (config, table : string) =
     member __.IncrementTaskCount () = Interlocked.Increment(&activeTasks) |> ignore
 
     member __.DecrementTaskCount () = Interlocked.Decrement(&activeTasks) |> ignore
+
+    member __.Current : WorkerRecord = current.Value.Value
+
+    member this.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
+        let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
+        let worker = this.Current
+        worker.MaxTasks <- this.MaxTasks
+        active <- true
+        let rec loop () = async {
+            let counters = perfMon.Value.GetCounters()
+            worker.UpdateCounters(counters)
+            worker.ActiveTasks <- activeTasks
+            worker.IsActive <- true
+            worker.ETag <- "*"
+            let! e = Table.merge<WorkerRecord> config table worker
+            current := Some e
+            do! Async.Sleep (int ts.TotalMilliseconds)
+            if active then return! loop ()
+        }
+        return! loop ()
+    }
+
+    member this.RegisterCurrent(workerId : string) : Async<WorkerRef> = 
+        async {
+            match current.Value with 
+            | Some w -> 
+                return failwithf "Worker %A is active" w
+            | None ->
+                perfMon.Value.Start()
+                let ps = Diagnostics.Process.GetCurrentProcess()
+                let joined = DateTimeOffset.UtcNow
+                let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), ps.Id, ps.ProcessName, joined)
+                w.UpdateCounters(perfMon.Value.GetCounters())
+                do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
+                current := Some w
+                return w.AsWorkerRef()
+        }
+
+    member __.UnregisterCurrent () : Async<unit> = 
+        async {
+            active <- false
+            (perfMon.Value :> IDisposable).Dispose()
+            do! __.SetInactiveWorker(__.Current)
+        }
+
+    member __.SetInactiveWorker(worker : WorkerRecord) : Async<unit> =
+        async {
+            worker.IsActive <- false
+            let! _ = Table.replace config table worker
+            return ()
+        }
+
+    member __.DeleteWorkerRecord(workerId : string) : Async<unit> =
+        async {
+            let! record = __.GetWorker(workerId)
+            do! Table.delete config table record
+        }
+
+    member __.GetWorker(workerId : string) = 
+        async {
+            return! Table.read<WorkerRecord> config table pk workerId
+        }
 
     member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerRecord seq> = async {
         let timespan = defaultArg timespan <| TimeSpan.FromMinutes 5.
