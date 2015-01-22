@@ -26,6 +26,13 @@
  <param name="policy">Updated fault policy.</param>
  <param name="workflow">Workflow to be used.</param>
 </member>
+<member name="M:MBrace.Cloud.TryFinally``1(MBrace.Cloud{``0},MBrace.Cloud{Microsoft.FSharp.Core.Unit})">
+ <summary>
+     Try/Finally combinator for monadic finalizers.
+ </summary>
+ <param name="body">Workflow body.</param>
+ <param name="finalizer">Finalizer workflow.</param>
+</member>
 <member name="M:MBrace.Cloud.ToSequential``1(MBrace.Cloud{``0})">
  <summary>
      Force sequential execution semantics for given cloud workflow.
@@ -195,19 +202,21 @@
  Cloud workflows user API
 </summary>
 </member>
-<member name="M:MBrace.CloudAtom.Update``1(Microsoft.FSharp.Core.FSharpFunc{``0,``0},MBrace.ICloudAtom{``0})">
+<member name="M:MBrace.CloudAtom.Update``1(MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
      Atomically updates the contained value.
  </summary>
  <param name="updater">value updating function.</param>
  <param name="atom">Atom instance to be updated.</param>
+ <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
 </member>
-<member name="M:MBrace.CloudAtom.Transact``2(Microsoft.FSharp.Core.FSharpFunc{``0,System.Tuple{``1,``0}},MBrace.ICloudAtom{``0})">
+<member name="M:MBrace.CloudAtom.Transact``2(MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,System.Tuple{``1,``0}},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
      Transactionally updates the contained value.
  </summary>
- <param name="trasactF"></param>
- <param name="atom"></param>
+ <param name="atom">Input atom.</param>
+ <param name="trasactF">Transaction function.</param>
+ <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
 </member>
 <member name="M:MBrace.CloudAtom.Read``1(MBrace.ICloudAtom{``0})">
  <summary>
@@ -215,7 +224,7 @@
  </summary>
  <param name="atom">Atom instance.</param>
 </member>
-<member name="M:MBrace.CloudAtom.New``1(``0)">
+<member name="M:MBrace.CloudAtom.New``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String})">
  <summary>
      Creates a new cloud atom instance with given value.
  </summary>
@@ -227,18 +236,41 @@
  </summary>
  <param name="value">Value to be checked.</param>
 </member>
-<member name="M:MBrace.CloudAtom.Force``1(``0,MBrace.ICloudAtom{``0})">
+<member name="M:MBrace.CloudAtom.Incr``2(MBrace.ICloudAtom{``0})">
+ <summary>
+     Increments a cloud counter by one.
+ </summary>
+ <param name="atom">Input atom.</param>
+</member>
+<member name="M:MBrace.CloudAtom.Force``1(MBrace.ICloudAtom{``0},``0)">
  <summary>
      Forces the contained value to provided argument.
  </summary>
  <param name="value">Value to be set.</param>
  <param name="atom">Atom instance to be updated.</param>
 </member>
+<member name="M:MBrace.CloudAtom.DeleteContainer(System.String)">
+ <summary>
+     Deletes container and all its contained atoms.
+ </summary>
+ <param name="container"></param>
+</member>
 <member name="M:MBrace.CloudAtom.Delete``1(MBrace.ICloudAtom{``0})">
  <summary>
      Deletes the provided atom instance from store.
  </summary>
  <param name="atom">Atom instance to be deleted.</param>
+</member>
+<member name="M:MBrace.CloudAtom.Decr``2(MBrace.ICloudAtom{``0})">
+ <summary>
+     Decrements a cloud counter by one.
+ </summary>
+ <param name="atom">Input atom.</param>
+</member>
+<member name="M:MBrace.CloudAtom.CreateContainerName">
+<summary>
+ Generates a unique container name.
+</summary>
 </member>
 <member name="">
 
@@ -293,7 +325,7 @@
  Cloud workflow expression builder
 </summary>
 </member>
-<member name="M:MBrace.CloudChannel.Send``1(``0,MBrace.ISendPort{``0})">
+<member name="M:MBrace.CloudChannel.Send``1(MBrace.ISendPort{``0},``0)">
  <summary>
      Send message to the channel.
  </summary>
@@ -307,9 +339,27 @@
  <param name="channel">Source channel.</param>
  <param name="timeout">Timeout in milliseconds.</param>
 </member>
-<member name="M:MBrace.CloudChannel.New``1">
+<member name="M:MBrace.CloudChannel.New``1(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new channel instance.
+ </summary>
+ <param name="container">Container to channel. Defaults to process default.</param>
+</member>
+<member name="M:MBrace.CloudChannel.DeleteContainer(System.String)">
+ <summary>
+     Deletes container and all its contained channels.
+ </summary>
+ <param name="container"></param>
+</member>
+<member name="M:MBrace.CloudChannel.Delete``1(MBrace.IReceivePort{``0})">
+ <summary>
+     Deletes cloud channel instance.
+ </summary>
+ <param name="channel">Channel to be disposed.</param>
+</member>
+<member name="M:MBrace.CloudChannel.CreateContainerName">
 <summary>
- Creates a new channel instance.
+ Generates a unique container name.
 </summary>
 </member>
 <member name="T:MBrace.CloudChannel">
@@ -336,6 +386,12 @@
      Checks if directory exists in given path
  </summary>
  <param name="directory">Path to directory.</param>
+</member>
+<member name="M:MBrace.CloudDirectory.Enumerate(Microsoft.FSharp.Core.FSharpOption{MBrace.CloudDirectory})">
+ <summary>
+     Gets all files that exist in given container.
+ </summary>
+ <param name="directory">Path to directory. Defaults to the process directory.</param>
 </member>
 <member name="M:MBrace.CloudDirectory.Enumerate(Microsoft.FSharp.Core.FSharpOption{System.String})">
  <summary>
@@ -393,7 +449,7 @@
  <param name="encoding">Text encoding.</param>
  <param name="path">Path to CloudFile.</param>
 </member>
-<member name="M:MBrace.CloudFile.WriteAllText(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
+<member name="M:MBrace.CloudFile.WriteAllText(System.String,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
  <summary>
      Writes string contents to given CloudFile.
  </summary>
@@ -485,6 +541,12 @@
      Checks if file exists in store.
  </summary>
  <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.CloudFile.Enumerate(Microsoft.FSharp.Core.FSharpOption{MBrace.CloudDirectory})">
+ <summary>
+     Gets all files that exist in given container.
+ </summary>
+ <param name="directory">Path to directory. Defaults to the process directory.</param>
 </member>
 <member name="M:MBrace.CloudFile.Enumerate(Microsoft.FSharp.Core.FSharpOption{System.String})">
  <summary>
@@ -596,6 +658,11 @@
 <member name="P:MBrace.CloudRef`1.Size">
 <summary>
  Gets the size of cloud ref in bytes
+</summary>
+</member>
+<member name="P:MBrace.CloudRef`1.IsCachedLocally">
+<summary>
+ Indicates if array is cached in local execution context
 </summary>
 </member>
 <member name="">
@@ -756,6 +823,12 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
 <member name="T:MBrace.Cloud`1">
 <summary>
  Representation of a cloud computation, which, when run 
@@ -832,6 +905,23 @@
  Returns the file store instance carried in current execution context.
 </summary>
 </member>
+<member name="M:MBrace.FileStore.GetRandomFileName(Microsoft.FSharp.Core.FSharpOption{MBrace.CloudDirectory})">
+ <summary>
+     Creates a uniquely defined file path for given container.
+ </summary>
+ <param name="container">Path to containing directory. Defaults to process directory.</param>
+</member>
+<member name="M:MBrace.FileStore.GetRandomFileName(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a uniquely defined file path for given container.
+ </summary>
+ <param name="container">Path to containing directory. Defaults to process directory.</param>
+</member>
+<member name="M:MBrace.FileStore.GetRandomDirectoryName">
+<summary>
+ Generates a random, uniquely specified path to directory
+</summary>
+</member>
 <member name="M:MBrace.FileStore.GetFileName(System.String)">
  <summary>
      Returns the file name for given path.
@@ -843,11 +933,6 @@
      Returns the directory name for given path.
  </summary>
  <param name="path">Input file path.</param>
-</member>
-<member name="M:MBrace.FileStore.CreateUniqueDirectoryPath">
-<summary>
- Generates a random, uniquely specified path to directory
-</summary>
 </member>
 <member name="M:MBrace.FileStore.Combine(System.String,System.Collections.Generic.IEnumerable{System.String})">
  <summary>
@@ -861,6 +946,14 @@
      Combines an array of paths into a path.
  </summary>
  <param name="paths">Strings to be combined.</param>
+</member>
+<member name="M:MBrace.FileStore.Combine(System.String,System.String,System.String)">
+ <summary>
+     Combines three strings into one path.
+ </summary>
+ <param name="path1">First path.</param>
+ <param name="path2">Second path.</param>
+ <param name="path3">Third path.</param>
 </member>
 <member name="M:MBrace.FileStore.Combine(System.String,System.String)">
  <summary>
@@ -1010,11 +1103,12 @@
  Scheduling context for currently executing cloud process.
 </summary>
 </member>
-<member name="M:MBrace.CloudAtomUtils.ICloudAtom`1.Transact``2(MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,System.Tuple{``1,``0}})">
+<member name="M:MBrace.CloudAtomUtils.ICloudAtom`1.Transact``2(MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,System.Tuple{``1,``0}},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
      Performs transaction on atom.
  </summary>
  <param name="transaction">Transaction function.</param>
+ <param name="maxRetries">Maximum retries under optimistic semantics. Defaults to infinite.</param>
 </member>
 <member name="T:MBrace.CloudAtomUtils">
 
@@ -1028,6 +1122,12 @@
 <summary>
  Cloud builder module
 </summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
 </member>
 <member name="">
 
@@ -1342,54 +1442,54 @@
      Abstract logger for cloud workflows.
  </summary>
 </member>
-<member name="P:MBrace.Continuation.IRuntimeProvider.TaskId">
+<member name="P:MBrace.Continuation.ICloudRuntimeProvider.TaskId">
 <summary>
  Get cloud task identifier
 </summary>
 </member>
-<member name="P:MBrace.Continuation.IRuntimeProvider.SchedulingContext">
+<member name="P:MBrace.Continuation.ICloudRuntimeProvider.SchedulingContext">
  <summary>
      Gets the current scheduling context.
  </summary>
 </member>
-<member name="P:MBrace.Continuation.IRuntimeProvider.ProcessId">
+<member name="P:MBrace.Continuation.ICloudRuntimeProvider.ProcessId">
 <summary>
  Get cloud process identifier
 </summary>
 </member>
-<member name="P:MBrace.Continuation.IRuntimeProvider.Logger">
+<member name="P:MBrace.Continuation.ICloudRuntimeProvider.Logger">
 <summary>
  Gets the current logger instance.
 </summary>
 </member>
-<member name="P:MBrace.Continuation.IRuntimeProvider.IsTargetedWorkerSupported">
+<member name="P:MBrace.Continuation.ICloudRuntimeProvider.IsTargetedWorkerSupported">
 <summary>
  Specifies whether runtime supports submission of tasks to specific worker nodes
 </summary>
 </member>
-<member name="P:MBrace.Continuation.IRuntimeProvider.FaultPolicy">
+<member name="P:MBrace.Continuation.ICloudRuntimeProvider.FaultPolicy">
  <summary>
      Gets the current fault policy.
  </summary>
 </member>
-<member name="P:MBrace.Continuation.IRuntimeProvider.CurrentWorker">
+<member name="P:MBrace.Continuation.ICloudRuntimeProvider.CurrentWorker">
 <summary>
  Gets currently running worker
 </summary>
 </member>
-<member name="M:MBrace.Continuation.IRuntimeProvider.WithSchedulingContext(MBrace.SchedulingContext)">
+<member name="M:MBrace.Continuation.ICloudRuntimeProvider.WithSchedulingContext(MBrace.SchedulingContext)">
  <summary>
      Creates a new scheduler instance with updated scheduling context
  </summary>
  <param name="newContext">new scheduling context</param>
 </member>
-<member name="M:MBrace.Continuation.IRuntimeProvider.WithFaultPolicy(MBrace.FaultPolicy)">
+<member name="M:MBrace.Continuation.ICloudRuntimeProvider.WithFaultPolicy(MBrace.FaultPolicy)">
  <summary>
      Creates a new scheduler instance with updated fault policy.
  </summary>
  <param name="newPolicy">new fault policy.</param>
 </member>
-<member name="M:MBrace.Continuation.IRuntimeProvider.ScheduleStartChild``1(MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{MBrace.IWorkerRef},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+<member name="M:MBrace.Continuation.ICloudRuntimeProvider.ScheduleStartChild``1(MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{MBrace.IWorkerRef},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
  <summary>
      Start a new computation as a child task.
  </summary>
@@ -1397,24 +1497,24 @@
  <param name="target">Explicitly specify a target worker for execution.</param>
  <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
 </member>
-<member name="M:MBrace.Continuation.IRuntimeProvider.ScheduleParallel``1(System.Collections.Generic.IEnumerable{System.Tuple{MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{MBrace.IWorkerRef}}})">
+<member name="M:MBrace.Continuation.ICloudRuntimeProvider.ScheduleParallel``1(System.Collections.Generic.IEnumerable{System.Tuple{MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{MBrace.IWorkerRef}}})">
  <summary>
      Parallel fork/join implementation.
  </summary>
  <param name="computations">Computations to be executed. Contains optional target worker.</param>
 </member>
-<member name="M:MBrace.Continuation.IRuntimeProvider.ScheduleChoice``1(System.Collections.Generic.IEnumerable{System.Tuple{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}},Microsoft.FSharp.Core.FSharpOption{MBrace.IWorkerRef}}})">
+<member name="M:MBrace.Continuation.ICloudRuntimeProvider.ScheduleChoice``1(System.Collections.Generic.IEnumerable{System.Tuple{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}},Microsoft.FSharp.Core.FSharpOption{MBrace.IWorkerRef}}})">
  <summary>
      Parallel nondeterministic choice implementation.
  </summary>
  <param name="computations">Computations to be executed. Contains optional target worker.</param>
 </member>
-<member name="M:MBrace.Continuation.IRuntimeProvider.GetAvailableWorkers">
+<member name="M:MBrace.Continuation.ICloudRuntimeProvider.GetAvailableWorkers">
 <summary>
  Get all available workers in cluster
 </summary>
 </member>
-<member name="T:MBrace.Continuation.IRuntimeProvider">
+<member name="T:MBrace.Continuation.ICloudRuntimeProvider">
  <summary>
      Executing runtime abstraction.
  </summary>
@@ -1463,8 +1563,24 @@
  </summary>
  <param name="resource">input resource.</param>
 </member>
-<member name="">
-
+<member name="M:MBrace.Continuation.ResourceRegistry.Contains``1">
+<summary>
+ Returns true iff registry instance contains resource of given type
+</summary>
+</member>
+<member name="M:MBrace.Continuation.ResourceRegistry.Combine(System.Collections.Generic.IEnumerable{MBrace.Continuation.ResourceRegistry})">
+ <summary>
+     Combines two resource registries into one.
+ </summary>
+ <param name="resources1">First resource registry.</param>
+ <param name="resources2">Second resource registry.</param>
+</member>
+<member name="M:MBrace.Continuation.ResourceRegistry.Combine(MBrace.Continuation.ResourceRegistry,MBrace.Continuation.ResourceRegistry)">
+ <summary>
+     Combines two resource registries into one.
+ </summary>
+ <param name="resources1">First resource registry.</param>
+ <param name="resources2">Second resource registry.</param>
 </member>
 <member name="">
 
@@ -1604,6 +1720,9 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
 <member name="P:MBrace.Continuation.ResourceBuilder.resource">
 <summary>
  resource registry builder
@@ -1620,34 +1739,907 @@
 <member name="T:MBrace.Continuation.ResourceRegistryUtils">
 
 </member>
-<member name="P:MBrace.Store.AtomConfiguration.DefaultContainer">
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.InMemory.InMemoryChannelProvider">
+<summary>
+ Defines an in-memory channel factory using mailbox processor
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:MBrace.InMemory.InMemoryRuntime.StoreClient">
+<summary>
+ Store client instance for in memory runtime instance.
+</summary>
+</member>
+<member name="M:MBrace.InMemory.InMemoryRuntime.WithResource``1(``0)">
+ <summary>
+     Creates a copy of In-Memory runtime with updated resource registry.
+ </summary>
+ <param name="resource">Resource to be appended.</param>
+</member>
+<member name="M:MBrace.InMemory.InMemoryRuntime.RunAsync``1(MBrace.Cloud{``0})">
+ <summary>
+     Asynchronously executes a cloud computation in the local process,
+     with parallelism provided by the .NET thread pool.
+ </summary>
+ <param name="workflow">Workflow to be executed.</param>
+</member>
+<member name="M:MBrace.InMemory.InMemoryRuntime.Run``1(MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.Threading.CancellationToken})">
+ <summary>
+     Executes a cloud computation in the local process,
+     with parallelism provided by the .NET thread pool.
+ </summary>
+ <param name="workflow">Workflow to be executed.</param>
+ <param name="cancellationToken">Cancellation token passed to computation.</param>
+</member>
+<member name="M:MBrace.InMemory.InMemoryRuntime.Create(Microsoft.FSharp.Core.FSharpOption{MBrace.Continuation.ICloudLogger},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.CloudFileStoreConfiguration},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.CloudAtomConfiguration},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.CloudChannelConfiguration},Microsoft.FSharp.Core.FSharpOption{MBrace.Continuation.ResourceRegistry})">
+ <summary>
+     Creates an InMemory runtime instance with provided store components.
+ </summary>
+ <param name="workflow">Workflow to be executed.</param>
+ <param name="logger">Logger abstraction. Defaults to no logging.</param>
+ <param name="fileConfig">File store configuration. Defaults to no file store.</param>
+ <param name="atomConfig">Cloud atom configuration. Defaults to in-memory atoms.</param>
+ <param name="channelConfig">Cloud channel configuration. Defaults to in-memory channels.</param>
+ <param name="resources">Misc resources passed by user to execution context. Defaults to none.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.InMemory.InMemoryRuntime">
+<summary>
+ Defines a general-purpose client object for use with in-memory cloud execution.
+</summary>
+</member>
+<member name="M:MBrace.InMemory.ThreadPool.StartChild``1(MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Provides a context-less Cloud.StartChild implementation
+     for execution within the thread pool.
+ </summary>
+ <param name="computation">Input computation.</param>
+ <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
+</member>
+<member name="M:MBrace.InMemory.ThreadPool.Parallel``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{``0}})">
+ <summary>
+     Provides a context-less Cloud.Parallel implementation
+     for execution within the thread pool.
+ </summary>
+ <param name="computations">Input computations</param>
+</member>
+<member name="M:MBrace.InMemory.ThreadPool.Choice``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
+ <summary>
+     Provides a context-less Cloud.Choice implementation
+     for execution within the thread pool.
+ </summary>
+ <param name="computations">Input computations</param>
+</member>
+<member name="T:MBrace.InMemory.ThreadPool">
+<summary>
+ Collection of context-less combinators for 
+ execution within local thread context.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:MBrace.InMemory.ThreadPoolRuntime.Create(Microsoft.FSharp.Core.FSharpOption{MBrace.Continuation.ICloudLogger},Microsoft.FSharp.Core.FSharpOption{MBrace.FaultPolicy})">
+ <summary>
+     Creates a new threadpool runtime instance.
+ </summary>
+ <param name="logger">Logger for runtime. Defaults to no logging.</param>
+ <param name="faultPolicy">Fault policy for runtime. Defaults to no retry.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.InMemory.ThreadPoolRuntime">
+<summary>
+ .NET ThreadPool runtime provider
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.InMemory.SchedulerInternals">
+
+</member>
+<member name="M:MBrace.InMemory.Sequential.StartChild``1(MBrace.Cloud{``0})">
+ <summary>
+     Provides a context-less Cloud.StartChild implementation
+     for execution within the current thread context.
+ </summary>
+ <param name="computation">Input computation</param>
+</member>
+<member name="M:MBrace.InMemory.Sequential.Choice``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
+ <summary>
+     Provides a context-less Cloud.Choice implementation
+     for execution within the current thread.
+ </summary>
+ <param name="computations">Input computations</param>
+</member>
+<member name="M:MBrace.InMemory.Sequential.Parallel``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{``0}})">
+ <summary>
+     Provides a context-less Cloud.Parallel implementation
+     for execution within the current thread.
+ </summary>
+ <param name="computations">Input computations</param>
+</member>
+<member name="M:MBrace.InMemory.Sequential.fold``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,MBrace.Cloud{``0}}},``0,System.Collections.Generic.IEnumerable{``1})">
+ <summary>
+     Provides a context-less sequential fold implementation.
+ </summary>
+ <param name="folder">Folding function.</param>
+ <param name="init">Initial state function.</param>
+ <param name="ts">Input sequence.</param>
+</member>
+<member name="T:MBrace.InMemory.Sequential">
+<summary>
+ Collection of context-less combinators for 
+ execution within local thread context.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.UpdateAsync``1(MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Atomically updates the contained value.
+ </summary>
+ <param name="updater">value updating function.</param>
+ <param name="atom">Atom instance to be updated.</param>
+ <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.Update``1(MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Atomically updates the contained value.
+ </summary>
+ <param name="updater">value updating function.</param>
+ <param name="atom">Atom instance to be updated.</param>
+ <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.TransactAsync``2(MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,System.Tuple{``1,``0}},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Transactionally updates the contained value.
+ </summary>
+ <param name="atom">Atom instance to be updated.</param>
+ <param name="trasactF">Transaction function.</param>
+ <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.Transact``2(MBrace.ICloudAtom{``0},Microsoft.FSharp.Core.FSharpFunc{``0,System.Tuple{``1,``0}},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Transactionally updates the contained value.
+ </summary>
+ <param name="atom">Atom instance to be updated.</param>
+ <param name="trasactF">Transaction function.</param>
+ <param name="maxRetries">Maximum number of retries before giving up. Defaults to infinite.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.ReadAsync``1(MBrace.ICloudAtom{``0})">
+ <summary>
+     Dereferences a cloud atom.
+ </summary>
+ <param name="atom">Atom instance.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.Read``1(MBrace.ICloudAtom{``0})">
+ <summary>
+     Dereferences a cloud atom.
+ </summary>
+ <param name="atom">Atom instance.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.IsSupportedValue``1(``0)">
+ <summary>
+     Checks if value is supported by current table store.
+ </summary>
+ <param name="value">Value to be checked.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.ForceAsync``1(MBrace.ICloudAtom{``0},``0)">
+ <summary>
+     Forces the contained value to provided argument.
+ </summary>
+ <param name="value">Value to be set.</param>
+ <param name="atom">Atom instance to be updated.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.Force``1(MBrace.ICloudAtom{``0},``0)">
+ <summary>
+     Forces the contained value to provided argument.
+ </summary>
+ <param name="value">Value to be set.</param>
+ <param name="atom">Atom instance to be updated.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.DeleteContainerAsync(System.String)">
+ <summary>
+     Deletes the provided atom container and all its contents.
+ </summary>
+ <param name="container">Container name.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.DeleteContainer(System.String)">
+ <summary>
+     Deletes the provided atom container and all its contents.
+ </summary>
+ <param name="container">Container name.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.DeleteAsync``1(MBrace.ICloudAtom{``0})">
+ <summary>
+     Deletes the provided atom instance from store.
+ </summary>
+ <param name="atom">Atom instance to be deleted.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.Delete``1(MBrace.ICloudAtom{``0})">
+ <summary>
+     Deletes the provided atom instance from store.
+ </summary>
+ <param name="atom">Atom instance to be deleted.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.CreateFromResources(MBrace.Continuation.ResourceRegistry)">
+ <summary>
+ Create a new FileStoreClient instance from given resources.
+ Resources must contain CloudAtomConfiguration value.
+ </summary>
+ <param name="resources"></param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.CreateAsync``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new cloud atom instance with given value.
+ </summary>
+ <param name="initial">Initial value.</param>
+</member>
+<member name="M:MBrace.Store.CloudAtomClient.Create``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new cloud atom instance with given value.
+ </summary>
+ <param name="initial">Initial value.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.Store.CloudAtomClient">
+<summary>
+ Collection of client methods for CloudAtom API
+</summary>
+</member>
+<member name="P:MBrace.Store.CloudAtomConfiguration.DefaultContainer">
 <summary>
  Default container for instance in current execution context.
 </summary>
 </member>
-<member name="P:MBrace.Store.AtomConfiguration.AtomProvider">
+<member name="P:MBrace.Store.CloudAtomConfiguration.AtomProvider">
 <summary>
  Atom provider instance
 </summary>
 </member>
-<member name="T:MBrace.Store.AtomConfiguration">
+<member name="M:MBrace.Store.CloudAtomConfiguration.Create(MBrace.Store.ICloudAtomProvider,Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates an atom configuration instance using provided components.
+ </summary>
+ <param name="atomProvider">Atom provider instance.</param>
+ <param name="defaultContainer">Default container for current process. Defaults to auto generated.</param>
+</member>
+<member name="T:MBrace.Store.CloudAtomConfiguration">
 <summary>
  Atom configuration passed to the continuation execution context
 </summary>
 </member>
-<member name="P:MBrace.Store.ChannelConfiguration.DefaultContainer">
+<member name="">
+
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.SendAsync``1(MBrace.ISendPort{``0},``0)">
+ <summary>
+     Send message to the channel.
+ </summary>
+ <param name="channel">Target channel.</param>
+ <param name="message">Message to send.</param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.Send``1(MBrace.ISendPort{``0},``0)">
+ <summary>
+     Send message to the channel.
+ </summary>
+ <param name="channel">Target channel.</param>
+ <param name="message">Message to send.</param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.ReceiveAsync``1(MBrace.IReceivePort{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Receive message from channel.
+ </summary>
+ <param name="channel">Source channel.</param>
+ <param name="timeout">Timeout in milliseconds.</param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.Receive``1(MBrace.IReceivePort{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
+ <summary>
+     Receive message from channel.
+ </summary>
+ <param name="channel">Source channel.</param>
+ <param name="timeout">Timeout in milliseconds.</param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.DeleteContainerAsync(System.String)">
+ <summary>
+     Deletes the provided channel container and all its contents.
+ </summary>
+ <param name="container">Container name.</param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.DeleteContainer(System.String)">
+ <summary>
+     Deletes the provided channel container and all its contents.
+ </summary>
+ <param name="container">Container name.</param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.DeleteAsync``1(MBrace.IReceivePort{``0})">
+ <summary>
+     Deletes the provided channel instance.
+ </summary>
+ <param name="channel">Channel to be deleted.</param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.Delete``1(MBrace.IReceivePort{``0})">
+ <summary>
+     Deletes the provided channel instance.
+ </summary>
+ <param name="channel">Channel to be deleted.</param>    
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.CreateFromResources(MBrace.Continuation.ResourceRegistry)">
+ <summary>
+ Create a new FileStoreClient instance from given resources.
+ Resources must contain CloudChannelConfiguration value.
+ </summary>
+ <param name="resources"></param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.CreateAsync``1(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new channel instance.
+ </summary>
+ <param name="container">Container for cloud channel.</param>
+</member>
+<member name="M:MBrace.Store.CloudChannelClient.Create``1(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new channel instance.
+ </summary>
+ <param name="container">Container for cloud channel.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.Store.CloudChannelClient">
+<summary>
+ Collection of client methods for CloudAtom API
+</summary>
+</member>
+<member name="P:MBrace.Store.CloudChannelConfiguration.DefaultContainer">
 <summary>
  Default container for instance in current execution context.
 </summary>
 </member>
-<member name="P:MBrace.Store.ChannelConfiguration.ChannelProvider">
+<member name="P:MBrace.Store.CloudChannelConfiguration.ChannelProvider">
 <summary>
  Atom provider instance
 </summary>
 </member>
-<member name="T:MBrace.Store.ChannelConfiguration">
+<member name="M:MBrace.Store.CloudChannelConfiguration.Create(MBrace.Store.ICloudChannelProvider,Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a channel configuration instance using provided components.
+ </summary>
+ <param name="channelProvider">Channel provider instance.</param>
+ <param name="defaultContainer">Default container for current process. Defaults to auto generated.</param>
+</member>
+<member name="T:MBrace.Store.CloudChannelConfiguration">
 <summary>
  Channel configuration passed to the continuation execution context
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.ExistsAsync(MBrace.CloudDirectory)">
+ <summary>
+     Checks if directory exists in given path
+ </summary>
+ <param name="directory">Path to directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.ExistsAsync(System.String)">
+ <summary>
+     Checks if directory exists in given path
+ </summary>
+ <param name="directory">Path to directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.Exists(MBrace.CloudDirectory)">
+ <summary>
+     Checks if directory exists in given path
+ </summary>
+ <param name="directory">Path to directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.Exists(System.String)">
+ <summary>
+     Checks if directory exists in given path
+ </summary>
+ <param name="directory">Path to directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.EnumerateAsync(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Enumerates all directories contained in path.
+ </summary>
+ <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.Enumerate(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Enumerates all directories contained in path.
+ </summary>
+ <param name="directory">Directory to be enumerated. Defaults to root directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.DeleteAsync(MBrace.CloudDirectory,Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Deletes directory from store.
+ </summary>
+ <param name="directory">Directory to be deleted.</param>
+ <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.DeleteAsync(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Deletes directory from store.
+ </summary>
+ <param name="directory">Directory to be deleted.</param>
+ <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.Delete(MBrace.CloudDirectory,Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Deletes directory from store.
+ </summary>
+ <param name="directory">Directory to be deleted.</param>
+ <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.Delete(System.String,Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Deletes directory from store.
+ </summary>
+ <param name="directory">Directory to be deleted.</param>
+ <param name="recursiveDelete">Delete recursively. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.CreateAsync(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new directory in store.
+ </summary>
+ <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudDirectoryClient.Create(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new directory in store.
+ </summary>
+ <param name="directory">Path to directory. Defaults to randomly generated directory.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.Store.CloudDirectoryClient">
+<summary>
+ Collection of file store operations
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="M:MBrace.Store.CloudFileClient.WriteLinesAsync(System.Collections.Generic.IEnumerable{System.String},Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Writes a sequence of lines to a given CloudFile path.
+ </summary>
+ <param name="lines">Lines to be written.</param>
+ <param name="encoding">Text encoding.</param>
+ <param name="path">Path to CloudFile.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.WriteLines(System.Collections.Generic.IEnumerable{System.String},Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Writes a sequence of lines to a given CloudFile path.
+ </summary>
+ <param name="lines">Lines to be written.</param>
+ <param name="encoding">Text encoding.</param>
+ <param name="path">Path to CloudFile.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.WriteAllTextAsync(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Writes string contents to given CloudFile.
+ </summary>
+ <param name="text">Input text.</param>
+ <param name="encoding">Output encoding.</param>
+ <param name="path">Path to Cloud file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.WriteAllText(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Writes string contents to given CloudFile.
+ </summary>
+ <param name="text">Input text.</param>
+ <param name="encoding">Output encoding.</param>
+ <param name="path">Path to Cloud file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.WriteAllBytesAsync(System.Byte[],Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Write buffer contents to CloudFile.
+ </summary>
+ <param name="buffer">Source buffer.</param>
+ <param name="path">Path to Cloud file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.WriteAllBytes(System.Byte[],Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Write buffer contents to CloudFile.
+ </summary>
+ <param name="buffer">Source buffer.</param>
+ <param name="path">Path to Cloud file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadLinesAsync(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Reads a file as a sequence of lines.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadLinesAsync(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Reads a file as a sequence of lines.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadLines(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Reads a file as a sequence of lines.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadLines(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Reads a file as a sequence of lines.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAsync``1(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
+ <summary>
+     Reads file in store with provided deserializer function.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="deserializer">Deserializer function.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAsync``1(System.String,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
+ <summary>
+     Reads file in store with provided deserializer function.
+ </summary>
+ <param name="path">Input file.</param>
+ <param name="deserializer">Deserializer function.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAllTextAsync(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Dump all file contents to a single string.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAllTextAsync(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Dump all file contents to a single string.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAllText(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Dump all file contents to a single string.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAllText(System.String,Microsoft.FSharp.Core.FSharpOption{System.Text.Encoding})">
+ <summary>
+     Dump all file contents to a single string.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="encoding">Text encoding.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAllBytesAsync(MBrace.CloudFile)">
+ <summary>
+     Store all contents of given file to a new byte array.
+ </summary>
+ <param name="file">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAllBytesAsync(System.String)">
+ <summary>
+     Store all contents of given file to a new byte array.
+ </summary>
+ <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAllBytes(MBrace.CloudFile)">
+ <summary>
+     Store all contents of given file to a new byte array.
+ </summary>
+ <param name="file">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ReadAllBytes(System.String)">
+ <summary>
+     Store all contents of given file to a new byte array.
+ </summary>
+ <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Read``1(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
+ <summary>
+     Reads file in store with provided deserializer function.
+ </summary>
+ <param name="file">Input file.</param>
+ <param name="deserializer">Deserializer function.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Read``1(System.String,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{``0}})">
+ <summary>
+     Reads file in store with provided deserializer function.
+ </summary>
+ <param name="path">Input file.</param>
+ <param name="deserializer">Deserializer function.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.GetSizeAsync(MBrace.CloudFile)">
+ <summary>
+     Gets the size of provided file, in bytes.
+ </summary>
+ <param name="file">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.GetSizeAsync(System.String)">
+ <summary>
+     Gets the size of provided file, in bytes.
+ </summary>
+ <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.GetSize(MBrace.CloudFile)">
+ <summary>
+     Gets the size of provided file, in bytes.
+ </summary>
+ <param name="file">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.GetSize(System.String)">
+ <summary>
+     Gets the size of provided file, in bytes.
+ </summary>
+ <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ExistsAsync(MBrace.CloudFile)">
+ <summary>
+     Checks if file exists in store.
+ </summary>
+ <param name="file">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.ExistsAsync(System.String)">
+ <summary>
+     Checks if file exists in store.
+ </summary>
+ <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Exists(MBrace.CloudFile)">
+ <summary>
+     Checks if file exists in store.
+ </summary>
+ <param name="file">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Exists(System.String)">
+ <summary>
+     Checks if file exists in store.
+ </summary>
+ <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.EnumerateAsync(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Gets all files that exist in given container.
+ </summary>
+ <param name="directory">Path to directory. Defaults to the process directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Enumerate(Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Gets all files that exist in given container.
+ </summary>
+ <param name="directory">Path to directory. Defaults to the process directory.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.DeleteAsync(MBrace.CloudFile)">
+ <summary>
+     Deletes file in given path.
+ </summary>
+ <param name="file">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.DeleteAsync(System.String)">
+ <summary>
+     Deletes file in given path.
+ </summary>
+ <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Delete(MBrace.CloudFile)">
+ <summary>
+     Deletes file in given path.
+ </summary>
+ <param name="file">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Delete(System.String)">
+ <summary>
+     Deletes file in given path.
+ </summary>
+ <param name="path">Input file.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.CreateAsync(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},System.String,System.String)">
+ <summary>
+     Creates a new file in store with provided serializer function.
+ </summary>
+ <param name="serializer">Serializer function.</param>
+ <param name="directory">Containing directory.</param>
+ <param name="fileName">File name.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.CreateAsync(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new file in store with provided serializer function.
+ </summary>
+ <param name="serializer">Serializer function.</param>
+ <param name="path">Path to file. Defaults to auto-generated path.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Create(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},System.String,System.String)">
+ <summary>
+     Creates a new file in store with provided serializer function.
+ </summary>
+ <param name="serializer">Serializer function.</param>
+ <param name="directory">Containing directory.</param>
+ <param name="fileName">File name.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileClient.Create(Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,Microsoft.FSharp.Control.FSharpAsync{Microsoft.FSharp.Core.Unit}},Microsoft.FSharp.Core.FSharpOption{System.String})">
+ <summary>
+     Creates a new file in store with provided serializer function.
+ </summary>
+ <param name="serializer">Serializer function.</param>
+ <param name="path">Path to file. Defaults to auto-generated path.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.Store.CloudFileClient">
+<summary>
+ Collection of file store operations
 </summary>
 </member>
 <member name="">
@@ -1666,34 +2658,294 @@
  File store.
 </summary>
 </member>
+<member name="M:MBrace.Store.CloudFileStoreConfiguration.Create(MBrace.Store.ICloudFileStore,MBrace.Store.ISerializer,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.IObjectCache})">
+ <summary>
+     Creates a store configuration instance using provided components.
+ </summary>
+ <param name="fileStore">File store instance.</param>
+ <param name="serializer">Serializer instance.</param>
+ <param name="defaultDirectory">Default directory for current process. Defaults to auto generated.</param>
+ <param name="cache">Object cache. Defaults to no cache.</param>
+</member>
 <member name="T:MBrace.Store.CloudFileStoreConfiguration">
 <summary>
  Store configuration passed to the continuation execution context
 </summary>
 </member>
-<member name="M:MBrace.Store.ICache.TryFind(System.String)">
- <summary>
-     Attempt to recover value of given type from cache.
- </summary>
- <param name="key"></param>
+<member name="">
+
 </member>
-<member name="M:MBrace.Store.ICache.ContainsKey(System.String)">
- <summary>
-     Returns true iff key is contained in cache.
- </summary>
- <param name="key"></param>
-</member>
-<member name="M:MBrace.Store.ICache.Add(System.String,System.Object)">
- <summary>
-     Adds a key/value pair to cache.
- </summary>
- <param name="key"></param>
- <param name="value"></param>
-</member>
-<member name="T:MBrace.Store.ICache">
+<member name="M:MBrace.Store.CloudPathClient.GetRandomDirectoryName">
 <summary>
- Object caching abstraction
+ Generates a random, uniquely specified path to directory
 </summary>
+</member>
+<member name="M:MBrace.Store.CloudPathClient.GetFileName(System.String)">
+ <summary>
+     Returns the file name for given path.
+ </summary>
+ <param name="path">Input file path.</param>
+</member>
+<member name="M:MBrace.Store.CloudPathClient.GetDirectoryName(System.String)">
+ <summary>
+     Returns the directory name for given path.
+ </summary>
+ <param name="path">Input file path.</param>
+</member>
+<member name="M:MBrace.Store.CloudPathClient.Combine(System.String,System.Collections.Generic.IEnumerable{System.String})">
+ <summary>
+     Combines a collection of file names with provided directory prefix.
+ </summary>
+ <param name="directory">Directory prefix path.</param>
+ <param name="fileNames">File names to be combined.</param>
+</member>
+<member name="M:MBrace.Store.CloudPathClient.Combine(System.String[])">
+ <summary>
+     Combines an array of paths into a path.
+ </summary>
+ <param name="paths">Strings to be combined.</param>
+</member>
+<member name="M:MBrace.Store.CloudPathClient.Combine(System.String,System.String,System.String)">
+ <summary>
+     Combines three strings into one path.
+ </summary>
+ <param name="path1">First path.</param>
+ <param name="path2">Second path.</param>
+ <param name="path3">Third path.</param>
+</member>
+<member name="M:MBrace.Store.CloudPathClient.Combine(System.String,System.String)">
+ <summary>
+     Combines two strings into one path.
+ </summary>
+ <param name="path1">First path.</param>
+ <param name="path2">Second path.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.Store.CloudPathClient">
+<summary>
+ Collection of path-related file store methods.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="M:MBrace.Store.CloudRefClient.ReadAsync``1(MBrace.CloudRef{``0})">
+ <summary>
+     Dereference a Cloud reference.
+ </summary>
+ <param name="cloudRef">CloudRef to be dereferenced.</param>
+</member>
+<member name="M:MBrace.Store.CloudRefClient.Read``1(MBrace.CloudRef{``0})">
+ <summary>
+     Dereference a Cloud reference.
+ </summary>
+ <param name="cloudRef">CloudRef to be dereferenced.</param>
+</member>
+<member name="M:MBrace.Store.CloudRefClient.ParseAsync``1(System.String,Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer})">
+ <summary>
+     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+ </summary>
+ <param name="path">Path to cloud ref.</param>
+ <param name="serializer">Serializer for cloud ref.</param>
+</member>
+<member name="M:MBrace.Store.CloudRefClient.Parse``1(System.String,Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer})">
+ <summary>
+     Parses a cloud ref of given type with provided serializer. If successful, returns the cloud ref instance.
+ </summary>
+ <param name="path">Path to cloud ref.</param>
+ <param name="serializer">Serializer for cloud ref.</param>
+</member>
+<member name="M:MBrace.Store.CloudRefClient.NewAsync``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer})">
+ <summary>
+     Creates a new cloud reference to the underlying store with provided value.
+     Cloud references are immutable and cached locally for performance.
+ </summary>
+ <param name="value">Cloud reference value.</param>
+ <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
+ <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
+</member>
+<member name="M:MBrace.Store.CloudRefClient.New``1(``0,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer})">
+ <summary>
+     Creates a new cloud reference to the underlying store with provided value.
+     Cloud references are immutable and cached locally for performance.
+ </summary>
+ <param name="value">Cloud reference value.</param>
+ <param name="directory">FileStore directory used for cloud ref. Defaults to execution context setting.</param>
+ <param name="serializer">Serializer used for object serialization. Defaults to runtime context.</param>
+</member>
+<member name="M:MBrace.Store.CloudRefClient.CacheAsync``1(MBrace.CloudRef{``0})">
+ <summary>
+     Cache a cloud reference to local execution context
+ </summary>
+ <param name="cloudRef">Cloud ref input</param>
+</member>
+<member name="M:MBrace.Store.CloudRefClient.Cache``1(MBrace.CloudRef{``0})">
+ <summary>
+     Cache a cloud reference to local execution context
+ </summary>
+ <param name="cloudRef">Cloud ref input</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.Store.CloudRefClient">
+<summary>
+ Collection of CloudRef operations.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.ParseAsync``1(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Object},Microsoft.FSharp.Core.FSharpOption{System.Object})">
+ <summary>
+     Parses an already existing sequence of given type in provided file store.
+ </summary>
+ <param name="file">Target cloud file.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+ <param name="force">Force evaluation. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.ParseAsync``1(System.String,Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Parses an already existing sequence of given type in provided file store.
+ </summary>
+ <param name="path">Path to Cloud sequence.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+ <param name="force">Force evaluation. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.Parse``1(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpOption{System.Object},Microsoft.FSharp.Core.FSharpOption{System.Object})">
+ <summary>
+     Parses an already existing sequence of given type in provided file store.
+ </summary>
+ <param name="file">Target cloud file.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+ <param name="force">Force evaluation. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.Parse``1(System.String,Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Parses an already existing sequence of given type in provided file store.
+ </summary>
+ <param name="path">Path to Cloud sequence.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+ <param name="force">Force evaluation. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.NewPartitionedAsync``1(System.Collections.Generic.IEnumerable{``0},System.Int64,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer})">
+ <summary>
+     Creates a collection of Cloud sequences partitioned by file size.
+ </summary>
+ <param name="values">Input sequence./param>
+ <param name="maxPartitionSize">Maximum size in bytes per Cloud sequence partition.</param>
+ <param name="directory"></param>
+ <param name="serializer"></param>
+ <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.NewPartitioned``1(System.Collections.Generic.IEnumerable{``0},System.Int64,Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer})">
+ <summary>
+     Creates a collection of Cloud sequences partitioned by file size.
+ </summary>
+ <param name="values">Input sequence./param>
+ <param name="maxPartitionSize">Maximum size in bytes per Cloud sequence partition.</param>
+ <param name="directory"></param>
+ <param name="serializer"></param>
+ <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.NewAsync``1(System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer})">
+ <summary>
+     Creates a new Cloud sequence with given values in the underlying store.
+     Cloud sequences are cached locally for performance.
+ </summary>
+ <param name="values">Input sequence.</param>
+ <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.New``1(System.Collections.Generic.IEnumerable{``0},Microsoft.FSharp.Core.FSharpOption{System.String},Microsoft.FSharp.Core.FSharpOption{MBrace.Store.ISerializer})">
+ <summary>
+     Creates a new Cloud sequence with given values in the underlying store.
+     Cloud sequences are cached locally for performance.
+ </summary>
+ <param name="values">Input sequence.</param>
+ <param name="directory">FileStore directory used for Cloud sequence. Defaults to execution context.</param>
+ <param name="serializer">Serializer used in sequence serialization. Defaults to execution context.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.FromFileAsync``1(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,System.Collections.Generic.IEnumerable{``0}},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Creates a CloudSequence from file path with user-provided deserialization function.
+ </summary>
+ <param name="file">Target cloud file.</param>
+ <param name="deserializer">Sequence deserializer function.</param>
+ <param name="force">Force evaluation. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.FromFileAsync``1(System.String,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,System.Collections.Generic.IEnumerable{``0}},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Creates a CloudSequence from file path with user-provided deserialization function.
+ </summary>
+ <param name="path">Path to file.</param>
+ <param name="deserializer">Sequence deserializer function.</param>
+ <param name="force">Force evaluation. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.FromFile``1(MBrace.CloudFile,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,System.Collections.Generic.IEnumerable{``0}},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Creates a CloudSequence from file path with user-provided deserialization function.
+ </summary>
+ <param name="file">Target cloud file.</param>
+ <param name="deserializer">Sequence deserializer function.</param>
+ <param name="force">Force evaluation. Defaults to false.</param>
+</member>
+<member name="M:MBrace.Store.CloudSequenceClient.FromFile``1(System.String,Microsoft.FSharp.Core.FSharpFunc{System.IO.Stream,System.Collections.Generic.IEnumerable{``0}},Microsoft.FSharp.Core.FSharpOption{System.Boolean})">
+ <summary>
+     Creates a CloudSequence from file path with user-provided deserialization function.
+ </summary>
+ <param name="path">Path to file.</param>
+ <param name="deserializer">Sequence deserializer function.</param>
+ <param name="force">Force evaluation. Defaults to false.</param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.Store.CloudSequenceClient">
+<summary>
+ Collection of CloudRef operations.
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:MBrace.Store.FileStoreClient.Path">
+<summary>
+ CloudFile client.
+</summary>
+</member>
+<member name="P:MBrace.Store.FileStoreClient.File">
+<summary>
+ CloudFileStore client.
+</summary>
+</member>
+<member name="P:MBrace.Store.FileStoreClient.Directory">
+<summary>
+ CloudDirectory client.
+</summary>
+</member>
+<member name="M:MBrace.Store.FileStoreClient.CreateFromResources(MBrace.Continuation.ResourceRegistry)">
+ <summary>
+ Create a new FileStoreClient instance from given resources.
+ Resources must contain CloudFileStoreConfiguration value.
+ </summary>
+ <param name="resources"></param>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
 </member>
 <member name="P:MBrace.Store.ICloudAtomProvider.Name">
 <summary>
@@ -1808,6 +3060,11 @@
  Returns the root directory for cloud store instance.
 </summary>
 </member>
+<member name="M:MBrace.Store.ICloudFileStore.GetRandomDirectoryName">
+<summary>
+ Generates a random, uniquely specified path to directory
+</summary>
+</member>
 <member name="M:MBrace.Store.ICloudFileStore.GetFileSize(System.String)">
  <summary>
      Returns the file size in bytes.
@@ -1863,11 +3120,6 @@
  <param name="directory">file container.</param>
  <param name="recursive">Delete recursively.</param>
 </member>
-<member name="M:MBrace.Store.ICloudFileStore.CreateUniqueDirectoryPath">
-<summary>
- Generates a random, uniquely specified path to directory
-</summary>
-</member>
 <member name="M:MBrace.Store.ICloudFileStore.CreateDirectory(System.String)">
  <summary>
      Creates a new directory in store.
@@ -1906,6 +3158,30 @@
  Cloud storage entity identifier
 </summary>
 </member>
+<member name="M:MBrace.Store.IObjectCache.TryFind(System.String)">
+ <summary>
+     Attempt to recover value of given type from cache.
+ </summary>
+ <param name="key"></param>
+</member>
+<member name="M:MBrace.Store.IObjectCache.ContainsKey(System.String)">
+ <summary>
+     Returns true iff key is contained in cache.
+ </summary>
+ <param name="key"></param>
+</member>
+<member name="M:MBrace.Store.IObjectCache.Add(System.String,System.Object)">
+ <summary>
+     Adds a key/value pair to cache.
+ </summary>
+ <param name="key"></param>
+ <param name="value"></param>
+</member>
+<member name="T:MBrace.Store.IObjectCache">
+<summary>
+ Object caching abstraction
+</summary>
+</member>
 <member name="P:MBrace.Store.ISerializer.Id">
 <summary>
  Serializer identifier
@@ -1941,6 +3217,78 @@
 <member name="T:MBrace.Store.ISerializer">
 <summary>
  Serialization abstraction
+</summary>
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="">
+
+</member>
+<member name="P:MBrace.Store.StoreClient.FileStore">
+<summary>
+ CloudFileStore client.
+</summary>
+</member>
+<member name="P:MBrace.Store.StoreClient.CloudSequence">
+<summary>
+ CloudSequence client.
+</summary>
+</member>
+<member name="P:MBrace.Store.StoreClient.CloudRef">
+<summary>
+ CloudRef client.
+</summary>
+</member>
+<member name="P:MBrace.Store.StoreClient.Channel">
+<summary>
+ CloudChannel client.
+</summary>
+</member>
+<member name="P:MBrace.Store.StoreClient.Atom">
+<summary>
+ CloudAtom client.
+</summary>
+</member>
+<member name="M:MBrace.Store.StoreClient.CreateFromResources(MBrace.Continuation.ResourceRegistry)">
+ <summary>
+ Create a new StoreClient instance from given resources.
+ Resources must contain CloudFileStoreConfiguration value.
+ </summary>
+ <param name="resources"></param>
+</member>
+<member name="">
+
+</member>
+<member name="T:MBrace.Store.StoreClient">
+<summary>
+ Common client operations on CloudAtom, CloudChannel and CloudFile primitives.
+</summary>
+</member>
+<member name="M:MBrace.Store.CloudFileStoreUtils.ICloudFileStore.Combine(MBrace.Store.ICloudFileStore,System.String,System.Collections.Generic.IEnumerable{System.String})">
+ <summary>
+     Combines a collection of file names with a given path prefix.
+ </summary>
+ <param name="container">Path prefix.</param>
+ <param name="fileNames">File name collections.</param>
+</member>
+<member name="M:MBrace.Store.CloudFileStoreUtils.ICloudFileStore.Combine(MBrace.Store.ICloudFileStore,System.String,System.String,System.String)">
+<summary>
+ Combines two strings into a single path.
+</summary>
+</member>
+<member name="M:MBrace.Store.CloudFileStoreUtils.ICloudFileStore.Combine(MBrace.Store.ICloudFileStore,System.String,System.String)">
+<summary>
+ Combines two strings into a single path.
 </summary>
 </member>
 <member name="M:MBrace.Store.CloudFileStoreUtils.ICloudFileStore.EnumerateRootDirectories(MBrace.Store.ICloudFileStore)">

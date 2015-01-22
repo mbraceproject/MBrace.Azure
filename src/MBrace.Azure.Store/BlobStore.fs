@@ -32,7 +32,7 @@ type BlobStore private (connectionString : string) =
 
         member this.GetRootDirectory () = String.Empty
 
-        member this.CreateUniqueDirectoryPath() : string = Guid.NewGuid().ToString()
+        member this.GetRandomDirectoryName() : string = Guid.NewGuid().ToString()
 
         member this.TryGetFullPath(path : string) = Some path
 

@@ -15,7 +15,7 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open System
 open MBrace.Continuation
-open MBrace.Runtime.InMemory
+open MBrace.InMemory
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultPolicy, taskId, psInfo, dependencies, context) =
@@ -31,7 +31,7 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultP
     static member FromTask state  wmon  dependencies (task : Task) =
         new RuntimeProvider(state, wmon, task.FaultPolicy, task.TaskId, task.ProcessInfo, dependencies, Distributed)
 
-    interface IRuntimeProvider with
+    interface ICloudRuntimeProvider with
         member __.ProcessId = psInfo.Id
         member __.TaskId = taskId
 
@@ -41,11 +41,11 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultP
             | Distributed, (ThreadParallel | Sequential)
             | ThreadParallel, Sequential ->
                 invalidOp <| sprintf "Cannot set scheduling context to '%A' when it already is '%A'." ctx context
-            | _ -> new RuntimeProvider(state, wmon, faultPolicy, taskId, psInfo, dependencies, context) :> IRuntimeProvider
+            | _ -> new RuntimeProvider(state, wmon, faultPolicy, taskId, psInfo, dependencies, context) :> ICloudRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, wmon, newPolicy, taskId, psInfo, dependencies, context) :> IRuntimeProvider
+            new RuntimeProvider(state, wmon, newPolicy, taskId, psInfo, dependencies, context) :> ICloudRuntimeProvider
 
         member __.IsTargetedWorkerSupported = 
             match context with

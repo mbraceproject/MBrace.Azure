@@ -66,7 +66,7 @@ let wf = cloud {
     do! cloud {
             for i = 0 to 10 do
                 do! Cloud.Sleep 1000
-                do! CloudChannel.Send i sp
+                do! CloudChannel.Send(sp, i)
                 printfn "send %d" i
             return ()
         } 
@@ -74,7 +74,7 @@ let wf = cloud {
         cloud {
             let i = ref 0
             while i.Value <> 10 do
-                let! x = CloudChannel.Receive rp
+                let! x = CloudChannel.Receive(rp)
                 printfn "recv %d" x
                 i := x
         } |> Cloud.Ignore
@@ -86,7 +86,7 @@ runtime.Run wf
 let wf = cloud {
     let! atom = CloudAtom.New(42)
     do! [1..10] 
-        |> Seq.map (fun _ -> CloudAtom.Update(fun x -> x + 1) atom)
+        |> Seq.map (fun _ -> CloudAtom.Update(atom, fun x -> x + 1))
         |> Cloud.Parallel
         |> Cloud.Ignore
     return atom
@@ -151,6 +151,11 @@ let cr = ps.AwaitResult()
 cr.Count |> runtime.RunLocal
 cr.Size |> runtime.RunLocal
 cr.ToEnumerable() |> runtime.RunLocal
+
+
+runtime.DefaultStoreClient.CloudRef.Read(c)
+
+
 
 
 cloud { 

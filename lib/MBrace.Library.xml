@@ -2,34 +2,6 @@
 <doc>
 <assembly><name>MBrace.Library</name></assembly>
 <members>
-<member name="M:MBrace.ThreadPool.StartChild``1(MBrace.Cloud{``0},Microsoft.FSharp.Core.FSharpOption{System.Int32})">
- <summary>
-     Provides a context-less Cloud.StartChild implementation
-     for execution within the thread pool.
- </summary>
- <param name="computation">Input computation.</param>
- <param name="timeoutMilliseconds">Timeout in milliseconds.</param>
-</member>
-<member name="M:MBrace.ThreadPool.Parallel``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{``0}})">
- <summary>
-     Provides a context-less Cloud.Parallel implementation
-     for execution within the thread pool.
- </summary>
- <param name="computations">Input computations</param>
-</member>
-<member name="M:MBrace.ThreadPool.Choice``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
- <summary>
-     Provides a context-less Cloud.Choice implementation
-     for execution within the thread pool.
- </summary>
- <param name="computations">Input computations</param>
-</member>
-<member name="T:MBrace.ThreadPool">
-<summary>
- Collection of context-less combinators for 
- execution within local thread context.
-</summary>
-</member>
 <member name="M:MBrace.MapReduce.mapReduce``2(Microsoft.FSharp.Core.FSharpFunc{``0,MBrace.Cloud{``1}},``1,Microsoft.FSharp.Core.FSharpFunc{``1,Microsoft.FSharp.Core.FSharpFunc{``1,MBrace.Cloud{``1}}},``0[])">
  <summary>
      Map/Reduce implementation.
@@ -51,68 +23,6 @@
 <member name="T:MBrace.MapReduce">
 <summary>
  Collection of mapReduce and related workflows
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:MBrace.SchedulerInternals">
-
-</member>
-<member name="M:MBrace.Sequential.StartChild``1(MBrace.Cloud{``0})">
- <summary>
-     Provides a context-less Cloud.StartChild implementation
-     for execution within the current thread context.
- </summary>
- <param name="computation">Input computation</param>
-</member>
-<member name="M:MBrace.Sequential.Choice``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{Microsoft.FSharp.Core.FSharpOption{``0}}})">
- <summary>
-     Provides a context-less Cloud.Choice implementation
-     for execution within the current thread.
- </summary>
- <param name="computations">Input computations</param>
-</member>
-<member name="M:MBrace.Sequential.Parallel``1(System.Collections.Generic.IEnumerable{MBrace.Cloud{``0}})">
- <summary>
-     Provides a context-less Cloud.Parallel implementation
-     for execution within the current thread.
- </summary>
- <param name="computations">Input computations</param>
-</member>
-<member name="M:MBrace.Sequential.fold``2(Microsoft.FSharp.Core.FSharpFunc{``0,Microsoft.FSharp.Core.FSharpFunc{``1,MBrace.Cloud{``0}}},``0,System.Collections.Generic.IEnumerable{``1})">
- <summary>
-     Provides a context-less sequential fold implementation.
- </summary>
- <param name="folder">Folding function.</param>
- <param name="init">Initial state function.</param>
- <param name="ts">Input sequence.</param>
-</member>
-<member name="T:MBrace.Sequential">
-<summary>
- Collection of context-less combinators for 
- execution within local thread context.
 </summary>
 </member>
 <member name="">

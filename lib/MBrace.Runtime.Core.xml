@@ -426,164 +426,6 @@
 <member name="">
 
 </member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="T:MBrace.Runtime.InMemory.InMemoryChannelProvider">
-<summary>
- Defines an in-memory channel factory using mailbox processor
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
-<member name="M:MBrace.Runtime.InMemory.ThreadPoolRuntime.Create(Microsoft.FSharp.Core.FSharpOption{MBrace.Continuation.ICloudLogger},Microsoft.FSharp.Core.FSharpOption{MBrace.FaultPolicy})">
- <summary>
-     Creates a new threadpool runtime instance.
- </summary>
- <param name="logger">Logger for runtime. Defaults to no logging.</param>
- <param name="faultPolicy">Fault policy for runtime. Defaults to Infinite retries.</param>
-</member>
-<member name="">
-
-</member>
-<member name="T:MBrace.Runtime.InMemory.ThreadPoolRuntime">
-<summary>
- .NET ThreadPool runtime provider
-</summary>
-</member>
-<member name="">
-
-</member>
-<member name="">
-
-</member>
 <member name="T:MBrace.Runtime.Logging.NullLogger">
 <summary>
  A logger that ignores entries
@@ -871,13 +713,13 @@
 <member name="">
 
 </member>
+<member name="">
+
+</member>
 <member name="M:MBrace.Runtime.Store.FileSystemStore.CreateUniqueLocal">
  <summary>
      Creates a local file system store that is unique to the current process.
  </summary>
-</member>
-<member name="">
-
 </member>
 <member name="M:MBrace.Runtime.Store.FileSystemStore.CreateSharedLocal">
  <summary>

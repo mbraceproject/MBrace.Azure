@@ -25,13 +25,13 @@
         let state = Async.RunSync(RuntimeState.FromConfiguration(config))
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         let wmon = WorkerMonitor.Create(config)
-        let storeClient = StoreClient.Create(config)
+        let resources, defaultStoreClient = StoreClient.CreateDefault(config)
         let pmon = state.ProcessMonitor
         do logger.Logf "Client %s created" clientId
 
         member private __.RuntimeState = state
 
-        member __.StoreClient with get () = storeClient
+        member __.DefaultStoreClient with get () = defaultStoreClient
 
         /// Instance identifier.
         member __.ClientId = clientId
@@ -44,9 +44,8 @@
 
         member __.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
             async {
-                let storeResources = storeClient.StoreResources
-                let runtimeProvider = MBrace.Runtime.InMemory.ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
-                let rsc = resource { yield! storeResources; yield runtimeProvider :> IRuntimeProvider }
+                let runtimeProvider = MBrace.InMemory.ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
+                let rsc = resource { yield! resources; yield runtimeProvider :> ICloudRuntimeProvider }
                 return! Cloud.ToAsync(workflow, rsc)
             }
 

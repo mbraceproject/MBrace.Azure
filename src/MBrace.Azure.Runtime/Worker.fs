@@ -14,7 +14,7 @@ type internal WorkerConfig =
       Store              : ICloudFileStore
       Channel            : ICloudChannelProvider
       Atom               : ICloudAtomProvider
-      Cache              : ICache
+      Cache              : IObjectCache
       Logger             : ILogger
       WorkerMonitor      : WorkerMonitor
       ProcessMonitor     : ProcessMonitor }
@@ -40,7 +40,7 @@ type internal Worker () =
             let serializer = config.Resources.Resolve<ISerializer>()
             let resources = resource { 
                 yield! config.Resources
-                yield { FileStore = defaultArg info.FileStore config.Store ; DefaultDirectory = info.DefaultDirectory; Cache = config.Cache; Serializer = serializer }
+                yield { FileStore = defaultArg info.FileStore config.Store ; DefaultDirectory = info.DefaultDirectory; Cache = Some config.Cache; Serializer = serializer }
                 yield { AtomProvider = defaultArg info.AtomProvider config.Atom ; DefaultContainer = info.DefaultAtomContainer }
                 yield { ChannelProvider = defaultArg info.ChannelProvider config.Channel; DefaultContainer = info.DefaultChannelContainer }
             }
