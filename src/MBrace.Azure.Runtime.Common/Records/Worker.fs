@@ -132,15 +132,18 @@ type WorkerMonitor private (config, table : string) =
             return! Table.read<WorkerRecord> config table pk workerId
         }
 
-    member __.GetWorkers(?timespan : TimeSpan) : Async<WorkerRecord seq> = async {
+    member __.GetWorkers(?timespan : TimeSpan, ?showInactive : bool) : Async<WorkerRecord seq> = async {
         let timespan = defaultArg timespan <| TimeSpan.FromMinutes 5.
+        let showInactive = defaultArg showInactive false
+        // TODO : Make showInactive part of the Table query
         let! ws = Table.queryPK<WorkerRecord> config table pk
         return ws |> Seq.filter (fun w -> DateTimeOffset.UtcNow - w.Timestamp < timespan)
+                  |> Seq.filter (fun w -> showInactive || w.IsActive)
     }
 
-    member __.GetWorkerRefs(?timespan : TimeSpan) : Async<WorkerRef seq> =
+    member __.GetWorkerRefs(?timespan : TimeSpan, ?showInactive : bool) : Async<WorkerRef seq> =
         async {
-            let! wr = __.GetWorkers(?timespan = timespan)
+            let! wr = __.GetWorkers(?timespan = timespan, ?showInactive = showInactive)
             return wr |> Seq.map (fun w -> w.AsWorkerRef())
         }
 

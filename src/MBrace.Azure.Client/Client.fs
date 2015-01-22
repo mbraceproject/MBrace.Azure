@@ -138,10 +138,12 @@
             __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
 
-        member __.GetWorkers () = Async.RunSync <| __.GetWorkersAsync()
-        member __.GetWorkersAsync () = wmon.GetWorkerRefs()
-        member __.ShowWorkers () = 
-            let ws = wmon.GetWorkers() |> Async.RunSync
+        member __.GetWorkers(?timespan : TimeSpan, ?showInactive : bool) = 
+            Async.RunSync <| __.GetWorkersAsync(?timespan = timespan, ?showInactive = showInactive)
+        member __.GetWorkersAsync(?timespan : TimeSpan, ?showInactive : bool) = 
+            wmon.GetWorkerRefs(?timespan = timespan, ?showInactive = showInactive)
+        member __.ShowWorkers (?timespan : TimeSpan, ?showInactive : bool) = 
+            let ws = wmon.GetWorkers(?timespan = timespan, ?showInactive = showInactive) |> Async.RunSync
             printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
         member __.GetLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 

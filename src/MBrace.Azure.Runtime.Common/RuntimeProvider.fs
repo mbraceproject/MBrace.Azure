@@ -72,7 +72,7 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultP
             | Sequential -> Sequential.StartChild computation
 
         member __.GetAvailableWorkers () = async { 
-            let! ws = wmon.GetWorkerRefs()
+            let! ws = wmon.GetWorkerRefs(showInactive = false)
             return ws |> Seq.map (fun w -> w :> IWorkerRef)
                       |> Seq.toArray 
             }
