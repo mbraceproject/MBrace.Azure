@@ -125,7 +125,7 @@ type ProcessMonitor private (config, table : string) =
     member this.ClearProcess (pid : string) = async {
         let! record = this.GetProcess(pid)
         if not record.Completed then
-            failwith "Cannot clear process that is not Killed or Completed." 
+            failwithf "Cannot clear process %s. Process not completed." pid 
         do! Table.delete<ProcessRecord> config table record
         let container = Storage.processIdToStorageId pid
         let provider = ConfigurationRegistry.Resolve<ClientProvider>(config)
@@ -138,5 +138,11 @@ type ProcessMonitor private (config, table : string) =
 
     member this.ClearAllProcesses () = async {
         let! ps = this.GetProcesses()
-        for p in ps do do! this.ClearProcess(p.Id)
+        let xs = ResizeArray<exn>()
+        for p in ps do 
+            let! result = Async.Catch <| this.ClearProcess(p.Id)
+            match result with
+            | Choice2Of2 e -> xs.Add(e)
+            | _ -> ()
+        if xs.Count > 0 then return raise <| AggregateException(xs)
     }

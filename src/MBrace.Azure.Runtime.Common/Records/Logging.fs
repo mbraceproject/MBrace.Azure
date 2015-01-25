@@ -1,23 +1,11 @@
 ﻿namespace MBrace.Azure.Runtime.Common
 
 open System
-open System.Runtime.Serialization
-open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
-open Microsoft.ServiceBus
-open Microsoft.ServiceBus.Messaging
-open MBrace.Azure.Runtime
 
-open System.Net
-open System.Diagnostics
-open MBrace
-open MBrace.Runtime
 open MBrace.Continuation
 open System.Collections.Concurrent
 
-type ILogger =
-    inherit ICloudLogger
-    abstract Attach : ILogger -> unit
 
 type LoggerType =
     | Worker of id : string

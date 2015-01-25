@@ -79,6 +79,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Config.fs" />
+    <Compile Include="Common.fs" />
     <Compile Include="Utils.fs" />
     <Compile Include="Resources\TableStorage.fs" />
     <Compile Include="Resources\Counters.fs" />
