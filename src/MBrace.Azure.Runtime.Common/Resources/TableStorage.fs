@@ -2,11 +2,8 @@
 
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
-open System.Runtime.Serialization
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
-open Microsoft.ServiceBus
-open Microsoft.ServiceBus.Messaging
 open MBrace.Azure.Runtime
 
 //

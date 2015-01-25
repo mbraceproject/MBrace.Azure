@@ -3,12 +3,9 @@
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
-open MBrace.Runtime
 open Nessos.Vagrant
 open System
 open System.Runtime.Serialization
-open System.Threading
-open MBrace.Azure.Runtime.Common.Storage
 open MBrace.Runtime.Vagrant
 
 type AssemblyManager private (config : ConfigurationId, res : Uri) = 

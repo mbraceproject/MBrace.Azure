@@ -80,7 +80,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Utils.fs" />
-    <Compile Include="Resources\Common.fs" />
+    <Compile Include="Resources\TableStorage.fs" />
     <Compile Include="Resources\Counters.fs" />
     <Compile Include="Resources\Cells.fs" />
     <Compile Include="Resources\Queues.fs" />
