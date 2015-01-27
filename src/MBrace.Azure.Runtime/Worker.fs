@@ -1,10 +1,12 @@
 ﻿namespace MBrace.Azure.Runtime
 
 open System.Diagnostics
-open MBrace.Continuation
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
+open MBrace.Continuation
+open Nessos.FsPickler
+open MBrace.Runtime.Vagrant
 open MBrace.Store
 
 type internal WorkerConfig = 
@@ -32,7 +34,11 @@ type private WorkerState =
 type internal Worker () =
 
     let workerLoopAgent =
+        /// Timeout for the Mailbox loop.
         let receiveTimeout = 100
+        /// Used for tasks that cannot be UnPickled.
+        let maxTaskDeliveryCount = 10
+
 
         let runTask (config : WorkerConfig) task deps faultCount  =
             let provider = RuntimeProvider.FromTask config.State config.WorkerMonitor deps task
@@ -52,13 +58,13 @@ type internal Worker () =
             let! _ = Async.StartChild(msg.RenewLoopAsync())
 
             if task.TaskType = TaskType.Root then
-                logf "Starting Root task for Process\n\tId:\"%s\"\n\tName:\"%s\"" task.ProcessInfo.Id task.ProcessInfo.Name
+                logf "Starting Root task for Process\nId:\"%s\"\nName:\"%s\"" task.ProcessInfo.Id task.ProcessInfo.Name
                 do! config.ProcessMonitor.SetRunning(task.ProcessInfo.Id)
 
             if msg.DeliveryCount = 1 then
                 do! config.ProcessMonitor.AddActiveTask(task.ProcessInfo.Id)
 
-            logf "Starting task\n\t%s" (string task)
+            logf "Starting task\n%s" (string task)
             let sw = new Stopwatch()
             sw.Start()
             let! result = Async.Catch(runTask config task dependencies (msg.DeliveryCount-1))
@@ -69,7 +75,7 @@ type internal Worker () =
                 | Choice1Of2 () -> 
                     do! msg.CompleteAsync()
                     do! config.ProcessMonitor.AddCompletedTask(task.ProcessInfo.Id)
-                    logf "Completed task\n\t%s\n\tTime:%O" (string task) sw.Elapsed
+                    logf "Completed task\n%s\nTime:%O" (string task) sw.Elapsed
                 | Choice2Of2 e -> 
                     do! msg.AbandonAsync()
                     do! config.ProcessMonitor.AddFaultedTask(task.ProcessInfo.Id)
@@ -89,12 +95,34 @@ type internal Worker () =
                         let! task = Async.Catch <| config.State.TryDequeue()
                         match task with
                         | Choice1Of2 None -> return! workerLoop state
-                        | Choice1Of2(Some(msg, task, dependencies)) ->
-                            config.WorkerMonitor.IncrementTaskCount()
-                            let! _ = Async.StartChild(run config msg task dependencies)
+                        | Choice1Of2(Some msg) ->
+                            let! task = Async.Catch <| async {
+                                    config.Logger.Log "Got TaskItem."
+                                    config.Logger.Logf "Message DeliveryCount : %d" msg.DeliveryCount
+                                    let! ti = msg.GetPayloadAsync<TaskItem>()
+                                    config.Logger.Log "Loading Dependencies."
+                                    do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
+                                    config.Logger.Log "Task UnPickle."
+                                    let task = VagrantRegistry.Pickler.UnPickleTyped<Task> ti.PickledTask
+                                    return task, ti.Dependencies
+                            } 
+                            match task with
+                            | Choice1Of2(task, deps) ->
+                                config.WorkerMonitor.IncrementTaskCount()
+                                let! _ = Async.StartChild(run config msg task deps)
+                                ()
+                            | Choice2Of2 ex ->
+                                config.Logger.Logf "Failed to UnPickle task :\n%A" ex
+                                if msg.DeliveryCount >= maxTaskDeliveryCount then
+                                    // TODO : Set Process as Faulted.
+                                    config.Logger.Logf "Faulted message : Complete."
+                                    do! msg.CompleteAsync()
+                                else
+                                    config.Logger.Logf "Faulted message : Abandon."
+                                    do! msg.AbandonAsync()
                             return! workerLoop state
                         | Choice2Of2 ex ->
-                            config.Logger.Log <| sprintf "Worker TaskQueue fault\n%A" ex
+                            config.Logger.Logf "Worker TaskQueue fault\n%A" ex
                             return! workerLoop state
                 | None, Idle -> 
                     return! workerLoop state

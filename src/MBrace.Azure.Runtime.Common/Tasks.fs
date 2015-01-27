@@ -14,11 +14,8 @@ open System.Threading.Tasks
 open Nessos.Vagrant
 
 open MBrace
-open MBrace.Runtime
 open MBrace.Azure.Runtime.Common
-open MBrace.Runtime.Serialization
 open MBrace.Azure.Runtime.Resources
-open MBrace.Azure.Runtime.Common.Storage
 open MBrace.Continuation
 open Nessos.FsPickler
 open MBrace.Runtime.Vagrant
@@ -132,7 +129,7 @@ type Task =
     }
 with
     override this.ToString () =
-        sprintf "TaskType:\"%A\"\n\tProcess:\"%s\"\n\tTaskId:\"%s\"\n\tReturnType:\"%s\" " this.TaskType this.ProcessInfo.Id this.TaskId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
+        sprintf "TaskType:\"%A\"\nProcess:\"%s\"\nTaskId:\"%s\"\nReturnType:\"%s\" " this.TaskType this.ProcessInfo.Id this.TaskId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
 
     /// <summary>
     ///     Asynchronously executes task in the local process.
@@ -172,7 +169,9 @@ with
     }
 
 /// TaskQueue message type.
-type TaskItem = Pickle<Task> * AssemblyId list
+type TaskItem = 
+    { PickledTask : Pickle<Task>
+      Dependencies : AssemblyId list }
 
 /// Defines a handle to the state of a runtime instance.
 type RuntimeState =
@@ -227,7 +226,7 @@ with
             }
         
         let taskp = VagrantRegistry.Pickler.PickleTyped task
-        let taskItem = (taskp, dependencies)
+        let taskItem = { PickledTask = taskp; Dependencies = dependencies }
         async {
             do! rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
             do! rt.ProcessMonitor.IncreaseTotalTasks(psInfo.Id)
@@ -272,7 +271,7 @@ with
                 }
 
             let taskp = VagrantRegistry.Pickler.PickleTyped task
-            tasks.[i] <- (taskp, dependencies), affinity
+            tasks.[i] <- { PickledTask = taskp; Dependencies = dependencies }, affinity
         async {
             do! rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
             do! rt.ProcessMonitor.IncreaseTotalTasks(psInfo.Id, tasks.Length)
@@ -318,7 +317,7 @@ with
 
         let setResult ctx r = 
             async {
-                let! success = resultCell.SetResult r
+                do! resultCell.SetResult r
                 let pmon = ctx.Resources.Resolve<ProcessMonitor>()
                 match r with
                 | Completed _ 
@@ -335,14 +334,5 @@ with
     }
 
     /// Attempt to dequeue a task from the runtime task queue
-    member rt.TryDequeue () = async {
-        let! item = rt.TaskQueue.TryDequeue()
-
-        match item with
-        | None -> return None
-        | Some msg -> 
-            let! (tp, deps) = msg.GetPayloadAsync<TaskItem>()
-            do! rt.AssemblyManager.LoadDependencies deps
-            let task = VagrantRegistry.Pickler.UnPickleTyped<Task> tp
-            return Some (msg, task, deps)
-    }
+    member rt.TryDequeue () : Async<QueueMessage option> =
+        rt.TaskQueue.TryDequeue()
