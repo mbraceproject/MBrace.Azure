@@ -98,7 +98,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 let wmon = WorkerMonitor.Create(config, MaxTasks = __.MaxConcurrentTasks)
                 let! e = wmon.RegisterCurrent(serviceId)
-                logf "Declared node\n\tHostname \"%s\"\n\tPID:\"%d\"\n\tServiceId:\"%s\"" e.Hostname e.ProcessId (e :> IWorkerRef).Id
+                logf "Declared node\nHostname:\"%s\"\nPID:\"%d\"\nServiceId:\"%s\"" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
                 Async.Start(wmon.HeartbeatLoop())
                 logf "Started heartbeat loop" 
