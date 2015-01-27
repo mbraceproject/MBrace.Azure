@@ -4,7 +4,7 @@
     <Instances count="10" />
     <ConfigurationSettings>
       <Setting name="MBrace.ServiceBusConnectionString" value="" />
-      <Setting name="MBrace.StorageConnectionString" value="UseDevelopmentStorage=true" />
+      <Setting name="MBrace.StorageConnectionString" value="" />
     </ConfigurationSettings>
   </Role>
 </ServiceConfiguration>
