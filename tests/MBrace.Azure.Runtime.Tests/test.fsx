@@ -56,7 +56,7 @@ let rec wf i max =
         else return! wf (i + 1) max <|> wf (i + 1) max
     }
 
-let ps = runtime.CreateProcess(wf 0 3)
+let ps = runtime.CreateProcess(wf 0 2)
 ps.ShowInfo()
 ps.AwaitResult() 
 
