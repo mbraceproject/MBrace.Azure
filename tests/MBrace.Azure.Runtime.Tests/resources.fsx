@@ -3,6 +3,7 @@
 #r "MBrace.Library.dll"
 #r "FsPickler.dll"
 #r "Vagrant.dll"
+#r "Microsoft.ServiceBus.dll"
 #r "MBrace.Azure.Runtime.Common.dll"
 #r "MBrace.Azure.Runtime.dll"
 #r "MBrace.Azure.Client.dll"
@@ -25,13 +26,40 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-Configuration.Activate(config) |> Async.RunSynchronously
+Configuration.Activate(config)
 Configuration.DeleteResources(config)
 
 
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
-let (!) (task : Async<'T>) = Async.RunSynchronously task
+let run (task : Async<'T>) = Async.RunSynchronously task
+
+
+// -- TaskQueue ---------
+
+let tq = TaskQueue.Create(config.ConfigurationId, "tempqueue", "temptopic") |> run
+
+let affinity = Guid.NewGuid().ToString "N"
+tq.Affinity <- affinity
+
+tq.EnqueueBatch(Array.init 100 string) |> run
+
+async {
+    let msgCount = ref 0
+    while !msgCount < 100 do
+        let! msg = tq.TryDequeue() 
+        match msg with 
+        | None -> ()
+        | Some msg -> 
+            let! payload = msg.GetPayloadAsync<string>()
+            printfn "Message %s" payload
+            do! msg.CompleteAsync()
+            incr msgCount 
+} |> run
+
+// ----------------------
+
+
 
 
 let factory = ChannelProvider.Create(config.ConfigurationId)

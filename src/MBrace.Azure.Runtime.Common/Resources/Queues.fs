@@ -11,7 +11,7 @@ module private Constants =
     let RenewLockInverval = 10000
     let MaxLockDuration = TimeSpan.FromMilliseconds(3. * float RenewLockInverval)
     let MaxTTL = TimeSpan.MaxValue
-    let ServerWaitTime = TimeSpan.FromSeconds(5.)
+    let ServerWaitTime = TimeSpan.FromMilliseconds(100.)
     let AffinityPropertyName = "Affinity"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
     
@@ -218,16 +218,20 @@ type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic)
     member __.TryDequeue() : Async<QueueMessage option> =
         async {
             let! msg = async {
-                if not flag then
-                    let! msg = subscription.Value.TryDequeue()
+                match flag, subscription with
+                | _, None -> 
+                    return! queue.TryDequeue()
+                | false, Some subscription ->
+                    let! msg = subscription.TryDequeue()
                     match msg with
                     | Some _ -> return msg
                     | None -> return! queue.TryDequeue()
-                else
+                | true, Some subscription ->
                     let! msg = queue.TryDequeue()
                     match msg with
                     | Some _ -> return msg
-                    | None -> return! subscription.Value.TryDequeue() }
+                    | None -> return! subscription.TryDequeue() 
+            }
             flag <- not flag
             return msg
         }
