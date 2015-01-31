@@ -81,7 +81,7 @@ type ``Azure Runtime Tests`` (sbus, storage) =
     default __.Init () =
         runtime <- Some <| MBrace.Azure.Client.Runtime.GetHandle(config)
         printfn "Got Handle for runtime"
-        runtime.Value.ClientLogger.Attach(new MBrace.Azure.Runtime.Common.ConsoleLogger()) 
+        runtime.Value.AttachLogger(new Common.ConsoleLogger()) 
 
     [<TestFixtureTearDown>]
     member __.Fini () =

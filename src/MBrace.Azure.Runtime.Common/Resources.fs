@@ -11,8 +11,9 @@ type ResourceFactory private (config : Configuration) =
     member __.RequestResultCell<'T>(container) = ResultCell<Result<'T>>.Create(config.ConfigurationId, container)
     member __.RequestProcessLogger(container, pid) = 
         // TODO : change
-        let logger = new ProcessLogger(config.ConfigurationId, container, ProcessLog(id = pid)) 
-        logger.Attach(new ConsoleLogger())
-        logger 
+        let pl = new ProcessLogger(config.ConfigurationId, container, pid) 
+        let lc = new LoggerCombiner()
+        lc.Attach(new ConsoleLogger())
+        lc 
 
     static member Create (config : Configuration) = new ResourceFactory(config)

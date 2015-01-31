@@ -22,7 +22,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
                     keepLast = true, interval = 500, 
                     stopf = fun _ -> false)
 
-    let logger = new ProcessLogger(config, Storage.processIdToStorageId pid, ProcessLog(id = pid))
+    let logger = new ProcessLogger(config, Storage.processIdToStorageId pid, pid)
 
     member internal __.ProcessEntity = proc
     member internal __.DistributedCancellationTokenSource = 

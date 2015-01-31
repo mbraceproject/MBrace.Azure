@@ -10,6 +10,7 @@ open MBrace.Store
 open System.Diagnostics
 open MBrace.Azure.Store
 open MBrace.Runtime.Store
+open MBrace.Runtime
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
@@ -19,12 +20,12 @@ type Service (config : Configuration, serviceId : string) =
     let mutable atomProvider    = None
     let mutable cache           = None
     let mutable resources       = ResourceRegistry.Empty
-    let mutable logger          = new NullLogger() :> ILogger
     let mutable config          = config
     let mutable maxTasks        = Environment.ProcessorCount
+    let logger                  = new LoggerCombiner() 
     let worker                  = new Worker()
     
-    let logf fmt = Printf.ksprintf logger.Log fmt
+    let logf fmt = logger.Logf fmt
     let check () = if worker.IsActive then invalidOp "Cannot change Service while it is active."
     
     /// MBrace Runtime Service.
@@ -68,8 +69,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "Creating storage logger"
                 let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Worker(id = __.Id))
-                storageLogger.Attach(logger)
-                logger <- storageLogger
+                logger.Attach(storageLogger)
 
                 let serializer = Configuration.Serializer
                 logf "Serializer : %s" serializer.Id

@@ -24,12 +24,14 @@
         do Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
         do Configuration.Activate(config)
         let state = Async.RunSync(RuntimeState.FromConfiguration(config))
-        let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
+        let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
+        let clientLogger = new LoggerCombiner()
+        do  clientLogger.Attach(storageLogger)
         let wmon = WorkerMonitor.Create(config)
         let resources, defaultStoreClient = StoreClient.CreateDefault(config)
         let compiler = CloudCompiler.Init()
         let pmon = state.ProcessMonitor
-        do logger.Logf "Client %s created" clientId
+        do clientLogger.Logf "Client %s created" clientId
 
         member private __.RuntimeState = state
 
@@ -42,7 +44,9 @@
         member __.Configuration = config
 
         /// Client logger.
-        member __.ClientLogger = logger
+        member __.ClientLogger : ICloudLogger = clientLogger :> _
+        /// Attach given logger to ClientLogger.
+        member __.AttachLogger(logger : ICloudLogger) = clientLogger.Attach(logger)
 
         member __.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
             async {
@@ -91,17 +95,17 @@
                         ChannelProvider = channelProvider 
                     }
 
-                logger.Logf "Creating process %s %s" info.Id info.Name
-                logger.Logf "Calculating dependencies" 
+                clientLogger.Logf "Creating process %s %s" info.Id info.Name
+                clientLogger.Logf "Calculating dependencies" 
                 for d in computation.Dependencies do
-                    logger.Logf "%s" d.FullName
+                    clientLogger.Logf "%s" d.FullName
                 do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
-                logger.Logf "Creating DistributedCancellationToken"
+                clientLogger.Logf "Creating DistributedCancellationToken"
                 let! cts = state.ResourceFactory.RequestCancellationTokenSource(info.DefaultDirectory)
                 cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
-                logger.Logf "Starting process %s" info.Id
+                clientLogger.Logf "Starting process %s" info.Id
                 let! resultCell = state.StartAsProcess(info, computation.Dependencies, cts, faultPolicy, computation.Workflow)
-                logger.Logf "Created process %s" info.Id
+                clientLogger.Logf "Created process %s" info.Id
                 return Process<'T>(config.ConfigurationId, info.Id, pmon)
             }
             
@@ -151,7 +155,7 @@
             Async.RunSync <| __.GetLogsAsync(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
         member __.GetLogsAsync(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
             let loggerType = worker |> Option.map (fun w -> Worker w.Id)
-            logger.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
+            storageLogger.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
         member __.ShowLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
             let ls = __.GetLogs(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
             printf "%s" <| LogReporter.Report(ls, "Logs", false)

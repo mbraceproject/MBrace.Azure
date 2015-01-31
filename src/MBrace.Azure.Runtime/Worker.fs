@@ -8,6 +8,7 @@ open MBrace.Continuation
 open Nessos.FsPickler
 open MBrace.Runtime.Vagabond
 open MBrace.Store
+open MBrace.Runtime
 
 type internal WorkerConfig = 
     { State              : RuntimeState
@@ -17,7 +18,7 @@ type internal WorkerConfig =
       Channel            : ICloudChannelProvider
       Atom               : ICloudAtomProvider
       Cache              : IObjectCache
-      Logger             : ILogger
+      Logger             : ICloudLogger
       WorkerMonitor      : WorkerMonitor
       ProcessMonitor     : ProcessMonitor }
 
