@@ -103,13 +103,23 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
 
 type NullLogger () =
     interface ICloudLogger with
-        member x.Log(_: string): unit = ()
+        member __.Log(_: string): unit = ()
         
-
 type ConsoleLogger () =
+    let format = "ddMMyyyy HH:mm:ss.fff zzz" // 31012015 15:42:50.404 +02:00
+    let prettyPrint (message : string) =
+        let offset = format.Length + 4
+        let space = new String(' ', offset)
+        let sb = new System.Text.StringBuilder()
+        let mutable first = true
+        for line in message.Split('\n') do
+            if first then first <- false else sb.Append(space) |> ignore
+            sb.AppendLine(line) |> ignore
+        sb.ToString()
+
     interface ICloudLogger with
-        override x.Log(entry : string) : unit = 
-            Console.WriteLine("{0} {1}", DateTimeOffset.Now.ToString("ddMMyyyy HH:mm:ss.fff zzz"), entry)
+        override __.Log(entry : string) : unit = 
+            Console.Write("{0} {1}", DateTimeOffset.Now.ToString(format), prettyPrint entry)
 
 type CustomLogger (f : Action<string>) =
     interface ICloudLogger with
