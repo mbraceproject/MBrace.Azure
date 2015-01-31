@@ -10,7 +10,7 @@ open System
 open System.Diagnostics
 open System.Net
 open System.Runtime.Serialization
-open Nessos.Vagrant
+open Nessos.Vagabond
 
 type ProcessState = 
     | Posted

@@ -1,12 +1,6 @@
 ﻿namespace MBrace.Azure.Runtime
 
-//
-//  Implements the scheduling context for sample runtime.
-//
-
 #nowarn "444"
-
-open System.Diagnostics
 
 open MBrace
 open MBrace.Runtime
@@ -14,8 +8,7 @@ open MBrace.Runtime
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open System
-open MBrace.Continuation
-open MBrace.InMemory
+open MBrace.Runtime.InMemory
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultPolicy, taskId, psInfo, dependencies, context) =

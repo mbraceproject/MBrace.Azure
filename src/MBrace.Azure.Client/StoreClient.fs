@@ -9,7 +9,7 @@ open MBrace.Azure.Store
 [<Sealed>]
 type internal StoreClient private () =
     
-    static member CreateDefault(config : Configuration) : ResourceRegistry * MBrace.Store.StoreClient =
+    static member CreateDefault(config : Configuration) : ResourceRegistry * MBrace.Client.StoreClient =
 
         Configuration.Activate(config)
 
@@ -36,5 +36,5 @@ type internal StoreClient private () =
                 yield { ChannelProvider = channelProvider; DefaultContainer = defaultChannelContainer } 
             }
 
-        let sc = MBrace.Store.StoreClient.CreateFromResources(resources)
+        let sc = MBrace.Client.StoreClient.CreateFromResources(resources)
         resources, sc

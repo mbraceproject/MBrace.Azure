@@ -1,7 +1,7 @@
 MBrace.Azure
 ============
 
-Windows Azure PaaS implementation of the MBrace.Core/Runtime.
+Windows Azure PaaS implementation of the [MBrace.Core/Runtime](https://github.com/mbraceproject/MBrace.Core).
 
 ### Build Status
 

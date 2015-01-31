@@ -13,6 +13,7 @@
     #nowarn "40"
     open System
     open MBrace.Store
+    open MBrace.Runtime.InMemory
 
     /// <summary>
     /// Windows Azure Runtime client.
@@ -26,6 +27,7 @@
         let logger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         let wmon = WorkerMonitor.Create(config)
         let resources, defaultStoreClient = StoreClient.CreateDefault(config)
+        let compiler = CloudCompiler.Init()
         let pmon = state.ProcessMonitor
         do logger.Logf "Client %s created" clientId
 
@@ -44,7 +46,7 @@
 
         member __.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
             async {
-                let runtimeProvider = MBrace.InMemory.ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
+                let runtimeProvider = ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
                 let rsc = resource { yield! resources; yield runtimeProvider :> ICloudRuntimeProvider }
                 return! Cloud.ToAsync(workflow, rsc)
             }
@@ -73,8 +75,8 @@
                                      ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
                 let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
-                let computation = CloudCompiler.Compile workflow
-                
+                let computation = compiler.Compile(workflow, ?name = name)
+          
                 let info = 
                     let pid = guid ()
                     let defaultContainer = Storage.processIdToStorageId pid

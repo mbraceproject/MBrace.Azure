@@ -1,2 +1,2 @@
-#### 0.0.1-alpha
+#### 0.1.0-alpha
 * Initial release.

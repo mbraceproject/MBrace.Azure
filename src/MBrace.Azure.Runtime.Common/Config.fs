@@ -5,7 +5,7 @@ open Microsoft.ServiceBus.Messaging
 open Microsoft.WindowsAzure.Storage
 open Nessos.FsPickler
 open MBrace.Runtime
-open Nessos.Vagrant
+open Nessos.Vagabond
 open System
 open System.Collections.Concurrent
 open System.Reflection
@@ -120,7 +120,7 @@ type ConfigurationRegistry private () =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Configuration =
-    open MBrace.Runtime.Vagrant
+    open MBrace.Runtime.Vagabond
     open System.Collections.Generic
 
     let private ignoredAssemblies = new HashSet<Assembly>()
@@ -131,15 +131,15 @@ module Configuration =
         runOnce(fun () ->
             let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
             ignoredAssemblies.Add(Assembly.GetExecutingAssembly()) |> ignore
-            VagrantRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
+            VagabondRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
             
     /// Default Pickler.
-    let Pickler = init () ; VagrantRegistry.Pickler
+    let Pickler = init () ; VagabondRegistry.Pickler
 
     /// Default ISerializer
-    let Serializer = init (); VagrantRegistry.Serializer
+    let Serializer = init (); VagabondRegistry.Serializer
 
-    /// Initialize Vagrant.
+    /// Initialize Vagabond.
     let Initialize () = init ()
 
     /// Activates the given configuration.

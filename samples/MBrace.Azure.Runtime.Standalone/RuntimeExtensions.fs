@@ -9,20 +9,19 @@ open MBrace.Continuation
 
 module internal Argument =
     open MBrace.Azure.Runtime
-    open MBrace.Runtime
-    open MBrace.Runtime.Vagrant
+    open MBrace.Runtime.Vagabond
     
     type Config = { Configuration : Configuration; MaxTasks : int}
 
     let ofConfiguration (config : Config) =
         Configuration.Initialize()
-        let pickle = VagrantRegistry.Pickler.Pickle(config)
+        let pickle = VagabondRegistry.Pickler.Pickle(config)
         System.Convert.ToBase64String pickle
 
     let toConfiguration (args : string []) =
         Configuration.Initialize()
         let bytes = System.Convert.FromBase64String(args.[0])
-        VagrantRegistry.Pickler.UnPickle<Config> bytes
+        VagabondRegistry.Pickler.UnPickle<Config> bytes
 
 type private Helpers () =
     static member val exe = None with get, set

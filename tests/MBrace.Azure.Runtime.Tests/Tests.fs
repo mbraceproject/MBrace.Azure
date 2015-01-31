@@ -1,7 +1,6 @@
 ﻿namespace MBrace.Azure.Runtime.Tests
 
 open System
-open System.IO
 open System.Threading
 
 open NUnit.Framework
@@ -9,7 +8,6 @@ open FsUnit
 
 open MBrace
 open MBrace.Continuation
-open MBrace.Runtime
 open MBrace.Azure.Client
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Standalone
@@ -31,11 +29,12 @@ module Helpers =
         let mapF (text : string) = cloud { return text.Split(' ').Length }
         let reduceF i i' = cloud { return i + i' }
         let inputs = Array.init size (fun i -> "lorem ipsum dolor sit amet")
-        mapReduceAlgorithm mapF 0 reduceF inputs
+        mapReduceAlgorithm mapF reduceF 0 inputs
 
     let rec mapReduceRec (mapF : 'T -> Cloud<'S>) 
-                    (id : 'S) (reduceF : 'S -> 'S -> Cloud<'S>)
-                    (inputs : 'T []) =
+                         (reduceF : 'S -> 'S -> Cloud<'S>)
+                         id
+                         (inputs : 'T []) =
         cloud {
             match inputs with
             | [||] -> return id
@@ -43,7 +42,7 @@ module Helpers =
             | _ ->
                 let left = inputs.[.. inputs.Length / 2 - 1]
                 let right = inputs.[inputs.Length / 2 ..]
-                let! s,s' = (mapReduceRec mapF id reduceF left) <||> (mapReduceRec mapF id reduceF right)
+                let! s,s' = (mapReduceRec mapF reduceF id left) <||> (mapReduceRec mapF reduceF id right)
                 return! reduceF s s'
         }
 
@@ -262,8 +261,8 @@ type ``Azure Runtime Tests`` (sbus, storage) =
     [<Test>]
     [<Repeat(repeats)>]
     member __.``1. Parallel : balanced map/reduce`` () =
-        wordCount 1000 MapReduce.mapReduce |> run |> Choice.shouldEqual 5000
-
+        wordCount 1000 Workflows.Distributed.mapReduce |> run |> Choice.shouldEqual 5000
+        
     [<Test>]
     member __.``2. Choice : empty input`` () =
         Cloud.Choice Seq.empty<Cloud<int option>> |> run |> Choice.shouldEqual None

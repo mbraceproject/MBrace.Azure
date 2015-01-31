@@ -24,24 +24,36 @@ let tags = "F# cloud mapreduce distributed windowsazure"
 // --------------------------------------------------------------------------------------
 // Read release notes & version info from RELEASE_NOTES.md
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
-let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
-let nugetVersion = release.NugetVersion
 
 let gitHome = "https://github.com/mbraceproject"
 let gitName = "MBrace.Azure"
 
+module Runtime =
+    let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
+    let nugetVersion = release.NugetVersion
+module StoreBindings =
+    let release = parseReleaseNotes (IO.File.ReadAllLines "STORE_BINDINGS_NOTES.md") 
+    let nugetVersion = release.NugetVersion
+
+
 // Generate assembly info files with the right version & up-to-date information
 Target "AssemblyInfo" (fun _ ->
     let attributes =
-        [ 
+        [| 
             Attribute.Title project
             Attribute.Product project
             Attribute.Company "Nessos Information Technologies"
             Attribute.Copyright "\169 Nessos Information Technologies."
             Attribute.Trademark "MBrace.Azure"
-            Attribute.Version release.AssemblyVersion
-            Attribute.FileVersion release.AssemblyVersion
-        ]
+            Attribute.Version Runtime.release.AssemblyVersion
+            Attribute.FileVersion Runtime.release.AssemblyVersion
+        |]
+
+    let store_attributes = 
+        [| yield! attributes.[0..4]
+           yield  Attribute.Version StoreBindings.release.AssemblyVersion
+           yield  Attribute.FileVersion StoreBindings.release.AssemblyVersion
+        |]
 
     !! "./src/**/AssemblyInfo.fs"
     |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info attributes)
@@ -49,6 +61,9 @@ Target "AssemblyInfo" (fun _ ->
     |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info attributes)
     !! "./samples/**/AssemblyInfo.cs"
     |> Seq.iter (fun info -> CreateCSharpAssemblyInfo info attributes)
+    
+    !! "./src/MBrace.Azure.Store/AssemblyInfo.fs"
+    |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info store_attributes)
 )
 
 
@@ -62,6 +77,7 @@ Target "RestorePackages" (fun _ ->
 
 Target "Clean" (fun _ ->
     CleanDirs (!! "**/bin/Release/")
+    CleanDirs (!! "**/bin/Debug/")
     CleanDir "bin/"
 )
 
@@ -142,7 +158,7 @@ Target "ReleaseDocs" (fun _ ->
     fullclean tempDocsDir
     CopyRecursive "docs/output" tempDocsDir true |> tracefn "%A"
     StageAll tempDocsDir
-    Commit tempDocsDir (sprintf "Update generated documentation for version %s" release.NugetVersion)
+    Commit tempDocsDir (sprintf "Update generated documentation for version %s" Runtime.release.NugetVersion)
     Branches.push tempDocsDir
 )
 

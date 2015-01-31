@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Azure.Runtime.Common
 
-open MBrace.Continuation
+open MBrace.Runtime
 
 type ILogger =
     inherit ICloudLogger

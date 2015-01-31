@@ -1,15 +1,13 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
-#r "MBrace.Library.dll"
 #r "FsPickler.dll"
-#r "Vagrant.dll"
+#r "Vagabond.dll"
 #r "MBrace.Azure.Runtime.Common.dll"
 #r "MBrace.Azure.Runtime.dll"
 #r "MBrace.Azure.Client.dll"
 #time "on"
 
 open MBrace
-open MBrace.Continuation
 open MBrace.Azure.Runtime
 open MBrace.Azure.Client
 open System

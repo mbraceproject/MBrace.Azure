@@ -1,14 +1,14 @@
 ﻿namespace System
 open System.Reflection
 
-[<assembly: AssemblyTitleAttribute("MBrace.Azure.Store")>]
-[<assembly: AssemblyProductAttribute("MBrace.Azure.Store")>]
+[<assembly: AssemblyTitleAttribute("MBrace.Azure")>]
+[<assembly: AssemblyProductAttribute("MBrace.Azure")>]
 [<assembly: AssemblyCompanyAttribute("Nessos Information Technologies")>]
 [<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")>]
 [<assembly: AssemblyTrademarkAttribute("MBrace.Azure")>]
-[<assembly: AssemblyVersionAttribute("0.5.14")>]
-[<assembly: AssemblyFileVersionAttribute("0.5.14")>]
+[<assembly: AssemblyVersionAttribute("0.9.0")>]
+[<assembly: AssemblyFileVersionAttribute("0.9.0")>]
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] Version = "0.5.14"
+    let [<Literal>] Version = "0.9.0"

@@ -3,10 +3,10 @@
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
-open Nessos.Vagrant
+open Nessos.Vagabond
 open System
 open System.Runtime.Serialization
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 
 type AssemblyManager private (config : ConfigurationId, res : Uri) = 
     
@@ -26,7 +26,7 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
     
     member __.UploadDependencies(ids : AssemblyId list) = 
         async { 
-            let pkgs = VagrantRegistry.Vagrant.CreateAssemblyPackages(ids, includeAssemblyImage = true)
+            let pkgs = VagabondRegistry.Vagabond.CreateAssemblyPackages(ids, includeAssemblyImage = true)
             do! pkgs
                 |> Seq.map uploadPkg
                 |> Async.Parallel
@@ -45,11 +45,11 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
                                           |> Async.Parallel
                               return pkgs |> Seq.toList
                           } }
-            do! VagrantRegistry.Vagrant.ReceiveDependencies publisher
+            do! VagabondRegistry.Vagabond.ReceiveDependencies publisher
         }
     
     member __.ComputeDependencies(graph : 'T) = 
-        VagrantRegistry.Vagrant.ComputeObjectDependencies(graph, permitCompilation = true) 
+        VagabondRegistry.Vagabond.ComputeObjectDependencies(graph, permitCompilation = true) 
         |> List.map Utilities.ComputeAssemblyId
 
     interface ISerializable with

@@ -98,18 +98,25 @@
       <Project>{90db3185-8f34-47e3-84a2-3b385e1a7493}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <Reference Include="FsCheck">
+      <HintPath>..\..\packages\FsCheck.1.0.4\lib\net45\FsCheck.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="FsPickler">
-      <HintPath>..\..\packages\FsPickler.1.0.6\lib\net45\FsPickler.dll</HintPath>
+      <HintPath>..\..\packages\FsPickler.1.0.7\lib\net45\FsPickler.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MBrace.Core">
-      <HintPath>..\..\lib\MBrace.Core.dll</HintPath>
+      <HintPath>..\..\packages\MBrace.Core.0.9.0-alpha\lib\net45\MBrace.Core.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="MBrace.Library">
-      <HintPath>..\..\lib\MBrace.Library.dll</HintPath>
+    <Reference Include="MBrace.Core.Tests">
+      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.0-alpha\lib\net45\MBrace.Core.Tests.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="MBrace.Runtime.Core">
-      <HintPath>..\..\lib\MBrace.Runtime.Core.dll</HintPath>
+      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.0-alpha\lib\net45\MBrace.Runtime.Core.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.Data.Edm">
       <HintPath>..\..\packages\Microsoft.Data.Edm.5.6.3\lib\net40\Microsoft.Data.Edm.dll</HintPath>
@@ -143,6 +150,10 @@
       <HintPath>..\..\packages\Newtonsoft.Json.6.0.6\lib\net45\Newtonsoft.Json.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="nunit.framework">
+      <HintPath>..\..\packages\NUnit.2.6.3\lib\nunit.framework.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
@@ -164,8 +175,8 @@
       <Project>{5ed05ec2-a9a0-4247-bb66-4d4c866f43ad}</Project>
       <Private>True</Private>
     </ProjectReference>
-    <Reference Include="Vagrant">
-      <HintPath>..\..\packages\Vagrant.0.2.9\lib\net45\Vagrant.dll</HintPath>
+    <Reference Include="Vagabond">
+      <HintPath>..\..\packages\Vagabond.0.3.0\lib\net45\Vagabond.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>

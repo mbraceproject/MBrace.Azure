@@ -140,7 +140,7 @@ type Service (config : Configuration, serviceId : string) =
 
     member __.Start() = Async.RunSync(__.StartAsync())
 
-    member __.Stop () =
+    member __.StopAsync () =
         async {
             try
                 logf "Stopping Service %s." serviceId
@@ -151,3 +151,5 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Service Stop for %s failed with %A" __.Id  ex
                 return! Async.Raise ex
         }
+
+    member __.Stop () = Async.RunSync(__.StopAsync())

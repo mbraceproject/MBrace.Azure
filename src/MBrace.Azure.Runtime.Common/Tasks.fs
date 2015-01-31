@@ -11,15 +11,16 @@
 open System
 open System.Threading.Tasks
 
-open Nessos.Vagrant
+open Nessos.Vagabond
 
 open MBrace
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
 open MBrace.Continuation
 open Nessos.FsPickler
-open MBrace.Runtime.Vagrant
+open MBrace.Runtime.Vagabond
 open MBrace.Store
+open MBrace.Runtime
 
 // Tasks are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
@@ -179,7 +180,7 @@ type RuntimeState =
         /// Reference to the global task queue employed by the runtime
         /// Queue contains pickled task and its vagrant dependency manifest
         TaskQueue : TaskQueue
-        /// Reference to a Vagrant assembly exporting actor.
+        /// Assembly exporting facility.
         AssemblyManager : AssemblyManager
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
@@ -225,7 +226,7 @@ with
                 TaskType = taskType
             }
         
-        let taskp = VagrantRegistry.Pickler.PickleTyped task
+        let taskp = VagabondRegistry.Pickler.PickleTyped task
         let taskItem = { PickledTask = taskp; Dependencies = dependencies }
         async {
             do! rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
@@ -270,7 +271,7 @@ with
                     TaskType = taskType affinity
                 }
 
-            let taskp = VagrantRegistry.Pickler.PickleTyped task
+            let taskp = VagabondRegistry.Pickler.PickleTyped task
             tasks.[i] <- { PickledTask = taskp; Dependencies = dependencies }, affinity
         async {
             do! rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
@@ -288,7 +289,7 @@ with
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(psInfo.DefaultDirectory)
         let setResult ctx r = 
             async {
-                let! success = resultCell.SetResult r
+                do! resultCell.SetResult r
                 TaskExecutionMonitor.TriggerCompletion ctx
             } |> TaskExecutionMonitor.ProtectAsync ctx
 
