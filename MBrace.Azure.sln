@@ -45,6 +45,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Azure.CloudService.W
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Store", "src\MBrace.Azure.Store\MBrace.Azure.Store.fsproj", "{90DB3185-8F34-47E3-84A2-3B385E1A7493}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Store.Tests", "tests\MBrace.Azure.Store.Tests\MBrace.Azure.Store.Tests.fsproj", "{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_AzureSDK|Any CPU = Debug_AzureSDK|Any CPU
@@ -113,6 +115,14 @@ Global
 		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Release_AzureSDK|Any CPU.Build.0 = Release_AzureSDK|Any CPU
 		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Release|Any CPU.Build.0 = Release|Any CPU
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -126,5 +136,6 @@ Global
 		{BD922B57-1C69-4667-A3C1-B3E114A76ACD} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 		{90DB3185-8F34-47E3-84A2-3B385E1A7493} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
+		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804} = {3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}
 	EndGlobalSection
 EndGlobal
