@@ -102,7 +102,8 @@ Target "Build" (fun _ ->
 
 let testAssemblies = 
     [
-        yield "bin/MBrace.Azure.Runtime.Tests.dll"
+        "bin/MBrace.Azure.Runtime.Tests.dll"
+        "bin/MBrace.Azure.Store.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->
@@ -113,7 +114,7 @@ Target "RunTests" (fun _ ->
     testAssemblies
     |> NUnit (fun p -> 
         { p with
-            DisableShadowCopy = true
+            DisableShadowCopy = false
             ToolPath = nunitPath
             Framework = "4.5"
             TimeOut = TimeSpan.FromMinutes 60. })
