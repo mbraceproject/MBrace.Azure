@@ -96,7 +96,7 @@ type Service (config : Configuration, serviceId : string) =
                 channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)))
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
-                let wmon = WorkerMonitor.Create(config, MaxTasks = __.MaxConcurrentTasks)
+                let wmon = WorkerManager.Create(config, MaxTasks = __.MaxConcurrentTasks)
                 let! e = wmon.RegisterCurrent(serviceId)
                 logf "Declared node\nHostname:\"%s\"\nPID:\"%d\"\nServiceId:\"%s\"" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 

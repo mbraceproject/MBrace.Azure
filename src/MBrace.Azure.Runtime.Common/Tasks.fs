@@ -186,7 +186,7 @@ type RuntimeState =
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
         /// Process monitoring.
-        ProcessMonitor : ProcessMonitor
+        ProcessMonitor : ProcessManager
     }
 with
     /// Initialize a new runtime state in the local process
@@ -194,7 +194,7 @@ with
         let! taskQueue = TaskQueue.Create(config.ConfigurationId, config.DefaultQueue, config.DefaultTopic)
         let assemblyManager = AssemblyManager.Create(config.ConfigurationId, config.DefaultTableOrContainer) 
         let resourceFactory = ResourceFactory.Create(config) 
-        let pmon = ProcessMonitor.Create(config)
+        let pmon = ProcessManager.Create(config)
         return { TaskQueue = taskQueue; AssemblyManager = assemblyManager ; ResourceFactory = resourceFactory ; ProcessMonitor = pmon }
     }
 
@@ -319,7 +319,7 @@ with
         let setResult ctx r = 
             async {
                 do! resultCell.SetResult r
-                let pmon = ctx.Resources.Resolve<ProcessMonitor>()
+                let pmon = ctx.Resources.Resolve<ProcessManager>()
                 match r with
                 | Completed _ 
                 | Exception _ -> do! pmon.SetCompleted(psInfo.Id)

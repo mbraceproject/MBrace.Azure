@@ -27,7 +27,7 @@
         let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
         let clientLogger = new LoggerCombiner()
         do  clientLogger.Attach(storageLogger)
-        let wmon = WorkerMonitor.Create(config)
+        let wmon = WorkerManager.Create(config)
         let resources, defaultStoreClient = StoreClient.CreateDefault(config)
         let compiler = CloudCompiler.Init()
         let pmon = state.ProcessMonitor

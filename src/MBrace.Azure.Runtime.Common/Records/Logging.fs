@@ -137,6 +137,7 @@ type ProcessLogger(config, table : string, pid : string) =
             let time = DateTimeOffset.UtcNow
             let e = new LogRecord(string loggerType, timeToRK time, entry, DateTimeOffset.UtcNow)
             Async.RunSync(Table.insert<LogRecord> config table e)
+            Threading.Thread.Sleep(100) // See HACK
 
     member __.GetLogs (?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
         let query = new TableQuery<LogRecord>()

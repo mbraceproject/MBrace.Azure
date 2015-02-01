@@ -52,7 +52,7 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
             __.NetworkUp <- counters.NetworkUsageUp
             __.NetworkDown <- counters.NetworkUsageDown
 
-type WorkerMonitor private (config, table : string) =
+type WorkerManager private (config, table : string) =
     let pk = "worker"
 
     let current = ref None
@@ -60,7 +60,7 @@ type WorkerMonitor private (config, table : string) =
     let mutable active = false
     let mutable activeTasks = 0
 
-    static member Create(config : Configuration) = new WorkerMonitor(config.ConfigurationId, config.DefaultTableOrContainer)
+    static member Create(config : Configuration) = new WorkerManager(config.ConfigurationId, config.DefaultTableOrContainer)
 
     member __.ActiveTasks = activeTasks
     

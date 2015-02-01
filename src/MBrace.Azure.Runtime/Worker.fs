@@ -19,8 +19,8 @@ type internal WorkerConfig =
       Atom               : ICloudAtomProvider
       Cache              : IObjectCache
       Logger             : ICloudLogger
-      WorkerMonitor      : WorkerMonitor
-      ProcessMonitor     : ProcessMonitor }
+      WorkerMonitor      : WorkerManager
+      ProcessMonitor     : ProcessManager }
 
 type internal WorkerMessage =
     | Start of WorkerConfig  * AsyncReplyChannel<unit>

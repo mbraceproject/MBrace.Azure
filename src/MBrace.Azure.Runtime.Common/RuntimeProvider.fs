@@ -11,7 +11,7 @@ open System
 open MBrace.Runtime.InMemory
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, wmon : WorkerMonitor, faultPolicy, taskId, psInfo, dependencies, context) =
+type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultPolicy, taskId, psInfo, dependencies, context) =
         
     let failTargetWorker () = invalidOp <| sprintf "Cannot target worker when running in '%A' execution context" context
 

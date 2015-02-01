@@ -15,7 +15,7 @@ open System.Reflection
 
 [<AutoSerializable(false); AbstractClass>]
 /// Represents a cloud process.
-type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) = 
+type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) = 
     
     let proc = 
         new Live<_>((fun () -> pmon.GetProcess(pid)), initial = Choice2Of2(exn ("Process not initialized")), 
@@ -98,7 +98,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessMonitor) =
 
 [<AutoSerializable(false)>]
 /// Represents a cloud process.
-type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) = 
+type Process<'T> internal (config, pid : string, pmon : ProcessManager) = 
     inherit Process(config, pid, typeof<'T>, pmon) 
 
     override __.AwaitResultBoxed () : obj =__.AwaitResultBoxedAsync() |> Async.RunSync 
@@ -119,7 +119,7 @@ type Process<'T> internal (config, pid : string, pmon : ProcessMonitor) =
             return r.Value
         }
 
-    static member internal Create(config : ConfigurationId, pid : string, ty : Type, pmon : ProcessMonitor) : Process =
+    static member internal Create(config : ConfigurationId, pid : string, ty : Type, pmon : ProcessManager) : Process =
         let processT = typeof<Process<_>>.GetGenericTypeDefinition().MakeGenericType [| ty |]
         let flags = BindingFlags.NonPublic ||| BindingFlags.Instance
         let culture = System.Globalization.CultureInfo.InvariantCulture
