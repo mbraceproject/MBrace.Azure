@@ -34,7 +34,7 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
             | Distributed, (ThreadParallel | Sequential)
             | ThreadParallel, Sequential ->
                 invalidOp <| sprintf "Cannot set scheduling context to '%A' when it already is '%A'." ctx context
-            | _ -> new RuntimeProvider(state, wmon, faultPolicy, taskId, psInfo, dependencies, context) :> ICloudRuntimeProvider
+            | _ -> new RuntimeProvider(state, wmon, faultPolicy, taskId, psInfo, dependencies, ctx) :> ICloudRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
