@@ -13,8 +13,6 @@ type internal StoreClient private () =
 
         Configuration.Activate(config)
 
-        let inMemoryCache = InMemoryCache.Create(physicalMemoryLimitPercentage = 20)
-        let cache = FileSystemStore.CreateUniqueLocal()
         let storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
         let atomProvider = 
             { new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
@@ -27,13 +25,14 @@ type internal StoreClient private () =
 
         let resources = 
             resource { 
-                yield { FileStore = FileStoreCache.Create(storeProvider, cache);
-                        DefaultDirectory = defaultStoreContainer;
-                        Cache = Some(inMemoryCache :> _);
-                        Serializer = Configuration.Serializer
-                       }
-                yield { AtomProvider = atomProvider; DefaultContainer = defaultAtomContainer }
-                yield { ChannelProvider = channelProvider; DefaultContainer = defaultChannelContainer } 
+                yield { FileStore = storeProvider
+                        DefaultDirectory = defaultStoreContainer
+                        Cache = None
+                        Serializer = Configuration.Serializer }
+                yield { AtomProvider = atomProvider
+                        DefaultContainer = defaultAtomContainer }
+                yield { ChannelProvider = channelProvider
+                        DefaultContainer = defaultChannelContainer } 
             }
 
         let sc = MBrace.Client.StoreClient.CreateFromResources(resources)

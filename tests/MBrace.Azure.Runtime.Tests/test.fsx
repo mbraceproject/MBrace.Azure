@@ -135,7 +135,6 @@ let wf = cloud {
 let ps = runtime.CreateProcess(wf)
 ps.AwaitResult()
 
-#r "MBrace.Library"
 open MBrace.Store
 
 let ps = runtime.CreateProcess(CloudRef.New(42))
