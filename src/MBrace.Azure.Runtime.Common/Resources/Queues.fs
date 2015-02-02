@@ -247,19 +247,24 @@ type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic)
     //member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = topic.EnqueueBatch<'T>(xs, affinity)
 
     member __.EnqueueBatch<'T>(xs : ('T * string option) []) = async {
-            let topicTasks = 
-                xs 
-                |> Seq.filter (function (_, Some _) -> true | _ -> false)
-                |> Seq.map (function (t, Some a) -> t, a | _ -> failwith "Invalid topic task.")
-                |> Seq.toArray
+            let queueTasks = new ResizeArray<'T>()
+            let topicTasks = new ResizeArray<'T * string>()
 
-            let queueTasks = 
-                xs 
-                |> Seq.filter (function (_, None) -> true | _ -> false)
-                |> Seq.map (fst)
-                |> Seq.toArray
-            do! topic.EnqueueBatch<'T>(topicTasks)
-            do! queue.EnqueueBatch(queueTasks)
+            for (t,a) in xs do
+                match a with
+                | Some a -> topicTasks.Add(t,a)
+                | None -> queueTasks.Add(t)
+            
+            let! handle1 = 
+                if topicTasks.Count = 0 then async.Zero() 
+                else topic.EnqueueBatch(topicTasks.ToArray())
+                |> Async.StartChild
+            let! handle2 =
+                if queueTasks.Count = 0 then async.Zero()
+                else queue.EnqueueBatch(queueTasks.ToArray())
+                |> Async.StartChild
+            do! Async.Parallel [handle1 ; handle2]
+                |> Async.Ignore
         }
 
     interface ISerializable with

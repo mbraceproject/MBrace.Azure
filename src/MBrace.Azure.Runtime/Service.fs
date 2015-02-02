@@ -83,7 +83,7 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Creating InMemoryCache"
                 let inMemoryCache = InMemoryCache.Create()
                 
-                cache <- Some(defaultArg cache (FileSystemStore.CreateUniqueLocal() :> ICloudFileStore))
+                cache <- Some(defaultArg cache (FileSystemStore.CreateSharedLocal() :> ICloudFileStore))
 
                 logf "Local Cache Store %s" cache.Value.Id
                 let store = FileStoreCache.Create(storeProvider.Value, cache.Value) :> ICloudFileStore
