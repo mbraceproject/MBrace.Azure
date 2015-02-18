@@ -1,11 +1,14 @@
 ﻿namespace MBrace.Azure.Runtime.Resources
 
+open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
 open System
 open System.Runtime.Serialization
 open MBrace.Continuation
+open MBrace
+open System.Threading
 
 /// Result value
 type Result<'T> =
@@ -19,9 +22,61 @@ with
         | Exception edi -> ExceptionDispatchInfo.raise true edi
         | Cancelled c -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true c
 
-type ResultCell<'T> internal (config, res : Uri) = 
+type ResultCell<'T> internal (config, id, res : Uri) as self = 
 
-    member __.SetResult(result : 'T) : Async<unit> =
+    let mutable localCell : CacheAtom<Result<'T> option> option = None
+    let getLocalCell() =
+        match localCell with
+        | Some c -> c
+        | None ->
+            lock self (fun () ->
+                let cell = CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
+                localCell <- Some cell
+                cell)
+
+    interface ICloudTask<'T> with
+        member c.Id = id
+
+        member c.AwaitResult(?timeout:int) = cloud {
+            let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
+            return r.Value
+        }
+
+        member c.TryGetResult() = cloud {
+            let! r = Cloud.OfAsync <| c.TryGetResult()
+            return r |> Option.map (fun r -> r.Value)
+        }
+
+        member c.IsCompleted = 
+            match getLocalCell().Value with
+            | Some(Completed _) -> true
+            | _ -> false
+
+        member c.IsFaulted =
+            match getLocalCell().Value with
+            | Some(Exception _) -> true
+            | _ -> false
+
+        member c.IsCanceled =
+            match getLocalCell().Value with
+            | Some(Cancelled _) -> true
+            | _ -> false
+
+        member c.Status =
+            match getLocalCell().Value with
+            | Some (Completed _) -> Tasks.TaskStatus.RanToCompletion
+            | Some (Exception _) -> Tasks.TaskStatus.Faulted
+            | Some (Cancelled _) -> Tasks.TaskStatus.Canceled
+            | None -> Tasks.TaskStatus.Running
+
+        member c.Result = 
+            async {
+                let! r = c.AwaitResult()
+                return r.Value
+            } |> Async.RunSync
+        
+
+    member __.SetResult(result : Result<'T>) : Async<unit> =
         async {
             let! bc = BlobCell.CreateIfNotExists(config, res.Container, fun () -> result)
             let uri = bc.Uri
@@ -30,17 +85,17 @@ type ResultCell<'T> internal (config, res : Uri) =
             return ()
         }
 
-    member __.TryGetResult() : Async<'T option> = 
+    member __.TryGetResult() : Async<Result<'T> option> = 
         async {
             let! e = Table.read<LightCellEntity> config res.Table res.PartitionWithScheme ""
             if e.Uri = null then return None
             else
-                let bc = BlobCell.OfUri<'T>(config, new Uri(e.Uri))
+                let bc = BlobCell.OfUri<Result<'T>>(config, new Uri(e.Uri))
                 let! v = bc.GetValue()
                 return Some v
         }
     
-    member __.AwaitResult() : Async<'T> = 
+    member __.AwaitResult() : Async<Result<'T>> = 
         async { 
             let! r = __.TryGetResult()
             match r with
@@ -53,21 +108,23 @@ type ResultCell<'T> internal (config, res : Uri) =
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("id", id, typeof<string>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, context: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        let id = info.GetValue("id", typeof<string>) :?> string
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new ResultCell<'T>(config, res)
+        new ResultCell<'T>(config, id, res)
 
     static member private GetUri(container, id) = uri "resultcell:%s/%s" container id
-    static member FromUri<'T>(config : ConfigurationId, uri) = new ResultCell<'T>(config, uri)
-    static member Create<'T>(config, container : string) : Async<ResultCell<'T>> = 
+    //static member FromUri<'T>(config : ConfigurationId, uri) = new ResultCell<'T>(config, uri)
+    static member Create<'T>(config, id, container : string) : Async<ResultCell<'T>> = 
         async { 
-            let res = ResultCell<_>.GetUri(container, guid())
+            let res = ResultCell<_>.GetUri(container, id)
             let e = new LightCellEntity(res.PartitionWithScheme, null)
             do! Table.insert<LightCellEntity> config res.Table e
-            return new ResultCell<'T>(config, res)
+            return new ResultCell<'T>(config, id, res)
         }
 
 

@@ -89,19 +89,19 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="FsPickler">
-      <HintPath>..\..\packages\FsPickler.1.0.7\lib\net45\FsPickler.dll</HintPath>
+      <HintPath>..\..\packages\FsPickler.1.0.8\lib\net45\FsPickler.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MBrace.Core">
-      <HintPath>..\..\packages\MBrace.Core.0.9.0-alpha\lib\net45\MBrace.Core.dll</HintPath>
+      <HintPath>..\..\packages\MBrace.Core.0.9.1-alpha\lib\net45\MBrace.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MBrace.Core.Tests">
-      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.0-alpha\lib\net45\MBrace.Core.Tests.dll</HintPath>
+      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.1-alpha\lib\net45\MBrace.Core.Tests.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MBrace.Runtime.Core">
-      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.0-alpha\lib\net45\MBrace.Runtime.Core.dll</HintPath>
+      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.1-alpha\lib\net45\MBrace.Runtime.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.Data.Edm">
@@ -157,7 +157,7 @@
     </Reference>
     <Reference Include="System.Xml" />
     <Reference Include="Vagabond">
-      <HintPath>..\..\packages\Vagabond.0.3.0\lib\net45\Vagabond.dll</HintPath>
+      <HintPath>..\..\packages\Vagabond.0.3.2\lib\net45\Vagabond.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>

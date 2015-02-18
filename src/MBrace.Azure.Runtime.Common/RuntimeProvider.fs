@@ -9,6 +9,7 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open System
 open MBrace.Runtime.InMemory
+open MBrace.Azure.Runtime.Resources
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultPolicy, taskId, psInfo, dependencies, context) =
@@ -20,14 +21,32 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
         |> Seq.map (fun (c,w) -> if Option.isSome w then failTargetWorker () else c)
         |> Seq.toArray
 
+    let mkNestedCts (ct : ICloudCancellationToken) =
+        let parentCts = ct :?> DistributedCancellationTokenSource
+        let dcts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory , parent = parentCts)
+                   |> Async.RunSynchronously
+        dcts :> ICloudCancellationTokenSource
+
     /// Creates a runtime provider instance for a provided task
     static member FromTask state  wmon  dependencies (task : Task) =
         new RuntimeProvider(state, wmon, task.FaultPolicy, task.TaskId, task.ProcessInfo, dependencies, Distributed)
 
     interface ICloudRuntimeProvider with
+        member __.CreateLinkedCancellationTokenSource(parents: ICloudCancellationToken []): Async<ICloudCancellationTokenSource> = 
+            async {
+                match parents with
+                | [||] -> 
+                    let! cts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory) 
+                    return cts :> ICloudCancellationTokenSource
+                | [| ct |] ->
+                    return mkNestedCts ct
+                | _ ->
+                    return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
+            }
         member __.ProcessId = psInfo.Id
-        member __.TaskId = taskId
 
+        member __.JobId = taskId
+        
         member __.SchedulingContext = context
         member __.WithSchedulingContext ctx =
             match ctx, context with
@@ -48,21 +67,18 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
         member __.ScheduleParallel computations = 
             match context with
             | Distributed -> Combinators.Parallel state psInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Parallel <| extractComputations computations
+            | ThreadParallel -> ThreadPool.Parallel(mkNestedCts, (extractComputations computations))
             | Sequential -> Sequential.Parallel <| extractComputations computations
 
         member __.ScheduleChoice computations = 
             match context with
             | Distributed -> Combinators.Choice state psInfo dependencies faultPolicy computations
-            | ThreadParallel -> ThreadPool.Choice <| extractComputations computations
+            | ThreadParallel -> ThreadPool.Choice(mkNestedCts, (extractComputations computations))
             | Sequential -> Sequential.Choice <| extractComputations computations
 
-        member __.ScheduleStartChild(computation,wr,timeout) =
-            if timeout.IsSome then raise <| NotImplementedException("StartChild with timeout")
-            match context with
-            | Distributed -> Combinators.StartChild state psInfo dependencies faultPolicy computation wr
-            | ThreadParallel -> ThreadPool.StartChild computation
-            | Sequential -> Sequential.StartChild computation
+
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
+           Combinators.StartAsCloudTask state psInfo dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 
             let! ws = wmon.GetWorkerRefs(showInactive = false)

@@ -153,7 +153,7 @@ with
                                 yield task.CancellationTokenSource
                                 yield dependencies
                             }
-                CancellationToken = task.CancellationTokenSource.GetLocalCancellationToken()
+                CancellationToken = task.CancellationTokenSource :> ICloudCancellationToken
             }
 
         if faultCount > 0 then
@@ -191,11 +191,17 @@ type RuntimeState =
 with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration) = async {
-        let! taskQueue = TaskQueue.Create(config.ConfigurationId, config.DefaultQueue, config.DefaultTopic)
-        let assemblyManager = AssemblyManager.Create(config.ConfigurationId, config.DefaultTableOrContainer) 
+        let configurationId = config.ConfigurationId
+        let! taskQueue = TaskQueue.Create(configurationId, config.DefaultQueue, config.DefaultTopic)
+        let assemblyManager = AssemblyManager.Create(configurationId, config.DefaultTableOrContainer) 
         let resourceFactory = ResourceFactory.Create(config) 
         let pmon = ProcessManager.Create(config)
-        return { TaskQueue = taskQueue; AssemblyManager = assemblyManager ; ResourceFactory = resourceFactory ; ProcessMonitor = pmon }
+        return { 
+            TaskQueue = taskQueue
+            AssemblyManager = assemblyManager 
+            ResourceFactory = resourceFactory 
+            ProcessMonitor = pmon
+        }
     }
 
     /// <summary>
@@ -226,7 +232,7 @@ with
                 TaskType = taskType
             }
         
-        let taskp = VagabondRegistry.Pickler.PickleTyped task
+        let taskp = VagabondRegistry.Instance.Pickler.PickleTyped task
         let taskItem = { PickledTask = taskp; Dependencies = dependencies }
         async {
             do! rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
@@ -271,7 +277,7 @@ with
                     TaskType = taskType affinity
                 }
 
-            let taskp = VagabondRegistry.Pickler.PickleTyped task
+            let taskp = VagabondRegistry.Instance.Pickler.PickleTyped task
             tasks.[i] <- { PickledTask = taskp; Dependencies = dependencies }, affinity
         async {
             do! rt.TaskQueue.EnqueueBatch<TaskItem>(tasks)
@@ -285,7 +291,7 @@ with
     /// <param name="dependencies">Declared workflow dependencies.</param>
     /// <param name="cts">Cancellation token source bound to task.</param>
     /// <param name="wf">Input workflow.</param>
-    member rt.StartAsCell(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, taskType) = async {
+    member rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, taskType) = async {
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(psInfo.DefaultDirectory)
         let setResult ctx r = 
             async {
@@ -297,7 +303,7 @@ with
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
         do! rt.EnqueueTask(psInfo, dependencies, cts, fp, scont, econt, ccont, wf, taskType)
-        return resultCell
+        return resultCell :> ICloudTask<'T>
     }
 
     /// <summary>

@@ -16,7 +16,7 @@ open MBrace.Continuation
 
 let inline private withCancellationToken (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
     let token = cts.GetLocalCancellationToken()
-    { Resources = ctx.Resources.Register(cts) ; CancellationToken = token }
+    { Resources = ctx.Resources.Register(cts) ; CancellationToken = cts :> ICloudCancellationToken }
 
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
@@ -35,8 +35,10 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let storageId = psInfo.DefaultDirectory
-            let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource> ()
+            
+            let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts)
+            
             let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(storageId, computations.Length)
             let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
 
@@ -91,8 +93,9 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
             // request runtime resources required for distribution coordination
             let storageId = psInfo.DefaultDirectory
             let n = computations.Length // avoid capturing computation array in cont closures
-            let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource>()
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, currentCts)
+            let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts)
+
             let! completionLatch = state.ResourceFactory.RequestCounter(storageId, 0)
             let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
 
@@ -147,12 +150,8 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
             TaskExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartChild (state : RuntimeState) psInfo dependencies fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
-    let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
+let StartAsCloudTask (state : RuntimeState) psInfo dependencies (ct : ICloudCancellationToken) fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
+    let dcts = ct :?> DistributedCancellationTokenSource
     let taskType = match affinity with None -> TaskType.StartChild | Some wr -> TaskType.Affined wr.Id
-    let! resultCell = Cloud.OfAsync <| state.StartAsCell(psInfo, dependencies, cts, fp, computation, taskType)
-    return cloud { 
-        let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
-        return result.Value
-    }
+    return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, dcts, fp, computation, taskType)
 }

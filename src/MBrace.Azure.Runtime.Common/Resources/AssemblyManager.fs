@@ -26,7 +26,7 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
     
     member __.UploadDependencies(ids : AssemblyId list) = 
         async { 
-            let pkgs = VagabondRegistry.Vagabond.CreateAssemblyPackages(ids, includeAssemblyImage = true)
+            let pkgs = VagabondRegistry.Instance.CreateAssemblyPackages(ids, includeAssemblyImage = true)
             do! pkgs
                 |> Seq.map uploadPkg
                 |> Async.Parallel
@@ -45,11 +45,11 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
                                           |> Async.Parallel
                               return pkgs |> Seq.toList
                           } }
-            do! VagabondRegistry.Vagabond.ReceiveDependencies publisher
+            do! VagabondRegistry.Instance.ReceiveDependencies publisher
         }
     
     member __.ComputeDependencies(graph : 'T) = 
-        VagabondRegistry.Vagabond.ComputeObjectDependencies(graph, permitCompilation = true) 
+        VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
         |> List.map Utilities.ComputeAssemblyId
 
     interface ISerializable with

@@ -54,6 +54,7 @@ type Configuration =
     member this.ConfigurationId : ConfigurationId = 
         this.GetType()
         |> Microsoft.FSharp.Reflection.FSharpType.GetRecordFields
+        |> Seq.sortBy (fun pi -> pi.Name)
         |> Seq.map (fun pi -> pi.GetValue(this) :?> string)
         |> String.concat String.Empty
         |> ConfigurationId.ofText 
@@ -122,6 +123,8 @@ type ConfigurationRegistry private () =
 module Configuration =
     open MBrace.Runtime.Vagabond
     open System.Collections.Generic
+    open MBrace.Runtime.Serialization
+    open MBrace.Store
 
     let private ignoredAssemblies = new HashSet<Assembly>()
 
@@ -134,10 +137,10 @@ module Configuration =
             VagabondRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
             
     /// Default Pickler.
-    let Pickler = init () ; VagabondRegistry.Pickler
+    let Pickler = init () ; VagabondRegistry.Instance.Pickler
 
     /// Default ISerializer
-    let Serializer = init (); VagabondRegistry.Serializer
+    let Serializer = init (); new FsPicklerBinaryStoreSerializer() :> ISerializer
 
     /// Initialize Vagabond.
     let Initialize () = init ()

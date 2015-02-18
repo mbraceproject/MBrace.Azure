@@ -7,7 +7,9 @@ open MBrace.Azure.Runtime
 open MBrace.Continuation
 open MBrace.Azure.Runtime.Common
 open Microsoft.WindowsAzure.Storage.Table
+open MBrace
 
+[<Sealed>]
 type DistributedCancellationTokenSource internal (config, res : Uri) = 
     let rec cancel table pk =
        async { 
@@ -30,12 +32,22 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     
     let cts = lazy new CancellationTokenSource()
     
-    member __.Uri = res
-    
+    interface ICloudCancellationToken with
+        member this.IsCancellationRequested: bool = 
+            this.IsCancellationRequested
+
+        member this.LocalToken : CancellationToken = 
+            if cts.IsValueCreated then cts.Value.Token else failwith "Local cancellation token not initialized."
+
+    interface ICloudCancellationTokenSource with
+        member this.Cancel() : unit = this.Cancel()
+        
+        member this.Token : ICloudCancellationToken = this :> ICloudCancellationToken
+
     member __.IsCancellationRequested = check() |> Async.RunSync
     
-    member __.Cancel() = Async.RunSync(__.CancelAsync())
     member __.CancelAsync() = cancel res.Table res.PartitionWithScheme
+    member __.Cancel() = Async.RunSync(__.CancelAsync())
     
     member __.GetLocalCancellationToken() = 
         let rec loop () = async {
@@ -51,6 +63,8 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
 
         cts.Value.Token
 
+    member __.Uri = res
+    
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
