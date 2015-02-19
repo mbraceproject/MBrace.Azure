@@ -24,16 +24,10 @@ with
 
 type ResultCell<'T> internal (config, res : Uri) as self = 
 
-    let mutable localCell : CacheAtom<Result<'T> option> option = None
-    let getLocalCell() =
-        match localCell with
-        | Some c -> c
-        | None ->
-            lock self (fun () ->
-                let cell = CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
-                localCell <- Some cell
-                cell)
-
+    let localCell = lazy CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
+        
+    override this.ToString () = this.Uri.ToString()
+            
     interface ICloudTask<'T> with
         member c.Id = res.Secondary
 
@@ -48,22 +42,22 @@ type ResultCell<'T> internal (config, res : Uri) as self =
         }
 
         member c.IsCompleted = 
-            match getLocalCell().Value with
+            match localCell.Value.Value with
             | Some(Completed _) -> true
             | _ -> false
 
         member c.IsFaulted =
-            match getLocalCell().Value with
+            match localCell.Value.Value with
             | Some(Exception _) -> true
             | _ -> false
 
         member c.IsCanceled =
-            match getLocalCell().Value with
+            match localCell.Value.Value with
             | Some(Cancelled _) -> true
             | _ -> false
 
         member c.Status =
-            match getLocalCell().Value with
+            match localCell.Value.Value with
             | Some (Completed _) -> Tasks.TaskStatus.RanToCompletion
             | Some (Exception _) -> Tasks.TaskStatus.Faulted
             | Some (Cancelled _) -> Tasks.TaskStatus.Canceled
@@ -88,7 +82,7 @@ type ResultCell<'T> internal (config, res : Uri) as self =
     member __.TryGetResult() : Async<Result<'T> option> = 
         async {
             let! e = Table.read<LightCellEntity> config res.Primary res.PrimaryWithScheme ""
-            if e.Uri = null then return None
+            if String.IsNullOrEmpty e.Uri then return None
             else
                 let bc = BlobCell.OfUri<Result<'T>>(config, new Uri(e.Uri))
                 let! v = bc.GetValue()
