@@ -44,9 +44,20 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
+let ps =
+    [1..10]
+    |> Seq.map (fun i -> cloud { return i * i })
+    |> Cloud.Parallel
+    |> runtime.CreateProcess
+
+ps.ShowInfo()
+ps.AwaitResult()
+
 runtime.Run(Cloud.Parallel(cloud { return System.Diagnostics.Process.GetCurrentProcess().Id }))
 
 runtime.Run <| cloud { return 42 }
+
+open MBrace.Workflows
 
 let rec wf i max = 
     cloud { 
@@ -58,6 +69,10 @@ let ps = runtime.CreateProcess(wf 0 2)
 ps.ShowInfo()
 ps.AwaitResult() 
 
+
+let ctask = runtime.Run <| Cloud.StartAsCloudTask(cloud { return 42 })
+ctask.Id
+ctask.Result
 
 let wf = cloud {
     let! sp, rp = CloudChannel.New<int>()

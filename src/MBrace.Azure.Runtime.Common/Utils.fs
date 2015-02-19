@@ -26,22 +26,14 @@
                 __.ReturnFrom(Async.AwaitTask f)
 
         type Uri with
-            member u.ResourceId = u.Scheme
-            member u.PartitionWithScheme = sprintf "%s:%s" u.Scheme u.PartitionKey
-            member u.FileWithScheme = sprintf "%s:%s" u.Scheme u.File
+            member u.PrimaryWithScheme = sprintf "%s:%s" u.Scheme u.Secondary
+            member u.SecondaryWithScheme = sprintf "%s:%s" u.Scheme u.Secondary
 
-            // Primary
-            member u.Container = 
+            member u.Primary = 
                 let s = u.Segments.[0] in if s.EndsWith("/") then s.Substring(0, s.Length-1) else s
-            member u.Table = u.Container
-            member u.Queue = u.Container
-        
-            // Secondary
-            member u.File = u.Segments.[1]
-            member u.PartitionKey = u.File
-
-            // Unique
-            member u.RowKey = u.Segments.[2]
+            
+            member u.Secondary = u.Segments.[1]
+            member u.Unique = u.Segments.[2]
 
     module Storage =
         open MBrace.Azure.Runtime

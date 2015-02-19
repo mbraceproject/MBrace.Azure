@@ -65,11 +65,11 @@ type ``Azure Runtime Tests`` (sbus, storage) =
         processes.Add(ps)
         ps.AwaitResultAsync() |> Async.Catch |> Async.RunSync
 
-    let runCts (workflow : DistributedCancellationTokenSource -> Cloud<'T>) = 
+    let runCts (workflow : ICloudCancellationTokenSource -> Cloud<'T>) = 
         async {
             let runtime = Option.get runtime
-            let! dcts = DistributedCancellationTokenSource.Create(configId, testContainer) 
-            let ct = dcts.GetLocalCancellationToken()
+            let dcts = runtime.CreateCancellationTokenSource(testContainer)
+            let ct = dcts.Token.LocalToken
             let ps = runtime.CreateProcess(workflow dcts, cancellationToken = ct) 
             processes.Add(ps)
             return! ps.AwaitResultAsync() |> Async.Catch 

@@ -14,12 +14,12 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            return! BlobCell.CreateIfNotExists(config, res.Container, filename pkg.Id, fun () -> pkg) |> Async.Ignore
+            return! BlobCell.CreateIfNotExists(config, res.Primary, filename pkg.Id, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
         async { 
-            let uri = BlobCell<_>.GetUri(res.Container, filename id)
+            let uri = BlobCell<_>.GetUri(res.Primary, filename id)
             let cell = BlobCell.OfUri(config, uri)
             return! cell.GetValue()
         }

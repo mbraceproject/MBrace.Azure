@@ -9,12 +9,12 @@ open MBrace.Azure.Runtime.Common
 
 type IntCell internal (config : ConfigurationId, res : Uri) = 
     member __.Value = 
-        let e = Table.read<CounterEntity> config res.Table res.PartitionWithScheme "" |> Async.RunSync
+        let e = Table.read<CounterEntity> config res.Primary res.PrimaryWithScheme "" |> Async.RunSync
         e.Value
     
     member internal __.Update(updatef : int -> int) = 
         async { 
-            let! e = Table.transact<CounterEntity> config res.Table res.PartitionWithScheme "" (fun e -> e.Value <- updatef e.Value)
+            let! e = Table.transact<CounterEntity> config res.Primary res.PrimaryWithScheme "" (fun e -> e.Value <- updatef e.Value)
             return e.Value
         }
     
@@ -34,8 +34,8 @@ type IntCell internal (config : ConfigurationId, res : Uri) =
     static member Create(config, container : string, value : int) = 
         async { 
             let res = IntCell.GetUri(container, guid () )
-            let e = new CounterEntity(res.PartitionWithScheme, value)
-            do! Table.insert config res.Table e
+            let e = new CounterEntity(res.PrimaryWithScheme, value)
+            do! Table.insert config res.Primary e
             return new IntCell(config, res)
         }
 
@@ -61,8 +61,8 @@ type Latch internal (config, res : Uri) =
     static member Create(config, container : string, id : string, value : int) = 
         async { 
             let res = Latch.GetUri(container, id)
-            let e = new LatchEntity(res.PartitionWithScheme, value, value)
-            do! Table.insert config res.Table e
+            let e = new LatchEntity(res.PrimaryWithScheme, value, value)
+            do! Table.insert config res.Primary e
             return new Latch(config, res)
         }
     static member Create(config, container : string, value : int) = 
@@ -89,7 +89,7 @@ type Counter internal (config, res : Uri) =
     static member Create(config, container : string, value : int) = 
         async { 
             let res = Counter.GetUri(container, guid())
-            let e = new CounterEntity(res.PartitionWithScheme, value)
-            do! Table.insert config res.Table e
+            let e = new CounterEntity(res.PrimaryWithScheme, value)
+            do! Table.insert config res.Primary e
             return new Counter(config, res)
         }

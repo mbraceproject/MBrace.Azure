@@ -35,7 +35,7 @@ type ResultCell<'T> internal (config, res : Uri) as self =
                 cell)
 
     interface ICloudTask<'T> with
-        member c.Id = res.Table
+        member c.Id = res.Secondary
 
         member c.AwaitResult(?timeout:int) = cloud {
             let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
@@ -78,16 +78,16 @@ type ResultCell<'T> internal (config, res : Uri) as self =
 
     member __.SetResult(result : Result<'T>) : Async<unit> =
         async {
-            let! bc = BlobCell.CreateIfNotExists(config, res.Container, fun () -> result)
+            let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> result)
             let uri = bc.Uri
-            let e = new LightCellEntity(res.PartitionWithScheme, uri.ToString(), ETag = "*")
-            let! u = Table.merge config res.Table e
+            let e = new LightCellEntity(res.PrimaryWithScheme, uri.ToString(), ETag = "*")
+            let! u = Table.merge config res.Primary e
             return ()
         }
 
     member __.TryGetResult() : Async<Result<'T> option> = 
         async {
-            let! e = Table.read<LightCellEntity> config res.Table res.PartitionWithScheme ""
+            let! e = Table.read<LightCellEntity> config res.Primary res.PrimaryWithScheme ""
             if e.Uri = null then return None
             else
                 let bc = BlobCell.OfUri<Result<'T>>(config, new Uri(e.Uri))
@@ -120,8 +120,8 @@ type ResultCell<'T> internal (config, res : Uri) as self =
     static member Create<'T>(config, id, container : string) : Async<ResultCell<'T>> = 
         async { 
             let res = ResultCell<_>.GetUri(container, id)
-            let e = new LightCellEntity(res.PartitionWithScheme, null)
-            do! Table.insert<LightCellEntity> config res.Table e
+            let e = new LightCellEntity(res.PrimaryWithScheme, null)
+            do! Table.insert<LightCellEntity> config res.Primary e
             return new ResultCell<'T>(config, res)
         }
 
@@ -130,16 +130,16 @@ type ResultAggregator<'T> internal (config, res : Uri) =
     
     let completed () =
         async {
-            let! xs = Table.queryPK<ResultAggregatorEntity> config res.Table res.PartitionWithScheme
+            let! xs = Table.queryPK<ResultAggregatorEntity> config res.Primary res.PrimaryWithScheme
             return xs |> Seq.forall (fun e -> e.Uri <> String.Empty)
         }
 
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
-            let e = new ResultAggregatorEntity(res.PartitionWithScheme, index, null, ETag = "*")
-            let! bc = BlobCell.CreateIfNotExists(config, res.Container, fun () -> value)
+            let e = new ResultAggregatorEntity(res.PrimaryWithScheme, index, null, ETag = "*")
+            let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> value)
             e.Uri <- bc.Uri.ToString()
-            let! u = Table.replace config res.Table e
+            let! u = Table.replace config res.Primary e
             return __.Complete
         }
     
@@ -150,7 +150,7 @@ type ResultAggregator<'T> internal (config, res : Uri) =
             if not __.Complete then 
                 return! Async.Raise <| new InvalidOperationException("Result aggregator incomplete.")
             else
-                let! xs = Table.queryPK<ResultAggregatorEntity> config res.Table res.PartitionWithScheme
+                let! xs = Table.queryPK<ResultAggregatorEntity> config res.Primary res.PrimaryWithScheme
                 let bs = 
                     xs
                     |> Seq.sortBy (fun x -> x.Index)
@@ -184,7 +184,7 @@ type ResultAggregator<'T> internal (config, res : Uri) =
         async { 
             let res = ResultAggregator<_>.GetUri(container, guid())
             for i = 0 to size - 1 do
-                let e = new ResultAggregatorEntity(res.PartitionWithScheme, i, String.Empty)
-                do! Table.insert config res.Table e
+                let e = new ResultAggregatorEntity(res.PrimaryWithScheme, i, String.Empty)
+                do! Table.insert config res.Primary e
             return new ResultAggregator<'T>(config, res)
         }

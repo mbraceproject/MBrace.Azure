@@ -9,8 +9,8 @@ open MBrace.Azure.Runtime.Common
 type BlobCell<'T> internal (config : ConfigurationId, res : Uri) = 
     member __.GetValue() : Async<'T> = 
         async { 
-            let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
-            use! s = container.GetBlockBlobReference(res.FileWithScheme).OpenReadAsync()
+            let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Primary)
+            use! s = container.GetBlockBlobReference(res.SecondaryWithScheme).OpenReadAsync()
             return Configuration.Pickler.Deserialize<'T>(s) 
         }
     
@@ -31,9 +31,9 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
     static member CreateIfNotExists(config, container : string, id : string, f : unit -> 'T) = 
         async { 
             let res = BlobCell<_>.GetUri(container, id)
-            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
+            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Primary)
             let! _ = c.CreateIfNotExistsAsync()
-            let b = c.GetBlockBlobReference(res.FileWithScheme)
+            let b = c.GetBlockBlobReference(res.SecondaryWithScheme)
             let! exists = b.ExistsAsync()
             if not exists then
                 use! s = b.OpenWriteAsync()

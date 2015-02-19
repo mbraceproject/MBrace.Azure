@@ -47,6 +47,14 @@
         /// Attach given logger to ClientLogger.
         member __.AttachLogger(logger : ICloudLogger) = clientLogger.Attach(logger)
 
+        /// <summary>
+        /// Creates a fresh cloud cancellation token source for this runtime
+        /// </summary>
+        /// <param name="table">Optional table name where the cancellation token will be created. Defaults to Configuration.DefaultTable.</param>
+        member __.CreateCancellationTokenSource (?table : string) =
+            let table = defaultArg table config.DefaultTableOrContainer
+            state.ResourceFactory.RequestCancellationTokenSource(table) |> Async.RunSync :> ICloudCancellationTokenSource
+
         member __.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
             async {
                 let runtimeProvider = ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)

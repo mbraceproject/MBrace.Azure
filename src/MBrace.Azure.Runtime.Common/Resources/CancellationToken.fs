@@ -20,49 +20,46 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
                 |> Async.Parallel
                 |> Async.Ignore
             let e = new CancellationTokenSourceEntity(pk, IsCancellationRequested = true, ETag = "*")
-            let! u = Table.merge config res.Table e
+            let! _ = Table.merge config res.Primary e
             return ()
         }
 
     let check() = 
         async { 
-            let! e = Table.read<CancellationTokenSourceEntity> config res.Table res.PartitionWithScheme String.Empty
+            let! e = Table.read<CancellationTokenSourceEntity> config res.Primary res.PrimaryWithScheme String.Empty
             return e.IsCancellationRequested
         }
     
-    let cts = lazy new CancellationTokenSource()
-    
-    interface ICloudCancellationToken with
-        member this.IsCancellationRequested: bool = 
-            this.IsCancellationRequested
+    let localCts =
+        lazy
+            let cts = new CancellationTokenSource()
 
-        member this.LocalToken : CancellationToken = 
-            if cts.IsValueCreated then cts.Value.Token else failwith "Local cancellation token not initialized."
+            let rec loop () = async {
+                let! isCancelled = check ()
+                if isCancelled then
+                    cts.Cancel()
+                else
+                    do! Async.Sleep 200
+                    return! loop ()
+            }
+
+            Async.Start(loop())
+
+            cts
+
+
+    interface ICloudCancellationToken with
+        member this.IsCancellationRequested : bool = this.IsCancellationRequested
+        member this.LocalToken : CancellationToken = localCts.Value.Token
 
     interface ICloudCancellationTokenSource with
         member this.Cancel() : unit = this.Cancel()
-        
         member this.Token : ICloudCancellationToken = this :> ICloudCancellationToken
 
     member __.IsCancellationRequested = check() |> Async.RunSync
     
-    member __.CancelAsync() = cancel res.Table res.PartitionWithScheme
+    member __.CancelAsync() = cancel res.Primary res.PrimaryWithScheme
     member __.Cancel() = Async.RunSync(__.CancelAsync())
-    
-    member __.GetLocalCancellationToken() = 
-        let rec loop () = async {
-            let! isCancelled = check ()
-            if isCancelled then
-                cts.Value.Cancel()
-            else
-                do! Async.Sleep 200
-                return! loop ()
-        }
-
-        Async.Start(loop())
-
-        cts.Value.Token
-
     member __.Uri = res
     
     interface ISerializable with
@@ -80,14 +77,14 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     static member Create(config, container : string, ?parent : DistributedCancellationTokenSource) = 
         async { 
             let childUri = DistributedCancellationTokenSource.GetUri(container, guid())
-            let ctse = new CancellationTokenSourceEntity(childUri.PartitionWithScheme)         
-            do! Table.insert<CancellationTokenSourceEntity> config childUri.Table ctse
+            let ctse = new CancellationTokenSourceEntity(childUri.PrimaryWithScheme)         
+            do! Table.insert<CancellationTokenSourceEntity> config childUri.Primary ctse
             match parent with
             | None -> ()
             | Some p -> 
                 let parentUri = p.Uri
-                let link = new CancellationTokenLinkEntity(parentUri.PartitionWithScheme, childUri.PartitionWithScheme)
-                do! Table.insert<CancellationTokenLinkEntity> config childUri.Table link
+                let link = new CancellationTokenLinkEntity(parentUri.PrimaryWithScheme, childUri.PrimaryWithScheme)
+                do! Table.insert<CancellationTokenLinkEntity> config childUri.Primary link
             let dcts = new DistributedCancellationTokenSource(config, childUri)
             match parent with
             | Some p when p.IsCancellationRequested -> dcts.Cancel()

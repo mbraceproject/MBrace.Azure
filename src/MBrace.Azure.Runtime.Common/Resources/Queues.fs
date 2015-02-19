@@ -145,17 +145,17 @@ type internal Topic (config, topic) =
 
 /// Queue implementation.
 type internal Queue (config : ConfigurationId, res : Uri) = 
-    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Queue, ReceiveMode.PeekLock)
+    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Primary, ReceiveMode.PeekLock)
     let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
     
     member __.Path = queue.Path
     
-    member __.Length = ns.GetQueue(res.Queue).MessageCount
+    member __.Length = ns.GetQueue(res.Primary).MessageCount
     
     member __.EnqueueBatch<'T>(xs : 'T []) = 
         async { 
             let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = BlobCell.CreateIfNotExists(config, res.Queue, fun () -> x)
+                      |> Array.map (fun x -> async { let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> x)
                                                      return new BrokeredMessage(bc.Uri) })
                       |> Async.Parallel
             do! queue.SendBatchAsync(ys)
@@ -163,7 +163,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
     
     member __.Enqueue<'T>(t : 'T) = 
         async { 
-            let! bc = BlobCell.CreateIfNotExists(config, res.Queue, fun () -> t)
+            let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> t)
             let msg = new BrokeredMessage(bc.Uri)
             do! queue.SendAsync(msg)
         }
@@ -192,12 +192,12 @@ type internal Queue (config : ConfigurationId, res : Uri) =
         async { 
             let res = Queue.GetUri container
             let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
-            let qd = new QueueDescription(res.Queue)
+            let qd = new QueueDescription(res.Primary)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- MaxTTL
             qd.LockDuration <- MaxLockDuration
-            let! exists = ns.QueueExistsAsync(res.Queue)
+            let! exists = ns.QueueExistsAsync(res.Primary)
             if not exists then do! ns.CreateQueueAsync(qd)
             return new Queue(config, res)
         }

@@ -14,9 +14,8 @@ open MBrace.Azure.Runtime.Resources
 open MBrace.Azure.Runtime.Common.Storage
 open MBrace.Continuation
 
-let inline private withCancellationToken (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
-    let token = cts.GetLocalCancellationToken()
-    { Resources = ctx.Resources.Register(cts) ; CancellationToken = cts :> ICloudCancellationToken }
+let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =
+    { ctx with CancellationToken = cts }
 
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
