@@ -1,19 +1,18 @@
 ﻿namespace MBrace.Azure.Client
 
-    open System.IO
-    open System.Threading
+    #nowarn "40"
+    #nowarn "444"
 
     open MBrace
-    open MBrace.Continuation
-    open MBrace.Runtime
     open MBrace.Azure.Runtime
     open MBrace.Azure.Runtime.Common
+    open MBrace.Continuation
+    open MBrace.Runtime
     open MBrace.Runtime.Compiler
-
-    #nowarn "40"
-    open System
-    open MBrace.Store
     open MBrace.Runtime.InMemory
+    open MBrace.Store
+    open System
+    open System.Threading
 
     /// <summary>
     /// Windows Azure Runtime client.
@@ -52,7 +51,11 @@
             async {
                 let runtimeProvider = ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
                 let rsc = resource { yield! resources; yield runtimeProvider :> ICloudRuntimeProvider }
-                return! Cloud.ToAsync(workflow, rsc)
+                let! ct = 
+                    match cancellationToken with
+                    | Some ct -> async { return ct }
+                    | None -> Async.CancellationToken
+                return! Cloud.ToAsync(workflow, rsc, new InMemoryCancellationToken(ct))
             }
 
         member __.RunLocal(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =

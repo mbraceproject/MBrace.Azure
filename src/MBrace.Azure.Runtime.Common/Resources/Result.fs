@@ -22,7 +22,7 @@ with
         | Exception edi -> ExceptionDispatchInfo.raise true edi
         | Cancelled c -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true c
 
-type ResultCell<'T> internal (config, id, res : Uri) as self = 
+type ResultCell<'T> internal (config, res : Uri) as self = 
 
     let mutable localCell : CacheAtom<Result<'T> option> option = None
     let getLocalCell() =
@@ -35,7 +35,7 @@ type ResultCell<'T> internal (config, id, res : Uri) as self =
                 cell)
 
     interface ICloudTask<'T> with
-        member c.Id = id
+        member c.Id = res.Table
 
         member c.AwaitResult(?timeout:int) = cloud {
             let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
@@ -106,25 +106,23 @@ type ResultCell<'T> internal (config, id, res : Uri) as self =
     member __.Uri = res
 
     interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+        member x.GetObjectData(info: SerializationInfo, _ : StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
-            info.AddValue("id", id, typeof<string>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
-    new(info: SerializationInfo, context: StreamingContext) =
+    new(info: SerializationInfo, _ : StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
-        let id = info.GetValue("id", typeof<string>) :?> string
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new ResultCell<'T>(config, id, res)
+        new ResultCell<'T>(config, res)
 
     static member private GetUri(container, id) = uri "resultcell:%s/%s" container id
-    //static member FromUri<'T>(config : ConfigurationId, uri) = new ResultCell<'T>(config, uri)
+    static member FromUri<'T>(config : ConfigurationId, uri) = new ResultCell<'T>(config, uri)
     static member Create<'T>(config, id, container : string) : Async<ResultCell<'T>> = 
         async { 
             let res = ResultCell<_>.GetUri(container, id)
             let e = new LightCellEntity(res.PartitionWithScheme, null)
             do! Table.insert<LightCellEntity> config res.Table e
-            return new ResultCell<'T>(config, id, res)
+            return new ResultCell<'T>(config, res)
         }
 
 

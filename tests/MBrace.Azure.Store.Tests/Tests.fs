@@ -13,7 +13,7 @@ module private Config =
 
     do VagabondRegistry.Initialize(throwOnError = false)
 
-    let serializer = VagabondRegistry.Serializer
+    let serializer = MBrace.Runtime.Serialization.FsPicklerBinaryStoreSerializer()
 
     let emulatorConn = "UseDevelopmentStorage=true"
     let remoteConn = lazy Tests.Utils.selectEnv "azurestorageconn"
@@ -29,13 +29,13 @@ module private Config =
     let remoteAtomStoreConfig =
         lazy let store = 
                 { new AtomProvider(remoteConn.Value, serializer) with
-                    override __.ComputeSize(value : 'T) = VagabondRegistry.Pickler.ComputeSize(value) } :> ICloudAtomProvider 
+                    override __.ComputeSize(value : 'T) = VagabondRegistry.Instance.Pickler.ComputeSize(value) } :> ICloudAtomProvider 
              CloudAtomConfiguration.Create(store, "mbracetest")
 
     let emulatorAtomStoreConfig =
         lazy let store = 
                 { new AtomProvider(emulatorConn, serializer) with
-                    override __.ComputeSize(value : 'T) = VagabondRegistry.Pickler.ComputeSize(value) } :> ICloudAtomProvider 
+                    override __.ComputeSize(value : 'T) = VagabondRegistry.Instance.Pickler.ComputeSize(value) } :> ICloudAtomProvider 
              CloudAtomConfiguration.Create(store, "mbracetest")
 
     let remoteChannelStoreConfig =

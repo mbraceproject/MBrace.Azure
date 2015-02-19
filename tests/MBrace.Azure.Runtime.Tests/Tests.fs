@@ -7,6 +7,7 @@ open NUnit.Framework
 open FsUnit
 
 open MBrace
+open MBrace.Workflows
 open MBrace.Continuation
 open MBrace.Azure.Client
 open MBrace.Azure.Runtime
@@ -461,8 +462,8 @@ type ``Azure Runtime Tests`` (sbus, storage) =
         run (Cloud.GetProcessId()) |> Choice.shouldMatch (fun _ -> true)
 
     [<Test>]
-    member __.``4. Runtime : Get task id`` () =
-        run (Cloud.GetTaskId()) |> Choice.shouldMatch (fun _ -> true)
+    member __.``4. Runtime : Get job id`` () =
+        run (Cloud.GetJobId()) |> Choice.shouldMatch (fun _ -> true)
 
 
 type ``Compute Emulator`` () =

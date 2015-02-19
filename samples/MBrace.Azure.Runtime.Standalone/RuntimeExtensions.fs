@@ -15,13 +15,13 @@ module internal Argument =
 
     let ofConfiguration (config : Config) =
         Configuration.Initialize()
-        let pickle = VagabondRegistry.Pickler.Pickle(config)
+        let pickle = VagabondRegistry.Instance.Pickler.Pickle(config)
         System.Convert.ToBase64String pickle
 
     let toConfiguration (args : string []) =
         Configuration.Initialize()
         let bytes = System.Convert.FromBase64String(args.[0])
-        VagabondRegistry.Pickler.UnPickle<Config> bytes
+        VagabondRegistry.Instance.Pickler.UnPickle<Config> bytes
 
 type private Helpers () =
     static member val exe = None with get, set

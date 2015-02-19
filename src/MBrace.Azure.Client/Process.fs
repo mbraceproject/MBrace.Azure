@@ -114,7 +114,7 @@ type Process<'T> internal (config, pid : string, pmon : ProcessManager) =
     /// Asynchronously waits for the process result.
     member __.AwaitResultAsync() : Async<'T> = 
         async {
-            let rc : ResultCell<Result<'T>> = ResultCell.FromUri<_>(config, new Uri(__.ProcessEntity.Value.ResultUri))
+            let rc : ResultCell<'T> = ResultCell.FromUri<_>(config, new Uri(__.ProcessEntity.Value.ResultUri))
             let! r = rc.AwaitResult()
             return r.Value
         }

@@ -104,7 +104,7 @@ type internal Worker () =
                                     config.Logger.Log "Loading Dependencies."
                                     do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
                                     config.Logger.Log "Task UnPickle."
-                                    let task = VagabondRegistry.Pickler.UnPickleTyped<Task> ti.PickledTask
+                                    let task = VagabondRegistry.Instance.Pickler.UnPickleTyped<Task> ti.PickledTask
                                     return task, ti.Dependencies
                             } 
                             match task with

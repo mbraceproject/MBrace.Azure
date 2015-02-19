@@ -159,7 +159,8 @@ with
         if faultCount > 0 then
             let faultException = new FaultException(sprintf "Fault exception when running task '%s'." task.TaskId)
             match task.FaultPolicy.Policy faultCount (faultException :> exn) with
-            | None -> task.Econt ctx <| ExceptionDispatchInfo.Capture faultException
+            | None -> 
+                task.Econt ctx <| ExceptionDispatchInfo.Capture faultException
             | Some timeout ->
                 do! Async.Sleep (int timeout.TotalMilliseconds)
                 do task.StartTask ctx
@@ -178,9 +179,9 @@ type TaskItem =
 type RuntimeState =
     {
         /// Reference to the global task queue employed by the runtime
-        /// Queue contains pickled task and its vagrant dependency manifest
+        /// Queue contains pickled task and its dependencies.
         TaskQueue : TaskQueue
-        /// Assembly exporting facility.
+        /// Assembly manager.
         AssemblyManager : AssemblyManager
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
@@ -203,41 +204,6 @@ with
             ProcessMonitor = pmon
         }
     }
-
-    /// <summary>
-    ///     Enqueue a cloud workflow with supplied continuations to the runtime task queue.
-    /// </summary>
-    /// <param name="dependencies">Vagrant dependency manifest.</param>
-    /// <param name="cts">Distributed cancellation token source.</param>
-    /// <param name="sc">Success continuation</param>
-    /// <param name="ec">Exception continuation</param>
-    /// <param name="cc">Cancellation continuation</param>
-    /// <param name="wf">Workflow</param>
-    /// <param name="affinity">Optional task affinity.</param>
-    member rt.EnqueueTask(psInfo, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, taskType : TaskType) : Async<unit> =
-        let taskId = guid()
-        let startTask ctx =
-            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Cloud.StartWithContinuations(wf, cont, ctx)
-        let affinity = match taskType with Affined a -> Some a | _ -> None
-        let task = 
-            { 
-                Type = typeof<'T>
-                ProcessInfo = psInfo
-                TaskId = taskId
-                StartTask = startTask
-                CancellationTokenSource = cts
-                FaultPolicy = fp
-                Econt = ec
-                TaskType = taskType
-            }
-        
-        let taskp = VagabondRegistry.Instance.Pickler.PickleTyped task
-        let taskItem = { PickledTask = taskp; Dependencies = dependencies }
-        async {
-            do! rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
-            do! rt.ProcessMonitor.IncreaseTotalTasks(psInfo.Id)
-        }
 
     /// <summary>
     ///     Enqueue a batch of cloud workflows with supplied continuations to the runtime task queue.
@@ -284,15 +250,34 @@ with
             do! rt.ProcessMonitor.IncreaseTotalTasks(psInfo.Id, tasks.Length)
         }
 
-    /// <summary>
-    ///     Schedules a cloud workflow as a distributed result cell.
-    ///     Used for child tasks.
-    /// </summary>
-    /// <param name="dependencies">Declared workflow dependencies.</param>
-    /// <param name="cts">Cancellation token source bound to task.</param>
-    /// <param name="wf">Input workflow.</param>
-    member rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, taskType) = async {
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(psInfo.DefaultDirectory)
+    member private rt.EnqueueTask(psInfo, taskId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, taskType : TaskType) : Async<unit> =
+        let startTask ctx =
+            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
+            Cloud.StartWithContinuations(wf, cont, ctx)
+        let affinity = match taskType with Affined a -> Some a | _ -> None
+        let task = 
+            { 
+                Type = typeof<'T>
+                ProcessInfo = psInfo
+                TaskId = taskId
+                StartTask = startTask
+                CancellationTokenSource = cts
+                FaultPolicy = fp
+                Econt = ec
+                TaskType = taskType
+            }
+        
+        let taskp = VagabondRegistry.Instance.Pickler.PickleTyped task
+        let taskItem = { PickledTask = taskp; Dependencies = dependencies }
+        async {
+            do! rt.TaskQueue.Enqueue<TaskItem>(taskItem, ?affinity = affinity)
+            do! rt.ProcessMonitor.IncreaseTotalTasks(psInfo.Id)
+        }
+
+    /// Schedules a cloud workflow as an ICloudTask.
+    member rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, taskType) : Async<ICloudTask<'T>> = async {
+        let taskId = guid()
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(taskId, psInfo.DefaultDirectory)
         let setResult ctx r = 
             async {
                 do! resultCell.SetResult r
@@ -302,20 +287,15 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask(psInfo, dependencies, cts, fp, scont, econt, ccont, wf, taskType)
+        do! rt.EnqueueTask(psInfo, taskId, dependencies, cts, fp, scont, econt, ccont, wf, taskType)
         return resultCell :> ICloudTask<'T>
     }
 
-    /// <summary>
-    ///     Schedules a cloud workflow as a distributed result cell.
-    ///     Used for root-level workflows.
-    /// </summary>
-    /// <param name="dependencies">Declared workflow dependencies.</param>
-    /// <param name="cts">Cancellation token source bound to task.</param>
-    /// <param name="wf">Input workflow.</param>
-    /// <param name="psInfo">ProcessInfo.</param>
+    /// Schedules a cloud workflow as an ICloudTask.
+    /// Used for root-level workflows.
     member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, cts : DistributedCancellationTokenSource, fp, wf : Cloud<'T>) = async {
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(psInfo.DefaultDirectory)
+        let taskId = guid ()
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(taskId, psInfo.DefaultDirectory)
 
         let! _ = rt.ProcessMonitor
                    .CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies,
@@ -336,10 +316,11 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueTask(psInfo, dependencies, cts, fp, scont, econt, ccont, wf, TaskType.Root)
+
+        do! rt.EnqueueTask(psInfo, taskId, dependencies, cts, fp, scont, econt, ccont, wf, TaskType.Root)
         return resultCell
     }
 
-    /// Attempt to dequeue a task from the runtime task queue
+    /// Attempt to dequeue a task from the runtime task queue.
     member rt.TryDequeue () : Async<QueueMessage option> =
-        rt.TaskQueue.TryDequeue()
+        async { return! rt.TaskQueue.TryDequeue() }
