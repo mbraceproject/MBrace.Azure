@@ -74,6 +74,14 @@ let ctask = runtime.Run <| Cloud.StartAsCloudTask(cloud { return 42 })
 ctask.Id
 ctask.Result
 
+
+let x = 
+    cloud {
+        let! ctask = Cloud.StartAsCloudTask(cloud { return 42 })
+        return! ctask.AwaitResult()
+    } |> runtime.Run
+
+
 let wf = cloud {
     let! sp, rp = CloudChannel.New<int>()
     do! cloud {
