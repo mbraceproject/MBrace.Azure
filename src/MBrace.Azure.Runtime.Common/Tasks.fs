@@ -195,8 +195,8 @@ with
         let configurationId = config.ConfigurationId
         let! taskQueue = TaskQueue.Create(configurationId, config.DefaultQueue, config.DefaultTopic)
         let assemblyManager = AssemblyManager.Create(configurationId, config.DefaultTableOrContainer) 
-        let resourceFactory = ResourceFactory.Create(config) 
-        let pmon = ProcessManager.Create(config)
+        let resourceFactory = ResourceFactory.Create(configurationId) 
+        let pmon = ProcessManager.Create(configurationId, config.DefaultTableOrContainer)
         return { 
             TaskQueue = taskQueue
             AssemblyManager = assemblyManager 

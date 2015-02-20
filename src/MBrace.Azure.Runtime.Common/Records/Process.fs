@@ -55,7 +55,7 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
 type ProcessManager private (config, table : string) = 
     let pk = "process"
     
-    static member Create(config : Configuration) = new ProcessManager(config.ConfigurationId, config.DefaultTableOrContainer)
+    static member Create(configId : ConfigurationId, table) = new ProcessManager(configId, table)
 
     member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
         let now = DateTimeOffset.UtcNow

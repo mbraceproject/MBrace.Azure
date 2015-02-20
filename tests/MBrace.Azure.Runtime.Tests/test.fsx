@@ -39,7 +39,6 @@ Runtime.Spawn(config, 4, 16)
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachLogger(new Common.ConsoleLogger()) 
-
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
