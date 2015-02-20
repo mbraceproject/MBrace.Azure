@@ -16,7 +16,7 @@ open MBrace.Runtime
 
 type internal WorkerConfig = 
     { State              : RuntimeState
-      MaxConcurrentJobs : int
+      MaxConcurrentJobs  : int
       Resources          : ResourceRegistry
       Store              : ICloudFileStore
       Channel            : ICloudChannelProvider
@@ -87,6 +87,8 @@ type internal Worker () =
                     logf "Job fault %s with:\n%O" (string job) e
             finally
                 config.WorkerMonitor.DecrementJobCount()
+                config.Logger.Logf "ActiveJobs : %d" config.WorkerMonitor.ActiveJobs
+
         }
 
         new MailboxProcessor<WorkerMessage>(fun inbox ->
@@ -114,6 +116,7 @@ type internal Worker () =
                             match job with
                             | Choice1Of2(job, deps) ->
                                 config.WorkerMonitor.IncrementJobCount()
+                                config.Logger.Logf "ActiveJobs : %d" config.WorkerMonitor.ActiveJobs
                                 let! _ = Async.StartChild(run config msg job deps)
                                 ()
                             | Choice2Of2 ex ->

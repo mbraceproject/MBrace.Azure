@@ -21,7 +21,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable cache           = None
     let mutable resources       = ResourceRegistry.Empty
     let mutable config          = config
-    let mutable maxJobs        = Environment.ProcessorCount
+    let mutable maxJobs         = Environment.ProcessorCount
     let logger                  = new LoggerCombiner() 
     let worker                  = new Worker()
     

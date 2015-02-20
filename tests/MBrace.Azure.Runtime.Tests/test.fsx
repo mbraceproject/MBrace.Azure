@@ -34,11 +34,18 @@ let config =
 #r "MBrace.Azure.Runtime.Standalone"
 open MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 4, 16)
+Runtime.Spawn(config, 1, 3)
 // ----------------------------
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachLogger(new Common.ConsoleLogger()) 
+
+
+cloud {
+    printfn "foo"
+    return Console.ReadLine() 
+} |> runtime.CreateProcess
+
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
@@ -69,7 +76,7 @@ ps.ShowInfo()
 ps.AwaitResult() 
 
 let ct = runtime.CreateCancellationTokenSource()
-let ctask = runtime.Run(Cloud.StartAsCloudTask(cloud { return 42 }), ct.Token)
+let ctask = runtime.Run(Cloud.StartAsCloudTask(cloud { return 42 }, cancellationToken = ct.Token))
 ctask.Result
 
 ctask.Id
