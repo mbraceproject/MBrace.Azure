@@ -104,7 +104,7 @@ type Process<'T> internal (config, pid : string, pmon : ProcessManager) =
     override __.AwaitResultBoxed () : obj =__.AwaitResultBoxedAsync() |> Async.RunSync 
     override __.AwaitResultBoxedAsync () : Async<obj> =
         async {
-            let rc : ResultCell<Result<'T>> = ResultCell.FromUri<_>(config, new Uri(__.ProcessEntity.Value.ResultUri))
+            let rc : ResultCell<'T> = ResultCell.FromUri<_>(config, new Uri(__.ProcessEntity.Value.ResultUri))
             let! r = rc.AwaitResult()
             return r.Value :> obj
         }
