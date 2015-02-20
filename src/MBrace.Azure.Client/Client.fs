@@ -121,7 +121,7 @@
                         }
                     | Some ct -> async { return ct }
                 clientLogger.Logf "Starting process %s" info.Id
-                let! resultCell = state.StartAsProcess(info, computation.Dependencies, cts, faultPolicy, computation.Workflow)
+                let! _ = state.StartAsProcess(info, computation.Dependencies, cts, faultPolicy, computation.Workflow)
                 clientLogger.Logf "Created process %s" info.Id
                 return Process<'T>(config.ConfigurationId, info.Id, pmon)
             }

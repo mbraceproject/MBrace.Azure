@@ -13,6 +13,7 @@ open MBrace.Continuation
 open MBrace.Runtime.Vagabond
 open MBrace.Store
 open MBrace.Runtime
+open System
 
 type internal WorkerConfig = 
     { State              : RuntimeState
@@ -107,9 +108,10 @@ type internal Worker () =
                                     config.Logger.Log "Got JobItem."
                                     config.Logger.Logf "Message DeliveryCount : %d" msg.DeliveryCount
                                     let! ti = msg.GetPayloadAsync<JobItem>()
-                                    config.Logger.Log "Loading Dependencies."
+                                    let deps = ti.Dependencies |> Seq.map (fun d -> d.FullName) |> String.concat Environment.NewLine
+                                    config.Logger.Logf "Loading Dependencies\n%s" deps
                                     do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
-                                    config.Logger.Log "Job UnPickle."
+                                    config.Logger.Logf "Job UnPickle : [%d] bytes." ti.PickledJob.Bytes.Length
                                     let job = VagabondRegistry.Instance.Pickler.UnPickleTyped<Job> ti.PickledJob
                                     return job, ti.Dependencies
                             } 
