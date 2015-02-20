@@ -70,11 +70,11 @@
             __.RunLocalAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             |> Async.RunSynchronously
 
-        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) =
+        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
             __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
             |> Async.StartAsTask
 
-        member __.CreateProcess(workflow : Cloud<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : CancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
+        member __.CreateProcess(workflow : Cloud<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : ICloudCancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
             __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
             |> Async.RunSynchronously
 
@@ -86,7 +86,7 @@
                                      ?atomProvider : ICloudAtomProvider,
                                      ?defaultChannelContainer : string,
                                      ?channelProvider : ICloudChannelProvider,
-                                     ?cancellationToken : CancellationToken, 
+                                     ?cancellationToken : ICloudCancellationToken, 
                                      ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
                 let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
@@ -111,9 +111,15 @@
                 for d in computation.Dependencies do
                     clientLogger.Logf "%s" d.FullName
                 do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
-                clientLogger.Logf "Creating DistributedCancellationToken"
-                let! cts = state.ResourceFactory.RequestCancellationTokenSource(info.DefaultDirectory)
-                cancellationToken |> Option.iter (fun ct -> ct.Register(fun () -> cts.Cancel()) |> ignore)
+                
+                let! cts = 
+                    match cancellationToken with
+                    | None -> async {
+                        clientLogger.Logf "Creating DistributedCancellationToken"
+                        let! ct = state.ResourceFactory.RequestCancellationTokenSource(info.DefaultDirectory)
+                        return ct :> ICloudCancellationToken
+                        }
+                    | Some ct -> async { return ct }
                 clientLogger.Logf "Starting process %s" info.Id
                 let! resultCell = state.StartAsProcess(info, computation.Dependencies, cts, faultPolicy, computation.Workflow)
                 clientLogger.Logf "Created process %s" info.Id
@@ -126,7 +132,7 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) = async {
+        member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) = async {
             let! p = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             try
                 return p.AwaitResult()
@@ -140,7 +146,7 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
+        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
             let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             Async.StartAsTask(asyncwf)
 
@@ -150,7 +156,7 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.Run(workflow : Cloud<'T>, ?cancellationToken : CancellationToken, ?faultPolicy) =
+        member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
 

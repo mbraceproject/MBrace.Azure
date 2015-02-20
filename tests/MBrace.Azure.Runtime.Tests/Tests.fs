@@ -69,8 +69,7 @@ type ``Azure Runtime Tests`` (sbus, storage) =
         async {
             let runtime = Option.get runtime
             let dcts = runtime.CreateCancellationTokenSource(testContainer)
-            let ct = dcts.Token.LocalToken
-            let ps = runtime.CreateProcess(workflow dcts, cancellationToken = ct) 
+            let ps = runtime.CreateProcess(workflow dcts, cancellationToken = dcts.Token) 
             processes.Add(ps)
             return! ps.AwaitResultAsync() |> Async.Catch 
         } |> Async.RunSync

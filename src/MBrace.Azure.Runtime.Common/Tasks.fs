@@ -293,8 +293,9 @@ with
 
     /// Schedules a cloud workflow as an ICloudTask.
     /// Used for root-level workflows.
-    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, cts : DistributedCancellationTokenSource, fp, wf : Cloud<'T>) = async {
+    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, cts : ICloudCancellationToken, fp, wf : Cloud<'T>) = async {
         let taskId = guid ()
+        let cts = cts :?> DistributedCancellationTokenSource
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(taskId, psInfo.DefaultDirectory)
 
         let! _ = rt.ProcessMonitor
