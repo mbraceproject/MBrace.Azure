@@ -68,10 +68,11 @@ let ps = runtime.CreateProcess(wf 0 2)
 ps.ShowInfo()
 ps.AwaitResult() 
 
-
-let ctask = runtime.Run <| Cloud.StartAsCloudTask(cloud { return 42 })
-ctask.Id
+let ct = runtime.CreateCancellationTokenSource()
+let ctask = runtime.Run(Cloud.StartAsCloudTask(cloud { return 42 }), ct.Token)
 ctask.Result
+
+ctask.Id
 
 
 let x = 

@@ -52,10 +52,16 @@ type Configuration =
 
     /// Configuration identifier hash.
     member this.ConfigurationId : ConfigurationId = 
-        this.GetType()
-        |> Microsoft.FSharp.Reflection.FSharpType.GetRecordFields
-        |> Seq.sortBy (fun pi -> pi.Name)
-        |> Seq.map (fun pi -> pi.GetValue(this) :?> string)
+        // Normalize strings
+        let fields =
+            [ CloudStorageAccount.Parse(this.StorageConnectionString).Credentials.AccountName
+              NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
+              this.DefaultTableOrContainer.ToLower()
+              this.DefaultQueue.ToLower()
+              this.DefaultTopic.ToLower()
+              this.DefaultLogTable.ToLower()
+            ]
+        fields
         |> String.concat String.Empty
         |> ConfigurationId.ofText 
 
