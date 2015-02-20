@@ -25,9 +25,10 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx [||]
-        // schedule single-child parallel workflows in current task
-        // note that this invalidates expected workflow semantics w.r.t. mutability.
+        // schedule single-child parallel workflows in current job
+        // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] ->
+            let (comp, cont) = Configuration.Pickler.Clone (comp, cont)
             let cont' = Continuation.map (fun t -> [| t |]) cont
             Cloud.StartWithContinuations(comp, cont', ctx)
 
@@ -85,9 +86,12 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx None
-        // schedule single-child parallel workflows in current task
-        // note that this invalidates expected workflow semantics w.r.t. mutability.
-        | Choice1Of2 [| comp, None |] -> Cloud.StartWithContinuations(comp, cont, ctx)
+        // schedule single-child parallel workflows in current job
+        // force copy semantics by cloning the workflow
+        | Choice1Of2 [| (comp, None) |] ->
+            let (comp, cont) = Configuration.Pickler.Clone (comp, cont)
+            Cloud.StartWithContinuations(comp, cont, ctx)
+
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let storageId = psInfo.DefaultDirectory
