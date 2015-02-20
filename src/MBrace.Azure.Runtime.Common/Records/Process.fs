@@ -39,10 +39,10 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member val ResultUri : string = resultUri with get, set
     member val CancellationUri : string = cancellationUri with get, set
     
-    member val TotalTasks = 0 with get, set
-    member val ActiveTasks = 0 with get, set
-    member val CompletedTasks = 0 with get, set
-    member val FaultedTasks = 0 with get, set
+    member val TotalJobs = 0 with get, set
+    member val ActiveJobs = 0 with get, set
+    member val CompletedJobs = 0 with get, set
+    member val FaultedJobs = 0 with get, set
 
     member val TypeName : string = typeName with get, set
     member val Type : byte [] = ty with get, set
@@ -68,26 +68,26 @@ type ProcessManager private (config, table : string) =
     }
 
     // TODO : These methods cannot be used atomically
-    member this.IncreaseTotalTasks(pid : string, ?count) = 
+    member this.IncreaseTotalJobs(pid : string, ?count) = 
         let count = defaultArg count 1
-        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.TotalTasks <- pr.TotalTasks + count)
+        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.TotalJobs <- pr.TotalJobs + count)
         |> Async.Ignore
 
-    member this.AddActiveTask(pid : string) = 
-        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.ActiveTasks <- pr.ActiveTasks + 1)
+    member this.AddActiveJob(pid : string) = 
+        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.ActiveJobs <- pr.ActiveJobs + 1)
         |> Async.Ignore
 
-    member this.AddFaultedTask(pid : string) = 
+    member this.AddFaultedJob(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
-            (fun pr -> pr.FaultedTasks <- pr.FaultedTasks + 1
-                       pr.TotalTasks <- pr.TotalTasks + 1)
+            (fun pr -> pr.FaultedJobs <- pr.FaultedJobs + 1
+                       pr.TotalJobs <- pr.TotalJobs + 1)
         |> Async.Ignore
 
-    member this.AddCompletedTask(pid : string) = 
+    member this.AddCompletedJob(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
             (fun pr -> 
-                pr.ActiveTasks <- if pr.ActiveTasks = 0 then 0 else pr.ActiveTasks - 1
-                pr.CompletedTasks <- pr.CompletedTasks + 1)
+                pr.ActiveJobs <- if pr.ActiveJobs = 0 then 0 else pr.ActiveJobs - 1
+                pr.CompletedJobs <- pr.CompletedJobs + 1)
         |> Async.Ignore
 
     member this.SetRunning(pid : string) = 

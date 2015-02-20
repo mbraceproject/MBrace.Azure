@@ -12,7 +12,7 @@ open MBrace.Runtime.InMemory
 open MBrace.Azure.Runtime.Resources
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultPolicy, taskId, psInfo, dependencies, context) =
+type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultPolicy, JobId, psInfo, dependencies, context) =
         
     let failTargetWorker () = invalidOp <| sprintf "Cannot target worker when running in '%A' execution context" context
 
@@ -27,9 +27,9 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
                    |> Async.RunSynchronously
         dcts :> ICloudCancellationTokenSource
 
-    /// Creates a runtime provider instance for a provided task
-    static member FromTask state  wmon  dependencies (task : Task) =
-        new RuntimeProvider(state, wmon, task.FaultPolicy, task.TaskId, task.ProcessInfo, dependencies, Distributed)
+    /// Creates a runtime provider instance for a provided job
+    static member FromJob state  wmon  dependencies (job : Job) =
+        new RuntimeProvider(state, wmon, job.FaultPolicy, job.JobId, job.ProcessInfo, dependencies, Distributed)
 
     interface ICloudRuntimeProvider with
         member __.CreateLinkedCancellationTokenSource(parents: ICloudCancellationToken []): Async<ICloudCancellationTokenSource> = 
@@ -45,7 +45,7 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
             }
         member __.ProcessId = psInfo.Id
 
-        member __.JobId = taskId
+        member __.JobId = JobId
         
         member __.SchedulingContext = context
         member __.WithSchedulingContext ctx =
@@ -53,11 +53,11 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
             | Distributed, (ThreadParallel | Sequential)
             | ThreadParallel, Sequential ->
                 invalidOp <| sprintf "Cannot set scheduling context to '%A' when it already is '%A'." ctx context
-            | _ -> new RuntimeProvider(state, wmon, faultPolicy, taskId, psInfo, dependencies, ctx) :> ICloudRuntimeProvider
+            | _ -> new RuntimeProvider(state, wmon, faultPolicy, JobId, psInfo, dependencies, ctx) :> ICloudRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, wmon, newPolicy, taskId, psInfo, dependencies, context) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, wmon, newPolicy, JobId, psInfo, dependencies, context) :> ICloudRuntimeProvider
 
         member __.IsTargetedWorkerSupported = 
             match context with

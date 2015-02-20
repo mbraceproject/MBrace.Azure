@@ -203,7 +203,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
         }
 
 // Unified access to Queue/Topic/Subscription.
-type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) = 
+type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) = 
     let mutable affinity : string option = None
     let mutable subscription : Subscription option = None 
     let mutable flag = false
@@ -277,11 +277,11 @@ type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic)
         let queue = info.GetValue("queue", typeof<Queue>) :?> Queue
         let topic = info.GetValue("topic", typeof<Topic>) :?> Topic
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new TaskQueue(config, queue, topic)
+        new JobQueue(config, queue, topic)
 
     static member Create(config, queue, topic) =
         async {
             let! queue = Queue.Create(config, queue)
             let! topic = Topic.Create(config, topic)
-            return new TaskQueue(config, queue, topic)
+            return new JobQueue(config, queue, topic)
         }

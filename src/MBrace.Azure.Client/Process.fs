@@ -56,16 +56,16 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     member __.Completed = proc.Value.Completed
 
     /// Returns the number of tasks created by this process and are currently executing.
-    member __.ActiveTasks = proc.Value.ActiveTasks
+    member __.ActiveJobs = proc.Value.ActiveJobs
 
     /// Returns the number of tasks created by this process.
-    member __.TotalTasks = proc.Value.TotalTasks
+    member __.TotalJobs = proc.Value.TotalJobs
 
     /// Returns the number of tasks completed by this process.
-    member __.CompletedTasks = proc.Value.CompletedTasks
+    member __.CompletedJobs = proc.Value.CompletedJobs
 
     /// Returns the number of tasks failed to execute by this process.
-    member __.FaultedTasks = proc.Value.FaultedTasks
+    member __.FaultedJobs = proc.Value.FaultedJobs
 
     /// Sends a kill signal for this process.
     member __.Kill() = Async.RunSync(__.KillAsync())

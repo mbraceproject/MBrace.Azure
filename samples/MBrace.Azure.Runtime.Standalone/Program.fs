@@ -14,7 +14,7 @@
             let config = cfg.Configuration
 
             let svc = new Service(config)
-            svc.MaxConcurrentTasks <- cfg.MaxTasks
+            svc.MaxConcurrentJobs <- cfg.MaxTasks
             Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
 
             svc.AttachLogger(new ConsoleLogger())

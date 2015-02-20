@@ -6,6 +6,7 @@
 
 open MBrace
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
 
 #nowarn "444"
@@ -18,7 +19,7 @@ let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : 
     { ctx with CancellationToken = cts }
 
 let private asyncFromContinuations f =
-    Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
+    Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
 let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
@@ -51,8 +52,8 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
                         childCts.Cancel()
                         cont.Success (withCancellationToken currentCts ctx) results
                     else // results pending, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onException ctx e =
                 async {
@@ -61,8 +62,8 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
                         childCts.Cancel()
                         cont.Exception (withCancellationToken currentCts ctx) e
                     else // cancellation already triggered by different party, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onCancellation ctx c =
                 async {
@@ -71,15 +72,15 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
                         childCts.Cancel()
                         cont.Cancellation ctx c
                     else // cancellation already triggered by different party, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, TaskType.Parallel)
+                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, JobType.Parallel)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
-            TaskExecutionMonitor.TriggerCompletion ctx })
+            JobExecutionMonitor.TriggerCompletion ctx })
 
 let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T option> * IWorkerRef option>)  =
     asyncFromContinuations(fun ctx cont -> async {
@@ -112,7 +113,7 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                             cont.Success (withCancellationToken currentCts ctx) topt
                         else
                             // workflow already cancelled, declare task completion
-                            TaskExecutionMonitor.TriggerCompletion ctx
+                            JobExecutionMonitor.TriggerCompletion ctx
                     else
                         // 'None', increment completion latch
                         let! completionCount = completionLatch.Increment ()
@@ -122,8 +123,8 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                             cont.Success (withCancellationToken currentCts ctx) None
                         else
                             // other tasks pending, declare task completion
-                            TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                            JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onException ctx e =
                 async {
@@ -132,8 +133,8 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                         childCts.Cancel ()
                         cont.Exception (withCancellationToken currentCts ctx) e
                     else // cancellation already triggered by different party, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onCancellation ctx c =
                 async {
@@ -142,19 +143,19 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                         childCts.Cancel()
                         cont.Cancellation (withCancellationToken currentCts ctx) c
                     else // cancellation already triggered by different party, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, TaskType.Choice)
+                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, JobType.Choice)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
-            TaskExecutionMonitor.TriggerCompletion ctx })
+            JobExecutionMonitor.TriggerCompletion ctx })
 
 
 let StartAsCloudTask (state : RuntimeState) psInfo dependencies (ct : ICloudCancellationToken) fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
     let dcts = ct :?> DistributedCancellationTokenSource
-    let taskType = match affinity with None -> TaskType.StartChild | Some wr -> TaskType.Affined wr.Id
+    let taskType = match affinity with None -> JobType.StartChild | Some wr -> JobType.Affined wr.Id
     return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, dcts, fp, computation, taskType)
 }

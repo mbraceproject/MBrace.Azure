@@ -11,7 +11,7 @@ type internal ProcessReporter() =
           Field.create "State" Right (fun p -> p.State)
           Field.create "Completed" Left (fun p -> p.Completed)
           Field.create "Execution Time" Left (fun p -> if p.Completed then p.CompletionTime - p.InitializationTime  else DateTimeOffset.UtcNow - p.InitializationTime)
-          Field.create "Tasks" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveTasks p.FaultedTasks p.CompletedTasks p.TotalTasks)
+          Field.create "Jobs" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveJobs p.FaultedJobs p.CompletedJobs p.TotalJobs)
           Field.create "Result Type" Left (fun p -> p.TypeName) 
           Field.create "Start Time" Left (fun p -> p.InitializationTime)
           Field.create "Completion Time" Left (fun p -> if p.Completed then string p.CompletionTime else "N/A")
@@ -21,7 +21,7 @@ type internal ProcessReporter() =
         let ps = processes 
                  |> Seq.sortBy (fun p -> p.InitializationTime)
                  |> Seq.toList
-        sprintf "%s\nTasks : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)
+        sprintf "%s\nJobs : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)
 
 type internal WorkerReporter() = 
     static let template : Field<WorkerRecord> list = 
@@ -32,7 +32,7 @@ type internal WorkerReporter() =
           Field.create "% CPU / Cores" Center (fun p -> sprintf "%s / %d" (double_printer p.CPU) p.ProcessorCount)
           Field.create "% Memory / Total(MB)" Center (fun p -> sprintf "%s / %s" <| double_printer p.Memory <| double_printer p.TotalMemory)
           Field.create "Network(ul/dl : kbps)" Center (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUp <| double_printer n.NetworkDown)
-          Field.create "Tasks" Center (fun p -> sprintf "%d / %d" p.ActiveTasks p.MaxTasks)
+          Field.create "Jobs" Center (fun p -> sprintf "%d / %d" p.ActiveJobs p.MaxJobs)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
           Field.create "Heartbeat" Left (fun p -> p.Timestamp)
