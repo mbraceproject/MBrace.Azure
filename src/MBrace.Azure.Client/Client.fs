@@ -334,7 +334,8 @@
 
         /// <summary>
         /// Delete and re-activate runtime state.
-        /// Using 'Reset' may cause unexpected behavior in clients and workers
+        /// Using 'Reset' may cause unexpected behavior in clients and workers.
+        /// Workers should be restarted manually.
         /// </summary>
         /// <param name="clearAllProcesses">First ClearAllProcesses. Defaults to false.</param>
         [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
@@ -384,6 +385,9 @@
                     return! loop (retryCount + 1)
             }
             do! loop 0
+
+            cl.Logf "Initializing RuntimeState."
+            let! _ = RuntimeState.FromConfiguration(config)
 
             storageLogger.Start()
 

@@ -44,7 +44,8 @@ type internal Worker () =
         let receiveTimeout = 100
         /// Used for jobs that cannot be UnPickled.
         let maxJobDeliveryCount = 10
-
+        /// Sleep time for runtime errors.
+        let onErrorWaitTime = 10000
 
         let runJob (config : WorkerConfig) job deps faultCount  =
             let provider = RuntimeProvider.FromJob config.State config.WorkerMonitor deps job
@@ -111,7 +112,7 @@ type internal Worker () =
                                     let deps = ti.Dependencies |> Seq.map (fun d -> d.FullName) |> String.concat Environment.NewLine
                                     config.Logger.Logf "Loading Dependencies\n%s" deps
                                     do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
-                                    config.Logger.Logf "Job UnPickle : [%d] bytes." ti.PickledJob.Bytes.Length
+                                    config.Logger.Logf "Job UnPickle [%d bytes]." ti.PickledJob.Bytes.Length
                                     let job = VagabondRegistry.Instance.Pickler.UnPickleTyped<Job> ti.PickledJob
                                     return job, ti.Dependencies
                             } 
@@ -122,7 +123,7 @@ type internal Worker () =
                                 let! _ = Async.StartChild(run config msg job deps)
                                 ()
                             | Choice2Of2 ex ->
-                                config.Logger.Logf "Failed to UnPickle job :\n%A" ex
+                                config.Logger.Logf "Failed to UnPickle Job :\n%A" ex
                                 if msg.DeliveryCount >= maxJobDeliveryCount then
                                     // TODO : Set Process as Faulted.
                                     config.Logger.Logf "Faulted message : Complete."
@@ -130,9 +131,11 @@ type internal Worker () =
                                 else
                                     config.Logger.Logf "Faulted message : Abandon."
                                     do! msg.AbandonAsync()
+                                do! Async.Sleep onErrorWaitTime
                             return! workerLoop state
                         | Choice2Of2 ex ->
                             config.Logger.Logf "Worker JobQueue fault\n%A" ex
+                            do! Async.Sleep onErrorWaitTime
                             return! workerLoop state
                 | None, Idle -> 
                     return! workerLoop state
@@ -154,7 +157,7 @@ type internal Worker () =
                     handle.Reply()
                     return! workerLoop Idle
                 | Some(Update(config,ch)), Running _ ->
-                    config.Logger.Log "Updating configuration."
+                    config.Logger.Log "Updating worker configuration."
                     return! workerLoop(Running(config, ch))
                 | Some(IsActive ch), Idle ->
                     ch.Reply(false)

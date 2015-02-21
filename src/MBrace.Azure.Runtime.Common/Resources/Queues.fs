@@ -15,7 +15,7 @@ module private Constants =
     let AffinityPropertyName = "Affinity"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
     
-type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) = 
+type QueueMessage(config, msg : BrokeredMessage) = 
     let mutable completed = false
     let affinity = 
         match msg.Properties.TryGetValue(AffinityPropertyName) with
@@ -75,7 +75,7 @@ type internal Subscription (config, topic, affinity : string) =
         async { 
             let! msg = sub.ReceiveAsync(ServerWaitTime)
             if msg = null then return None
-            else return Some(QueueMessage(config, msg, false))
+            else return Some(QueueMessage(config, msg))
         }
 
 type internal Topic (config, topic) = 
@@ -122,11 +122,11 @@ type internal Topic (config, topic) =
         }
     
     interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
             info.AddValue("topic", topic, typeof<string>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, context : StreamingContext) = 
+    new(info : SerializationInfo, _ : StreamingContext) = 
         let topic = info.GetValue("topic", typeof<string>) :?> string
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new Topic(config, topic)
@@ -172,13 +172,13 @@ type internal Queue (config : ConfigurationId, res : Uri) =
         async { 
             let! msg = queue.ReceiveAsync(ServerWaitTime)
             if msg = null then return None
-            else return Some(QueueMessage(config, msg, true))
+            else return Some(QueueMessage(config, msg))
         }
     
     member __.Uri = res
     
     interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     

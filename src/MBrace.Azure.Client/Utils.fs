@@ -1,2 +1,2 @@
-﻿module MBrace.Azure.Client.Utils
+﻿module internal MBrace.Azure.Client.Utils
 

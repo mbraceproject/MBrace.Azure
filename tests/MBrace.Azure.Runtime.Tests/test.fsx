@@ -36,7 +36,7 @@ Runtime.Spawn(config, 4, 16)
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachLogger(new Common.ConsoleLogger()) 
-//runtime.Reset(true)
+runtime.Reset(true)
 
 
 
