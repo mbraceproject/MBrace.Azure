@@ -9,11 +9,12 @@ type ResourceFactory private (configId : ConfigurationId) =
     member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Create(configId, container, count)
     member __.RequestCancellationTokenSource(container, ?parent) = DistributedCancellationTokenSource.Create(configId, container, ?parent = parent)
     member __.RequestResultCell<'T>(taskId, container) = ResultCell<'T>.Create(configId, taskId, container)
-    member __.RequestProcessLogger(container, pid) = 
+    member __.RequestProcessLogger(container, pid) : MBrace.Runtime.ICloudLogger = 
         // TODO : change
         let pl = new ProcessLogger(configId, container, pid) 
         let lc = new LoggerCombiner()
         lc.Attach(new ConsoleLogger())
-        lc 
+        lc.Attach(pl)
+        lc :> _
 
     static member Create (configId : ConfigurationId) = new ResourceFactory(configId)

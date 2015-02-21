@@ -80,7 +80,6 @@ type internal Subscription (config, topic, affinity : string) =
 
 type internal Topic (config, topic) = 
     let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
-    let ns = cp.NamespaceClient
     let tc = cp.TopicClient(topic)
     member __.Name = topic
     member __.GetSubscription(affinity) : Subscription = new Subscription(config, topic, affinity)
@@ -182,7 +181,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, context : StreamingContext) = 
+    new(info : SerializationInfo, _ : StreamingContext) = 
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new Queue(config, res)
@@ -268,12 +267,12 @@ type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) 
         }
 
     interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
             info.AddValue("queue", queue, typeof<Queue>)
             info.AddValue("topic", topic, typeof<Topic>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, context : StreamingContext) = 
+    new(info : SerializationInfo, _ : StreamingContext) = 
         let queue = info.GetValue("queue", typeof<Queue>) :?> Queue
         let topic = info.GetValue("topic", typeof<Topic>) :?> Topic
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId

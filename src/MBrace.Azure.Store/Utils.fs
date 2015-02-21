@@ -144,7 +144,7 @@ module Table =
             e |> Seq.iter batch.Insert
             let t = client.GetTableReference(table)
             let! _ = t.CreateIfNotExistsAsync()
-            let! es = t.ExecuteBatchAsync(batch)
+            let! _ = t.ExecuteBatchAsync(batch)
             return ()
         }
 
@@ -178,7 +178,6 @@ module Table =
         async {
             let rec transact e = async { 
                 f e
-                let r = ref None
                 let! result = Async.Catch <| merge<'T> client table e
                 match result with
                 | Choice1Of2 r -> return r

@@ -65,11 +65,11 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     override this.ToString() = res.ToString()
 
     interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+        member x.GetObjectData(info: SerializationInfo, _ : StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
-    new(info: SerializationInfo, context: StreamingContext) =
+    new(info: SerializationInfo, _ : StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new DistributedCancellationTokenSource(config, res)

@@ -27,7 +27,7 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
     let mutable client = Table.getClient(CloudStorageAccount.Parse connectionString)
 
     [<OnDeserialized>]
-    let onDeserialized (_ : StreamingContext) =
+    let _onDeserialized (_ : StreamingContext) =
         client <- Table.getClient(CloudStorageAccount.Parse connectionString )
 
     interface ICloudAtom<'T> with
@@ -100,7 +100,7 @@ type AtomProvider (connectionString : string, serializer : ISerializer) =
     let mutable client = Table.getClient acc
 
     [<OnDeserialized>]
-    let onDeserialized (_ : StreamingContext) =
+    let _onDeserialized (_ : StreamingContext) =
         acc <- CloudStorageAccount.Parse(connectionString)
         client <- Table.getClient acc
 

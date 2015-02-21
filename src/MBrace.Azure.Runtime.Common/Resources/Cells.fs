@@ -17,11 +17,11 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
     member __.Uri = res
     
     interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+        member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
-    new(info: SerializationInfo, context: StreamingContext) =
+    new(info: SerializationInfo, _: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new BlobCell<'T>(config, res)

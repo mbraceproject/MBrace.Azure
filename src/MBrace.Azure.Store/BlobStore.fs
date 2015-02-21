@@ -20,7 +20,7 @@ type BlobStore private (connectionString : string) =
     let mutable acc = CloudStorageAccount.Parse(connectionString)
 
     [<OnDeserialized>]
-    let onDeserialized (_ : StreamingContext) =
+    let _onDeserialized (_ : StreamingContext) =
         acc <- CloudStorageAccount.Parse(connectionString)
 
     ///  Store implementation that uses a Azure Blob Storage as backend.

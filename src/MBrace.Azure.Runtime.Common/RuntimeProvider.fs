@@ -86,4 +86,4 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
                       |> Seq.toArray 
             }
         member __.CurrentWorker = wmon.Current.AsWorkerRef() :> IWorkerRef
-        member __.Logger = state.ResourceFactory.RequestProcessLogger(psInfo.DefaultDirectory, psInfo.Id) :> ICloudLogger
+        member __.Logger = state.ResourceFactory.RequestProcessLogger(psInfo.DefaultDirectory, psInfo.Id) 

@@ -75,7 +75,7 @@ type ResultCell<'T> internal (config, res : Uri) as self =
             let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> result)
             let uri = bc.Uri
             let e = new LightCellEntity(res.PrimaryWithScheme, uri.ToString(), ETag = "*")
-            let! u = Table.merge config res.Primary e
+            let! _ = Table.merge config res.Primary e
             return ()
         }
 
@@ -133,7 +133,7 @@ type ResultAggregator<'T> internal (config, res : Uri) =
             let e = new ResultAggregatorEntity(res.PrimaryWithScheme, index, null, ETag = "*")
             let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> value)
             e.Uri <- bc.Uri.ToString()
-            let! u = Table.replace config res.Primary e
+            let! _ = Table.replace config res.Primary e
             return __.Complete
         }
     
@@ -164,11 +164,11 @@ type ResultAggregator<'T> internal (config, res : Uri) =
     member __.Uri = res
 
     interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+        member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
-    new(info: SerializationInfo, context: StreamingContext) =
+    new(info: SerializationInfo, _: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new ResultAggregator<'T>(config, res)

@@ -53,11 +53,11 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
         |> List.map Utilities.ComputeAssemblyId
 
     interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, context : StreamingContext) = 
+    new(info : SerializationInfo, _ : StreamingContext) = 
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new AssemblyManager(config, res)
