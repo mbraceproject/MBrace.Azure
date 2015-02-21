@@ -34,12 +34,11 @@ let config =
 #r "MBrace.Azure.Runtime.Standalone"
 open MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 1, 3)
+Runtime.Spawn(config, 4, 16)
 // ----------------------------
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachLogger(new Common.ConsoleLogger()) 
-
 
 cloud {
     printfn "foo"

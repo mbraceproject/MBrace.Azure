@@ -12,6 +12,17 @@ open MBrace.Azure.Store
 open MBrace.Runtime.Store
 open MBrace.Runtime
 
+module private ReleaseInfo =
+    open System.Reflection
+
+    let prettyPrint () =
+        let asm = Assembly.GetExecutingAssembly()
+        let attributes = 
+            asm.GetCustomAttributes<AssemblyMetadataAttribute>()
+            |> Seq.map (fun ma -> ma.Key, ma.Value)
+            |> Map.ofSeq
+        attributes.["Release Signature"]
+
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
     // TODO : Add locks
@@ -70,6 +81,8 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Creating storage logger"
                 let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Worker(id = __.Id))
                 logger.Attach(storageLogger)
+
+                logf "%s" <| ReleaseInfo.prettyPrint()
 
                 let serializer = Configuration.Serializer
                 logf "Serializer : %s" serializer.Id
