@@ -62,6 +62,8 @@ type DistributedCancellationTokenSource internal (config, res : Uri) =
     member __.Cancel() = Async.RunSync(__.CancelAsync())
     member __.Uri = res
     
+    override this.ToString() = res.ToString()
+
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)

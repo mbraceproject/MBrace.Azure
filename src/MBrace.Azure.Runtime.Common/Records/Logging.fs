@@ -43,7 +43,8 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
     let maxWaitTime = 5000
     let logs = ResizeArray<LogRecord>()
     let timeToRK (time : DateTimeOffset) = sprintf "%020d" time.Ticks 
-        
+    let mutable running = true
+
     let flush () = async {
         let count = logs.Count
         if count > 0 then
@@ -53,12 +54,18 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
                             let r = logs.ToArray()
                             logs.Clear()
                             r)
-            do! Table.insertBatch<LogRecord> config table records
+            let! result = Async.Catch <| Table.insertBatch<LogRecord> config table records
+            match result with
+            | Choice1Of2 _ -> ()
+            | Choice2Of2 ex ->
+                printf "Failed to log %A" ex
+                lock logs (fun () -> logs.AddRange(records))
     }
 
     do  let rec loop _ = async {
             do! Async.Sleep maxWaitTime
-            do! flush ()
+            if running then
+                do! flush ()
             return! loop ()
         }
         Async.Start(loop ())
@@ -80,6 +87,10 @@ type StorageLogger(config, table : string, loggerType : LoggerType) =
     interface ICloudLogger with
         override __.Log(entry: string) : unit = log entry
 
+    member __.Start () = running <- true
+    member __.Stop () = 
+        Async.RunSync(flush())
+        running <- false
 
     member __.GetLogs (?loggerType : LoggerType, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
         let query = new TableQuery<LogRecord>()

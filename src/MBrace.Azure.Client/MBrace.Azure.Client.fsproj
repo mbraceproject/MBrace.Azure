@@ -24,6 +24,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Azure.Client.XML</DocumentationFile>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -33,6 +34,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Azure.Client.XML</DocumentationFile>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -46,6 +48,7 @@
     <WarningLevel>5</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Azure.Client.XML</DocumentationFile>
     <OutputPath>..\..\bin\</OutputPath>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_AzureSDK|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -54,7 +57,8 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Azure.Client.XML</DocumentationFile>
-    <OutputPath>bin\Release_AzureSDK\</OutputPath>
+    <OutputPath>..\..\bin\</OutputPath>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '11.0'">
@@ -71,6 +75,7 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Utils.fs" />
     <Compile Include="Reporting.fs" />
     <Compile Include="Process.fs" />
     <Compile Include="StoreClient.fs" />

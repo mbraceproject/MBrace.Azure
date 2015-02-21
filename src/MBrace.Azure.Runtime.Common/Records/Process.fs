@@ -122,9 +122,9 @@ type ProcessManager private (config, table : string) =
 
     member this.GetProcesses () = Table.queryPK<ProcessRecord> config table pk
 
-    member this.ClearProcess (pid : string) = async {
+    member this.ClearProcess (pid : string, force) = async {
         let! record = this.GetProcess(pid)
-        if not record.Completed then
+        if force = false && not record.Completed then
             failwithf "Cannot clear process %s. Process not completed." pid 
         do! Table.delete<ProcessRecord> config table record
         let container = Storage.processIdToStorageId pid
@@ -136,11 +136,11 @@ type ProcessManager private (config, table : string) =
         return ()
     }
 
-    member this.ClearAllProcesses () = async {
+    member this.ClearAllProcesses (force) = async {
         let! ps = this.GetProcesses()
         let xs = ResizeArray<exn>()
         for p in ps do 
-            let! result = Async.Catch <| this.ClearProcess(p.Id)
+            let! result = Async.Catch <| this.ClearProcess(p.Id, force)
             match result with
             | Choice2Of2 e -> xs.Add(e)
             | _ -> ()

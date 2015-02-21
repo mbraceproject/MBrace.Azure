@@ -27,9 +27,6 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-//Configuration.Activate(config)
-//Configuration.DeleteResources(config)
-
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
 open MBrace.Azure.Runtime.Standalone
@@ -39,6 +36,9 @@ Runtime.Spawn(config, 4, 16)
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachLogger(new Common.ConsoleLogger()) 
+//runtime.Reset(true)
+
+
 
 cloud {
     printfn "foo"
