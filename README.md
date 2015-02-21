@@ -1,6 +1,8 @@
 MBrace.Azure
 ============
 
+[![Join the chat at https://gitter.im/mbraceproject/MBrace.Azure](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/mbraceproject/MBrace.Azure?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+
 Windows Azure PaaS implementation of the [MBrace.Core/Runtime](https://github.com/mbraceproject/MBrace.Core).
 
 ### Build Status
