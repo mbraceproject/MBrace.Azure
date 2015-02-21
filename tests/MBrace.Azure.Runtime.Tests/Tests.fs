@@ -8,6 +8,8 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Standalone
 open MBrace.Tests
 
+#nowarn "445" // 'Reset'
+
 [<AbstractClass; TestFixture>]
 type ``Azure Runtime Tests`` (sbus, storage) as self =
     inherit ``Parallelism Tests`` (nParallel = 5)
@@ -31,7 +33,9 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
         runtime <- Some rt
 
     [<TestFixtureTearDown>]
-    member __.Fini () = 
+    abstract Fini : unit -> unit
+    default __.Fini () = 
+        runtime.Value.Reset(true)
         runtime <- None
 
     override __.IsTargetWorkerSupported = true
@@ -45,7 +49,13 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
         async {
             let runtime = runtime.Value
             let cts = runtime.CreateCancellationTokenSource()
-            return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            let! ps = runtime.CreateProcessAsync(workflow cts, cancellationToken = cts.Token)
+            return! async {
+                try
+                    return! Async.Catch <| ps.AwaitResultAsync()
+                finally
+                    runtime.ClearProcess(ps.Id, true)
+            }
         } |> Async.RunSync
 
     override __.RunLocal(workflow : Cloud<'T>) = runtime.Value.RunLocal(workflow)
@@ -111,12 +121,19 @@ type ``Compute - Storage Emulator`` () =
 
 type ``Standalone - Storage Emulator`` () =
     inherit ``Azure Runtime Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
-    
+
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
         Runtime.Spawn(base.Configuration, 4, 16) 
         base.Init()
+        
+    [<TestFixtureTearDownAttribute>]
+    override __.Fini() =
+        System.Diagnostics.Process.GetProcessesByName "MBrace.Azure.Runtime.Standalone"
+        |> Seq.iter (fun ps -> ps.Kill())
+        base.Fini()
+
 
 type ``Standalone`` () =
     inherit ``Azure Runtime Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
@@ -125,4 +142,10 @@ type ``Standalone`` () =
     override __.Init() =
         Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
         Runtime.Spawn(base.Configuration, 4, 16) 
-        base.Init()    
+        base.Init()
+        
+    [<TestFixtureTearDownAttribute>]
+    override __.Fini() =
+        System.Diagnostics.Process.GetProcessesByName "MBrace.Azure.Runtime.Standalone"
+        |> Seq.iter (fun ps -> ps.Kill())
+        base.Fini()
