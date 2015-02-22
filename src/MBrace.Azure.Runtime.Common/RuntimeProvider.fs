@@ -72,7 +72,7 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
 
 
         member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
-           Combinators.StartAsCloudTask state psInfo dependencies cancellationToken faultPolicy workflow target
+           Combinators.StartAsCloudTask state psInfo jobId dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 
             let! ws = wmon.GetWorkerRefs(showInactive = false)

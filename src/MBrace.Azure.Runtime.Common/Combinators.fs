@@ -76,7 +76,7 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depe
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, JobType.Parallel)
+                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, Parallel, jobId)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
@@ -147,15 +147,15 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depend
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, JobType.Choice)
+                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, Choice, jobId)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartAsCloudTask (state : RuntimeState) psInfo dependencies (ct : ICloudCancellationToken) fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
+let StartAsCloudTask (state : RuntimeState) psInfo (jobId : string) dependencies (ct : ICloudCancellationToken) fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
     let dcts = ct :?> DistributedCancellationTokenSource
     let taskType = match affinity with None -> JobType.StartChild | Some wr -> JobType.Affined wr.Id
-    return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, dcts, fp, computation, taskType)
+    return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, dcts, fp, computation, taskType, jobId)
 }

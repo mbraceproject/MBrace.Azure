@@ -62,13 +62,17 @@ type JobType =
     /// Job created by Cloud.StartChild with affinity.
     | Affined of affinity : string
     /// Job created by Cloud.Parallel.
-    | Parallel
+    | Parallel of index : int * length : int
     /// Job created by Cloud.Choice.
-    | Choice
+    | Choice of index : int * length : int
     /// Job created by Cloud.Parallel with affinity.
-    | ParallelAffined of affinity : string
+    | ParallelAffined of affinity : string * index : int * length : int
     /// Job created by Cloud.Choice with affinity.
-    | ChoiceAffined of affinity : string
+    | ChoiceAffined of affinity : string * index : int * length : int
+
+type internal DistributionType =
+    | Choice
+    | Parallel
 
 /// Defines a job to be executed in a worker node
 type Job = 
@@ -89,10 +93,12 @@ type Job =
         CancellationTokenSource : DistributedCancellationTokenSource
         /// Type of job.
         JobType : JobType
+        /// JobId of parent Job.
+        ParentJobId : string
     }
 with
     override this.ToString () =
-        sprintf "Job:\"%A\"\nProcess:\"%s\"\nId:\"%s\"\nType:\"%s\" " this.JobType this.ProcessInfo.Id this.JobId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
+        sprintf "Job : %A \nProcess : %s \nId : %s \nType : %s\nParentJob : %s " this.JobType this.ProcessInfo.Id this.JobId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type) this.ParentJobId
 
     /// <summary>
     ///     Asynchronously executes job in the local process.
@@ -176,7 +182,7 @@ with
     /// <param name="cc">Cancellation continuation.</param>
     /// <param name="wfs">Workflows</param>
     /// <param name="affinity">Optional job affinity.</param>
-    member rt.EnqueueJobBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : (Cloud<'T> * IWorkerRef option) [], jobType) : Async<unit> =
+    member internal rt.EnqueueJobBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : (Cloud<'T> * IWorkerRef option) [], distribType : DistributionType, parentJobId) : Async<unit> =
         let jobs = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
             let jobId = guid()
@@ -184,11 +190,11 @@ with
                 let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
                 Cloud.StartWithContinuations(fst wfs.[i], cont, ctx)
             let jobType aff  =
-                match jobType, aff with
-                | (Parallel | Choice) as t, None -> t
-                | Parallel, Some a -> ParallelAffined a
-                | Choice, Some a -> ChoiceAffined a
-                | t -> failwith "Invalid JobType %A in EnqueueBatch." t
+                match distribType, aff with
+                | Parallel, Some a -> ParallelAffined(a, i, wfs.Length)
+                | Choice, Some a   -> ChoiceAffined(a, i, wfs.Length)
+                | Parallel, None   -> JobType.Parallel(i,wfs.Length)
+                | Choice, None     -> JobType.Choice(i,wfs.Length)
 
             let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
             let job = 
@@ -201,6 +207,7 @@ with
                     FaultPolicy = fp
                     Econt = ec
                     JobType = jobType affinity
+                    ParentJobId = parentJobId
                 }
 
             let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
@@ -210,7 +217,7 @@ with
             do! rt.ProcessMonitor.IncreaseTotalJobs(psInfo.Id, jobs.Length)
         }
 
-    member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, jobType : JobType) : Async<unit> =
+    member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, jobType : JobType, parentJobId) : Async<unit> =
         let startJob ctx =
             let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
             Cloud.StartWithContinuations(wf, cont, ctx)
@@ -225,6 +232,7 @@ with
                 FaultPolicy = fp
                 Econt = ec
                 JobType = jobType
+                ParentJobId = parentJobId
             }
         
         let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
@@ -235,7 +243,7 @@ with
         }
 
     /// Schedules a cloud workflow as an ICloudTask.
-    member rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, jobType) : Async<ICloudTask<'T>> = async {
+    member internal rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, jobType, parentJobId) : Async<ICloudTask<'T>> = async {
         let jobId = guid()
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.DefaultDirectory)
         let setResult ctx r = 
@@ -247,7 +255,7 @@ with
         let scont ctx t = setResult ctx (Completed t)
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
-        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, jobType)
+        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, jobType, parentJobId)
         return resultCell :> ICloudTask<'T>
     }
 
@@ -282,7 +290,7 @@ with
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
 
-        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root)
+        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root, String.Empty)
         return resultCell
     }
 
