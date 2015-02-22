@@ -16,14 +16,14 @@ type ProcessState =
     | Posted
     | Running
     | Completed
-    | Cancelling
+    | KillRequested
     | Killed
     override this.ToString() = 
         match this with
         | Posted -> "Posted"
         | Running -> "Running"
         | Killed -> "Killed"
-        | Cancelling -> "Cancelling"
+        | KillRequested -> "Kill requested"
         | Completed -> "Completed"
 
 type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, typeName, deps) = 
@@ -106,9 +106,9 @@ type ProcessManager private (config, table : string) =
               pr.Completed <- true)
         |> Async.Ignore
 
-    member this.SetCancelling(pid : string) = 
+    member this.SetKillRequested(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
-          (fun pr -> pr.State <- string ProcessState.Cancelling)
+          (fun pr -> pr.State <- string ProcessState.KillRequested)
         |> Async.Ignore
 
     member this.SetCompleted(pid : string) =

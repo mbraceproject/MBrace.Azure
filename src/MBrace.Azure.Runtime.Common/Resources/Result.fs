@@ -72,16 +72,16 @@ type ResultCell<'T> internal (config, res : Uri) as self =
 
     member __.SetResult(result : Result<'T>) : Async<unit> =
         async {
-            let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> result)
+            let! bc = BlobCell.Create(config, res.Primary, fun () -> result)
             let uri = bc.Uri
-            let e = new LightCellEntity(res.PrimaryWithScheme, uri.ToString(), ETag = "*")
+            let e = new LightCellEntity(res.SecondaryWithScheme, uri.ToString(), ETag = "*")
             let! _ = Table.merge config res.Primary e
             return ()
         }
 
     member __.TryGetResult() : Async<Result<'T> option> = 
         async {
-            let! e = Table.read<LightCellEntity> config res.Primary res.PrimaryWithScheme ""
+            let! e = Table.read<LightCellEntity> config res.Primary res.SecondaryWithScheme ""
             if String.IsNullOrEmpty e.Uri then return None
             else
                 let bc = BlobCell.OfUri<Result<'T>>(config, new Uri(e.Uri))
@@ -114,7 +114,7 @@ type ResultCell<'T> internal (config, res : Uri) as self =
     static member Create<'T>(config, id, container : string) : Async<ResultCell<'T>> = 
         async { 
             let res = ResultCell<_>.GetUri(container, id)
-            let e = new LightCellEntity(res.PrimaryWithScheme, null)
+            let e = new LightCellEntity(res.SecondaryWithScheme, null)
             do! Table.insert<LightCellEntity> config res.Primary e
             return new ResultCell<'T>(config, res)
         }
@@ -124,14 +124,14 @@ type ResultAggregator<'T> internal (config, res : Uri) =
     
     let completed () =
         async {
-            let! xs = Table.queryPK<ResultAggregatorEntity> config res.Primary res.PrimaryWithScheme
+            let! xs = Table.queryPK<ResultAggregatorEntity> config res.Primary res.SecondaryWithScheme
             return xs |> Seq.forall (fun e -> e.Uri <> String.Empty)
         }
 
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
-            let e = new ResultAggregatorEntity(res.PrimaryWithScheme, index, null, ETag = "*")
-            let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> value)
+            let e = new ResultAggregatorEntity(res.SecondaryWithScheme, index, null, ETag = "*")
+            let! bc = BlobCell.Create(config, res.Primary, fun () -> value)
             e.Uri <- bc.Uri.ToString()
             let! _ = Table.replace config res.Primary e
             return __.Complete
@@ -144,7 +144,7 @@ type ResultAggregator<'T> internal (config, res : Uri) =
             if not __.Complete then 
                 return! Async.Raise <| new InvalidOperationException("Result aggregator incomplete.")
             else
-                let! xs = Table.queryPK<ResultAggregatorEntity> config res.Primary res.PrimaryWithScheme
+                let! xs = Table.queryPK<ResultAggregatorEntity> config res.Primary res.SecondaryWithScheme
                 let bs = 
                     xs
                     |> Seq.sortBy (fun x -> x.Index)
@@ -178,7 +178,7 @@ type ResultAggregator<'T> internal (config, res : Uri) =
         async { 
             let res = ResultAggregator<_>.GetUri(container, guid())
             for i = 0 to size - 1 do
-                let e = new ResultAggregatorEntity(res.PrimaryWithScheme, i, String.Empty)
+                let e = new ResultAggregatorEntity(res.SecondaryWithScheme, i, String.Empty)
                 do! Table.insert config res.Primary e
             return new ResultAggregator<'T>(config, res)
         }

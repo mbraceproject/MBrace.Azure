@@ -7,7 +7,7 @@ open MBrace.Azure.Runtime.Common
 type ResourceFactory private (configId : ConfigurationId) =
     member __.RequestCounter(container, count) = Counter.Create(configId, container, count)
     member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Create(configId, container, count)
-    member __.RequestCancellationTokenSource(container, ?parent) = DistributedCancellationTokenSource.Create(configId, container, ?parent = parent)
+    member __.RequestCancellationTokenSource(container, ?metadata, ?parent) = DistributedCancellationTokenSource.Create(configId, container, ?metadata = metadata, ?parent = parent)
     member __.RequestResultCell<'T>(taskId, container) = ResultCell<'T>.Create(configId, taskId, container)
     member __.RequestProcessLogger(container, pid) : MBrace.Runtime.ICloudLogger = 
         // TODO : change

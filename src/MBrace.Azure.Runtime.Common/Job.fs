@@ -102,7 +102,6 @@ with
     /// <param name="job">Job to be executed.</param>
     static member RunAsync (runtimeProvider : ICloudRuntimeProvider) 
                            (resources : ResourceRegistry)
-                           (dependencies : AssemblyId list) 
                            (faultCount : int)
                            (job : Job) = async {
         let jem = new JobExecutionMonitor()
@@ -113,7 +112,6 @@ with
                                 yield! resources
                                 yield jem
                                 yield job.CancellationTokenSource
-                                yield dependencies
                             }
                 CancellationToken = job.CancellationTokenSource :> ICloudCancellationToken
             }
@@ -255,9 +253,13 @@ with
 
     /// Schedules a cloud workflow as an ICloudJob.
     /// Used for root-level workflows.
-    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, cts : ICloudCancellationToken, fp, wf : Cloud<'T>) = async {
+    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, fp, wf : Cloud<'T>, ?ct : ICloudCancellationToken) = async {
         let jobId = guid ()
-        let cts = cts :?> DistributedCancellationTokenSource
+        let! cts = 
+            match ct with
+            | None -> rt.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory, metadata = jobId)
+            | Some ct -> async { return ct :?> DistributedCancellationTokenSource }
+
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.DefaultDirectory)
 
         let! _ = rt.ProcessMonitor

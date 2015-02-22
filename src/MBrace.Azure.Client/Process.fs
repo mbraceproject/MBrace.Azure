@@ -71,7 +71,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     member __.Kill() = Async.RunSync(__.KillAsync())
     /// Asynchronously sends a kill signal for this process.
     member __.KillAsync() = async {
-            do! pmon.SetCancelling(pid)
+            do! pmon.SetKillRequested(pid)
             do! __.DistributedCancellationTokenSource.CancelAsync()
         }
 
@@ -88,13 +88,6 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
 
     /// Prints a detailed report for this process.
     member __.ShowInfo () = printf "%s" <| ProcessReporter.Report([proc.Value], "Process", false)
-
-    /// Deletes process created blob storage containers and tables.
-    //member __.ClearProcessResourcesAsync () = 
-    //    if not __.Completed then invalidOp "Process is not completed."
-    //    pmon.ClearProcess(pid)
-    /// Deletes process created blob storage containers and tables.
-    //member __.ClearProcessResources () = Async.RunSync(__.ClearProcessResourcesAsync())
 
 [<AutoSerializable(false)>]
 /// Represents a cloud process.

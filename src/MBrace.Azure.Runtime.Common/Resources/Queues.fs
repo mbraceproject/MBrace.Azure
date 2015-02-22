@@ -89,7 +89,7 @@ type internal Topic (config, topic) =
             let! ys = xs
                       |> Array.map (fun (x, affinity) -> 
                              async { 
-                                 let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> x)
+                                 let! bc = BlobCell.Create(config, topic, fun () -> x)
                                  let msg = new BrokeredMessage(bc.Uri)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
@@ -103,7 +103,7 @@ type internal Topic (config, topic) =
             let! ys = xs
                       |> Array.map (fun x -> 
                              async { 
-                                 let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> x)
+                                 let! bc = BlobCell.Create(config, topic, fun () -> x)
                                  let msg = new BrokeredMessage(bc.Uri)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
@@ -114,7 +114,7 @@ type internal Topic (config, topic) =
     
     member __.Enqueue<'T>(t : 'T, affinity : string) = 
         async { 
-            let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> t)
+            let! bc = BlobCell.Create(config, topic, fun () -> t)
             let msg = new BrokeredMessage(bc.Uri)
             msg.Properties.Add(AffinityPropertyName, affinity)
             do! tc.SendAsync(msg)
@@ -154,7 +154,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
     member __.EnqueueBatch<'T>(xs : 'T []) = 
         async { 
             let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> x)
+                      |> Array.map (fun x -> async { let! bc = BlobCell.Create(config, res.Primary, fun () -> x)
                                                      return new BrokeredMessage(bc.Uri) })
                       |> Async.Parallel
             do! queue.SendBatchAsync(ys)
@@ -162,7 +162,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
     
     member __.Enqueue<'T>(t : 'T) = 
         async { 
-            let! bc = BlobCell.CreateIfNotExists(config, res.Primary, fun () -> t)
+            let! bc = BlobCell.Create(config, res.Primary, fun () -> t)
             let msg = new BrokeredMessage(bc.Uri)
             do! queue.SendAsync(msg)
         }

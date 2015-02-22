@@ -36,21 +36,19 @@ Runtime.Spawn(config, 4, 16)
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachLogger(new Common.ConsoleLogger()) 
-runtime.Reset(true)
+
+//runtime.Reset(false, true)
 
 
-
-cloud {
-    printfn "foo"
-    return Console.ReadLine() 
-} |> runtime.CreateProcess
+cloud { return 42 }
+|> runtime.Run
 
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
 let ps =
-    [1..10]
+    [1..30]
     |> Seq.map (fun i -> cloud { return i * i })
     |> Cloud.Parallel
     |> runtime.CreateProcess
