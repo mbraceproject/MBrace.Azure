@@ -36,7 +36,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
     [<TestFixtureTearDown>]
     abstract Fini : unit -> unit
     default __.Fini () = 
-        runtime.Value.Reset(true)
+        runtime.Value.Reset(false, true)
         runtime <- None
 
     override __.IsTargetWorkerSupported = true

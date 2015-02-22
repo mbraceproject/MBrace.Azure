@@ -62,13 +62,13 @@ type JobType =
     /// Job created by Cloud.StartChild with affinity.
     | Affined of affinity : string
     /// Job created by Cloud.Parallel.
-    | Parallel of index : int * length : int
+    | Parallel of index : int * maxIndex : int
     /// Job created by Cloud.Choice.
-    | Choice of index : int * length : int
+    | Choice of index : int * maxIndex : int
     /// Job created by Cloud.Parallel with affinity.
-    | ParallelAffined of affinity : string * index : int * length : int
+    | ParallelAffined of affinity : string * index : int * maxIndex : int
     /// Job created by Cloud.Choice with affinity.
-    | ChoiceAffined of affinity : string * index : int * length : int
+    | ChoiceAffined of affinity : string * index : int * maxIndex : int
 
 type internal DistributionType =
     | Choice
@@ -98,7 +98,7 @@ type Job =
     }
 with
     override this.ToString () =
-        sprintf "Job : %A \nProcess : %s \nId : %s \nType : %s\nParentJob : %s " this.JobType this.ProcessInfo.Id this.JobId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type) this.ParentJobId
+        sprintf "Job : %A \nParentJob : %s\nProcess : %s \nId : %s \nType : %s" this.JobType this.ProcessInfo.Id this.JobId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type) this.ParentJobId
 
     /// <summary>
     ///     Asynchronously executes job in the local process.
@@ -191,10 +191,10 @@ with
                 Cloud.StartWithContinuations(fst wfs.[i], cont, ctx)
             let jobType aff  =
                 match distribType, aff with
-                | Parallel, Some a -> ParallelAffined(a, i, wfs.Length)
-                | Choice, Some a   -> ChoiceAffined(a, i, wfs.Length)
-                | Parallel, None   -> JobType.Parallel(i,wfs.Length)
-                | Choice, None     -> JobType.Choice(i,wfs.Length)
+                | Parallel, Some a -> ParallelAffined(a, i, wfs.Length-1)
+                | Choice, Some a   -> ChoiceAffined(a, i, wfs.Length-1)
+                | Parallel, None   -> JobType.Parallel(i,wfs.Length-1)
+                | Choice, None     -> JobType.Choice(i,wfs.Length-1)
 
             let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
             let job = 
