@@ -16,12 +16,12 @@ open MBrace.Azure.Runtime.Common.Storage
 open MBrace.Continuation
 
 let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =
-    { ctx with CancellationToken = cts }
+    { ctx with Resources = ctx.Resources.Register(cts) ; CancellationToken = cts }
 
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
-let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T> * IWorkerRef option>) =
+let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) dependencies fp (computations : seq<Cloud<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -38,7 +38,7 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
             let storageId = psInfo.DefaultDirectory
             
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts, metadata = jobId)
             
             let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(storageId, computations.Length)
             let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
@@ -76,13 +76,13 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, JobType.Parallel)
+                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, Parallel, jobId)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
-let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T option> * IWorkerRef option>)  =
+let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) dependencies fp (computations : seq<Cloud<'T option> * IWorkerRef option>)  =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -98,7 +98,7 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
             let storageId = psInfo.DefaultDirectory
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts, metadata = jobId)
 
             let! completionLatch = state.ResourceFactory.RequestCounter(storageId, 0)
             let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
@@ -147,15 +147,15 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, JobType.Choice)
+                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, Choice, jobId)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartAsCloudTask (state : RuntimeState) psInfo dependencies (ct : ICloudCancellationToken) fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
+let StartAsCloudTask (state : RuntimeState) psInfo (jobId : string) dependencies (ct : ICloudCancellationToken) fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
     let dcts = ct :?> DistributedCancellationTokenSource
     let taskType = match affinity with None -> JobType.StartChild | Some wr -> JobType.Affined wr.Id
-    return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, dcts, fp, computation, taskType)
+    return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, dcts, fp, computation, taskType, jobId)
 }

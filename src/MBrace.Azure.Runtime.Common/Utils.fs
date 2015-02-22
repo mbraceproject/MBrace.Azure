@@ -26,7 +26,7 @@
                 __.ReturnFrom(Async.AwaitTask f)
 
         type Uri with
-            member u.PrimaryWithScheme = sprintf "%s:%s" u.Scheme u.Secondary
+            member u.PrimaryWithScheme = sprintf "%s:%s" u.Scheme u.Primary
             member u.SecondaryWithScheme = sprintf "%s:%s" u.Scheme u.Secondary
 
             member u.Primary = 

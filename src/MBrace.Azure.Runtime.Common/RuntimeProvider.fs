@@ -12,7 +12,7 @@ open MBrace.Runtime.InMemory
 open MBrace.Azure.Runtime.Resources
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultPolicy, JobId, psInfo, dependencies, context) =
+type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultPolicy, jobId, psInfo, dependencies, context) =
         
     let failTargetWorker () = invalidOp <| sprintf "Cannot target worker when running in '%A' execution context" context
 
@@ -23,7 +23,7 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
 
     let mkNestedCts (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
-        let dcts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory , parent = parentCts)
+        let dcts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory, parent = parentCts)
                    |> Async.RunSynchronously
         dcts :> ICloudCancellationTokenSource
 
@@ -38,26 +38,20 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
                 | [||] -> 
                     let! cts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory) 
                     return cts :> ICloudCancellationTokenSource
-                | [| ct |] ->
-                    return mkNestedCts ct
-                | _ ->
-                    return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
+                | [| ct |] -> return mkNestedCts ct
+                | _ -> return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
             }
         member __.ProcessId = psInfo.Id
 
-        member __.JobId = JobId
+        member __.JobId = jobId
         
         member __.SchedulingContext = context
         member __.WithSchedulingContext ctx =
-            match ctx, context with
-            | Distributed, (ThreadParallel | Sequential)
-            | ThreadParallel, Sequential ->
-                invalidOp <| sprintf "Cannot set scheduling context to '%A' when it already is '%A'." ctx context
-            | _ -> new RuntimeProvider(state, wmon, faultPolicy, JobId, psInfo, dependencies, ctx) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, wmon, faultPolicy, jobId, psInfo, dependencies, ctx) :> ICloudRuntimeProvider
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, wmon, newPolicy, JobId, psInfo, dependencies, context) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, wmon, newPolicy, jobId, psInfo, dependencies, context) :> ICloudRuntimeProvider
 
         member __.IsTargetedWorkerSupported = 
             match context with
@@ -66,19 +60,19 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
 
         member __.ScheduleParallel computations = 
             match context with
-            | Distributed -> Combinators.Parallel state psInfo dependencies faultPolicy computations
+            | Distributed -> Combinators.Parallel state psInfo jobId dependencies faultPolicy computations
             | ThreadParallel -> ThreadPool.Parallel(mkNestedCts, (extractComputations computations))
             | Sequential -> Sequential.Parallel <| extractComputations computations
 
         member __.ScheduleChoice computations = 
             match context with
-            | Distributed -> Combinators.Choice state psInfo dependencies faultPolicy computations
+            | Distributed -> Combinators.Choice state psInfo jobId dependencies faultPolicy computations
             | ThreadParallel -> ThreadPool.Choice(mkNestedCts, (extractComputations computations))
             | Sequential -> Sequential.Choice <| extractComputations computations
 
 
         member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
-           Combinators.StartAsCloudTask state psInfo dependencies cancellationToken faultPolicy workflow target
+           Combinators.StartAsCloudTask state psInfo jobId dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 
             let! ws = wmon.GetWorkerRefs(showInactive = false)

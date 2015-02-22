@@ -42,5 +42,5 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
             else
                 return BlobCell.OfUri<'T>(config, res)
         }
-    static member CreateIfNotExists(config, container : string, f : unit -> 'T) = 
+    static member Create(config, container : string, f : unit -> 'T) = 
         BlobCell.CreateIfNotExists(config, container, guid(), f)

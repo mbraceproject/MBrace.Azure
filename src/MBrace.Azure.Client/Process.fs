@@ -23,15 +23,18 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
                     stopf = fun _ -> false)
 
     let logger = new ProcessLogger(config, Storage.processIdToStorageId pid, pid)
+    let dcts = lazy DistributedCancellationTokenSource.FromUri(config, new Uri(proc.Value.CancellationUri))
 
     member internal __.ProcessEntity = proc
-    member internal __.DistributedCancellationTokenSource = 
-        DistributedCancellationTokenSource.FromUri(config, new Uri(proc.Value.CancellationUri))
+    member internal __.DistributedCancellationTokenSource = dcts.Value
     
     /// Awaits for the process result.
     abstract AwaitResultBoxed : unit -> obj
     /// Asynchronously waits for the process result.
     abstract AwaitResultBoxedAsync : unit -> Async<obj>
+
+    /// Returns process' CancellationTokenSource.
+    member __.CancellationTokenSource = dcts.Value :> ICloudCancellationTokenSource
 
     /// Process id.    
     member __.Id = pid
@@ -52,7 +55,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
             else DateTimeOffset.UtcNow
         s - proc.Value.InitializationTime
     
-    /// Returns if the process is completed.
+    /// Returns iff the process is completed.
     member __.Completed = proc.Value.Completed
 
     /// Returns the number of tasks created by this process and are currently executing.
@@ -71,7 +74,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     member __.Kill() = Async.RunSync(__.KillAsync())
     /// Asynchronously sends a kill signal for this process.
     member __.KillAsync() = async {
-            do! pmon.SetCancelling(pid)
+            do! pmon.SetKillRequested(pid)
             do! __.DistributedCancellationTokenSource.CancelAsync()
         }
 
@@ -88,13 +91,6 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
 
     /// Prints a detailed report for this process.
     member __.ShowInfo () = printf "%s" <| ProcessReporter.Report([proc.Value], "Process", false)
-
-    /// Deletes process created blob storage containers and tables.
-    //member __.ClearProcessResourcesAsync () = 
-    //    if not __.Completed then invalidOp "Process is not completed."
-    //    pmon.ClearProcess(pid)
-    /// Deletes process created blob storage containers and tables.
-    //member __.ClearProcessResources () = Async.RunSync(__.ClearProcessResourcesAsync())
 
 [<AutoSerializable(false)>]
 /// Represents a cloud process.

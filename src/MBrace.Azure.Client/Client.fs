@@ -54,7 +54,8 @@
         /// <param name="table">Optional table name where the cancellation token will be created. Defaults to Configuration.DefaultTable.</param>
         member __.CreateCancellationTokenSource (?table : string) =
             let table = defaultArg table config.DefaultTableOrContainer
-            state.ResourceFactory.RequestCancellationTokenSource(table) |> Async.RunSync :> ICloudCancellationTokenSource
+            state.ResourceFactory.RequestCancellationTokenSource(table) 
+            |> Async.RunSync :> ICloudCancellationTokenSource
 
         /// <summary>
         /// Execute given workflow locally using thread parallelism and await for its result.
@@ -167,18 +168,8 @@
                     clientLogger.Logf "- %s" d.FullName
                 clientLogger.Logf "Uploading dependencies."
                 do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
-                
-                clientLogger.Logf "Request ICloudCancellationTokenSource."
-                let! cts = 
-                    match cancellationToken with
-                    | None -> async {
-                        let! ct = state.ResourceFactory.RequestCancellationTokenSource(info.DefaultDirectory)
-                        return ct :> ICloudCancellationToken
-                        }
-                    | Some ct -> async { return ct }
-                clientLogger.Logf "Using %O." cts
                 clientLogger.Logf "Submit process %s." info.Id
-                let! _ = state.StartAsProcess(info, computation.Dependencies, cts, faultPolicy, computation.Workflow)
+                let! _ = state.StartAsProcess(info, computation.Dependencies, faultPolicy, computation.Workflow, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
                 return Process<'T>(config.ConfigurationId, info.Id, pmon)
             }
@@ -337,59 +328,64 @@
         /// Using 'Reset' may cause unexpected behavior in clients and workers.
         /// Workers should be restarted manually.
         /// </summary>
+        /// <param name="reactivate">Reactivate runtime state. Defaults to true.</param>
         /// <param name="clearAllProcesses">First ClearAllProcesses. Defaults to false.</param>
         [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-        member __.Reset(?clearAllProcesses) =
+        member __.Reset(?reactivate, ?clearAllProcesses) =
             async {
-            let clearAllProcesses = defaultArg clearAllProcesses false
-            clientLogger.Logf "Calling Reset."
-            storageLogger.Stop()
-            let cl = new Common.ConsoleLogger() // Using client (storage) logger will throw exc.
-            let! step1 =
-                if clearAllProcesses then
-                    cl.Logf "Calling ClearAllProcesses."
-                    __.ClearAllProcessesAsync(true)
-                else 
-                    async.Zero()
-                |> Async.Catch
-            match step1 with
-            | Choice2Of2 ex ->
-                cl.Logf "Failed to ClearAllProcesses %A" ex
-            | _ -> ()
+                // TODO : Refactor
+                let clearAllProcesses = defaultArg clearAllProcesses false
+                let reactivate = defaultArg reactivate true
 
-            cl.Logf "Deleting resources."
-            let rec loop retryCount = async {
-                cl.Logf "RetryCount %d." retryCount
-                let! step2 = Async.Catch <| Configuration.DeleteResourcesAsync(config)
-                match step2 with
-                | Choice1Of2 _ ->
-                    cl.Logf "Done."
+                clientLogger.Logf "Calling Reset."
+                storageLogger.Stop()
+                let cl = new Common.ConsoleLogger() // Using client (storage) logger will throw exc.
+                let! step1 =
+                    if clearAllProcesses then
+                        cl.Logf "Calling ClearAllProcesses."
+                        __.ClearAllProcessesAsync(true)
+                    else 
+                        async.Zero()
+                    |> Async.Catch
+                match step1 with
                 | Choice2Of2 ex ->
-                    cl.Logf "Failed with %A" ex
-                    do! Async.Sleep 5000
-                    return! loop (retryCount + 1)
-            }
-            do! loop 0
+                    cl.Logf "Failed to ClearAllProcesses %A" ex
+                | _ -> ()
 
-            cl.Logf "Activating Configuration."
-            let rec loop retryCount = async {
-                cl.Logf "RetryCount %d." retryCount
-                let! step2 = Async.Catch <| Configuration.ActivateAsync(config)
-                match step2 with
-                | Choice1Of2 _ -> 
-                    cl.Logf "Done."
-                | Choice2Of2 ex ->
-                    cl.Logf "Failed with %A" ex
-                    cl.Logf "Waiting."
-                    do! Async.Sleep 10000
-                    return! loop (retryCount + 1)
-            }
-            do! loop 0
+                cl.Logf "Deleting resources."
+                let rec loop retryCount = async {
+                    cl.Logf "RetryCount %d." retryCount
+                    let! step2 = Async.Catch <| Configuration.DeleteResourcesAsync(config)
+                    match step2 with
+                    | Choice1Of2 _ ->
+                        cl.Logf "Done."
+                    | Choice2Of2 ex ->
+                        cl.Logf "Failed with %A" ex
+                        do! Async.Sleep 5000
+                        return! loop (retryCount + 1)
+                }
+                do! loop 0
 
-            cl.Logf "Initializing RuntimeState."
-            let! _ = RuntimeState.FromConfiguration(config)
+                if reactivate then
+                    cl.Logf "Activating Configuration."
+                    let rec loop retryCount = async {
+                        cl.Logf "RetryCount %d." retryCount
+                        let! step2 = Async.Catch <| Configuration.ActivateAsync(config)
+                        match step2 with
+                        | Choice1Of2 _ -> 
+                            cl.Logf "Done."
+                        | Choice2Of2 ex ->
+                            cl.Logf "Failed with %A" ex
+                            cl.Logf "Waiting."
+                            do! Async.Sleep 10000
+                            return! loop (retryCount + 1)
+                    }
+                    do! loop 0
 
-            storageLogger.Start()
+                    cl.Logf "Initializing RuntimeState."
+                    let! _ = RuntimeState.FromConfiguration(config)
+
+                    storageLogger.Start()
 
             } |> Async.RunSync
 

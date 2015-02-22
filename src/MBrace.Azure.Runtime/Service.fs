@@ -76,6 +76,7 @@ type Service (config : Configuration, serviceId : string) =
                 let sw = new Stopwatch() in sw.Start()
 
                 logf "Activating Configuration"
+                Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
                 do! Configuration.ActivateAsync(config)
 
                 logf "Creating storage logger"
@@ -111,7 +112,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 let wmon = WorkerManager.Create(config, MaxJobs = __.MaxConcurrentJobs)
                 let! e = wmon.RegisterCurrent(serviceId)
-                logf "Declared node\nHostname:\"%s\"\nPID:\"%d\"\nServiceId:\"%s\"" e.Hostname e.ProcessId (e :> IWorkerRef).Id
+                logf "Declared node : %s \nPID : %d \nServiceId : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
                 Async.Start(wmon.HeartbeatLoop())
                 logf "Started heartbeat loop" 

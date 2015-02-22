@@ -87,6 +87,9 @@ type Configuration =
 
 type internal ClientProvider (config : Configuration) =
     let acc = CloudStorageAccount.Parse(config.StorageConnectionString)
+    do System.Net.ServicePointManager.Expect100Continue <- false
+    do System.Net.ServicePointManager.UseNagleAlgorithm <- false
+
     member __.TableClient = acc.CreateCloudTableClient()
     member __.BlobClient = acc.CreateCloudBlobClient()
     member __.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)

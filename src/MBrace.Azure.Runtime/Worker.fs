@@ -57,7 +57,7 @@ type internal Worker () =
                 yield { AtomProvider = defaultArg info.AtomProvider config.Atom ; DefaultContainer = info.DefaultAtomContainer }
                 yield { ChannelProvider = defaultArg info.ChannelProvider config.Channel; DefaultContainer = info.DefaultChannelContainer }
             }
-            Job.RunAsync provider resources deps faultCount job
+            Job.RunAsync provider resources faultCount job
 
         let run (config : WorkerConfig) (msg : QueueMessage) (job : Job) dependencies = async {
             let inline logf fmt = Printf.ksprintf config.Logger.Log fmt
@@ -65,7 +65,7 @@ type internal Worker () =
             let! _ = Async.StartChild(msg.RenewLoopAsync())
 
             if job.JobType = JobType.Root then
-                logf "Starting Root job for Process\nId:\"%s\"\nName:\"%s\"" job.ProcessInfo.Id job.ProcessInfo.Name
+                logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
                 do! config.ProcessMonitor.SetRunning(job.ProcessInfo.Id)
 
             if msg.DeliveryCount = 1 then
@@ -82,11 +82,11 @@ type internal Worker () =
                 | Choice1Of2 () -> 
                     do! msg.CompleteAsync()
                     do! config.ProcessMonitor.AddCompletedJob(job.ProcessInfo.Id)
-                    logf "Completed job\n%s\nTime:%O" (string job) sw.Elapsed
+                    logf "Completed job\n%s\nTime : %O" (string job) sw.Elapsed
                 | Choice2Of2 e -> 
                     do! msg.AbandonAsync()
                     do! config.ProcessMonitor.AddFaultedJob(job.ProcessInfo.Id)
-                    logf "Job fault %s with:\n%O" (string job) e
+                    logf "Job fault %s with :\n%O" (string job) e
             finally
                 config.WorkerMonitor.DecrementJobCount()
                 config.Logger.Logf "ActiveJobs : %d" config.WorkerMonitor.ActiveJobs
