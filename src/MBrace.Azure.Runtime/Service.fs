@@ -76,6 +76,7 @@ type Service (config : Configuration, serviceId : string) =
                 let sw = new Stopwatch() in sw.Start()
 
                 logf "Activating Configuration"
+                Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
                 do! Configuration.ActivateAsync(config)
 
                 logf "Creating storage logger"
