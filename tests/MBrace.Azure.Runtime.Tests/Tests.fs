@@ -12,7 +12,7 @@ open MBrace.Tests
 
 [<AbstractClass; TestFixture>]
 type ``Azure Runtime Tests`` (sbus, storage) as self =
-    inherit ``Parallelism Tests`` (nParallel = 5)
+    inherit ``Parallelism Tests`` (nParallel = 4)
     
     let config = 
         { Configuration.Default with
@@ -30,6 +30,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
     abstract Init : unit -> unit
     default __.Init () = 
         let rt = Runtime.GetHandle(config)
+        rt.AttachLogger(Common.ConsoleLogger())
         runtime <- Some rt
 
     [<TestFixtureTearDown>]
@@ -61,7 +62,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
     override __.RunLocal(workflow : Cloud<'T>) = runtime.Value.RunLocal(workflow)
 
     override __.Logs = failwith "Not implemented"
-    override __.FsCheckMaxTests = 5
+    override __.FsCheckMaxTests = 4
     override __.Repeats = 1
 
 
@@ -125,7 +126,7 @@ type ``Standalone - Storage Emulator`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-        Runtime.Spawn(base.Configuration, 4, 16) 
+        Runtime.Spawn(base.Configuration, 4) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -141,7 +142,7 @@ type ``Standalone`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-        Runtime.Spawn(base.Configuration, 4, 16) 
+        Runtime.Spawn(base.Configuration, 4) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
