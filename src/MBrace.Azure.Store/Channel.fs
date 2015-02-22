@@ -117,7 +117,7 @@ type ChannelProvider private (connectionString : string, serializer : ISerialize
             async {
                 let queuePath = sprintf "channel_%s" <| guid()
                 let qd = new QueueDescription(queuePath)
-                qd.EnablePartitioning <- true
+                qd.SupportOrdering <- true
                 qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
                 do! nsClient.CreateQueueAsync(qd)
                 return new SendPort<'T>(queuePath, connectionString, serializer) :> ISendPort<'T>, 
