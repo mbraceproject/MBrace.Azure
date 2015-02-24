@@ -17,26 +17,24 @@ open System.IO
 let project = "MBrace.Azure"
 let authors = [ "Kostas Rontogiannis" ]
 
+let description = """ MBrace on Windows Azure. """
 
-let description = """ Windows Azure implementation of the MBrace.Core. """
+let tags = "F# cloud mapreduce distributed azure windowsazure"
 
-let tags = "F# cloud mapreduce distributed windowsazure"
+let storeSummary = """ Contains a collection of MBrace Store primitives implemented on top of Windows Azure. """
+
+let runtimeSummary = """ Contains an MBrace Runtime implementation implemented on top of Windows Azure."""
 
 // --------------------------------------------------------------------------------------
 // Read release notes & version info from RELEASE_NOTES.md
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
+let gitHash = Information.getCurrentHash()
+let buildDate = DateTime.UtcNow
+let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
+let nugetVersion = release.NugetVersion
 
 let gitHome = "https://github.com/mbraceproject"
 let gitName = "MBrace.Azure"
-let gitHash = Information.getCurrentHash()
-let buildDate = DateTime.UtcNow
-
-module Runtime =
-    let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
-    let nugetVersion = release.NugetVersion
-module StoreBindings =
-    let release = parseReleaseNotes (IO.File.ReadAllLines "STORE_BINDINGS_NOTES.md") 
-    let nugetVersion = release.NugetVersion
 
 
 // Generate assembly info files with the right version & up-to-date information
@@ -47,20 +45,14 @@ Target "AssemblyInfo" (fun _ ->
             Attribute.Product project
             Attribute.Company "Nessos Information Technologies"
             Attribute.Copyright "\169 Nessos Information Technologies."
-            Attribute.Trademark "MBrace.Azure"
+            Attribute.Trademark "MBrace"
             Attribute.Metadata("Release Signature", 
                 sprintf "Version %s, Git Hash %s, Build Date %s" 
-                    Runtime.release.AssemblyVersion
+                    release.AssemblyVersion
                     gitHash 
                     (buildDate.ToString "ddMMyyyy HH:mm zzz"))
-            Attribute.Version Runtime.release.AssemblyVersion
-            Attribute.FileVersion Runtime.release.AssemblyVersion
-        |]
-
-    let store_attributes = 
-        [| yield! attributes.[0..5]
-           yield  Attribute.Version StoreBindings.release.AssemblyVersion
-           yield  Attribute.FileVersion StoreBindings.release.AssemblyVersion
+            Attribute.Version release.AssemblyVersion
+            Attribute.FileVersion release.AssemblyVersion
         |]
 
     !! "./src/**/AssemblyInfo.fs"
@@ -69,9 +61,6 @@ Target "AssemblyInfo" (fun _ ->
     |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info attributes)
     !! "./samples/**/AssemblyInfo.cs"
     |> Seq.iter (fun info -> CreateCSharpAssemblyInfo info attributes)
-    
-    !! "./src/MBrace.Azure.Store/AssemblyInfo.fs"
-    |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info store_attributes)
 )
 
 
@@ -127,7 +116,8 @@ FinalTarget "CloseTestRunner" (fun _ ->
     ProcessHelper.killProcess "nunit-agent.exe"
 )
 
-// Nuget packages
+//// --------------------------------------------------------------------------------------
+//// Build a NuGet package
 
 let addFile (target : string) (file : string) =
     if File.Exists (Path.Combine("nuget", file)) then (file, Some target, None)
@@ -147,6 +137,64 @@ let addAssembly (target : string) assembly =
         yield! includeFile false <| assembly + ".config"
     }
 
+Target "NuGet.Store" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = "MBrace.Azure.Store"
+            Summary = storeSummary
+            Description = storeSummary
+            Version = nugetVersion
+            ReleaseNotes = String.concat " " release.Notes
+            Tags = tags
+            OutputPath = "bin"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Dependencies = 
+                [
+                    "MBrace.Core", RequireExactly release.NugetVersion
+                    "WindowsAzure.Storage", "4.3.0"
+                    "WindowsAzure.ServiceBus", "2.5.2.0"
+                ]
+            Publish = hasBuildParam "nugetkey" 
+            Files =
+                [
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Store.dll"
+                ]
+        })
+        ("nuget/MBrace.Azure.nuspec")
+)
+
+Target "NuGet.Runtime" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = "MBrace.Azure.Runtime"
+            Summary = storeSummary
+            Description = storeSummary
+            Version = nugetVersion
+            ReleaseNotes = String.concat " " release.Notes
+            Tags = tags
+            OutputPath = "bin"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Dependencies = 
+                [
+                    "MBrace.Core", RequireExactly release.NugetVersion
+                    "MBrace.Runtime.Core", RequireExactly release.NugetVersion
+                    "MBrace.Azure.Store", RequireExactly release.NugetVersion
+                    "WindowsAzure.Storage", "4.3.0"
+                    "WindowsAzure.ServiceBus", "2.5.2.0"
+                ]
+            Publish = hasBuildParam "nugetkey" 
+            Files =
+                [
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.Common.dll"
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.dll"
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Client.dll"
+                ]
+        })
+        ("nuget/MBrace.Azure.nuspec")
+)
+
 // --------------------------------------------------------------------------------------
 // documentation
 
@@ -162,7 +210,7 @@ Target "ReleaseDocs" (fun _ ->
     fullclean tempDocsDir
     CopyRecursive "docs/output" tempDocsDir true |> tracefn "%A"
     StageAll tempDocsDir
-    Commit tempDocsDir (sprintf "Update generated documentation for version %s" Runtime.release.NugetVersion)
+    Commit tempDocsDir (sprintf "Update generated documentation for version %s" release.NugetVersion)
     Branches.push tempDocsDir
 )
 
@@ -172,7 +220,6 @@ Target "ReleaseDocs" (fun _ ->
 Target "Default" DoNothing
 Target "Release" DoNothing
 Target "PrepareRelease" DoNothing
-Target "NuGet" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
 "Clean"
@@ -184,10 +231,11 @@ Target "Help" (fun _ -> PrintTargets() )
 
 "Build"
   ==> "PrepareRelease"
-  ==> "Nuget"
+  ==> "Nuget.Store"
+  ==> "Nuget.Runtime"
 //  ==> "GenerateDocs"
 //  ==> "ReleaseDocs"
   ==> "Release"
 
 //// start build
-RunTargetOrDefault "Build"
+RunTargetOrDefault "Default"

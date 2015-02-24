@@ -5,12 +5,12 @@ using System.Reflection;
 [assembly: AssemblyProductAttribute("MBrace.Azure")]
 [assembly: AssemblyCompanyAttribute("Nessos Information Technologies")]
 [assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")]
-[assembly: AssemblyTrademarkAttribute("MBrace.Azure")]
-[assembly: AssemblyMetadataAttribute("Release Signature","Version 0.1.0, Git Hash fac6ad, Build Date 24022015 15:04 +02:00")]
-[assembly: AssemblyVersionAttribute("0.1.0")]
-[assembly: AssemblyFileVersionAttribute("0.1.0")]
+[assembly: AssemblyTrademarkAttribute("MBrace")]
+[assembly: AssemblyMetadataAttribute("Release Signature","Version 0.9.1, Git Hash 1ac758, Build Date 24022015 17:49 +02:00")]
+[assembly: AssemblyVersionAttribute("0.9.1")]
+[assembly: AssemblyFileVersionAttribute("0.9.1")]
 namespace System {
     internal static class AssemblyVersionInformation {
-        internal const string Version = "0.1.0";
+        internal const string Version = "0.9.1";
     }
 }

@@ -1,2 +1,2 @@
-#### 0.1.0-alpha
-* Initial release.
+#### 0.9.1-alpha
+* Initial nuget release.

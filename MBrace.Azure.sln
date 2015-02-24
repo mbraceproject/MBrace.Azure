@@ -19,9 +19,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64
 		build.fsx = build.fsx
 		build.sh = build.sh
 		LICENSE = LICENSE
+		nuget\MBrace.Azure.nuspec = nuget\MBrace.Azure.nuspec
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
-		STORE_BINDINGS_NOTES.md = STORE_BINDINGS_NOTES.md
 	EndProjectSection
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Runtime", "src\MBrace.Azure.Runtime\MBrace.Azure.Runtime.fsproj", "{C823708C-9DCF-407C-AA67-D41AB128F172}"
