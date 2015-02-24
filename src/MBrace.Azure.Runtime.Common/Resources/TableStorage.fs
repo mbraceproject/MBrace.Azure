@@ -32,14 +32,16 @@ type ResultAggregatorEntity(name : string, index : int, bloburi : string) =
     member val Uri = bloburi with get, set
     new () = new ResultAggregatorEntity(null, -1, null)
 
-type CancellationTokenSourceEntity(name : string) =
-    inherit TableEntity(name, String.Empty)
+type CancellationTokenSourceEntity(id : string) =
+    inherit TableEntity(id, String.Empty)
     member val IsCancellationRequested = false with get, set
+    member val Metadata = Unchecked.defaultof<string> with get, set
     new () = new CancellationTokenSourceEntity(null)
 
-type CancellationTokenLinkEntity(parentUri : string, childUri : string) =
-    inherit TableEntity(parentUri, childUri)
-    new () = new CancellationTokenLinkEntity(null, null)
+type CancellationTokenLinkEntity(id : string, childId : string, childTable : string) =
+    inherit TableEntity(id, childId)
+    member val ChildTable = childTable with get, set
+    new () = new CancellationTokenLinkEntity(null, null, null)
 
 
 module Table =
@@ -68,7 +70,17 @@ module Table =
             e |> Seq.iter batch.Insert
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let! _ = t.CreateIfNotExistsAsync()
-            let! es = t.ExecuteBatchAsync(batch)
+            let! _ = t.ExecuteBatchAsync(batch)
+            return ()
+        }
+
+    let mergeBatch<'T when 'T :> ITableEntity> config table (e : seq<'T>) : Async<unit> =
+        async {
+            let batch = new TableBatchOperation()
+            e |> Seq.iter batch.Merge
+            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+            let! _ = t.CreateIfNotExistsAsync()
+            let! _ = t.ExecuteBatchAsync(batch)
             return ()
         }
 
@@ -108,7 +120,6 @@ module Table =
         async {
             let rec transact e = async { 
                 f e
-                let r = ref None
                 let! result = Async.Catch <| merge<'T> config table e
                 match result with
                 | Choice1Of2 r -> return r

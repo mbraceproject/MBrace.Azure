@@ -14,19 +14,19 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            return! BlobCell.CreateIfNotExists(config, res.Container, filename pkg.Id, fun () -> pkg) |> Async.Ignore
+            return! BlobCell.CreateIfNotExists(config, res.Primary, filename pkg.Id, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
         async { 
-            let uri = BlobCell<_>.GetUri(res.Container, filename id)
+            let uri = BlobCell<_>.GetUri(res.Primary, filename id)
             let cell = BlobCell.OfUri(config, uri)
             return! cell.GetValue()
         }
     
     member __.UploadDependencies(ids : AssemblyId list) = 
         async { 
-            let pkgs = VagabondRegistry.Vagabond.CreateAssemblyPackages(ids, includeAssemblyImage = true)
+            let pkgs = VagabondRegistry.Instance.CreateAssemblyPackages(ids, includeAssemblyImage = true)
             do! pkgs
                 |> Seq.map uploadPkg
                 |> Async.Parallel
@@ -45,19 +45,19 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
                                           |> Async.Parallel
                               return pkgs |> Seq.toList
                           } }
-            do! VagabondRegistry.Vagabond.ReceiveDependencies publisher
+            do! VagabondRegistry.Instance.ReceiveDependencies publisher
         }
     
     member __.ComputeDependencies(graph : 'T) = 
-        VagabondRegistry.Vagabond.ComputeObjectDependencies(graph, permitCompilation = true) 
+        VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
         |> List.map Utilities.ComputeAssemblyId
 
     interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, context : StreamingContext) = 
+    new(info : SerializationInfo, _ : StreamingContext) = 
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new AssemblyManager(config, res)

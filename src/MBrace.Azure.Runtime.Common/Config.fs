@@ -52,9 +52,16 @@ type Configuration =
 
     /// Configuration identifier hash.
     member this.ConfigurationId : ConfigurationId = 
-        this.GetType()
-        |> Microsoft.FSharp.Reflection.FSharpType.GetRecordFields
-        |> Seq.map (fun pi -> pi.GetValue(this) :?> string)
+        // Normalize strings
+        let fields =
+            [ CloudStorageAccount.Parse(this.StorageConnectionString).Credentials.AccountName
+              NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
+              this.DefaultTableOrContainer.ToLower()
+              this.DefaultQueue.ToLower()
+              this.DefaultTopic.ToLower()
+              this.DefaultLogTable.ToLower()
+            ]
+        fields
         |> String.concat String.Empty
         |> ConfigurationId.ofText 
 
@@ -80,6 +87,9 @@ type Configuration =
 
 type internal ClientProvider (config : Configuration) =
     let acc = CloudStorageAccount.Parse(config.StorageConnectionString)
+    do System.Net.ServicePointManager.Expect100Continue <- false
+    do System.Net.ServicePointManager.UseNagleAlgorithm <- false
+
     member __.TableClient = acc.CreateCloudTableClient()
     member __.BlobClient = acc.CreateCloudBlobClient()
     member __.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
@@ -122,6 +132,8 @@ type ConfigurationRegistry private () =
 module Configuration =
     open MBrace.Runtime.Vagabond
     open System.Collections.Generic
+    open MBrace.Runtime.Serialization
+    open MBrace.Store
 
     let private ignoredAssemblies = new HashSet<Assembly>()
 
@@ -134,10 +146,10 @@ module Configuration =
             VagabondRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
             
     /// Default Pickler.
-    let Pickler = init () ; VagabondRegistry.Pickler
+    let Pickler = init () ; VagabondRegistry.Instance.Pickler
 
     /// Default ISerializer
-    let Serializer = init (); VagabondRegistry.Serializer
+    let Serializer = init (); new FsPicklerBinaryStoreSerializer() :> ISerializer
 
     /// Initialize Vagabond.
     let Initialize () = init ()
@@ -163,9 +175,9 @@ module Configuration =
 
     /// Warning : Deletes all queues, tables and containers described in the given configuration.
     /// Does not delete process created resources.
-    let DeleteResources (config : Configuration) =
+    let DeleteResourcesAsync (config : Configuration) =
         async {
             init ()
             let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
             do! cp.ClearAll()
-        } |> Async.RunSynchronously
+        }

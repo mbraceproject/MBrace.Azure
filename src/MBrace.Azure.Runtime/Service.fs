@@ -12,6 +12,17 @@ open MBrace.Azure.Store
 open MBrace.Runtime.Store
 open MBrace.Runtime
 
+module private ReleaseInfo =
+    open System.Reflection
+
+    let prettyPrint () =
+        let asm = Assembly.GetExecutingAssembly()
+        let attributes = 
+            asm.GetCustomAttributes<AssemblyMetadataAttribute>()
+            |> Seq.map (fun ma -> ma.Key, ma.Value)
+            |> Map.ofSeq
+        attributes.["Release Signature"]
+
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
     // TODO : Add locks
@@ -21,7 +32,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable cache           = None
     let mutable resources       = ResourceRegistry.Empty
     let mutable config          = config
-    let mutable maxTasks        = Environment.ProcessorCount
+    let mutable maxJobs         = Environment.ProcessorCount
     let logger                  = new LoggerCombiner() 
     let worker                  = new Worker()
     
@@ -38,9 +49,9 @@ type Service (config : Configuration, serviceId : string) =
         with get () = config
         and set c = check (); config <- c
 
-    member __.MaxConcurrentTasks 
-        with get () = maxTasks
-        and set c = check (); maxTasks <- c
+    member __.MaxConcurrentJobs 
+        with get () = maxJobs
+        and set c = check (); maxJobs <- c
     
     member __.RegisterStoreProvider(store : ICloudFileStore) =
         check () ; storeProvider <- Some store
@@ -65,11 +76,14 @@ type Service (config : Configuration, serviceId : string) =
                 let sw = new Stopwatch() in sw.Start()
 
                 logf "Activating Configuration"
+                Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
                 do! Configuration.ActivateAsync(config)
 
                 logf "Creating storage logger"
                 let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Worker(id = __.Id))
                 logger.Attach(storageLogger)
+
+                logf "%s" <| ReleaseInfo.prettyPrint()
 
                 let serializer = Configuration.Serializer
                 logf "Serializer : %s" serializer.Id
@@ -96,9 +110,9 @@ type Service (config : Configuration, serviceId : string) =
                 channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)))
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
-                let wmon = WorkerManager.Create(config, MaxTasks = __.MaxConcurrentTasks)
+                let wmon = WorkerManager.Create(config, MaxJobs = __.MaxConcurrentJobs)
                 let! e = wmon.RegisterCurrent(serviceId)
-                logf "Declared node\nHostname:\"%s\"\nPID:\"%d\"\nServiceId:\"%s\"" e.Hostname e.ProcessId (e :> IWorkerRef).Id
+                logf "Declared node : %s \nPID : %d \nServiceId : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
                 Async.Start(wmon.HeartbeatLoop())
                 logf "Started heartbeat loop" 
@@ -110,14 +124,14 @@ type Service (config : Configuration, serviceId : string) =
                     yield wmon
                     yield state.ProcessMonitor 
                 }
-                state.TaskQueue.Affinity <- serviceId
+                state.JobQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 
-                logf "MaxConcurrentTasks : %d" __.MaxConcurrentTasks
+                logf "MaxConcurrentJobs : %d" __.MaxConcurrentJobs
                 logf "Starting worker loop"
                 let config = { 
                     State              = state
-                    MaxConcurrentTasks = __.MaxConcurrentTasks
+                    MaxConcurrentJobs = __.MaxConcurrentJobs
                     Resources          = resources
                     Store              = store
                     Channel            = channelProvider.Value

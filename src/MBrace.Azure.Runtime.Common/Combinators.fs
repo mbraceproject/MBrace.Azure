@@ -6,6 +6,7 @@
 
 open MBrace
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
 
 #nowarn "444"
@@ -14,29 +15,31 @@ open MBrace.Azure.Runtime.Resources
 open MBrace.Azure.Runtime.Common.Storage
 open MBrace.Continuation
 
-let inline private withCancellationToken (cts : DistributedCancellationTokenSource) (ctx : ExecutionContext) =
-    let token = cts.GetLocalCancellationToken()
-    { Resources = ctx.Resources.Register(cts) ; CancellationToken = token }
+let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =
+    { ctx with Resources = ctx.Resources.Register(cts) ; CancellationToken = cts }
 
 let private asyncFromContinuations f =
-    Cloud.FromContinuations(fun ctx cont -> TaskExecutionMonitor.ProtectAsync ctx (f ctx cont))
+    Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
-let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T> * IWorkerRef option>) =
+let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) dependencies fp (computations : seq<Cloud<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx [||]
-        // schedule single-child parallel workflows in current task
-        // note that this invalidates expected workflow semantics w.r.t. mutability.
+        // schedule single-child parallel workflows in current job
+        // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] ->
+            let (comp, cont) = Configuration.Pickler.Clone (comp, cont)
             let cont' = Continuation.map (fun t -> [| t |]) cont
             Cloud.StartWithContinuations(comp, cont', ctx)
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let storageId = psInfo.DefaultDirectory
-            let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource> ()
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts)
+            
+            let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts, metadata = jobId)
+            
             let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(storageId, computations.Length)
             let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
 
@@ -49,8 +52,8 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
                         childCts.Cancel()
                         cont.Success (withCancellationToken currentCts ctx) results
                     else // results pending, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onException ctx e =
                 async {
@@ -59,8 +62,8 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
                         childCts.Cancel()
                         cont.Exception (withCancellationToken currentCts ctx) e
                     else // cancellation already triggered by different party, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onCancellation ctx c =
                 async {
@@ -69,30 +72,34 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comp
                         childCts.Cancel()
                         cont.Cancellation ctx c
                     else // cancellation already triggered by different party, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, TaskType.Parallel)
+                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, Parallel, jobId)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
-            TaskExecutionMonitor.TriggerCompletion ctx })
+            JobExecutionMonitor.TriggerCompletion ctx })
 
-let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (computations : seq<Cloud<'T option> * IWorkerRef option>)  =
+let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) dependencies fp (computations : seq<Cloud<'T option> * IWorkerRef option>)  =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
         | Choice1Of2 [||] -> cont.Success ctx None
-        // schedule single-child parallel workflows in current task
-        // note that this invalidates expected workflow semantics w.r.t. mutability.
-        | Choice1Of2 [| comp, None |] -> Cloud.StartWithContinuations(comp, cont, ctx)
+        // schedule single-child parallel workflows in current job
+        // force copy semantics by cloning the workflow
+        | Choice1Of2 [| (comp, None) |] ->
+            let (comp, cont) = Configuration.Pickler.Clone (comp, cont)
+            Cloud.StartWithContinuations(comp, cont, ctx)
+
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let storageId = psInfo.DefaultDirectory
             let n = computations.Length // avoid capturing computation array in cont closures
-            let currentCts = ctx.Resources.Resolve<DistributedCancellationTokenSource>()
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, currentCts)
+            let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts, metadata = jobId)
+
             let! completionLatch = state.ResourceFactory.RequestCounter(storageId, 0)
             let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
 
@@ -106,7 +113,7 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                             cont.Success (withCancellationToken currentCts ctx) topt
                         else
                             // workflow already cancelled, declare task completion
-                            TaskExecutionMonitor.TriggerCompletion ctx
+                            JobExecutionMonitor.TriggerCompletion ctx
                     else
                         // 'None', increment completion latch
                         let! completionCount = completionLatch.Increment ()
@@ -116,8 +123,8 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                             cont.Success (withCancellationToken currentCts ctx) None
                         else
                             // other tasks pending, declare task completion
-                            TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                            JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onException ctx e =
                 async {
@@ -126,8 +133,8 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                         childCts.Cancel ()
                         cont.Exception (withCancellationToken currentCts ctx) e
                     else // cancellation already triggered by different party, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             let onCancellation ctx c =
                 async {
@@ -136,23 +143,19 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) dependencies fp (comput
                         childCts.Cancel()
                         cont.Cancellation (withCancellationToken currentCts ctx) c
                     else // cancellation already triggered by different party, declare task completed.
-                        TaskExecutionMonitor.TriggerCompletion ctx
-                } |> TaskExecutionMonitor.ProtectAsync ctx
+                        JobExecutionMonitor.TriggerCompletion ctx
+                } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueTaskBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, TaskType.Choice)
+                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, Choice, jobId)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
-            TaskExecutionMonitor.TriggerCompletion ctx })
+            JobExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartChild (state : RuntimeState) psInfo dependencies fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
-    let! cts = Cloud.GetResource<DistributedCancellationTokenSource> ()
-    let taskType = match affinity with None -> TaskType.StartChild | Some wr -> TaskType.Affined wr.Id
-    let! resultCell = Cloud.OfAsync <| state.StartAsCell(psInfo, dependencies, cts, fp, computation, taskType)
-    return cloud { 
-        let! result = Cloud.OfAsync <| resultCell.AwaitResult() 
-        return result.Value
-    }
+let StartAsCloudTask (state : RuntimeState) psInfo (jobId : string) dependencies (ct : ICloudCancellationToken) fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
+    let dcts = ct :?> DistributedCancellationTokenSource
+    let taskType = match affinity with None -> JobType.StartChild | Some wr -> JobType.Affined wr.Id
+    return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, dcts, fp, computation, taskType, jobId)
 }

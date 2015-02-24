@@ -27,9 +27,6 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-//Configuration.Activate(config)
-//Configuration.DeleteResources(config)
-
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
 open MBrace.Azure.Runtime.Standalone
@@ -40,13 +37,30 @@ Runtime.Spawn(config, 4, 16)
 let runtime = Runtime.GetHandle(config)
 runtime.AttachLogger(new Common.ConsoleLogger()) 
 
+//runtime.Reset(false, true)
+
+
+cloud { return 42 }
+|> runtime.Run
+
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
+let ps =
+    [1..30]
+    |> Seq.map (fun i -> cloud { return i * i })
+    |> Cloud.Parallel
+    |> runtime.CreateProcess
+
+ps.ShowInfo()
+ps.AwaitResult()
+
 runtime.Run(Cloud.Parallel(cloud { return System.Diagnostics.Process.GetCurrentProcess().Id }))
 
 runtime.Run <| cloud { return 42 }
+
+open MBrace.Workflows
 
 let rec wf i max = 
     cloud { 
@@ -57,6 +71,19 @@ let rec wf i max =
 let ps = runtime.CreateProcess(wf 0 2)
 ps.ShowInfo()
 ps.AwaitResult() 
+
+let ct = runtime.CreateCancellationTokenSource()
+let ctask = runtime.Run(Cloud.StartAsCloudTask(cloud { return 42 }, cancellationToken = ct.Token))
+ctask.Result
+
+ctask.Id
+
+
+let x = 
+    cloud {
+        let! ctask = Cloud.StartAsCloudTask(cloud { return 42 })
+        return! ctask.AwaitResult()
+    } |> runtime.Run
 
 
 let wf = cloud {

@@ -24,6 +24,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Common.XML</DocumentationFile>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -33,6 +34,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Common.XML</DocumentationFile>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -46,6 +48,7 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Common.XML</DocumentationFile>
     <OutputPath>..\..\bin\</OutputPath>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_AzureSDK|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -54,7 +57,8 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Common.XML</DocumentationFile>
-    <OutputPath>bin\Release_AzureSDK\</OutputPath>
+    <OutputPath>..\..\bin\</OutputPath>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '11.0'">
@@ -93,7 +97,7 @@
     <Compile Include="Records\Logging.fs" />
     <Compile Include="Records\Process.fs" />
     <Compile Include="Resources.fs" />
-    <Compile Include="Tasks.fs" />
+    <Compile Include="Job.fs" />
     <Compile Include="Combinators.fs" />
     <Compile Include="RuntimeProvider.fs" />
     <Content Include="packages.config" />
@@ -105,19 +109,19 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="FsPickler">
-      <HintPath>..\..\packages\FsPickler.1.0.7\lib\net45\FsPickler.dll</HintPath>
+      <HintPath>..\..\packages\FsPickler.1.0.11\lib\net45\FsPickler.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MBrace.Core">
-      <HintPath>..\..\packages\MBrace.Core.0.9.0-alpha\lib\net45\MBrace.Core.dll</HintPath>
+      <HintPath>..\..\packages\MBrace.Core.0.9.1-alpha\lib\net45\MBrace.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MBrace.Core.Tests">
-      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.0-alpha\lib\net45\MBrace.Core.Tests.dll</HintPath>
+      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.1-alpha\lib\net45\MBrace.Core.Tests.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="MBrace.Runtime.Core">
-      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.0-alpha\lib\net45\MBrace.Runtime.Core.dll</HintPath>
+      <HintPath>..\..\packages\MBrace.Runtime.Core.0.9.1-alpha\lib\net45\MBrace.Runtime.Core.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.Data.Edm">
@@ -170,7 +174,7 @@
     </Reference>
     <Reference Include="System.Xml" />
     <Reference Include="Vagabond">
-      <HintPath>..\..\packages\Vagabond.0.3.0\lib\net45\Vagabond.dll</HintPath>
+      <HintPath>..\..\packages\Vagabond.0.3.2\lib\net45\Vagabond.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>

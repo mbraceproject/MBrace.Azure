@@ -17,6 +17,7 @@ open System.IO
 let project = "MBrace.Azure"
 let authors = [ "Kostas Rontogiannis" ]
 
+
 let description = """ Windows Azure implementation of the MBrace.Core. """
 
 let tags = "F# cloud mapreduce distributed windowsazure"
@@ -27,6 +28,8 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 let gitHome = "https://github.com/mbraceproject"
 let gitName = "MBrace.Azure"
+let gitHash = Information.getCurrentHash()
+let buildDate = DateTime.UtcNow
 
 module Runtime =
     let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
@@ -45,12 +48,17 @@ Target "AssemblyInfo" (fun _ ->
             Attribute.Company "Nessos Information Technologies"
             Attribute.Copyright "\169 Nessos Information Technologies."
             Attribute.Trademark "MBrace.Azure"
+            Attribute.Metadata("Release Signature", 
+                sprintf "Version %s, Git Hash %s, Build Date %s" 
+                    Runtime.release.AssemblyVersion
+                    gitHash 
+                    (buildDate.ToString "ddMMyyyy HH:mm zzz"))
             Attribute.Version Runtime.release.AssemblyVersion
             Attribute.FileVersion Runtime.release.AssemblyVersion
         |]
 
     let store_attributes = 
-        [| yield! attributes.[0..4]
+        [| yield! attributes.[0..5]
            yield  Attribute.Version StoreBindings.release.AssemblyVersion
            yield  Attribute.FileVersion StoreBindings.release.AssemblyVersion
         |]
@@ -174,12 +182,12 @@ Target "Help" (fun _ -> PrintTargets() )
 
 "Clean"
   ==> "RestorePackages"
-  ==> "AssemblyInfo"
   ==> "Build"
   ==> "RunTests"
   ==> "Default"
 
-"Build"
+"AssemblyInfo"
+  ==> "Build"
   ==> "PrepareRelease"
   ==> "Nuget"
 //  ==> "GenerateDocs"

@@ -1,8 +1,7 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
-#r "MBrace.Library.dll"
 #r "FsPickler.dll"
-#r "Vagrant.dll"
+#r "Vagabond.dll"
 #r "Microsoft.ServiceBus.dll"
 #r "MBrace.Azure.Runtime.Common.dll"
 #r "MBrace.Azure.Runtime.dll"
@@ -26,8 +25,8 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
+//Configuration.DeleteResourcesAsync(config) |> Async.RunSynchronously
 Configuration.Activate(config)
-Configuration.DeleteResources(config)
 
 
 open MBrace.Azure.Runtime.Common
@@ -35,7 +34,7 @@ open MBrace.Azure.Runtime.Resources
 let run (task : Async<'T>) = Async.RunSynchronously task
 
 
-// -- TaskQueue ---------
+//#region TaskQueue 
 
 let tq = TaskQueue.Create(config.ConfigurationId, "tempqueue", "temptopic") |> run
 
@@ -57,11 +56,9 @@ async {
             incr msgCount 
 } |> run
 
-// ----------------------
+//#endregion ----------------------
 
-
-
-
+//#region Channels
 let factory = ChannelProvider.Create(config.ConfigurationId)
 
 let sp, rp = !factory.CreateChannel<int>()
@@ -91,13 +88,14 @@ ClientProvider.BlobClient.ListContainers("process")
 |> Async.Parallel
 |> Async.RunSync
 
-//-------------------------------------------------------------------
+//#endregion
 
-let c = !Counter.Init("tmp", 1)
-!c.Increment()
+//#region Cells
+let c = Counter.Create(config.ConfigurationId, "tmp", 1) |> run
+c.Increment() |> run
 
-let l = !Latch.Init("tmp", 11)
-!l.Decrement()
+let l = Latch.Create(config.ConfigurationId, "tmp", 11) |> run
+l.Decrement() |> run
 
 [|1..5|]
 |> Array.map (fun _ -> async { do! l.Decrement() |> Async.Ignore })
@@ -107,18 +105,12 @@ let l = !Latch.Init("tmp", 11)
 
 l.Value
 
-//-------------------------------------------------------------------
+let c = BlobCell.Create(config.ConfigurationId, "tmp", fun () -> 42) |> run
+c.GetValue() |> run
 
-let c = !BlobCell.Init(config.ConfigurationId, "tmp", fun () -> 42)
+//#endregion
 
-!c.GetValue()
-
-let c' = Configuration.Serializer.Pickle(c)
-let c' = Configuration.Serializer.UnPickle<BlobCell<int>>(c')
-!c'.GetValue()
-
-//-------------------------------------------------------------------
-
+// #region Queue
 let q : Queue<int> = !Queue.Init(config.ConfigurationId, "foobar")
 
 !(async {
@@ -140,60 +132,71 @@ let b = Configuration.Serializer.Pickle(q)
 let b' = Configuration.Serializer.UnPickle<Queue<int>>(b)
 !b'.Enqueue(12)
 
-//-------------------------------------------------------------------
+//#endregion
 
-let rs : ResultCell<int> = !ResultCell.Init("tmp")
+//#region Results
+let rs = ResultCell<int>.Create(config.ConfigurationId, "foobar", "temp") |> run
 
 async { do! Async.Sleep 10000 
-        do! rs.SetResult(42) }
+        do! rs.SetResult(Result.Completed 42) }
 |> Async.Start
 
-!rs.TryGetResult()
+rs.TryGetResult() |> run
+rs.AwaitResult()  |> run
 
-!rs.AwaitResult()
-
-let ra : ResultAggregator<int> = !ResultAggregator.Init("tmp", 10)
+let ra = ResultAggregator<int>.Create(config.ConfigurationId, "tmp", 10) |> run
 for x in 0..9 do
-    printfn "%b" <| !ra.SetResult(x, x * 10)
+    printfn "%b" <| (run <| ra.SetResult(x, x * 10))
 ra.Complete
 
-let x = !ra.ToArray()
+let x = ra.ToArray() |> run
 
-//-------------------------------------------------------------------
+//#endregion 
+
 type DCTS = DistributedCancellationTokenSource
 
-let dcts0 = !(DCTS.Create(config.ConfigurationId, "tmp"))
+let dcts0 = DCTS.Create(config.ConfigurationId, "tmp") |> run
 
-let ct0 = dcts0.GetLocalCancellationToken()
+dcts0.IsCancellationRequested
+
+dcts0.Cancel()
 
 let t1 = async { while true do 
                     do! Async.Sleep 2000
                     printfn "t1" }
 
-Async.Start(t1, ct0)
+Async.Start(t1, (dcts0 :> ICloudCancellationToken).LocalToken)
 dcts0.Cancel()
 
-let root = !(DCTS.Create(config.ConfigurationId, "tmp"))
-let chain = Seq.fold (fun dcts _ -> let d = !(DCTS.Create(config.ConfigurationId, "tmp", dcts)) in ignore(d.GetLocalCancellationToken()) ; d ) root {1..10}
+let root = DCTS.Create(config.ConfigurationId, "tmp") |> run
+let chain = 
+    {1..10}
+    |> Seq.fold (fun dcts _ -> 
+            let d = DCTS.Create(config.ConfigurationId, "tmp", parent = dcts) |> run
+            //(d :> ICloudCancellationToken).LocalToken |> ignore
+            d ) root 
 
-Async.Start(t1, chain.GetLocalCancellationToken())
+
+Async.Start(t1, (chain :> ICloudCancellationToken).LocalToken)
 root.Cancel()
 chain.IsCancellationRequested
 
-let root = !(DCTS.Create(config.ConfigurationId, "tmp"))
-let rec foo cts i n = 
+let root = DCTS.Create(config.ConfigurationId, "tmp") |> run
+let rec foo (cts : DCTS) i n = 
     async {
         if i = n then return cts
         else 
-            let! c1 = DCTS.Create(config.ConfigurationId, "tmp", cts)
-            let! c2 = DCTS.Create(config.ConfigurationId, "tmp", cts)
+            let! c1 = DCTS.Create(config.ConfigurationId, "tmp", parent = cts)
+            let! c2 = DCTS.Create(config.ConfigurationId, "tmp", parent = cts)
             let! c1' = foo c1 (i+1) n
             let! c2' = foo c2 (i+1) n
             return c2'
     }
 
-let tok = !(foo root 0 5)
+let tok = foo root 0 5 |> run
 root.Cancel()
+
+tok.IsCancellationRequested
 
 //--------------------------------------------------------------------
 let exp = AssemblyManager.Init("tmp")

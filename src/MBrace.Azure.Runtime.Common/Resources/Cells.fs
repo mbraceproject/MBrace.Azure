@@ -9,19 +9,19 @@ open MBrace.Azure.Runtime.Common
 type BlobCell<'T> internal (config : ConfigurationId, res : Uri) = 
     member __.GetValue() : Async<'T> = 
         async { 
-            let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
-            use! s = container.GetBlockBlobReference(res.FileWithScheme).OpenReadAsync()
+            let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Primary)
+            use! s = container.GetBlockBlobReference(res.SecondaryWithScheme).OpenReadAsync()
             return Configuration.Pickler.Deserialize<'T>(s) 
         }
     
     member __.Uri = res
     
     interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, context: StreamingContext): unit = 
+        member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
-    new(info: SerializationInfo, context: StreamingContext) =
+    new(info: SerializationInfo, _: StreamingContext) =
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new BlobCell<'T>(config, res)
@@ -31,9 +31,9 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
     static member CreateIfNotExists(config, container : string, id : string, f : unit -> 'T) = 
         async { 
             let res = BlobCell<_>.GetUri(container, id)
-            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Container)
+            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Primary)
             let! _ = c.CreateIfNotExistsAsync()
-            let b = c.GetBlockBlobReference(res.FileWithScheme)
+            let b = c.GetBlockBlobReference(res.SecondaryWithScheme)
             let! exists = b.ExistsAsync()
             if not exists then
                 use! s = b.OpenWriteAsync()
@@ -42,5 +42,5 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
             else
                 return BlobCell.OfUri<'T>(config, res)
         }
-    static member CreateIfNotExists(config, container : string, f : unit -> 'T) = 
+    static member Create(config, container : string, f : unit -> 'T) = 
         BlobCell.CreateIfNotExists(config, container, guid(), f)

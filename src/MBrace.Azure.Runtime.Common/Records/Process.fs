@@ -16,14 +16,14 @@ type ProcessState =
     | Posted
     | Running
     | Completed
-    | Cancelling
+    | KillRequested
     | Killed
     override this.ToString() = 
         match this with
         | Posted -> "Posted"
         | Running -> "Running"
         | Killed -> "Killed"
-        | Cancelling -> "Cancelling"
+        | KillRequested -> "Kill requested"
         | Completed -> "Completed"
 
 type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, typeName, deps) = 
@@ -39,10 +39,10 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member val ResultUri : string = resultUri with get, set
     member val CancellationUri : string = cancellationUri with get, set
     
-    member val TotalTasks = 0 with get, set
-    member val ActiveTasks = 0 with get, set
-    member val CompletedTasks = 0 with get, set
-    member val FaultedTasks = 0 with get, set
+    member val TotalJobs = 0 with get, set
+    member val ActiveJobs = 0 with get, set
+    member val CompletedJobs = 0 with get, set
+    member val FaultedJobs = 0 with get, set
 
     member val TypeName : string = typeName with get, set
     member val Type : byte [] = ty with get, set
@@ -55,7 +55,7 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
 type ProcessManager private (config, table : string) = 
     let pk = "process"
     
-    static member Create(config : Configuration) = new ProcessManager(config.ConfigurationId, config.DefaultTableOrContainer)
+    static member Create(configId : ConfigurationId, table) = new ProcessManager(configId, table)
 
     member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
         let now = DateTimeOffset.UtcNow
@@ -68,26 +68,26 @@ type ProcessManager private (config, table : string) =
     }
 
     // TODO : These methods cannot be used atomically
-    member this.IncreaseTotalTasks(pid : string, ?count) = 
+    member this.IncreaseTotalJobs(pid : string, ?count) = 
         let count = defaultArg count 1
-        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.TotalTasks <- pr.TotalTasks + count)
+        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.TotalJobs <- pr.TotalJobs + count)
         |> Async.Ignore
 
-    member this.AddActiveTask(pid : string) = 
-        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.ActiveTasks <- pr.ActiveTasks + 1)
+    member this.AddActiveJob(pid : string) = 
+        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.ActiveJobs <- pr.ActiveJobs + 1)
         |> Async.Ignore
 
-    member this.AddFaultedTask(pid : string) = 
+    member this.AddFaultedJob(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
-            (fun pr -> pr.FaultedTasks <- pr.FaultedTasks + 1
-                       pr.TotalTasks <- pr.TotalTasks + 1)
+            (fun pr -> pr.FaultedJobs <- pr.FaultedJobs + 1
+                       pr.TotalJobs <- pr.TotalJobs + 1)
         |> Async.Ignore
 
-    member this.AddCompletedTask(pid : string) = 
+    member this.AddCompletedJob(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
             (fun pr -> 
-                pr.ActiveTasks <- if pr.ActiveTasks = 0 then 0 else pr.ActiveTasks - 1
-                pr.CompletedTasks <- pr.CompletedTasks + 1)
+                pr.ActiveJobs <- if pr.ActiveJobs = 0 then 0 else pr.ActiveJobs - 1
+                pr.CompletedJobs <- pr.CompletedJobs + 1)
         |> Async.Ignore
 
     member this.SetRunning(pid : string) = 
@@ -106,9 +106,9 @@ type ProcessManager private (config, table : string) =
               pr.Completed <- true)
         |> Async.Ignore
 
-    member this.SetCancelling(pid : string) = 
+    member this.SetKillRequested(pid : string) = 
         Table.transact<ProcessRecord> config table pk pid 
-          (fun pr -> pr.State <- string ProcessState.Cancelling)
+          (fun pr -> pr.State <- string ProcessState.KillRequested)
         |> Async.Ignore
 
     member this.SetCompleted(pid : string) =
@@ -122,9 +122,9 @@ type ProcessManager private (config, table : string) =
 
     member this.GetProcesses () = Table.queryPK<ProcessRecord> config table pk
 
-    member this.ClearProcess (pid : string) = async {
+    member this.ClearProcess (pid : string, force) = async {
         let! record = this.GetProcess(pid)
-        if not record.Completed then
+        if force = false && not record.Completed then
             failwithf "Cannot clear process %s. Process not completed." pid 
         do! Table.delete<ProcessRecord> config table record
         let container = Storage.processIdToStorageId pid
@@ -136,11 +136,11 @@ type ProcessManager private (config, table : string) =
         return ()
     }
 
-    member this.ClearAllProcesses () = async {
+    member this.ClearAllProcesses (force) = async {
         let! ps = this.GetProcesses()
         let xs = ResizeArray<exn>()
         for p in ps do 
-            let! result = Async.Catch <| this.ClearProcess(p.Id)
+            let! result = Async.Catch <| this.ClearProcess(p.Id, force)
             match result with
             | Choice2Of2 e -> xs.Add(e)
             | _ -> ()

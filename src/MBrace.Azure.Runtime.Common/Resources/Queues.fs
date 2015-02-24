@@ -15,7 +15,7 @@ module private Constants =
     let AffinityPropertyName = "Affinity"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
     
-type QueueMessage(config, msg : BrokeredMessage, isQueueMessage : bool) = 
+type QueueMessage(config, msg : BrokeredMessage) = 
     let mutable completed = false
     let affinity = 
         match msg.Properties.TryGetValue(AffinityPropertyName) with
@@ -75,12 +75,11 @@ type internal Subscription (config, topic, affinity : string) =
         async { 
             let! msg = sub.ReceiveAsync(ServerWaitTime)
             if msg = null then return None
-            else return Some(QueueMessage(config, msg, false))
+            else return Some(QueueMessage(config, msg))
         }
 
 type internal Topic (config, topic) = 
     let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
-    let ns = cp.NamespaceClient
     let tc = cp.TopicClient(topic)
     member __.Name = topic
     member __.GetSubscription(affinity) : Subscription = new Subscription(config, topic, affinity)
@@ -90,7 +89,7 @@ type internal Topic (config, topic) =
             let! ys = xs
                       |> Array.map (fun (x, affinity) -> 
                              async { 
-                                 let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> x)
+                                 let! bc = BlobCell.Create(config, topic, fun () -> x)
                                  let msg = new BrokeredMessage(bc.Uri)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
@@ -104,7 +103,7 @@ type internal Topic (config, topic) =
             let! ys = xs
                       |> Array.map (fun x -> 
                              async { 
-                                 let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> x)
+                                 let! bc = BlobCell.Create(config, topic, fun () -> x)
                                  let msg = new BrokeredMessage(bc.Uri)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
@@ -115,18 +114,18 @@ type internal Topic (config, topic) =
     
     member __.Enqueue<'T>(t : 'T, affinity : string) = 
         async { 
-            let! bc = BlobCell.CreateIfNotExists(config, topic, fun () -> t)
+            let! bc = BlobCell.Create(config, topic, fun () -> t)
             let msg = new BrokeredMessage(bc.Uri)
             msg.Properties.Add(AffinityPropertyName, affinity)
             do! tc.SendAsync(msg)
         }
     
     interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
             info.AddValue("topic", topic, typeof<string>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, context : StreamingContext) = 
+    new(info : SerializationInfo, _ : StreamingContext) = 
         let topic = info.GetValue("topic", typeof<string>) :?> string
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new Topic(config, topic)
@@ -145,17 +144,17 @@ type internal Topic (config, topic) =
 
 /// Queue implementation.
 type internal Queue (config : ConfigurationId, res : Uri) = 
-    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Queue, ReceiveMode.PeekLock)
+    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Primary, ReceiveMode.PeekLock)
     let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
     
     member __.Path = queue.Path
     
-    member __.Length = ns.GetQueue(res.Queue).MessageCount
+    member __.Length = ns.GetQueue(res.Primary).MessageCount
     
     member __.EnqueueBatch<'T>(xs : 'T []) = 
         async { 
             let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = BlobCell.CreateIfNotExists(config, res.Queue, fun () -> x)
+                      |> Array.map (fun x -> async { let! bc = BlobCell.Create(config, res.Primary, fun () -> x)
                                                      return new BrokeredMessage(bc.Uri) })
                       |> Async.Parallel
             do! queue.SendBatchAsync(ys)
@@ -163,7 +162,7 @@ type internal Queue (config : ConfigurationId, res : Uri) =
     
     member __.Enqueue<'T>(t : 'T) = 
         async { 
-            let! bc = BlobCell.CreateIfNotExists(config, res.Queue, fun () -> t)
+            let! bc = BlobCell.Create(config, res.Primary, fun () -> t)
             let msg = new BrokeredMessage(bc.Uri)
             do! queue.SendAsync(msg)
         }
@@ -172,17 +171,17 @@ type internal Queue (config : ConfigurationId, res : Uri) =
         async { 
             let! msg = queue.ReceiveAsync(ServerWaitTime)
             if msg = null then return None
-            else return Some(QueueMessage(config, msg, true))
+            else return Some(QueueMessage(config, msg))
         }
     
     member __.Uri = res
     
     interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
             info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, context : StreamingContext) = 
+    new(info : SerializationInfo, _ : StreamingContext) = 
         let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new Queue(config, res)
@@ -192,18 +191,18 @@ type internal Queue (config : ConfigurationId, res : Uri) =
         async { 
             let res = Queue.GetUri container
             let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
-            let qd = new QueueDescription(res.Queue)
+            let qd = new QueueDescription(res.Primary)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- MaxTTL
             qd.LockDuration <- MaxLockDuration
-            let! exists = ns.QueueExistsAsync(res.Queue)
+            let! exists = ns.QueueExistsAsync(res.Primary)
             if not exists then do! ns.CreateQueueAsync(qd)
             return new Queue(config, res)
         }
 
 // Unified access to Queue/Topic/Subscription.
-type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) = 
+type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) = 
     let mutable affinity : string option = None
     let mutable subscription : Subscription option = None 
     let mutable flag = false
@@ -268,20 +267,20 @@ type TaskQueue internal (config : ConfigurationId, queue : Queue, topic : Topic)
         }
 
     interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, context : StreamingContext) : unit = 
+        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
             info.AddValue("queue", queue, typeof<Queue>)
             info.AddValue("topic", topic, typeof<Topic>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, context : StreamingContext) = 
+    new(info : SerializationInfo, _ : StreamingContext) = 
         let queue = info.GetValue("queue", typeof<Queue>) :?> Queue
         let topic = info.GetValue("topic", typeof<Topic>) :?> Topic
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new TaskQueue(config, queue, topic)
+        new JobQueue(config, queue, topic)
 
     static member Create(config, queue, topic) =
         async {
             let! queue = Queue.Create(config, queue)
             let! topic = Topic.Create(config, topic)
-            return new TaskQueue(config, queue, topic)
+            return new JobQueue(config, queue, topic)
         }

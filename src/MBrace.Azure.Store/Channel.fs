@@ -23,13 +23,10 @@ type SendPort<'T> internal (queuePath, connectionString, serializer : ISerialize
 
     [<IgnoreDataMember>]
     let mutable client = QueueClient.CreateFromConnectionString(connectionString, queuePath, ReceiveMode.ReceiveAndDelete)
-    [<IgnoreDataMember>]
-    let mutable nsClient = NamespaceManager.CreateFromConnectionString(connectionString)
 
     [<OnDeserialized>]
-    let onDeserialized (_ : StreamingContext) =
+    let _onDeserialized (_ : StreamingContext) =
         client <- QueueClient.CreateFromConnectionString(connectionString, queuePath, ReceiveMode.ReceiveAndDelete)
-        nsClient <- NamespaceManager.CreateFromConnectionString(connectionString)
 
     interface ISendPort<'T> with
         member x.Id : string = queuePath
@@ -57,7 +54,7 @@ type ReceivePort<'T> internal (queuePath, connectionString, serializer : ISerial
     let mutable nsClient = NamespaceManager.CreateFromConnectionString(connectionString)
 
     [<OnDeserialized>]
-    let onDeserialized (_ : StreamingContext) =
+    let _onDeserialized (_ : StreamingContext) =
         client <- QueueClient.CreateFromConnectionString(connectionString, queuePath, ReceiveMode.ReceiveAndDelete)
         nsClient <- NamespaceManager.CreateFromConnectionString(connectionString)
 
@@ -104,7 +101,7 @@ type ChannelProvider private (connectionString : string, serializer : ISerialize
     let mutable nsClient = NamespaceManager.CreateFromConnectionString(connectionString)
 
     [<OnDeserialized>]
-    let onDeserialized (_ : StreamingContext) =
+    let _onDeserialized (_ : StreamingContext) =
         nsClient <- NamespaceManager.CreateFromConnectionString(connectionString)
 
     interface ICloudChannelProvider with
@@ -120,7 +117,7 @@ type ChannelProvider private (connectionString : string, serializer : ISerialize
             async {
                 let queuePath = sprintf "channel_%s" <| guid()
                 let qd = new QueueDescription(queuePath)
-                qd.EnablePartitioning <- true
+                qd.SupportOrdering <- true
                 qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
                 do! nsClient.CreateQueueAsync(qd)
                 return new SendPort<'T>(queuePath, connectionString, serializer) :> ISendPort<'T>, 

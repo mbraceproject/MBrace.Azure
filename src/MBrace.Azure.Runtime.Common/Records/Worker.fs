@@ -8,6 +8,18 @@ open System.Threading
 open MBrace
 
 type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset) =    
+    member __.Id = id
+    member __.Hostname = hostname 
+    member __.ProcessId = pid 
+    member __.ProcessName = pname 
+    member __.InitializationTime = joined 
+    member __.HeartbeatTime = heartbeat
+    override __.GetHashCode() = hash id
+    override __.Equals(other:obj) =
+        match other with
+        | :? WorkerRef as w -> id = w.Id
+        | _ -> false
+
     interface IWorkerRef with
         member x.CompareTo(obj: obj): int = 
             match obj with
@@ -15,11 +27,6 @@ type WorkerRef (id : string, hostname : string, pid : int, pname : string, joine
             | _ -> invalidArg "obj" "Invalid IWorkerRef instance."
         member __.Id = id
         member __.Type = "MBrace.Azure.Worker"
-    member __.Hostname = hostname 
-    member __.ProcessId = pid 
-    member __.ProcessName = pname 
-    member __.InitializationTime = joined 
-    member __.HeartbeatTime = heartbeat
 
 type WorkerRecord(pk, id, hostname, pid, pname, joined) =
     inherit TableEntity(pk, id)
@@ -30,8 +37,8 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
     member val InitializationTime : DateTimeOffset = joined with get, set
     member val IsActive : bool = true with get, set
 
-    member val MaxTasks = 0 with get, set
-    member val ActiveTasks = 0 with get, set
+    member val MaxJobs = 0 with get, set
+    member val ActiveJobs = 0 with get, set
 
     member val ProcessorCount = System.Environment.ProcessorCount with get, set
     member val CPU = Unchecked.defaultof<_> with get, set
@@ -58,29 +65,29 @@ type WorkerManager private (config, table : string) =
     let current = ref None
     let perfMon = lazy new PerformanceMonitor()
     let mutable active = false
-    let mutable activeTasks = 0
+    let mutable activeJobs = 0
 
     static member Create(config : Configuration) = new WorkerManager(config.ConfigurationId, config.DefaultTableOrContainer)
 
-    member __.ActiveTasks = activeTasks
+    member __.ActiveJobs = activeJobs
     
-    member val MaxTasks = 0 with get, set
+    member val MaxJobs = 0 with get, set
 
-    member __.IncrementTaskCount () = Interlocked.Increment(&activeTasks) |> ignore
+    member __.IncrementJobCount () = Interlocked.Increment(&activeJobs) |> ignore
 
-    member __.DecrementTaskCount () = Interlocked.Decrement(&activeTasks) |> ignore
+    member __.DecrementJobCount () = Interlocked.Decrement(&activeJobs) |> ignore
 
     member __.Current : WorkerRecord = current.Value.Value
 
     member this.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
         let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
         let worker = this.Current
-        worker.MaxTasks <- this.MaxTasks
+        worker.MaxJobs <- this.MaxJobs
         active <- true
         let rec loop () = async {
             let counters = perfMon.Value.GetCounters()
             worker.UpdateCounters(counters)
-            worker.ActiveTasks <- activeTasks
+            worker.ActiveJobs <- activeJobs
             worker.IsActive <- true
             worker.ETag <- "*"
             let! e = Table.merge<WorkerRecord> config table worker
