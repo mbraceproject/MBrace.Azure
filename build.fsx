@@ -78,11 +78,6 @@ Target "AssemblyInfo" (fun _ ->
 // --------------------------------------------------------------------------------------
 // Clean and restore packages
 
-Target "RestorePackages" (fun _ ->
-    !! "./**/packages.config"
-    |> Seq.iter (RestorePackage (fun p -> { p with ToolPath = "./.nuget/NuGet.exe" }))
-)
-
 Target "Clean" (fun _ ->
     CleanDirs (!! "**/bin/Release/")
     CleanDirs (!! "**/bin/Debug/")
@@ -181,13 +176,13 @@ Target "NuGet" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
 "Clean"
-  ==> "RestorePackages"
+  ==> "AssemblyInfo"
   ==> "Build"
   ==> "RunTests"
   ==> "Default"
 
-"AssemblyInfo"
-  ==> "Build"
+
+"Build"
   ==> "PrepareRelease"
   ==> "Nuget"
 //  ==> "GenerateDocs"

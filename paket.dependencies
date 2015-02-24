@@ -1,4 +1,4 @@
-source https://www.nuget.org/api/v2/
+source https://www.nuget.org/api/v2
 source C:\Users\eirik\SkyDrive\Development\Nuget
 
 nuget Nuget.CommandLine 2.8.3
@@ -17,3 +17,4 @@ nuget System.Spatial 5.6.3
 nuget Vagabond 0.3.2
 nuget WindowsAzure.ServiceBus 2.5.2.0
 nuget WindowsAzure.Storage 4.3.0
+nuget FAKE

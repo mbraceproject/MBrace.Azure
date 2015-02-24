@@ -46,6 +46,11 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Store", "src\M
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Store.Tests", "tests\MBrace.Azure.Store.Tests\MBrace.Azure.Store.Tests.fsproj", "{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".nuget", ".nuget", "{EF670671-0842-4B72-83BE-5D5F10AE8099}"
+	ProjectSection(SolutionItems) = preProject
+		.nuget\packages.config = .nuget\packages.config
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_AzureSDK|Any CPU = Debug_AzureSDK|Any CPU

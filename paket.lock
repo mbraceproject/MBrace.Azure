@@ -1,6 +1,7 @@
 NUGET
   remote: https://www.nuget.org/api/v2
   specs:
+    FAKE (3.17.8)
     FsCheck (1.0.4)
     FsPickler (1.0.11)
     FsUnit (1.3.0.1)
