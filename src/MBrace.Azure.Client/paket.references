@@ -1,4 +1,3 @@
-FsCheck
 FsPickler
 MBrace.Core
 MBrace.Runtime.Core
@@ -7,7 +6,6 @@ Microsoft.Data.OData
 Microsoft.Data.Services.Client
 Microsoft.WindowsAzure.ConfigurationManager
 Newtonsoft.Json
-NUnit
 System.Spatial
 Vagabond
 WindowsAzure.ServiceBus

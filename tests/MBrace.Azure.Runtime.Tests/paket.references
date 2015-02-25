@@ -2,6 +2,7 @@ FsCheck
 FsPickler
 FsUnit
 MBrace.Core
+MBrace.Tests
 MBrace.Runtime.Core
 Microsoft.Data.Edm
 Microsoft.Data.OData

@@ -7,6 +7,10 @@ open FsUnit
 
 open MBrace
 open MBrace.Runtime
+open MBrace.Azure.Runtime
+open MBrace.Azure.Client
+
+#nowarn "445"
 
 module Utils =
     open System
@@ -38,3 +42,29 @@ module Choice =
         match input with
         | Choice1Of2 t -> should be instanceOfType<'Exn> t
         | Choice2Of2 e -> should be instanceOfType<'Exn> e
+
+
+type RuntimeSession(config : Configuration) =
+
+    let mutable state = None
+
+    member __.Start () = 
+        let rt = Runtime.GetHandle(config)
+        let logger = Common.ConsoleLogger() :> ICloudLogger
+        rt.AttachLogger logger
+        state <- Some (rt, logger)
+        do System.Threading.Thread.Sleep 2000
+
+    member __.Stop () =
+        state |> Option.iter (fun (r,l) -> r.Reset(false, true))
+        state <- None
+
+    member __.Runtime =
+        match state with
+        | None -> invalidOp "MBrace runtime not initialized."
+        | Some (r,_) -> r
+
+    member __.Logger =
+        match state with
+        | None -> invalidOp "MBrace runtime not initialized."
+        | Some (_,l) -> l

@@ -12,14 +12,14 @@ open MBrace.Tests
 
 [<AbstractClass; TestFixture>]
 type ``Azure Runtime Tests`` (sbus, storage) as self =
-    inherit ``Parallelism Tests`` (nParallel = 4)
+    inherit ``Parallelism Tests`` (parallelismFactor = 4, delayFactor = 10000)
     
     let config = 
         { Configuration.Default with
             StorageConnectionString = storage
             ServiceBusConnectionString = sbus }
 
-    let mutable runtime = None
+    let session = new RuntimeSession(config)
 
     let run (wf : Cloud<'T>) = self.Run wf
     let repeat f = repeat self.Repeats f
@@ -28,27 +28,22 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
 
     [<TestFixtureSetUp>]
     abstract Init : unit -> unit
-    default __.Init () = 
-        let rt = Runtime.GetHandle(config)
-        rt.AttachLogger(Common.ConsoleLogger())
-        runtime <- Some rt
+    default __.Init () = session.Start()
 
     [<TestFixtureTearDown>]
     abstract Fini : unit -> unit
-    default __.Fini () = 
-        runtime.Value.Reset(false, true)
-        runtime <- None
+    default __.Fini () = session.Stop()
 
     override __.IsTargetWorkerSupported = true
 
     override __.Run (workflow : Cloud<'T>) = 
-        runtime.Value.RunAsync(workflow)
+        session.Runtime.RunAsync(workflow)
         |> Async.Catch
         |> Async.RunSync
 
     override __.Run (workflow : ICloudCancellationTokenSource -> Cloud<'T>) = 
         async {
-            let runtime = runtime.Value
+            let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
             let! ps = runtime.CreateProcessAsync(workflow cts, cancellationToken = cts.Token)
             return! async {
@@ -59,7 +54,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
             }
         } |> Async.RunSync
 
-    override __.RunLocal(workflow : Cloud<'T>) = runtime.Value.RunLocal(workflow)
+    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
 
     override __.Logs = failwith "Not implemented"
     override __.FsCheckMaxTests = 4
@@ -68,7 +63,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
 
     [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
-        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (runtime.Value.GetWorkers() |> Seq.length)
+        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.GetWorkers() |> Seq.length)
 
     [<Test>]
     member __.``Z4. Runtime : Get current worker`` () =
