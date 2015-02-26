@@ -43,7 +43,7 @@ type internal Worker () =
         /// Timeout for the Mailbox loop.
         let receiveTimeout = 100
         /// Used for jobs that cannot be UnPickled.
-        let maxJobDeliveryCount = 10
+        let maxJobDeliveryCount = 1
         /// Sleep time for runtime errors.
         let onErrorWaitTime = 10000
 

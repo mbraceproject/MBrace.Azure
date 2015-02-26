@@ -58,6 +58,10 @@ ps.AwaitResult()
 
 runtime.Run(Cloud.Parallel(cloud { return System.Diagnostics.Process.GetCurrentProcess().Id }))
 
+
+runtime.Run <| Cloud.Parallel Cloud.CurrentWorker
+
+
 runtime.Run <| cloud { return 42 }
 
 open MBrace.Workflows

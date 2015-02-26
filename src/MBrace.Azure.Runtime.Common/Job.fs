@@ -186,9 +186,11 @@ with
         let jobs = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
             let jobId = guid()
+            let wf = fst wfs.[i]
+            let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
             let startJob ctx =
                 let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
-                Cloud.StartWithContinuations(fst wfs.[i], cont, ctx)
+                Cloud.StartWithContinuations(wf, cont, ctx)
             let jobType aff  =
                 match distribType, aff with
                 | Parallel, Some a -> ParallelAffined(a, i, wfs.Length-1)
@@ -196,7 +198,6 @@ with
                 | Parallel, None   -> JobType.Parallel(i,wfs.Length-1)
                 | Choice, None     -> JobType.Choice(i,wfs.Length-1)
 
-            let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
             let job = 
                 { 
                     Type = typeof<'T>
