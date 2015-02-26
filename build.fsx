@@ -36,6 +36,7 @@ let nugetVersion = release.NugetVersion
 let gitHome = "https://github.com/mbraceproject"
 let gitName = "MBrace.Azure"
 
+let MBraceCoreVersion = "0.9.2-alpha"
 
 // Generate assembly info files with the right version & up-to-date information
 Target "AssemblyInfo" (fun _ ->
@@ -152,7 +153,7 @@ Target "NuGet.Store" (fun _ ->
             Dependencies = 
                 [
                     "FsPickler", "1.0.12"
-                    "MBrace.Core", RequireExactly "0.9.2-alpha"
+                    "MBrace.Core", RequireExactly MBraceCoreVersion
                     "Microsoft.Data.OData", RequireExactly  "5.6.3"
                     "Microsoft.Data.Edm", RequireExactly "5.6.3"
                     "Microsoft.Data.Services.Client", RequireExactly "5.6.3"
@@ -186,8 +187,8 @@ Target "NuGet.Runtime" (fun _ ->
             Dependencies = 
                 [
                     "FsPickler", "1.0.12"
-                    "MBrace.Core", RequireExactly "0.9.2-alpha"
-                    "MBrace.Runtime.Core", RequireExactly "0.9.2-alpha"
+                    "MBrace.Core", RequireExactly MBraceCoreVersion
+                    "MBrace.Runtime.Core", RequireExactly MBraceCoreVersion
                     "MBrace.Azure.Store", RequireExactly release.NugetVersion
                     "Microsoft.Data.OData", RequireExactly  "5.6.3"
                     "Microsoft.Data.Edm", RequireExactly "5.6.3"
