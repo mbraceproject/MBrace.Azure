@@ -22,6 +22,8 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Vagabond
 open MBrace.Store
+open Microsoft.FSharp.Core.Printf
+open System.Text
 
 // Jobs are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
@@ -98,7 +100,13 @@ type Job =
     }
 with
     override this.ToString () =
-        sprintf "Job : %A \nParentJob : %s\nProcess : %s \nId : %s \nType : %s" this.JobType this.ProcessInfo.Id this.JobId (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type) this.ParentJobId
+        let sb = StringBuilder()
+        bprintf sb "Job : %s\n" this.JobId
+        bprintf sb "ParentJob : %s\n" (if String.IsNullOrEmpty this.ParentJobId then "<empty>" else this.ParentJobId)
+        bprintf sb "ProcessId : %s\n" this.ProcessInfo.Id
+        bprintf sb "ReturnType : %s\n" (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
+        bprintf sb "JobType : %A" this.JobType
+        sb.ToString()
 
     /// <summary>
     ///     Asynchronously executes job in the local process.
