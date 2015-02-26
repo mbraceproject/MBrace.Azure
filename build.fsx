@@ -21,9 +21,8 @@ let description = """ MBrace on Windows Azure. """
 
 let tags = "F# cloud mapreduce distributed azure windowsazure"
 
-let storeSummary = """ Contains a collection of MBrace Store primitives implemented on top of Windows Azure. """
-
-let runtimeSummary = """ Contains an MBrace Runtime implementation implemented on top of Windows Azure."""
+let azureSummary = """ Contains a collection of MBrace implementations on top of Windows Azure."""
+let clientSummary = """ A collection of standalone Azure client libraries for consumption from F# interactive."""
 
 // --------------------------------------------------------------------------------------
 // Read release notes & version info from RELEASE_NOTES.md
@@ -138,13 +137,13 @@ let addAssembly (target : string) assembly =
         yield! includeFile false <| assembly + ".config"
     }
 
-Target "NuGet.Store" (fun _ ->
+Target "NuGet.CoreAzure" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
-            Project = "MBrace.Azure.Store"
-            Summary = storeSummary
-            Description = storeSummary
+            Project = "MBrace.Azure"
+            Summary = azureSummary
+            Description = azureSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -154,6 +153,7 @@ Target "NuGet.Store" (fun _ ->
                 [
                     "FsPickler", "1.0.12"
                     "MBrace.Core", RequireExactly MBraceCoreVersion
+                    "MBrace.Runtime.Core", RequireExactly MBraceCoreVersion
                     "Microsoft.Data.OData", RequireExactly  "5.6.3"
                     "Microsoft.Data.Edm", RequireExactly "5.6.3"
                     "Microsoft.Data.Services.Client", RequireExactly "5.6.3"
@@ -167,44 +167,48 @@ Target "NuGet.Store" (fun _ ->
             Files =
                 [
                     yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Store.dll"
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.Common.dll"
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.dll"
+                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Client.dll"
                 ]
         })
         ("nuget/MBrace.Azure.nuspec")
 )
 
-Target "NuGet.Runtime" (fun _ ->
+Target "NuGet.Client" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
-            Project = "MBrace.Azure.Runtime"
-            Summary = runtimeSummary
-            Description = runtimeSummary
+            Project = "MBrace.Azure.Client"
+            Summary = clientSummary
+            Description = clientSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
             OutputPath = "bin"
             AccessKey = getBuildParamOrDefault "nugetkey" ""
-            Dependencies = 
-                [
-                    "FsPickler", "1.0.12"
-                    "MBrace.Core", RequireExactly MBraceCoreVersion
-                    "MBrace.Runtime.Core", RequireExactly MBraceCoreVersion
-                    "MBrace.Azure.Store", RequireExactly release.NugetVersion
-                    "Microsoft.Data.OData", RequireExactly  "5.6.3"
-                    "Microsoft.Data.Edm", RequireExactly "5.6.3"
-                    "Microsoft.Data.Services.Client", RequireExactly "5.6.3"
-                    "Microsoft.WindowsAzure.ConfigurationManager", RequireExactly "2.0.3"
-                    "Newtonsoft.Json", RequireExactly "6.0.6"
-                    "System.Spatial", RequireExactly "5.6.3"
-                    "WindowsAzure.Storage", RequireExactly "4.3.0"
-                    "WindowsAzure.ServiceBus", RequireExactly "2.5.2.0"
-                ]
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.Common.dll"
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.dll"
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Client.dll"
+                    yield! addAssembly @"tools" @"..\bin\Newtonsoft.Json.dll"
+                    yield! addAssembly @"tools" @"..\bin\FsPickler.dll"
+                    yield! addAssembly @"tools" @"..\bin\System.Spatial.dll"
+                    yield! addAssembly @"tools" @"..\bin\Mono.Cecil.dll"
+                    yield! addAssembly @"tools" @"..\bin\Vagabond.Cecil.dll"
+                    yield! addAssembly @"tools" @"..\bin\Vagabond.dll"
+                    yield! addAssembly @"tools" @"..\bin\MBrace.Core.dll"
+                    yield! addAssembly @"tools" @"..\bin\Streams.Core.dll"
+                    yield! addAssembly @"tools" @"..\bin\MBrace.Streams.dll"
+                    yield! addAssembly @"tools" @"..\bin\Microsoft.Data.Edm.dll"
+                    yield! addAssembly @"tools" @"..\bin\Microsoft.Data.OData.dll"
+                    yield! addAssembly @"tools" @"..\bin\Microsoft.Data.Services.Client.dll"
+                    yield! addAssembly @"tools" @"..\bin\Microsoft.ServiceBus.dll"
+                    yield! addAssembly @"tools" @"..\bin\Microsoft.WindowsAzure.Configuration.dll"
+                    yield! addAssembly @"tools" @"..\bin\Microsoft.WindowsAzure.Storage.dll"
+                    yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Store.dll"
+                    yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Runtime.Common.dll"
+                    yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Runtime.dll"
+                    yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Client.dll"
                 ]
         })
         ("nuget/MBrace.Azure.nuspec")
@@ -246,8 +250,8 @@ Target "Help" (fun _ -> PrintTargets() )
 
 "Build"
   ==> "PrepareRelease"
-  ==> "Nuget.Store"
-  ==> "Nuget.Runtime"
+  ==> "Nuget.CoreAzure"
+  ==> "Nuget.Client"
 //  ==> "GenerateDocs"
 //  ==> "ReleaseDocs"
   ==> "Release"
