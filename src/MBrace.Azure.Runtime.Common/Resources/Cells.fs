@@ -4,6 +4,7 @@ open System
 open System.Runtime.Serialization
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
+open System.IO
 
 
 type BlobCell<'T> internal (config : ConfigurationId, res : Uri) = 
@@ -36,8 +37,13 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
             let b = c.GetBlockBlobReference(res.SecondaryWithScheme)
             let! exists = b.ExistsAsync()
             if not exists then
-                use! s = b.OpenWriteAsync()
-                Configuration.Pickler.Serialize<'T>(s, f())
+                let tmpPath = Path.GetTempFileName()
+                let tmp = File.Create(tmpPath)
+                Configuration.Pickler.Serialize<'T>(tmp, f(), leaveOpen = true)
+                tmp.Position <- 0L
+                do! b.UploadFromStreamAsync(tmp) 
+                tmp.Dispose()
+                File.Delete(tmpPath)
                 return new BlobCell<'T>(config, res)
             else
                 return BlobCell.OfUri<'T>(config, res)

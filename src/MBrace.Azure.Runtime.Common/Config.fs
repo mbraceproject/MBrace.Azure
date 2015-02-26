@@ -91,7 +91,12 @@ type internal ClientProvider (config : Configuration) =
     do System.Net.ServicePointManager.UseNagleAlgorithm <- false
 
     member __.TableClient = acc.CreateCloudTableClient()
-    member __.BlobClient = acc.CreateCloudBlobClient()
+    member __.BlobClient = 
+        let client = acc.CreateCloudBlobClient()
+        client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(4 * System.Environment.ProcessorCount)
+        client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(1L <<< 23) // 8MB, possible ranges: 1..64MB, default 32MB
+        client.DefaultRequestOptions.MaximumExecutionTime <- Nullable<_>(TimeSpan.FromMinutes(10.))
+        client
     member __.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
     member __.QueueClient(queue : string, mode) = QueueClient.CreateFromConnectionString(config.ServiceBusConnectionString, queue, mode)
     member __.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic, name)

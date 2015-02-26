@@ -39,26 +39,6 @@ runtime.AttachLogger(new Common.ConsoleLogger())
 
 //runtime.Reset(false, true)
 
-
-let proc = cloud { 
-    let N = 100  // Number of data points
-    let D = 10   // Numer of dimensions
-    let R = 0.7  // Scaling factor
-    let ITERATIONS = 5
-    let rand = new System.Random(42)
-    let generateData = 
-        let generatePoint i = 
-          let y = float (if (i % 2 = 0) then -1 else 1)
-          let x = [ for x in 0 .. D -> rand.NextDouble() + float y * R ] |> List.toArray
-          (x, y)
-        Array.init N generatePoint
-    return generateData 
-} 
-runtime.Run proc
-
-
-
-
 cloud { return 42 }
 |> runtime.Run
 
