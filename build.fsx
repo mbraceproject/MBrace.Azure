@@ -152,7 +152,7 @@ Target "NuGet.Store" (fun _ ->
             Dependencies = 
                 [
                     "FsPickler", "1.0.12"
-                    "MBrace.Core", RequireExactly release.NugetVersion
+                    "MBrace.Core", RequireExactly "0.9.2-alpha"
                     "Microsoft.Data.OData", RequireExactly  "5.6.3"
                     "Microsoft.Data.Edm", RequireExactly "5.6.3"
                     "Microsoft.Data.Services.Client", RequireExactly "5.6.3"
@@ -186,8 +186,8 @@ Target "NuGet.Runtime" (fun _ ->
             Dependencies = 
                 [
                     "FsPickler", "1.0.12"
-                    "MBrace.Core", RequireExactly release.NugetVersion
-                    "MBrace.Runtime.Core", RequireExactly release.NugetVersion
+                    "MBrace.Core", RequireExactly "0.9.2-alpha"
+                    "MBrace.Runtime.Core", RequireExactly "0.9.2-alpha"
                     "MBrace.Azure.Store", RequireExactly release.NugetVersion
                     "Microsoft.Data.OData", RequireExactly  "5.6.3"
                     "Microsoft.Data.Edm", RequireExactly "5.6.3"
