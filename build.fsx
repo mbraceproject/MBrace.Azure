@@ -151,6 +151,7 @@ Target "NuGet.Store" (fun _ ->
             AccessKey = getBuildParamOrDefault "nugetkey" ""
             Dependencies = 
                 [
+                    "FsPickler", "1.0.12"
                     "MBrace.Core", RequireExactly release.NugetVersion
                     "Microsoft.Data.OData", RequireExactly  "5.6.3"
                     "Microsoft.Data.Edm", RequireExactly "5.6.3"
@@ -184,6 +185,7 @@ Target "NuGet.Runtime" (fun _ ->
             AccessKey = getBuildParamOrDefault "nugetkey" ""
             Dependencies = 
                 [
+                    "FsPickler", "1.0.12"
                     "MBrace.Core", RequireExactly release.NugetVersion
                     "MBrace.Runtime.Core", RequireExactly release.NugetVersion
                     "MBrace.Azure.Store", RequireExactly release.NugetVersion
