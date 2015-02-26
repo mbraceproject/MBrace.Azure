@@ -46,7 +46,7 @@
         member __.ClientLogger : ICloudLogger = clientLogger :> _
         
         /// Attach given logger to ClientLogger.
-        member __.AttachLogger(logger : ICloudLogger) = clientLogger.Attach(logger)
+        member __.AttachClientLogger(logger : ICloudLogger) = clientLogger.Attach(logger)
 
         /// <summary>
         /// Creates a fresh CloudCancellationTokenSource for this runtime.

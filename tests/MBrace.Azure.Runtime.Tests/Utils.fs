@@ -51,7 +51,7 @@ type RuntimeSession(config : Configuration) =
     member __.Start () = 
         let rt = Runtime.GetHandle(config)
         let logger = Common.ConsoleLogger() :> ICloudLogger
-        rt.AttachLogger logger
+        rt.AttachClientLogger logger
         state <- Some (rt, logger)
         do System.Threading.Thread.Sleep 2000
 
