@@ -197,6 +197,7 @@ Target "NuGet.Client" (fun _ ->
                     yield! addAssembly @"tools" @"..\bin\Vagabond.Cecil.dll"
                     yield! addAssembly @"tools" @"..\bin\Vagabond.dll"
                     yield! addAssembly @"tools" @"..\bin\MBrace.Core.dll"
+                    yield! addAssembly @"tools" @"..\bin\MBrace.Runtime.Core.dll"
                     yield! addAssembly @"tools" @"..\bin\Streams.Core.dll"
                     yield! addAssembly @"tools" @"..\bin\MBrace.Streams.dll"
                     yield! addAssembly @"tools" @"..\bin\Microsoft.Data.Edm.dll"
