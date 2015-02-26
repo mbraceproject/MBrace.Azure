@@ -152,14 +152,14 @@ Target "NuGet.Store" (fun _ ->
             Dependencies = 
                 [
                     "MBrace.Core", RequireExactly release.NugetVersion
-                    "WindowsAzure.Storage", "4.3.0"
-                    "WindowsAzure.ServiceBus", "2.5.2.0"
-                    "Microsoft.Data.Edm", "5.6.3"
-                    "Microsoft.Data.OData", "5.6.3"
-                    "Microsoft.Data.Services.Client", "5.6.3"
-                    "Microsoft.WindowsAzure.ConfigurationManager", "2.0.3"
-                    "Newtonsoft.Json", "6.0.6"
-                    "System.Spatial", "5.6.3"
+                    "Microsoft.Data.OData", RequireExactly  "5.6.3"
+                    "Microsoft.Data.Edm", RequireExactly "5.6.3"
+                    "Microsoft.Data.Services.Client", RequireExactly "5.6.3"
+                    "Microsoft.WindowsAzure.ConfigurationManager", RequireExactly "2.0.3"
+                    "Newtonsoft.Json", RequireExactly "6.0.6"
+                    "System.Spatial", RequireExactly "5.6.3"
+                    "WindowsAzure.Storage", RequireExactly "4.3.0"
+                    "WindowsAzure.ServiceBus", RequireExactly "2.5.2.0"
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
@@ -187,14 +187,14 @@ Target "NuGet.Runtime" (fun _ ->
                     "MBrace.Core", RequireExactly release.NugetVersion
                     "MBrace.Runtime.Core", RequireExactly release.NugetVersion
                     "MBrace.Azure.Store", RequireExactly release.NugetVersion
-                    "WindowsAzure.Storage", "4.3.0"
-                    "WindowsAzure.ServiceBus", "2.5.2.0"
-                    "Microsoft.Data.Edm", "5.6.3"
-                    "Microsoft.Data.OData", "5.6.3"
-                    "Microsoft.Data.Services.Client", "5.6.3"
-                    "Microsoft.WindowsAzure.ConfigurationManager", "2.0.3"
-                    "Newtonsoft.Json", "6.0.6"
-                    "System.Spatial", "5.6.3"
+                    "Microsoft.Data.OData", RequireExactly  "5.6.3"
+                    "Microsoft.Data.Edm", RequireExactly "5.6.3"
+                    "Microsoft.Data.Services.Client", RequireExactly "5.6.3"
+                    "Microsoft.WindowsAzure.ConfigurationManager", RequireExactly "2.0.3"
+                    "Newtonsoft.Json", RequireExactly "6.0.6"
+                    "System.Spatial", RequireExactly "5.6.3"
+                    "WindowsAzure.Storage", RequireExactly "4.3.0"
+                    "WindowsAzure.ServiceBus", RequireExactly "2.5.2.0"
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
