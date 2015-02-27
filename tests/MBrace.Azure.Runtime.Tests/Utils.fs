@@ -50,7 +50,7 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
 
     member __.Start () = 
         let rt = Runtime.GetHandle(config)
-        let logger = Common.ConsoleLogger() :> ICloudLogger
+        let logger = ConsoleLogger() :> ICloudLogger
         rt.AttachClientLogger logger
         state <- Some (rt, logger)
         do System.Threading.Thread.Sleep 2000

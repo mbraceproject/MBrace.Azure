@@ -31,7 +31,6 @@ type ConfigurationId =
 
 
 /// Azure specific Runtime Configuration.
-[<AutoSerializable(false)>]
 type Configuration = 
     { /// Runtime identifier.
       Id : uint32

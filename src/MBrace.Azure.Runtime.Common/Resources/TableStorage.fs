@@ -11,8 +11,13 @@ open MBrace.Azure.Runtime
 //
 // Parameterless public ctor is needed.
 
+[<AbstractClass>]
+type RuntimeEntity (pk, rk, entity) =
+    inherit TableEntity(pk, rk)
+    member val EntityType = entity with get, set
+
 type CounterEntity(name : string, value : int) = 
-    inherit TableEntity(name, String.Empty)
+    inherit RuntimeEntity(name, String.Empty, "CNT")
     member val Value = value with get, set
     new () = new CounterEntity(null, 0)
 
@@ -22,24 +27,24 @@ type LatchEntity(name : string, value : int, size : int) =
     new () = new LatchEntity(null, -1, -1)
 
 type LightCellEntity(name : string, uri : string) =
-    inherit TableEntity(name, String.Empty)
+    inherit RuntimeEntity(name, String.Empty, "CELL")
     member val Uri = uri with get, set
     new () = LightCellEntity(null, null)
 
 type ResultAggregatorEntity(name : string, index : int, bloburi : string) = 
-    inherit TableEntity(name, string index)
+    inherit RuntimeEntity(name, string index, "AGGR")
     member val Index = index with get, set
     member val Uri = bloburi with get, set
     new () = new ResultAggregatorEntity(null, -1, null)
 
 type CancellationTokenSourceEntity(id : string) =
-    inherit TableEntity(id, String.Empty)
+    inherit RuntimeEntity(id, String.Empty, "CTS")
     member val IsCancellationRequested = false with get, set
     member val Metadata = Unchecked.defaultof<string> with get, set
     new () = new CancellationTokenSourceEntity(null)
 
 type CancellationTokenLinkEntity(id : string, childId : string) =
-    inherit TableEntity(id, childId)
+    inherit RuntimeEntity(id, childId, "CTSLINK")
     new () = new CancellationTokenLinkEntity(null, null)
 
 

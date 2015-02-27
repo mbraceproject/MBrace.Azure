@@ -337,7 +337,7 @@
 
                 clientLogger.Logf "Calling Reset."
                 storageLogger.Stop()
-                let cl = new Common.ConsoleLogger() // Using client (storage) logger will throw exc.
+                let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
                 let! step1 =
                     if clearAllProcesses then
                         cl.Logf "Calling ClearAllProcesses."
