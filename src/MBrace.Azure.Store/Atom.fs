@@ -1,21 +1,24 @@
 ﻿namespace MBrace.Azure.Store
 
 open System
-open Microsoft.WindowsAzure.Storage
-open Microsoft.WindowsAzure.Storage.Table
-open MBrace.Store
-open MBrace
-open MBrace.Continuation
 open System.Runtime.Serialization
 open System.IO
 
+open Microsoft.WindowsAzure.Storage
+open Microsoft.WindowsAzure.Storage.Table
+
+open MBrace
+open MBrace.Store
+open MBrace.Runtime.Vagabond
+
+open MBrace.Azure.Store.TableEntities
+
+/// Azure Table store CloudAtom implementation
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : ISerializer) =
+type Atom<'T> internal (table, pk, rk, connectionString : string) =
     
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
-    [<DataMember(Name = "Serializer")>]
-    let serializer = serializer
     [<DataMember(Name = "Table")>]
     let table = table
     [<DataMember(Name = "PartitionKey")>]
@@ -44,9 +47,9 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
                         return raise <| exn("Maximum number of retries exceeded.")
                     else
                         let! e = Table.read<FatEntity> client table pk rk
-                        let oldValue = unpickle(e.GetPayload()) serializer
+                        let oldValue = VagabondRegistry.Instance.Pickler.UnPickle<'T> (e.GetPayload()) 
                         let newValue = updater oldValue
-                        let newBinary = pickle newValue serializer
+                        let newBinary = VagabondRegistry.Instance.Pickler.Pickle newValue
                         let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = e.ETag)
                         let! result = Async.Catch <| Table.merge client table e
                         match result with
@@ -67,12 +70,11 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
                     return! Table.delete<FatEntity> client table e
                 }
             }
-        
 
         member this.Force(newValue: 'T): Cloud<unit> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
-                let newBinary = pickle newValue serializer
+                let newBinary = VagabondRegistry.Instance.Pickler.Pickle newValue
                 let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge client table e
                 return ()
@@ -81,30 +83,34 @@ type Atom<'T> internal (table, pk, rk, connectionString : string, serializer : I
         member this.Value : Cloud<'T> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
-                let value = unpickle(e.GetPayload()) serializer
+                let value = VagabondRegistry.Instance.Pickler.UnPickle<'T> (e.GetPayload())
                 return value
             } |> Cloud.OfAsync
 
-///  Store implementation that uses a Azure Blob Storage as backend.
-[<AbstractClass; DataContract>]
-type AtomProvider (connectionString : string, serializer : ISerializer) =
+/// Store implementation that uses a Azure Blob Storage as backend.
+[<Sealed; DataContract>]
+type AtomProvider private (connectionString : string) =
     
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
-    [<DataMember(Name = "Serializer")>]
-    let serializer = serializer
 
     [<IgnoreDataMember>]
-    let mutable acc = CloudStorageAccount.Parse(connectionString)
-    [<IgnoreDataMember>]
-    let mutable client = Table.getClient acc
+    let mutable client = 
+        let acc = CloudStorageAccount.Parse(connectionString)
+        Table.getClient acc
 
     [<OnDeserialized>]
     let _onDeserialized (_ : StreamingContext) =
-        acc <- CloudStorageAccount.Parse(connectionString)
+        let acc = CloudStorageAccount.Parse(connectionString)
         client <- Table.getClient acc
 
-    abstract ComputeSize : 'T -> int64
+    /// <summary>
+    ///     Creates an Azure table store based atom provider that
+    ///     connects to storage account with provided connection sting.
+    /// </summary>
+    /// <param name="connectionString">Azure storage account connection string.</param>
+    static member Create (connectionString : string) =
+        new AtomProvider(connectionString)
 
     interface ICloudAtomProvider with
         member this.Id = client.StorageUri.PrimaryUri.ToString()
@@ -112,16 +118,16 @@ type AtomProvider (connectionString : string, serializer : ISerializer) =
         member this.Name = "Azure Table Storage Atom Provider" 
 
         member this.IsSupportedValue(value: 'T) : bool = 
-            this.ComputeSize(value) <= TableEntityUtils.MaxPayloadSize
+            VagabondRegistry.Instance.Pickler.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
         
         member this.CreateUniqueContainerName() = (guid()).Substring(0,5) // TODO : Change
 
         member this.CreateAtom(path, initial: 'T) = 
                 async {
-                    let binary = pickle initial serializer
+                    let binary = VagabondRegistry.Instance.Pickler.Pickle initial
                     let e = new FatEntity(guid(), String.Empty, binary)
                     do! Table.insert<FatEntity> client path e
-                    return new Atom<'T>(path, e.PartitionKey, e.RowKey, connectionString, serializer) :> ICloudAtom<'T>
+                    return new Atom<'T>(path, e.PartitionKey, e.RowKey, connectionString) :> ICloudAtom<'T>
                 }
 
         member this.DisposeContainer(path) =

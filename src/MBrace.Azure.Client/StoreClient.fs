@@ -14,10 +14,8 @@ type internal StoreClient private () =
         Configuration.Activate(config)
 
         let storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
-        let atomProvider = 
-            { new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
-                override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider
-        let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)
+        let atomProvider = AtomProvider.Create(config.StorageConnectionString) :> ICloudAtomProvider
+        let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString) :> ICloudChannelProvider
     
         let defaultStoreContainer = config.DefaultTableOrContainer
         let defaultAtomContainer = config.DefaultTableOrContainer

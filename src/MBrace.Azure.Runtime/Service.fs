@@ -97,17 +97,30 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Creating InMemoryCache"
                 let inMemoryCache = InMemoryCache.Create()
                 
-                cache <- Some(defaultArg cache (FileSystemStore.CreateSharedLocal() :> ICloudFileStore))
+                cache <- 
+                    Some <|
+                        match cache with
+                        | Some cs -> cs
+                        | None -> FileSystemStore.CreateSharedLocal() :> ICloudFileStore
 
                 logf "Local Cache Store %s" cache.Value.Id
                 let store = FileStoreCache.Create(storeProvider.Value, cache.Value) :> ICloudFileStore
                 logf "CachedStore %s created" store.Id
 
-                atomProvider <- Some(defaultArg atomProvider ({ new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
-                                                                    override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider))
+                atomProvider <- 
+                    Some <|
+                        match atomProvider with
+                        | Some ap -> ap
+                        | None -> AtomProvider.Create(config.StorageConnectionString) :> _
+
                 logf "AtomProvider : %s" atomProvider.Value.Id
 
-                channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)))
+                channelProvider <- 
+                    Some <| 
+                        match channelProvider with
+                        | Some cp -> cp
+                        | None -> ChannelProvider.Create(config.ServiceBusConnectionString) :> _
+
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
                 let wmon = WorkerManager.Create(config, MaxJobs = __.MaxConcurrentJobs)

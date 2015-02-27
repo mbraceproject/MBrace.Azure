@@ -9,7 +9,7 @@ open MBrace.Store
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Blob
 
-///  Store implementation that uses a Azure Blob Storage as backend.
+///  MBrace File Store implementation that uses Azure Blob Storage as backend.
 [<Sealed; DataContract>]
 type BlobStore private (connectionString : string) =
 
@@ -23,7 +23,10 @@ type BlobStore private (connectionString : string) =
     let _onDeserialized (_ : StreamingContext) =
         acc <- CloudStorageAccount.Parse(connectionString)
 
-    ///  Store implementation that uses a Azure Blob Storage as backend.
+    /// <summary>
+    ///     Creates an MBrace blob storage interface that connects to storage account with provided connection string.
+    /// </summary>
+    /// <param name="connectionString">Azure storage account connection string.</param>
     static member Create(connectionString : string) = new BlobStore(connectionString)
 
     interface ICloudFileStore with
@@ -51,7 +54,7 @@ type BlobStore private (connectionString : string) =
             }
         member this.FileExists(path: string) : Async<bool> = 
             async {
-                let directory, file = splitPath path
+                let directory, file = Path.GetDirectoryName path, Path.GetFileName path
                 let container = getContainer acc directory
                 
                 let! b1 = Async.AwaitTask(container.ExistsAsync())
