@@ -59,13 +59,14 @@ type Configuration =
         { Id                         = 0us
           StorageConnectionString    = "your connection string"
           ServiceBusConnectionString = "your connection string"
-          RuntimeQueue               = "mbraceruntimequeue"
-          RuntimeTopic               = "mbraceruntimetopic"
+          // See Azure/ServiceBus name limits
+          RuntimeQueue               = "MBraceQueue"
+          RuntimeTopic               = "MBraceTopic"
           RuntimeContainer           = "mbraceruntimedata"
-          RuntimeTable               = "mbraceruntimedata"
-          RuntimeLogsTable           = "mbraceruntimelogs"
+          RuntimeTable               = "MBraceRuntimeData"
+          RuntimeLogsTable           = "MBraceRuntimeLogs"
           UserDataContainer          = "mbraceuserdata"
-          UserDataTable              = "mbraceuserdata" }
+          UserDataTable              = "MBraceUserData" }
 
 
     /// Append Configuration.Id on all values.
