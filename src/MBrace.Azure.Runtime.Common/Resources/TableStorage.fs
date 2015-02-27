@@ -38,10 +38,9 @@ type CancellationTokenSourceEntity(id : string) =
     member val Metadata = Unchecked.defaultof<string> with get, set
     new () = new CancellationTokenSourceEntity(null)
 
-type CancellationTokenLinkEntity(id : string, childId : string, childTable : string) =
+type CancellationTokenLinkEntity(id : string, childId : string) =
     inherit TableEntity(id, childId)
-    member val ChildTable = childTable with get, set
-    new () = new CancellationTokenLinkEntity(null, null, null)
+    new () = new CancellationTokenLinkEntity(null, null)
 
 
 module Table =
@@ -64,14 +63,29 @@ module Table =
     let insert<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.Insert(e) |> exec config table |> Async.Ignore
 
-    let insertBatch<'T when 'T :> ITableEntity> config table (e : seq<'T>) : Async<unit> =
+    let insertBatch<'T when 'T :> ITableEntity> config table (es : seq<'T>) : Async<unit> =
         async {
-            let batch = new TableBatchOperation()
-            e |> Seq.iter batch.Insert
-            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
-            let! _ = t.CreateIfNotExistsAsync()
-            let! _ = t.ExecuteBatchAsync(batch)
-            return ()
+
+            let jobs = new ResizeArray<Async<unit>>()
+            let batch = ref <| new TableBatchOperation()
+            let mkHandle batch = Async.StartChild <| async {
+                let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+                let! _ = t.CreateIfNotExistsAsync()
+                let! _ = t.ExecuteBatchAsync(batch)
+                ()
+            }
+            for e in es do
+                batch.Value.Insert(e)
+                if batch.Value.Count = 100 then
+                    let! handle = mkHandle batch.Value
+                    batch := new TableBatchOperation()
+                    jobs.Add(handle)
+            if batch.Value.Count > 0 then
+                let! handle = mkHandle batch.Value
+                jobs.Add(handle)
+
+            do! Async.Parallel jobs
+                |> Async.Ignore
         }
 
     let mergeBatch<'T when 'T :> ITableEntity> config table (e : seq<'T>) : Async<unit> =

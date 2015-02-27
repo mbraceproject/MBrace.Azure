@@ -3,6 +3,7 @@
 open NUnit.Framework
 open MBrace
 open MBrace.Continuation
+open MBrace.Azure
 open MBrace.Azure.Client
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Standalone

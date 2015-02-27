@@ -5,36 +5,35 @@ open System.Runtime.Serialization
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open System.IO
+open MBrace.Azure
 
 
-type BlobCell<'T> internal (config : ConfigurationId, res : Uri) = 
+type Blob<'T> internal (config : ConfigurationId, filename) = 
     member __.GetValue() : Async<'T> = 
         async { 
-            let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Primary)
-            use! s = container.GetBlockBlobReference(res.SecondaryWithScheme).OpenReadAsync()
+            let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            use! s = container.GetBlockBlobReference(filename).OpenReadAsync()
             return Configuration.Pickler.Deserialize<'T>(s) 
         }
     
-    member __.Uri = res
+    member __.Filename = filename
     
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("filename", filename, typeof<string>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, _: StreamingContext) =
-        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        let filename = info.GetValue("filename", typeof<string>) :?> string
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new BlobCell<'T>(config, res)
+        new Blob<'T>(config, filename)
 
-    static member OfUri<'T>(config, res : Uri) = new BlobCell<'T>(config, res)
-    static member GetUri(container, id) = uri "blobcell:%s/%s" container id
-    static member CreateIfNotExists(config, container : string, id : string, f : unit -> 'T) = 
+    static member FromPath(config : ConfigurationId, filename) = new Blob<'T>(config, filename)
+    static member CreateIfNotExists(config, filename : string, f : unit -> 'T) = 
         async { 
-            let res = BlobCell<_>.GetUri(container, id)
-            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(res.Primary)
+            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             let! _ = c.CreateIfNotExistsAsync()
-            let b = c.GetBlockBlobReference(res.SecondaryWithScheme)
+            let b = c.GetBlockBlobReference(filename)
             let! exists = b.ExistsAsync()
             if not exists then
                 let tmpPath = Path.GetTempFileName()
@@ -44,9 +43,9 @@ type BlobCell<'T> internal (config : ConfigurationId, res : Uri) =
                 do! b.UploadFromStreamAsync(tmp) 
                 tmp.Dispose()
                 File.Delete(tmpPath)
-                return new BlobCell<'T>(config, res)
+                return new Blob<'T>(config, filename)
             else
-                return BlobCell.OfUri<'T>(config, res)
+                return Blob.FromPath(config, filename)
         }
-    static member Create(config, container : string, f : unit -> 'T) = 
-        BlobCell.CreateIfNotExists(config, container, guid(), f)
+    static member Create(config, f : unit -> 'T) = 
+        Blob<'T>.CreateIfNotExists(config, guid(), f)

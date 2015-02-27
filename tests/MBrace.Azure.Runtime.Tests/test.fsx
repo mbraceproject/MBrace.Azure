@@ -27,6 +27,18 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
+
+#r "Microsoft.ServiceBus"
+open Microsoft.ServiceBus.Messaging
+open Microsoft.ServiceBus
+
+let q = QueueClient.CreateFromConnectionString(config.ServiceBusConnectionString, "foobar")
+let t = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, "foobar")
+
+let ns = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
+ns.
+
+
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
 open MBrace.Azure.Runtime.Standalone
@@ -35,7 +47,7 @@ Runtime.Spawn(config, 4, 16)
 // ----------------------------
 
 let runtime = Runtime.GetHandle(config)
-runtime.AttachLogger(new Common.ConsoleLogger()) 
+runtime.AttachClientLogger(new Common.ConsoleLogger()) 
 
 //runtime.Reset(false, true)
 

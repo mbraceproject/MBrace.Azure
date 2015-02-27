@@ -1,16 +1,16 @@
 ﻿namespace MBrace.Azure.Runtime
-
-open System
-open System.Threading
+open MBrace
+open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
-open MBrace
-open MBrace.Continuation
-open MBrace.Store
-open System.Diagnostics
 open MBrace.Azure.Store
-open MBrace.Runtime.Store
+open MBrace.Continuation
 open MBrace.Runtime
+open MBrace.Runtime.Store
+open MBrace.Store
+open System
+open System.Diagnostics
+open System.Threading
 
 module private ReleaseInfo =
     open System.Reflection
@@ -75,12 +75,14 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Starting Service %s" serviceId
                 let sw = new Stopwatch() in sw.Start()
 
+                let config = config.WithAppendedId
+
                 logf "Activating Configuration"
                 Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
                 do! Configuration.ActivateAsync(config)
 
                 logf "Creating storage logger"
-                let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Worker(id = __.Id))
+                let storageLogger = new StorageLogger(config.ConfigurationId, Worker(id = __.Id))
                 logger.Attach(storageLogger)
 
                 logf "%s" <| ReleaseInfo.prettyPrint()
@@ -110,7 +112,7 @@ type Service (config : Configuration, serviceId : string) =
                 channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)))
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
-                let wmon = WorkerManager.Create(config, MaxJobs = __.MaxConcurrentJobs)
+                let wmon = WorkerManager.Create(config.ConfigurationId, MaxJobs = __.MaxConcurrentJobs)
                 let! e = wmon.RegisterCurrent(serviceId)
                 logf "Declared node : %s \nPID : %d \nServiceId : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
@@ -131,7 +133,7 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Starting worker loop"
                 let config = { 
                     State              = state
-                    MaxConcurrentJobs = __.MaxConcurrentJobs
+                    MaxConcurrentJobs  = __.MaxConcurrentJobs
                     Resources          = resources
                     Store              = store
                     Channel            = channelProvider.Value

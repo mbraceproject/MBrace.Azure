@@ -5,6 +5,7 @@ open MBrace.Continuation
 open MBrace.Store
 open MBrace.Runtime.Store
 open MBrace.Azure.Store
+open MBrace.Azure
 
 [<Sealed>]
 type internal StoreClient private () =
@@ -19,8 +20,8 @@ type internal StoreClient private () =
                 override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider
         let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)
     
-        let defaultStoreContainer = config.DefaultTableOrContainer
-        let defaultAtomContainer = config.DefaultTableOrContainer
+        let defaultStoreContainer = config.UserDataContainer
+        let defaultAtomContainer = config.UserDataTable
         let defaultChannelContainer = ""
 
         let resources = 

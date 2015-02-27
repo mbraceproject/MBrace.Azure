@@ -25,22 +25,6 @@
             member __.ReturnFrom(f : Task) : Async<unit> =
                 __.ReturnFrom(Async.AwaitTask f)
 
-        type Uri with
-            member u.PrimaryWithScheme = sprintf "%s:%s" u.Scheme u.Primary
-            member u.SecondaryWithScheme = sprintf "%s:%s" u.Scheme u.Secondary
-
-            member u.Primary = 
-                let s = u.Segments.[0] in if s.EndsWith("/") then s.Substring(0, s.Length-1) else s
-            
-            member u.Secondary = u.Segments.[1]
-            member u.Unique = u.Segments.[2]
-
-    module Storage =
-        open MBrace.Azure.Runtime
-
-        let processIdToStorageId (pid : string) = 
-            sprintf "process%s" <| Guid.Parse(pid).ToString("N").Substring(0,7) // TODO : change
-
     type Live<'T>(provider : unit -> Async<'T>, initial : Choice<'T,exn>, ?keepLast : bool, ?interval : int, ?stopf : Choice<'T, exn> -> bool) =
         let interval = defaultArg interval 500
         let keepLast = defaultArg keepLast false

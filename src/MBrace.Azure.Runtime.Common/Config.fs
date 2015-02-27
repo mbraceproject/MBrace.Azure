@@ -1,4 +1,117 @@
-﻿namespace MBrace.Azure.Runtime
+﻿namespace MBrace.Azure
+
+open Microsoft.ServiceBus
+open Microsoft.WindowsAzure.Storage
+open System.Security.Cryptography
+open System.Text
+
+/// Configuration identifier.
+type ConfigurationId = 
+    private 
+      { /// Runtime identifier.
+        Id : uint32
+        /// Azure storage connection string hash.
+        StorageConnectionStringHash : byte []
+        /// Service Bus connection string hash.
+        ServiceBusConnectionStringHash : byte []
+        /// Service Bus Queue prefix.
+        RuntimeQueue : string
+        /// Service Bus Topic prefix.
+        RuntimeTopic : string
+        /// Runtime blob container prefix.
+        RuntimeContainer : string
+        /// Runtime table prefix.
+        RuntimeTable : string
+        /// Runtime logs table prefix.
+        RuntimeLogsTable : string
+        /// User data container prefix.
+        UserDataContainer : string
+        /// User data table prefix.
+        UserDataTable : string }
+
+
+/// Azure specific Runtime Configuration.
+[<AutoSerializable(false)>]
+type Configuration = 
+    { /// Runtime identifier.
+      Id : uint32
+      /// Azure storage connection string.
+      StorageConnectionString : string
+      /// Service Bus connection string.
+      ServiceBusConnectionString : string
+      /// Service Bus Queue prefix.
+      RuntimeQueue : string
+      /// Service Bus Topic prefix.
+      RuntimeTopic : string
+      /// Runtime blob container prefix.
+      RuntimeContainer : string
+      /// Runtime table prefix.
+      RuntimeTable : string
+      /// Runtime logs table prefix.
+      RuntimeLogsTable : string
+      /// User data container prefix.
+      UserDataContainer : string
+      /// User data table prefix.
+      UserDataTable : string 
+    }
+
+    /// Returns an Azure Configuration with the default values.
+    static member Default = 
+        { Id                         = 0u
+          StorageConnectionString    = "your connection string"
+          ServiceBusConnectionString = "your connection string"
+          RuntimeQueue               = "mbraceruntimequeue"
+          RuntimeTopic               = "mbraceruntimetopic"
+          RuntimeContainer           = "mbraceruntimedata"
+          RuntimeTable               = "mbraceruntimedata"
+          RuntimeLogsTable           = "mbraceruntimelogs"
+          UserDataContainer          = "mbraceuserdata"
+          UserDataTable              = "mbraceuserdata" }
+
+
+    /// Append Configuration.Id on all values.
+    member this.WithAppendedId =
+        let withId s = sprintf "%s%10d" s this.Id
+        { this with
+            RuntimeQueue = withId this.RuntimeQueue
+            RuntimeTopic = withId this.RuntimeTopic
+            RuntimeContainer = withId this.RuntimeContainer
+            RuntimeTable = withId this.RuntimeTable
+            RuntimeLogsTable = withId this.RuntimeLogsTable
+            UserDataContainer = withId this.UserDataContainer
+            UserDataTable = withId this.UserDataTable
+        }
+
+    /// Configuration identifier hash.
+    member this.ConfigurationId : ConfigurationId = 
+        let hashAlgorithm = SHA256Managed.Create()
+        let getHash(txt : string) = hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes txt)
+
+        let store = CloudStorageAccount.Parse(this.StorageConnectionString).Credentials.AccountName
+        let sbus = NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
+
+        { Id = this.Id 
+          StorageConnectionStringHash = getHash store
+          ServiceBusConnectionStringHash = getHash sbus
+          RuntimeQueue = this.RuntimeQueue.ToLower()
+          RuntimeTopic = this.RuntimeTopic.ToLower()
+          RuntimeContainer = this.RuntimeContainer.ToLower()
+          RuntimeTable = this.RuntimeTable.ToLower()
+          RuntimeLogsTable = this.RuntimeLogsTable.ToLower()
+          UserDataContainer = this.UserDataContainer.ToLower()
+          UserDataTable = this.UserDataTable.ToLower()
+        }
+            
+        
+    /// Returns a new copy with altered storage connection string.
+    member this.WithStorageConnectionString(conn : string) =
+        { this with StorageConnectionString = conn }
+
+    /// Returns a new copy with altered service bus connection string.
+    member this.WithServiceBusConnectionString(conn : string) =
+        { this with ServiceBusConnectionString = conn }
+
+namespace MBrace.Azure.Runtime
 
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
@@ -12,80 +125,10 @@ open System.Reflection
 open System.Security.Cryptography
 open System.Text
 open System.Threading
+open MBrace.Azure
 
-
-/// Configuration identifier.
-type ConfigurationId = 
-    private
-    | ConfigurationId of hashcode : byte []
-
-    static member internal ofText (txt : string) = 
-        let hashAlgorithm = SHA256Managed.Create()
-        ConfigurationId(hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes txt))
-
-/// Azure specific Runtime Configuration.
-type Configuration = 
-    { /// Azure storage connection string.
-      StorageConnectionString : string
-      /// Service Bus connection string.
-      ServiceBusConnectionString : string
-      /// Default Blob/Table storage container and table name
-      DefaultTableOrContainer : string
-      /// Default Service Bus queue name.
-      DefaultQueue : string
-      /// Default Table name for logging.
-      DefaultLogTable : string
-      /// Default Topic name.
-      DefaultTopic : string }
-
-    /// Returns an Azure Configuration with the default table, queue, container values and
-    /// sample connection strings.
-    static member Default = 
-        { StorageConnectionString = 
-            "DefaultEndpointsProtocol=[https];AccountName=[myAccount];AccountKey=[myKey];"
-          ServiceBusConnectionString = 
-              "Endpoint=sb://[your namespace].servicebus.windows.net;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=[your secret]"
-          DefaultTableOrContainer = "mbraceruntime"
-          DefaultQueue = "mbraceruntimetaskqueue"
-          DefaultTopic = "mbraceruntimetasktopic"
-          DefaultLogTable = "mbraceruntimelogs" }
-
-    /// Configuration identifier hash.
-    member this.ConfigurationId : ConfigurationId = 
-        // Normalize strings
-        let fields =
-            [ CloudStorageAccount.Parse(this.StorageConnectionString).Credentials.AccountName
-              NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
-              this.DefaultTableOrContainer.ToLower()
-              this.DefaultQueue.ToLower()
-              this.DefaultTopic.ToLower()
-              this.DefaultLogTable.ToLower()
-            ]
-        fields
-        |> String.concat String.Empty
-        |> ConfigurationId.ofText 
-
-    // TODO : maybe just make this a class...
-
-    member this.WithStorageConnectionString(conn : string) =
-        { this with StorageConnectionString = conn }
-
-    member this.WithServiceBusConnectionString(conn : string) =
-        { this with ServiceBusConnectionString = conn }
-
-    member this.WithDefaultTableOrContainer(tableOrContainer : string) =
-        { this with DefaultTableOrContainer = tableOrContainer }
-
-    member this.WithDefaultQueue(queue : string) =
-        { this with DefaultQueue = queue }
-
-    member this.WithDefaultTopic(topic : string) =
-        { this with DefaultTopic = topic }
-
-    member this.WithDefaultLogTable(logTable : string) =
-        { this with DefaultLogTable = logTable }
-
-type internal ClientProvider (config : Configuration) =
+[<AutoSerializable(false)>]
+type ClientProvider (config : Configuration) =
     let acc = CloudStorageAccount.Parse(config.StorageConnectionString)
     do System.Net.ServicePointManager.Expect100Continue <- false
     do System.Net.ServicePointManager.UseNagleAlgorithm <- false
@@ -102,27 +145,42 @@ type internal ClientProvider (config : Configuration) =
     member __.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic, name)
     member __.TopicClient(topic) = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic)
 
-    member __.ClearAll() =
-        async { 
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.DefaultTableOrContainer).DeleteIfExistsAsync()
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.DefaultLogTable).DeleteIfExistsAsync()
-            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).DeleteIfExistsAsync()
-            let! _ = Async.AwaitIAsyncResult <| __.NamespaceClient.DeleteQueueAsync(config.DefaultQueue)
-            let! _ = Async.AwaitIAsyncResult <| __.NamespaceClient.DeleteTopicAsync(config.DefaultTopic)
+    member __.ClearUserData() =
+        async {
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.UserDataTable).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.UserDataContainer).DeleteIfExistsAsync()
             ()
         }
+
+    member __.ClearRuntimeState() =
+        async { 
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeTable).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeLogsTable).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.RuntimeContainer).DeleteIfExistsAsync()
+            do! __.ClearRuntimeQueues()
+        }
+
+    member __.ClearRuntimeQueues() =
+        async {
+            let! _ = Async.AwaitIAsyncResult <| __.NamespaceClient.DeleteQueueAsync(config.RuntimeQueue)
+            let! _ = Async.AwaitIAsyncResult <| __.NamespaceClient.DeleteTopicAsync(config.RuntimeTopic)
+            ()
+        }
+
     member __.InitAll() =
         async {
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.DefaultTableOrContainer).CreateIfNotExistsAsync()
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.DefaultLogTable).CreateIfNotExistsAsync()
-            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.DefaultTableOrContainer).CreateIfNotExistsAsync()
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeTable).CreateIfNotExistsAsync()
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeLogsTable).CreateIfNotExistsAsync()
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.UserDataTable).CreateIfNotExistsAsync()
+            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.RuntimeContainer).CreateIfNotExistsAsync()
+            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.UserDataContainer).CreateIfNotExistsAsync()
             ()
         }
 
 [<Sealed;AbstractClass>]
 /// Holds configuration specific resources.
 type ConfigurationRegistry private () =
-    static let registry = ConcurrentDictionary<ConfigurationId * Type, obj>()
+    static let registry = new ConcurrentDictionary<ConfigurationId * Type, obj>()
 
     static member Register<'T>(config : ConfigurationId, item : 'T) : unit =
         registry.TryAdd((config, typeof<'T>), item :> obj)
@@ -131,7 +189,7 @@ type ConfigurationRegistry private () =
     static member Resolve<'T>(config : ConfigurationId) : 'T =
         match registry.TryGetValue((config, typeof<'T>)) with
         | true, v  -> v :?> 'T
-        | false, _ -> failwith "No active configuration found or registered resource"
+        | false, _ -> failwith <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Configuration =
@@ -184,5 +242,6 @@ module Configuration =
         async {
             init ()
             let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
-            do! cp.ClearAll()
+            do! cp.ClearRuntimeState()
+            do! cp.ClearUserData()
         }

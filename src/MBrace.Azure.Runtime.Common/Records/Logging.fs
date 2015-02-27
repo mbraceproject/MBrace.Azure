@@ -2,7 +2,7 @@
 
 open System
 open Microsoft.WindowsAzure.Storage.Table
-
+open MBrace.Azure
 open MBrace.Continuation
 open System.Collections.Concurrent
 open MBrace.Runtime
@@ -39,8 +39,9 @@ type LoggerCombiner (loggers) =
     
   
 
-type StorageLogger(config, table : string, loggerType : LoggerType) =
+type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
     let maxWaitTime = 5000
+    let table = config.RuntimeLogsTable
     let logs = ResizeArray<LogRecord>()
     let timeToRK (time : DateTimeOffset) = sprintf "%020d" time.Ticks 
     let mutable running = true
@@ -138,9 +139,9 @@ type CustomLogger (f : Action<string>) =
             f.Invoke(entry)
  
  // TODO : Remove?       
-type ProcessLogger(config, table : string, pid : string) =
+type ProcessLogger(config : ConfigurationId, pid : string) =
     let loggerType = ProcessLog pid
-
+    let table = config.UserDataTable
     let timeToRK (time : DateTimeOffset) = sprintf "%020d" time.Ticks 
 
     interface ICloudLogger with

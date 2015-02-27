@@ -4,6 +4,7 @@
     #nowarn "444"
 
     open MBrace
+    open MBrace.Azure
     open MBrace.Azure.Runtime
     open MBrace.Azure.Runtime.Common
     open MBrace.Continuation
@@ -19,13 +20,14 @@
     /// </summary>
     [<AutoSerializable(false)>]
     type Runtime private (clientId, config : Configuration) =
+        let config = config.WithAppendedId
         do Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
         do Configuration.Activate(config)
         let state = Async.RunSync(RuntimeState.FromConfiguration(config))
-        let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
+        let storageLogger = new StorageLogger(config.ConfigurationId, Client(id = clientId))
         let clientLogger = new LoggerCombiner()
         do  clientLogger.Attach(storageLogger)
-        let wmon = WorkerManager.Create(config)
+        let wmon = WorkerManager.Create(config.ConfigurationId)
         let resources, defaultStoreClient = StoreClient.CreateDefault(config)
         let compiler = CloudCompiler.Init()
         let pmon = state.ProcessMonitor
@@ -51,10 +53,8 @@
         /// <summary>
         /// Creates a fresh CloudCancellationTokenSource for this runtime.
         /// </summary>
-        /// <param name="table">Optional table name where the cancellation token will be created. Defaults to Configuration.DefaultTable.</param>
-        member __.CreateCancellationTokenSource (?table : string) =
-            let table = defaultArg table config.DefaultTableOrContainer
-            state.ResourceFactory.RequestCancellationTokenSource(table) 
+        member __.CreateCancellationTokenSource () =
+            state.ResourceFactory.RequestCancellationTokenSource() 
             |> Async.RunSync :> ICloudCancellationTokenSource
 
         /// <summary>
@@ -148,21 +148,19 @@
                 let computation = compiler.Compile(workflow, ?name = name)
           
                 let pid = guid ()
-                let defaultContainer = Storage.processIdToStorageId pid
                 let info = 
                     { 
                         Id = pid
                         Name = defaultArg name computation.Name
-                        DefaultDirectory = defaultArg defaultDirectory defaultContainer
+                        DefaultDirectory = defaultArg defaultDirectory config.UserDataContainer
                         FileStore = fileStore
-                        DefaultAtomContainer = defaultArg defaultAtomContainer defaultContainer
+                        DefaultAtomContainer = defaultArg defaultAtomContainer config.UserDataTable
                         AtomProvider = atomProvider
-                        DefaultChannelContainer = defaultArg defaultChannelContainer defaultContainer
+                        DefaultChannelContainer = defaultArg defaultChannelContainer config.UserDataContainer
                         ChannelProvider = channelProvider 
                     }
 
                 clientLogger.Logf "Creating process %s %s" info.Id info.Name
-                clientLogger.Logf "Default process container %s." defaultContainer
                 clientLogger.Logf "Calculating dependencies." 
                 for d in computation.Dependencies do
                     clientLogger.Logf "- %s" d.FullName

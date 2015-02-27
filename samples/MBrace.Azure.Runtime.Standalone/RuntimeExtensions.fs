@@ -1,5 +1,6 @@
 ﻿namespace MBrace.Azure.Runtime.Standalone
 
+open MBrace.Azure
 open MBrace.Azure.Client
 open System.Diagnostics
 open System.IO

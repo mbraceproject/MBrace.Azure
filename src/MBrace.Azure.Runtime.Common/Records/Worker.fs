@@ -6,6 +6,7 @@ open MBrace.Azure.Runtime
 open System.Net
 open System.Threading
 open MBrace
+open MBrace.Azure
 
 type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset) =    
     member __.Id = id
@@ -59,15 +60,16 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
             __.NetworkUp <- counters.NetworkUsageUp
             __.NetworkDown <- counters.NetworkUsageDown
 
-type WorkerManager private (config, table : string) =
+type WorkerManager private (config : ConfigurationId) =
     let pk = "worker"
+    let table = config.RuntimeTable
 
     let current = ref None
     let perfMon = lazy new PerformanceMonitor()
     let mutable active = false
     let mutable activeJobs = 0
 
-    static member Create(config : Configuration) = new WorkerManager(config.ConfigurationId, config.DefaultTableOrContainer)
+    static member Create(config : ConfigurationId) = new WorkerManager(config)
 
     member __.ActiveJobs = activeJobs
     

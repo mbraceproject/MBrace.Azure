@@ -12,7 +12,6 @@ open MBrace.Azure.Runtime
 #nowarn "444"
 
 open MBrace.Azure.Runtime.Resources
-open MBrace.Azure.Runtime.Common.Storage
 open MBrace.Continuation
 
 let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =
@@ -35,13 +34,11 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depe
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
-            let storageId = psInfo.DefaultDirectory
-            
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts, metadata = jobId)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(parent = currentCts, metadata = jobId)
             
-            let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(storageId, computations.Length)
-            let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
+            let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length)
+            let! cancellationLatch = state.ResourceFactory.RequestCounter(0)
 
             let onSuccess i ctx (t : 'T) = 
                 async {
@@ -95,13 +92,12 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depend
 
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
-            let storageId = psInfo.DefaultDirectory
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(storageId, parent = currentCts, metadata = jobId)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(parent = currentCts, metadata = jobId)
 
-            let! completionLatch = state.ResourceFactory.RequestCounter(storageId, 0)
-            let! cancellationLatch = state.ResourceFactory.RequestCounter(storageId, 0)
+            let! completionLatch = state.ResourceFactory.RequestCounter(0)
+            let! cancellationLatch = state.ResourceFactory.RequestCounter(0)
 
             let onSuccess ctx (topt : 'T option) =
                 async {

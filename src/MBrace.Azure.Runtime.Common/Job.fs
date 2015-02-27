@@ -15,6 +15,7 @@ open Nessos.FsPickler
 open Nessos.Vagabond
 
 open MBrace
+open MBrace.Azure
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
 open MBrace.Continuation
@@ -167,10 +168,10 @@ with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration) = async {
         let configurationId = config.ConfigurationId
-        let! jobQueue = JobQueue.Create(configurationId, config.DefaultQueue, config.DefaultTopic)
-        let assemblyManager = AssemblyManager.Create(configurationId, config.DefaultTableOrContainer) 
+        let! jobQueue = JobQueue.Create(configurationId)
+        let assemblyManager = AssemblyManager.Create(configurationId) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
-        let pmon = ProcessManager.Create(configurationId, config.DefaultTableOrContainer)
+        let pmon = ProcessManager.Create(configurationId)
         return { 
             JobQueue = jobQueue
             AssemblyManager = assemblyManager 
@@ -254,7 +255,7 @@ with
     /// Schedules a cloud workflow as an ICloudTask.
     member internal rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, jobType, parentJobId) : Async<ICloudTask<'T>> = async {
         let jobId = guid()
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.DefaultDirectory)
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId)
         let setResult ctx r = 
             async {
                 do! resultCell.SetResult r
@@ -274,15 +275,15 @@ with
         let jobId = guid ()
         let! cts = 
             match ct with
-            | None -> rt.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory, metadata = jobId)
+            | None -> rt.ResourceFactory.RequestCancellationTokenSource(metadata = jobId)
             | Some ct -> async { return ct :?> DistributedCancellationTokenSource }
 
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.DefaultDirectory)
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId)
 
         let! _ = rt.ProcessMonitor
                    .CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies,
-                                   string cts.Uri, 
-                                   string resultCell.Uri)
+                                   string cts.Path, 
+                                   string resultCell.Path)
 
         let setResult ctx r = 
             async {

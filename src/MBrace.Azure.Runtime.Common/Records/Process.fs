@@ -11,6 +11,7 @@ open System.Diagnostics
 open System.Net
 open System.Runtime.Serialization
 open Nessos.Vagabond
+open MBrace.Azure
 
 type ProcessState = 
     | Posted
@@ -52,10 +53,11 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
     
     new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null, null)
 
-type ProcessManager private (config, table : string) = 
+type ProcessManager private (config : ConfigurationId) = 
     let pk = "process"
+    let table = config.RuntimeTable
     
-    static member Create(configId : ConfigurationId, table) = new ProcessManager(configId, table)
+    static member Create(configId : ConfigurationId) = new ProcessManager(configId)
 
     member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
         let now = DateTimeOffset.UtcNow
@@ -123,20 +125,23 @@ type ProcessManager private (config, table : string) =
     member this.GetProcesses () = Table.queryPK<ProcessRecord> config table pk
 
     member this.ClearProcess (pid : string, force) = async {
+        //TODO : implement this
+        failwith "Not implemented"
         let! record = this.GetProcess(pid)
         if force = false && not record.Completed then
             failwithf "Cannot clear process %s. Process not completed." pid 
         do! Table.delete<ProcessRecord> config table record
-        let container = Storage.processIdToStorageId pid
         let provider = ConfigurationRegistry.Resolve<ClientProvider>(config)
-        let tableRef = provider.TableClient.GetTableReference(container)
+        let tableRef = provider.TableClient.GetTableReference(config.RuntimeTable)
         do! tableRef.DeleteIfExistsAsync()
-        let containerRef = provider.BlobClient.GetContainerReference(container)
+        let containerRef = provider.BlobClient.GetContainerReference(config.RuntimeContainer)
         do! containerRef.DeleteIfExistsAsync()
         return ()
     }
 
     member this.ClearAllProcesses (force) = async {
+        failwith "Not implemented"
+        
         let! ps = this.GetProcesses()
         let xs = ResizeArray<exn>()
         for p in ps do 

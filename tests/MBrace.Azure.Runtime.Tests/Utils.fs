@@ -44,7 +44,7 @@ module Choice =
         | Choice2Of2 e -> should be instanceOfType<'Exn> e
 
 
-type RuntimeSession(config : Configuration) =
+type RuntimeSession(config : MBrace.Azure.Configuration) =
 
     let mutable state = None
 
