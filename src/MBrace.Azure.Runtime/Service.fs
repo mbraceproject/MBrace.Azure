@@ -31,7 +31,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable atomProvider    = None
     let mutable cache           = None
     let mutable resources       = ResourceRegistry.Empty
-    let mutable config          = config
+    let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
     let logger                  = new LoggerCombiner() 
     let worker                  = new Worker()
@@ -46,8 +46,8 @@ type Service (config : Configuration, serviceId : string) =
     member __.AttachLogger(l) = check(); logger.Attach(l)
     
     member __.Configuration  
-        with get () = config
-        and set c = check (); config <- c
+        with get () = configuration
+        and set c = check (); configuration <- c
 
     member __.MaxConcurrentJobs 
         with get () = maxJobs
@@ -75,14 +75,14 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Starting Service %s" serviceId
                 let sw = new Stopwatch() in sw.Start()
 
-                let config = config.WithAppendedId
+                let cfg = __.Configuration.WithAppendedId
 
                 logf "Activating Configuration"
                 Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
-                do! Configuration.ActivateAsync(config)
+                do! Configuration.ActivateAsync(cfg)
 
                 logf "Creating storage logger"
-                let storageLogger = new StorageLogger(config.ConfigurationId, Worker(id = __.Id))
+                let storageLogger = new StorageLogger(cfg.ConfigurationId, Worker(id = __.Id))
                 logger.Attach(storageLogger)
 
                 logf "%s" <| ReleaseInfo.prettyPrint()
@@ -91,9 +91,9 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Serializer : %s" serializer.Id
 
                 logf "Initializing RuntimeState"
-                let! state = RuntimeState.FromConfiguration(config)
+                let! state = RuntimeState.FromConfiguration(cfg)
 
-                storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
+                storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(cfg.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
                 logf "Creating InMemoryCache"
@@ -105,14 +105,14 @@ type Service (config : Configuration, serviceId : string) =
                 let store = FileStoreCache.Create(storeProvider.Value, cache.Value) :> ICloudFileStore
                 logf "CachedStore %s created" store.Id
 
-                atomProvider <- Some(defaultArg atomProvider ({ new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
+                atomProvider <- Some(defaultArg atomProvider ({ new AtomProvider(cfg.StorageConnectionString, Configuration.Serializer) with
                                                                     override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider))
                 logf "AtomProvider : %s" atomProvider.Value.Id
 
-                channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)))
+                channelProvider <- Some( defaultArg channelProvider (ChannelProvider.Create(cfg.ServiceBusConnectionString, Configuration.Serializer)))
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
-                let wmon = WorkerManager.Create(config.ConfigurationId, MaxJobs = __.MaxConcurrentJobs)
+                let wmon = WorkerManager.Create(cfg.ConfigurationId, MaxJobs = __.MaxConcurrentJobs)
                 let! e = wmon.RegisterCurrent(serviceId)
                 logf "Declared node : %s \nPID : %d \nServiceId : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 

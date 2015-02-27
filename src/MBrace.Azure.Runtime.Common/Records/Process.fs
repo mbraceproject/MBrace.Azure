@@ -54,7 +54,7 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
     new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null, null)
 
 type ProcessManager private (config : ConfigurationId) = 
-    let pk = "process"
+    let pk = "ProcessInfo"
     let table = config.RuntimeTable
     
     static member Create(configId : ConfigurationId) = new ProcessManager(configId)

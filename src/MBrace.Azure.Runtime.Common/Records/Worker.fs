@@ -61,7 +61,7 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
             __.NetworkDown <- counters.NetworkUsageDown
 
 type WorkerManager private (config : ConfigurationId) =
-    let pk = "worker"
+    let pk = "WorkerRef"
     let table = config.RuntimeTable
 
     let current = ref None

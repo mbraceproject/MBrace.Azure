@@ -20,15 +20,15 @@
     /// </summary>
     [<AutoSerializable(false)>]
     type Runtime private (clientId, config : Configuration) =
-        let config = config.WithAppendedId
+        let configuration = config.WithAppendedId
         do Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
-        do Configuration.Activate(config)
-        let state = Async.RunSync(RuntimeState.FromConfiguration(config))
-        let storageLogger = new StorageLogger(config.ConfigurationId, Client(id = clientId))
+           Async.RunSync(Configuration.ActivateAsync(configuration))
+        let state = Async.RunSync(RuntimeState.FromConfiguration(configuration))
+        let storageLogger = new StorageLogger(configuration.ConfigurationId, Client(id = clientId))
         let clientLogger = new LoggerCombiner()
         do  clientLogger.Attach(storageLogger)
-        let wmon = WorkerManager.Create(config.ConfigurationId)
-        let resources, defaultStoreClient = StoreClient.CreateDefault(config)
+        let wmon = WorkerManager.Create(configuration.ConfigurationId)
+        let resources, defaultStoreClient = StoreClient.CreateDefault(configuration)
         let compiler = CloudCompiler.Init()
         let pmon = state.ProcessMonitor
         do clientLogger.Logf "Client %s created" clientId
@@ -42,7 +42,7 @@
         member __.ClientId = clientId
 
         /// Gets the runtime associated configuration.
-        member __.Configuration = config
+        member __.Configuration = configuration
 
         /// Client logger.
         member __.ClientLogger : ICloudLogger = clientLogger :> _
@@ -152,11 +152,11 @@
                     { 
                         Id = pid
                         Name = defaultArg name computation.Name
-                        DefaultDirectory = defaultArg defaultDirectory config.UserDataContainer
+                        DefaultDirectory = defaultArg defaultDirectory configuration.UserDataContainer
                         FileStore = fileStore
-                        DefaultAtomContainer = defaultArg defaultAtomContainer config.UserDataTable
+                        DefaultAtomContainer = defaultArg defaultAtomContainer configuration.UserDataTable
                         AtomProvider = atomProvider
-                        DefaultChannelContainer = defaultArg defaultChannelContainer config.UserDataContainer
+                        DefaultChannelContainer = defaultArg defaultChannelContainer configuration.UserDataContainer
                         ChannelProvider = channelProvider 
                     }
 
@@ -169,7 +169,7 @@
                 clientLogger.Logf "Submit process %s." info.Id
                 let! _ = state.StartAsProcess(info, computation.Dependencies, faultPolicy, computation.Workflow, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
-                return Process<'T>(config.ConfigurationId, info.Id, pmon)
+                return Process<'T>(configuration.ConfigurationId, info.Id, pmon)
             }
             
         /// <summary>
@@ -278,7 +278,7 @@
                 let! e = pmon.GetProcess(pid)
                 let deps = e.UnpickleDependencies()
                 do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
-                return Process.Create(config.ConfigurationId, pid, e.UnpickleType(), pmon)
+                return Process.Create(configuration.ConfigurationId, pid, e.UnpickleType(), pmon)
             }
         /// <summary>
         /// Print process information for given process id.
@@ -353,7 +353,7 @@
                 cl.Logf "Deleting resources."
                 let rec loop retryCount = async {
                     cl.Logf "RetryCount %d." retryCount
-                    let! step2 = Async.Catch <| Configuration.DeleteResourcesAsync(config)
+                    let! step2 = Async.Catch <| Configuration.DeleteResourcesAsync(configuration)
                     match step2 with
                     | Choice1Of2 _ ->
                         cl.Logf "Done."
@@ -368,7 +368,7 @@
                     cl.Logf "Activating Configuration."
                     let rec loop retryCount = async {
                         cl.Logf "RetryCount %d." retryCount
-                        let! step2 = Async.Catch <| Configuration.ActivateAsync(config)
+                        let! step2 = Async.Catch <| Configuration.ActivateAsync(configuration)
                         match step2 with
                         | Choice1Of2 _ -> 
                             cl.Logf "Done."
@@ -381,7 +381,7 @@
                     do! loop 0
 
                     cl.Logf "Initializing RuntimeState."
-                    let! _ = RuntimeState.FromConfiguration(config)
+                    let! _ = RuntimeState.FromConfiguration(configuration)
 
                     storageLogger.Start()
 

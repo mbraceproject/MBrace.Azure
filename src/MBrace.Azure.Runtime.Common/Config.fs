@@ -214,7 +214,7 @@ module Configuration =
     /// Default ISerializer
     let Serializer = init (); new FsPicklerBinaryStoreSerializer() :> ISerializer
 
-    /// Initialize Vagabond.
+    /// Vagabond initialization.
     let Initialize () = init ()
 
     /// Activates the given configuration.
@@ -232,9 +232,6 @@ module Configuration =
 
     let GetIgnoredAssemblies() : seq<Assembly> =
         ignoredAssemblies :> _
-
-    /// Activates the given configuration.
-    let Activate(config : Configuration) = Async.RunSynchronously(ActivateAsync(config))
 
     /// Warning : Deletes all queues, tables and containers described in the given configuration.
     /// Does not delete process created resources.

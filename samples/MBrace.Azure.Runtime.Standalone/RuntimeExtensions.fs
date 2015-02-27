@@ -5,6 +5,7 @@ open MBrace.Azure.Client
 open System.Diagnostics
 open System.IO
 open MBrace.Continuation
+open MBrace.Azure.Runtime
 
 /// BASE64 serialized argument parsing schema
 
@@ -28,7 +29,7 @@ type private Helpers () =
     static member val exe = None with get, set
 
     static member InitWorkers (config : Argument.Config) (count : int) exe =
-        MBrace.Azure.Runtime.Configuration.Activate(config.Configuration)
+        do Async.RunSync(Configuration.ActivateAsync(config.Configuration.WithAppendedId))
         if count < 1 then invalidArg "workerCount" "must be positive."  
         let args = Argument.ofConfiguration config 
         let psi = new ProcessStartInfo(exe, args)
