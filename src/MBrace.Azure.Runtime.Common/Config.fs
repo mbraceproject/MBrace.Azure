@@ -155,9 +155,14 @@ type ClientProvider (config : Configuration) =
     member __.ClearRuntimeState() =
         async { 
             let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeTable).DeleteIfExistsAsync()
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeLogsTable).DeleteIfExistsAsync()
             let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.RuntimeContainer).DeleteIfExistsAsync()
-            do! __.ClearRuntimeQueues()
+            ()
+        }
+
+    member __.ClearRuntimeLogs() =
+        async { 
+            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeLogsTable).DeleteIfExistsAsync()
+            ()
         }
 
     member __.ClearRuntimeQueues() =
@@ -233,12 +238,34 @@ module Configuration =
     let GetIgnoredAssemblies() : seq<Assembly> =
         ignoredAssemblies :> _
 
-    /// Warning : Deletes all queues, tables and containers described in the given configuration.
-    /// Does not delete process created resources.
-    let DeleteResourcesAsync (config : Configuration) =
+    /// Delete Runtime Queue and Topic.
+    let DeleteRuntimeQueues (config : Configuration) =
         async {
-            init ()
+            init()
+            let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
+            do! cp.ClearRuntimeQueues()
+        }
+
+    /// Delete Runtime container and table.
+    let DeleteRuntimeState (config : Configuration) =
+        async {
+            init()
             let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
             do! cp.ClearRuntimeState()
+        }
+
+    /// Delete UserData folder.
+    let DeleteUserData (config : Configuration) =
+        async {
+            init()
+            let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
             do! cp.ClearUserData()
+        }
+
+    /// Delete RuntimeLogs table.
+    let DeleteRuntimeLogs (config : Configuration) =
+        async {
+            init()
+            let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
+            do! cp.ClearRuntimeLogs()
         }

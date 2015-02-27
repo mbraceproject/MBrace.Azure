@@ -37,7 +37,7 @@ Runtime.Spawn(config, 4, 16)
 let runtime = Runtime.GetHandle(config)
 runtime.AttachClientLogger(new ConsoleLogger()) 
 
-//runtime.Reset(false, true)
+//runtime.Reset()
 
 cloud { return 42 }
 |> runtime.Run

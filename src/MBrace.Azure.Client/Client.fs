@@ -323,47 +323,35 @@
 
         /// <summary>
         /// Delete and re-activate runtime state.
-        /// Using 'Reset' may cause unexpected behavior in clients and workers.
+        /// Using 'Reset' may cause unexpected behavior in clients and workers.</summary>
         /// Workers should be restarted manually.
-        /// </summary>
-        /// <param name="reactivate">Reactivate runtime state. Defaults to true.</param>
-        /// <param name="clearAllProcesses">First ClearAllProcesses. Defaults to false.</param>
+        /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
+        /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
+        /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
+        /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
+        /// <param name="reactivate">Reactivate configuration.</param>
         [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-        member __.Reset(?reactivate, ?clearAllProcesses) =
+        member __.Reset(?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
             async {
-                // TODO : Refactor
-                let clearAllProcesses = defaultArg clearAllProcesses false
+                let deleteState = defaultArg deleteState true
+                let deleteQueue = defaultArg deleteQueue true
+                let deleteUserData = defaultArg deleteUserData true
+                let deleteRuntimeLogs = defaultArg deleteLogs true
                 let reactivate = defaultArg reactivate true
 
                 clientLogger.Logf "Calling Reset."
                 storageLogger.Stop()
                 let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
-                let! step1 =
-                    if clearAllProcesses then
-                        cl.Logf "Calling ClearAllProcesses."
-                        __.ClearAllProcessesAsync(true)
-                    else 
-                        async.Zero()
-                    |> Async.Catch
-                match step1 with
-                | Choice2Of2 ex ->
-                    cl.Logf "Failed to ClearAllProcesses %A" ex
-                | _ -> ()
-
-                cl.Logf "Deleting resources."
-                let rec loop retryCount = async {
-                    cl.Logf "RetryCount %d." retryCount
-                    let! step2 = Async.Catch <| Configuration.DeleteResourcesAsync(configuration)
-                    match step2 with
-                    | Choice1Of2 _ ->
-                        cl.Logf "Done."
-                    | Choice2Of2 ex ->
-                        cl.Logf "Failed with %A" ex
-                        do! Async.Sleep 5000
-                        return! loop (retryCount + 1)
-                }
-                do! loop 0
-
+                
+                clientLogger.Logf "Deleting Queues."
+                if deleteQueue then do! Configuration.DeleteRuntimeQueues(configuration)
+                clientLogger.Logf "Deleting Container and Table."
+                if deleteState then do! Configuration.DeleteRuntimeState(configuration)
+                clientLogger.Logf "Deleting Logs."
+                if deleteRuntimeLogs then do! Configuration.DeleteRuntimeLogs(configuration)
+                clientLogger.Logf "Deleting UserData."
+                if deleteUserData then do! Configuration.DeleteUserData(configuration)
+               
                 if reactivate then
                     cl.Logf "Activating Configuration."
                     let rec loop retryCount = async {

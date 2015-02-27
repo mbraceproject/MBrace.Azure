@@ -14,6 +14,14 @@
             static member Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
             static member Sleep(timespan : TimeSpan) = Async.Sleep(int timespan.TotalMilliseconds)
             static member AwaitTask(task : Task) = Async.AwaitTask(task.ContinueWith ignore)
+            static member TrapExc<'T, 'Exc when 'Exc :> exn>(task : Async<'T>) =
+                async {
+                    let! result = Async.Catch task
+                    match result with
+                    | Choice1Of2 r -> return r
+                    | Choice2Of2 e when (e :? 'Exc) -> return! Async.TrapExc task
+                    | Choice2Of2 e -> return raise e
+                }
 
         type AsyncBuilder with
             member __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
