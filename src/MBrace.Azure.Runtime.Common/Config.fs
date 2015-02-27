@@ -9,7 +9,7 @@ open System.Text
 type ConfigurationId = 
     private 
       { /// Runtime identifier.
-        Id : uint32
+        Id : uint16
         /// Azure storage connection string hash.
         StorageConnectionStringHash : byte []
         /// Service Bus connection string hash.
@@ -33,7 +33,7 @@ type ConfigurationId =
 /// Azure specific Runtime Configuration.
 type Configuration = 
     { /// Runtime identifier.
-      Id : uint32
+      Id : uint16
       /// Azure storage connection string.
       StorageConnectionString : string
       /// Service Bus connection string.
@@ -56,7 +56,7 @@ type Configuration =
 
     /// Returns an Azure Configuration with the default values.
     static member Default = 
-        { Id                         = 0u
+        { Id                         = 0us
           StorageConnectionString    = "your connection string"
           ServiceBusConnectionString = "your connection string"
           RuntimeQueue               = "mbraceruntimequeue"
@@ -70,7 +70,7 @@ type Configuration =
 
     /// Append Configuration.Id on all values.
     member this.WithAppendedId =
-        let withId s = sprintf "%s%10d" s this.Id
+        let withId s = sprintf "%s%05d" s this.Id
         { this with
             RuntimeQueue = withId this.RuntimeQueue
             RuntimeTopic = withId this.RuntimeTopic
