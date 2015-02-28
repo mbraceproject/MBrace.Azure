@@ -32,11 +32,11 @@ type IntCell internal (config : ConfigurationId, pk, rk) =
         let rk = info.GetValue("rk", typeof<string>) :?> string
         new IntCell(config, pk, rk)
 
-    static member Create(config, pk : string, value : int) = 
+    static member Create(config, name : string, value : int, pid) = 
         async { 
-            let e = new CounterEntity(pk, value)
+            let e = new CounterEntity(pid, name, value)
             do! Table.insert config config.RuntimeTable e
-            return new IntCell(config, pk, String.Empty)
+            return new IntCell(config, pid, name)
         }
 
 
@@ -57,14 +57,14 @@ type Latch internal (config, pk, rk) =
         let rk = info.GetValue("rk", typeof<string>) :?> string
         new Latch(config, pk, rk)
 
-    static member Create(config, pk : string, value : int) = 
+    static member Create(config, name : string, value : int, pid) = 
         async { 
-            let e = new LatchEntity(pk, value, value)
+            let e = new LatchEntity(pid, name, value, value)
             do! Table.insert config config.RuntimeTable e
-            return new Latch(config, pk, e.RowKey)
+            return new Latch(config, pid, name)
         }
-    static member Create(config, value : int) = 
-        Latch.Create(config, guid(), value)
+    static member Create(config, value : int, pid) = 
+        Latch.Create(config, guid(), value, pid)
 
 type Counter internal (config, pk, rk) = 
     inherit IntCell(config, pk, rk)
@@ -83,11 +83,11 @@ type Counter internal (config, pk, rk) =
         let rk = info.GetValue("rk", typeof<string>) :?> string
         new Counter(config, pk, rk)
 
-    static member Create(config, pk : string, value : int) = 
+    static member Create(config, name : string, value : int, pid) = 
         async { 
-            let e = new CounterEntity(pk, value)
+            let e = new CounterEntity(pid, name, value)
             do! Table.insert config config.RuntimeTable e
-            return new Counter(config, pk, e.RowKey)
+            return new Counter(config, pid, name)
         }
-    static member Create(config, value : int) = 
-        Counter.Create(config, guid(), value)
+    static member Create(config, value : int, pid) = 
+        Counter.Create(config, guid(), value, pid)

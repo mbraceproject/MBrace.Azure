@@ -10,7 +10,9 @@
 
 open MBrace
 open MBrace.Continuation
+open MBrace.Azure
 open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Client
 open System
 open System.IO
@@ -23,16 +25,15 @@ let selectEnv name =
 let config = 
     { Configuration.Default with
         StorageConnectionString = selectEnv "azurestorageconn"
-        ServiceBusConnectionString = selectEnv "azureservicebusconn" }
-
-//Configuration.DeleteResourcesAsync(config) |> Async.RunSynchronously
-Configuration.Activate(config)
+        ServiceBusConnectionString = selectEnv "azureservicebusconn" }.WithAppendedId
 
 
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
 let run (task : Async<'T>) = Async.RunSynchronously task
 
+//Configuration.DeleteResourcesAsync(config) |> Async.RunSynchronously
+Configuration.ActivateAsync(config) |> run
 
 //#region TaskQueue 
 
@@ -144,7 +145,7 @@ async { do! Async.Sleep 10000
 rs.TryGetResult() |> run
 rs.AwaitResult()  |> run
 
-let ra = ResultAggregator<int>.Create(config.ConfigurationId, "tmp", 10) |> run
+let ra = ResultAggregator<int>.Create(config.ConfigurationId, 10, "process000") |> run
 for x in 0..9 do
     printfn "%b" <| (run <| ra.SetResult(x, x * 10))
 ra.Complete
@@ -159,14 +160,18 @@ let dcts0 = DCTS.Create(config.ConfigurationId, "tmp") |> run
 
 dcts0.IsCancellationRequested
 
-dcts0.Cancel()
-
 let t1 = async { while true do 
                     do! Async.Sleep 2000
                     printfn "t1" }
 
 Async.Start(t1, (dcts0 :> ICloudCancellationToken).LocalToken)
 dcts0.Cancel()
+
+let a = DCTS.Create(config.ConfigurationId, "foo") |> run
+let b = DCTS.Create(config.ConfigurationId, "bar", parent = a) |> run
+let c = DCTS.Create(config.ConfigurationId, "zar", parent = a) |> run
+a.Links
+a.Cancel()
 
 let root = DCTS.Create(config.ConfigurationId, "tmp") |> run
 let chain = 

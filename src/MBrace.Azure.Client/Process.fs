@@ -24,7 +24,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
                     stopf = fun _ -> false)
 
     let logger = new ProcessLogger(config, pid)
-    let dcts = lazy DistributedCancellationTokenSource.FromPath(config, proc.Value.CancellationUri)
+    let dcts = lazy DistributedCancellationTokenSource.FromPath(config, proc.Value.Id, proc.Value.CancellationUri)
 
     member internal __.ProcessEntity = proc
     member internal __.DistributedCancellationTokenSource = dcts.Value

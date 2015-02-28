@@ -54,7 +54,7 @@
         /// Creates a fresh CloudCancellationTokenSource for this runtime.
         /// </summary>
         member __.CreateCancellationTokenSource () =
-            state.ResourceFactory.RequestCancellationTokenSource() 
+            state.ResourceFactory.RequestCancellationTokenSource(guid()) 
             |> Async.RunSync :> ICloudCancellationTokenSource
 
         /// <summary>

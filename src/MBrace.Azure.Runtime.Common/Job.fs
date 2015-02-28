@@ -255,7 +255,7 @@ with
     /// Schedules a cloud workflow as an ICloudTask.
     member internal rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, jobType, parentJobId) : Async<ICloudTask<'T>> = async {
         let jobId = guid()
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId)
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.Id)
         let setResult ctx r = 
             async {
                 do! resultCell.SetResult r
@@ -275,14 +275,14 @@ with
         let jobId = guid ()
         let! cts = 
             match ct with
-            | None -> rt.ResourceFactory.RequestCancellationTokenSource(metadata = jobId)
+            | None -> rt.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, metadata = jobId)
             | Some ct -> async { return ct :?> DistributedCancellationTokenSource }
 
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId)
+        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.Id)
 
         let! _ = rt.ProcessMonitor
                    .CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies,
-                                   string cts.Path, 
+                                   string cts.RowKey, 
                                    string resultCell.Path)
 
         let setResult ctx r = 

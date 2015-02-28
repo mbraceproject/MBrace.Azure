@@ -39,6 +39,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 
 //runtime.Reset()
 
+
 cloud { return 42 }
 |> runtime.Run
 
