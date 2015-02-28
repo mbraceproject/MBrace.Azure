@@ -101,9 +101,9 @@ module Table =
     let insert<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.Insert(e) |> exec config table |> Async.Ignore
 
-    let insertBatch<'T when 'T :> ITableEntity> config table (es : seq<'T>) : Async<unit> =
-        async {
 
+    let batch<'T when 'T :> ITableEntity> (operation : 'T -> TableBatchOperation -> unit) config table (es : seq<'T>) : Async<unit> =
+        async {
             let jobs = new ResizeArray<Async<unit>>()
             let batch = ref <| new TableBatchOperation()
             let mkHandle batch = Async.StartChild <| async {
@@ -113,7 +113,7 @@ module Table =
                 ()
             }
             for e in es do
-                batch.Value.Insert(e)
+                operation e batch.Value
                 if batch.Value.Count = 100 then
                     let! handle = mkHandle batch.Value
                     batch := new TableBatchOperation()
@@ -125,35 +125,29 @@ module Table =
             do! Async.Parallel jobs
                 |> Async.Ignore
         }
+
+    let insertBatch<'T when 'T :> ITableEntity> config table (es : seq<'T>) : Async<unit> =
+        batch (fun e b -> b.Insert(e)) config table es
 
     let mergeBatch<'T when 'T :> ITableEntity> config table (es : seq<'T>) : Async<unit> =
-        async {
+        batch (fun e b -> b.Merge(e)) config table es
 
-            let jobs = new ResizeArray<Async<unit>>()
-            let batch = ref <| new TableBatchOperation()
-            let mkHandle batch = Async.StartChild <| async {
-                let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
-                let! _ = t.CreateIfNotExistsAsync()
-                let! _ = t.ExecuteBatchAsync(batch)
-                ()
-            }
-            for e in es do
-                batch.Value.Merge(e)
-                if batch.Value.Count = 100 then
-                    let! handle = mkHandle batch.Value
-                    batch := new TableBatchOperation()
-                    jobs.Add(handle)
-            if batch.Value.Count > 0 then
-                let! handle = mkHandle batch.Value
-                jobs.Add(handle)
-
-            do! Async.Parallel jobs
-                |> Async.Ignore
-        }
+    let deleteBatch<'T when 'T :> ITableEntity> config table (es : seq<'T>) : Async<unit> =
+        batch (fun e b -> b.Delete(e)) config table es
 
     let insertOrReplace<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.InsertOrReplace(e) |> exec config table |> Async.Ignore
     
+    let queryDynamic config table pk : Async<DynamicTableEntity seq> =
+        async {  
+            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+            let q = TableQuery<DynamicTableEntity>()
+                        .Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
+                        .Select([|"RowKey"|])
+            return t.ExecuteQuery(q)
+
+        }
+
     let read<'T when 'T :> ITableEntity> config table pk rk : Async<'T> = 
         async { 
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)

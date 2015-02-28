@@ -24,11 +24,11 @@ with
         | Exception edi -> ExceptionDispatchInfo.raise true edi
         | Cancelled c -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true c
 
-type ResultCell<'T> internal (config : ConfigurationId, pk) as self = 
+type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self = 
     let table = config.RuntimeTable
     let localCell = lazy CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
 
-    member this.Path = pk
+    member this.Path = sprintf "%s/%s" pk rk
 
     interface ICloudTask<'T> with
         member c.Id = pk
@@ -76,14 +76,14 @@ type ResultCell<'T> internal (config : ConfigurationId, pk) as self =
         async {
             let! bc = Blob.Create(config, fun () -> result)
             let uri = bc.Filename
-            let e = new BlobReferenceEntity(pk, uri.ToString(), ETag = "*")
+            let e = new BlobReferenceEntity(pk, rk, uri.ToString(), ETag = "*")
             let! _ = Table.merge config table e
             return ()
         }
 
     member __.TryGetResult() : Async<Result<'T> option> = 
         async {
-            let! e = Table.read<BlobReferenceEntity> config table pk String.Empty
+            let! e = Table.read<BlobReferenceEntity> config table pk rk
             if String.IsNullOrEmpty e.Uri then return None
             else
                 let bc = Blob.FromPath(config, e.Uri)
@@ -102,19 +102,25 @@ type ResultCell<'T> internal (config : ConfigurationId, pk) as self =
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, _ : StreamingContext): unit = 
             info.AddValue("pk", pk, typeof<string>)
+            info.AddValue("rk", rk, typeof<string>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, _ : StreamingContext) =
         let pk = info.GetValue("pk", typeof<string>) :?> string
+        let rk = info.GetValue("rk", typeof<string>) :?> string
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new ResultCell<'T>(config, pk)
+        new ResultCell<'T>(config, pk, rk)
 
-    static member FromPath(config : ConfigurationId, uri) = new ResultCell<'T>(config, uri)
+    static member FromPath(config : ConfigurationId, path : string) = 
+        let pkrk = path.Split('/')
+        new ResultCell<'T>(config, pkrk.[0], pkrk.[1])
+    static member Create(config, pid) : Async<ResultCell<'T>> = 
+        ResultCell.Create(config, guid(), pid)
     static member Create(config, id, pid) : Async<ResultCell<'T>> = 
         async { 
             let e = new BlobReferenceEntity(pid, id, null, EntityType = "RESULT")
             do! Table.insert<BlobReferenceEntity> config config.RuntimeTable e
-            return new ResultCell<'T>(config, id)
+            return new ResultCell<'T>(config, pid, id)
         }
 
 

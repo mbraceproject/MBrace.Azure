@@ -92,10 +92,10 @@ ClientProvider.BlobClient.ListContainers("process")
 //#endregion
 
 //#region Cells
-let c = Counter.Create(config.ConfigurationId, "tmp", 1) |> run
+let c = Counter.Create(config.ConfigurationId, 1, "tmp") |> run
 c.Increment() |> run
 
-let l = Latch.Create(config.ConfigurationId, "tmp", 11) |> run
+let l = Latch.Create(config.ConfigurationId, 11, "tmp") |> run
 l.Decrement() |> run
 
 [|1..5|]
@@ -106,7 +106,7 @@ l.Decrement() |> run
 
 l.Value
 
-let c = BlobCell.Create(config.ConfigurationId, "tmp", fun () -> 42) |> run
+let c = Blob.Create(config.ConfigurationId, fun () -> 42) |> run
 c.GetValue() |> run
 
 //#endregion
@@ -136,8 +136,8 @@ let b' = Configuration.Serializer.UnPickle<Queue<int>>(b)
 //#endregion
 
 //#region Results
-let rs = ResultCell<int>.Create(config.ConfigurationId, "foobar", "temp") |> run
-
+let rs = ResultCell<int>.Create(config.ConfigurationId, "temp") |> run
+rs.Path
 async { do! Async.Sleep 10000 
         do! rs.SetResult(Result.Completed 42) }
 |> Async.Start

@@ -123,29 +123,22 @@ type ProcessManager private (config : ConfigurationId) =
     member this.GetProcess(pid : string) = Table.read<ProcessRecord> config table pk pid
 
     member this.GetProcesses () = Table.queryPK<ProcessRecord> config table pk
-
-    member this.ClearProcess (pid : string, force) = async {
-        //TODO : implement this
-        failwith "Not implemented"
+    
+    member this.ClearProcess (pid : string, full, force) = async {
         let! record = this.GetProcess(pid)
         if force = false && not record.Completed then
             failwithf "Cannot clear process %s. Process not completed." pid 
         do! Table.delete<ProcessRecord> config table record
-        let provider = ConfigurationRegistry.Resolve<ClientProvider>(config)
-        let tableRef = provider.TableClient.GetTableReference(config.RuntimeTable)
-        do! tableRef.DeleteIfExistsAsync()
-        let containerRef = provider.BlobClient.GetContainerReference(config.RuntimeContainer)
-        do! containerRef.DeleteIfExistsAsync()
-        return ()
+        if full then
+            let! rks = Table.queryDynamic config table pid
+            do! Table.deleteBatch config table rks
     }
 
-    member this.ClearAllProcesses (force) = async {
-        failwith "Not implemented"
-        
+    member this.ClearAllProcesses (force, full) = async {
         let! ps = this.GetProcesses()
         let xs = ResizeArray<exn>()
         for p in ps do 
-            let! result = Async.Catch <| this.ClearProcess(p.Id, force)
+            let! result = Async.Catch <| this.ClearProcess(p.Id, force, full)
             match result with
             | Choice2Of2 e -> xs.Add(e)
             | _ -> ()

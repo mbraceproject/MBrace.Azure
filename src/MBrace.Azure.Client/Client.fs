@@ -297,29 +297,35 @@
         /// Delete runtime records for given process.
         /// </summary>
         /// <param name="pid">Process Id.</param>
+        /// <param name="fullClear">Delete all records and blobs used by this process.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearProcess(pid, ?force) = __.ClearProcessAsync(pid, ?force = force) |> Async.RunSync
+        member __.ClearProcess(pid, ?fullClear, ?force) = __.ClearProcessAsync(pid, ?fullClear = fullClear, ?force = force) |> Async.RunSync
         /// <summary>
         /// Delete runtime records for given process.
         /// </summary>
         /// <param name="pid">Process Id.</param>
+        /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to false.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearProcessAsync(pid, ?force : bool) = 
+        member __.ClearProcessAsync(pid, ?fullClear, ?force : bool) = 
             let force = defaultArg force false
-            pmon.ClearProcess(pid, force = force)
+            let fullClear = defaultArg fullClear false
+            pmon.ClearProcess(pid, full = fullClear, force = force)
         
         /// <summary>
         /// Delete runtime records for all processes.
         /// </summary>
+        /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to false.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearAllProcesses(?force) = __.ClearAllProcessesAsync(?force = force) |> Async.RunSync
+        member __.ClearAllProcesses(?fullClear, ?force) = __.ClearAllProcessesAsync(?fullClear = fullClear, ?force = force) |> Async.RunSync
         /// <summary>
         /// Delete runtime records for all processes.
         /// </summary>
+        /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to false.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearAllProcessesAsync(?force : bool) = 
+        member __.ClearAllProcessesAsync(?fullClear, ?force : bool) = 
             let force = defaultArg force false
-            pmon.ClearAllProcesses(force = force)
+            let fullClear = defaultArg fullClear false
+            pmon.ClearAllProcesses(force = force, full = fullClear)
 
         /// <summary>
         /// Delete and re-activate runtime state.
@@ -329,7 +335,7 @@
         /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
         /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
         /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
-        /// <param name="reactivate">Reactivate configuration.</param>
+        /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
         [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
         member __.Reset(?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
             async {
