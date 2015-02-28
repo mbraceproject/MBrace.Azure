@@ -72,14 +72,14 @@ let rec wf i max =
         else return! wf (i + 1) max <|> wf (i + 1) max
     }
 
-let ps = runtime.CreateProcess(wf 0 2)
+let ps = runtime.CreateProcess(wf 0 3)
 ps.ShowInfo()
 ps.AwaitResult() 
 
 let ct = runtime.CreateCancellationTokenSource()
 let ctask = runtime.Run(Cloud.StartAsCloudTask(cloud { return 42 }, cancellationToken = ct.Token))
-ctask.Result
 
+ctask.Result
 ctask.Id
 
 
@@ -94,7 +94,6 @@ let wf = cloud {
     let! sp, rp = CloudChannel.New<int>()
     do! cloud {
             for i = 0 to 10 do
-                do! Cloud.Sleep 1000
                 do! CloudChannel.Send(sp, i)
                 printfn "send %d" i
             return ()
