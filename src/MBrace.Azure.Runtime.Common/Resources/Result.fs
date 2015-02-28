@@ -188,7 +188,7 @@ type ResultAggregator<'T> internal (config : ConfigurationId, pk, rk, size) =
         member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
             info.AddValue("pk", pk, typeof<string>)
             info.AddValue("rk", rk, typeof<string>)
-            info.AddValue("size", size, typeof<string>)
+            info.AddValue("size", size, typeof<int>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, _: StreamingContext) =

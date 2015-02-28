@@ -31,9 +31,8 @@ let config =
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
 let run (task : Async<'T>) = Async.RunSynchronously task
-
-//Configuration.DeleteResourcesAsync(config) |> Async.RunSynchronously
 Configuration.ActivateAsync(config) |> run
+let clone x = Configuration.Pickler.Clone(x)
 
 //#region TaskQueue 
 
@@ -92,10 +91,10 @@ ClientProvider.BlobClient.ListContainers("process")
 //#endregion
 
 //#region Cells
-let c = Counter.Create(config.ConfigurationId, 1, "tmp") |> run
+let c = Counter.Create(config.ConfigurationId, 1, "tmp") |> run |> clone
 c.Increment() |> run
 
-let l = Latch.Create(config.ConfigurationId, 11, "tmp") |> run
+let l = Latch.Create(config.ConfigurationId, 11, "tmp") |> run |> clone
 l.Decrement() |> run
 
 [|1..5|]
@@ -106,7 +105,7 @@ l.Decrement() |> run
 
 l.Value
 
-let c = Blob.Create(config.ConfigurationId, fun () -> 42) |> run
+let c = Blob.Create(config.ConfigurationId, fun () -> 42) |> run |> clone
 c.GetValue() |> run
 
 //#endregion
@@ -136,7 +135,7 @@ let b' = Configuration.Serializer.UnPickle<Queue<int>>(b)
 //#endregion
 
 //#region Results
-let rs = ResultCell<int>.Create(config.ConfigurationId, "temp") |> run
+let rs = ResultCell<int>.Create(config.ConfigurationId, "temp") |> run |> clone
 rs.Path
 async { do! Async.Sleep 10000 
         do! rs.SetResult(Result.Completed 42) }
@@ -145,7 +144,7 @@ async { do! Async.Sleep 10000
 rs.TryGetResult() |> run
 rs.AwaitResult()  |> run
 
-let ra = ResultAggregator<int>.Create(config.ConfigurationId, 10, "process000") |> run
+let ra = ResultAggregator<int>.Create(config.ConfigurationId, 10, "process000") |> run |> clone
 for x in 0..9 do
     printfn "%b" <| (run <| ra.SetResult(x, x * 10))
 ra.Complete

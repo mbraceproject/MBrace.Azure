@@ -48,7 +48,7 @@ runtime.ShowWorkers()
 runtime.ShowLogs()
 
 let ps =
-    [1..30]
+    [1..5]
     |> Seq.map (fun i -> cloud { return i * i })
     |> Cloud.Parallel
     |> runtime.CreateProcess
