@@ -46,8 +46,7 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
-
-
+runtime.ClearAllProcesses()
 
 let ps =
     [1..30]

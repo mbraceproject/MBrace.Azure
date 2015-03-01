@@ -27,6 +27,7 @@ with
 type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self = 
     let table = config.RuntimeTable
     let localCell = lazy CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
+    let mutable localResult : Result<'T> option = None
 
     member this.Path = sprintf "%s/%s" pk rk
 
@@ -83,12 +84,16 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
 
     member __.TryGetResult() : Async<Result<'T> option> = 
         async {
-            let! e = Table.read<BlobReferenceEntity> config table pk rk
-            if String.IsNullOrEmpty e.Uri then return None
-            else
-                let bc = Blob.FromPath(config, e.Uri)
-                let! v = bc.GetValue()
-                return Some v
+            match localResult with
+            | None ->
+                let! e = Table.read<BlobReferenceEntity> config table pk rk
+                if String.IsNullOrEmpty e.Uri then return None
+                else
+                    let bc = Blob.FromPath(config, e.Uri)
+                    let! v = bc.GetValue()
+                    localResult <- Some v
+                    return localResult
+            | Some _ -> return localResult
         }
     
     member __.AwaitResult() : Async<Result<'T>> = 

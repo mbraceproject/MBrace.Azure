@@ -132,6 +132,7 @@ type ProcessManager private (config : ConfigurationId) =
             do! Table.delete<ProcessRecord> config table record
         if full then
             let! rks = Table.queryDynamic config table pid
+            rks |> Array.iter(fun de -> de.ETag <- "*")
             do! Table.deleteBatch config table rks
             let bc = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             let dir = bc.GetDirectoryReference(pid)

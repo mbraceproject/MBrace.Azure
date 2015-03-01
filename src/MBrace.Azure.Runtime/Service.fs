@@ -77,7 +77,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 let cfg = __.Configuration.WithAppendedId
 
-                logf "Activating Configuration %010d, Hash %d" cfg.Id (hash cfg.ConfigurationId)
+                logf "Activating Configuration %05d, Hash %d" cfg.Id (hash cfg.ConfigurationId)
                 Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
                 do! Configuration.ActivateAsync(cfg)
 
