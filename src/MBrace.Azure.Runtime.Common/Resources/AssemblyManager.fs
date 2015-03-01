@@ -7,21 +7,21 @@ open Nessos.Vagabond
 open System
 open System.Runtime.Serialization
 open MBrace.Runtime.Vagabond
+open MBrace.Azure
 
-type AssemblyManager private (config : ConfigurationId, res : Uri) = 
+type AssemblyManager private (config : ConfigurationId) = 
     
     let filename id = sprintf "%s-%s" id.FullName (Convert.toBase32String id.ImageHash)
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            return! BlobCell.CreateIfNotExists(config, res.Primary, filename pkg.Id, fun () -> pkg) |> Async.Ignore
+            return! Blob.CreateIfNotExists(config, "assemblies", filename pkg.Id, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
         async { 
-            let uri = BlobCell<_>.GetUri(res.Primary, filename id)
-            let cell = BlobCell.OfUri(config, uri)
-            return! cell.GetValue()
+            let blob = Blob.FromPath(config, "assemblies", filename id)
+            return! blob.GetValue()
         }
     
     member __.UploadDependencies(ids : AssemblyId list) = 
@@ -54,17 +54,13 @@ type AssemblyManager private (config : ConfigurationId, res : Uri) =
 
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
-            info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
     new(info : SerializationInfo, _ : StreamingContext) = 
-        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new AssemblyManager(config, res)
+        new AssemblyManager(config)
 
-    static member private GetUri(container) = uri "exporter:%s" container
-    static member Create(config, container : string) = 
-        let res = AssemblyManager.GetUri(container)
-        new AssemblyManager(config, res)
+    static member Create(config) = 
+        new AssemblyManager(config)
 
     

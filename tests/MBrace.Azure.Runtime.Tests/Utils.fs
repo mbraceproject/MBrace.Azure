@@ -44,13 +44,13 @@ module Choice =
         | Choice2Of2 e -> should be instanceOfType<'Exn> e
 
 
-type RuntimeSession(config : Configuration) =
+type RuntimeSession(config : MBrace.Azure.Configuration) =
 
     let mutable state = None
 
     member __.Start () = 
         let rt = Runtime.GetHandle(config)
-        let logger = Common.ConsoleLogger() :> ICloudLogger
+        let logger = ConsoleLogger() :> ICloudLogger
         rt.AttachClientLogger logger
         state <- Some (rt, logger)
         do System.Threading.Thread.Sleep 2000

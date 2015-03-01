@@ -11,6 +11,7 @@ open System.Diagnostics
 open System.Net
 open System.Runtime.Serialization
 open Nessos.Vagabond
+open MBrace.Azure
 
 type ProcessState = 
     | Posted
@@ -52,10 +53,11 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
     
     new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null, null)
 
-type ProcessManager private (config, table : string) = 
-    let pk = "process"
+type ProcessManager private (config : ConfigurationId) = 
+    let pk = "ProcessInfo"
+    let table = config.RuntimeTable
     
-    static member Create(configId : ConfigurationId, table) = new ProcessManager(configId, table)
+    static member Create(configId : ConfigurationId) = new ProcessManager(configId)
 
     member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
         let now = DateTimeOffset.UtcNow
@@ -121,26 +123,34 @@ type ProcessManager private (config, table : string) =
     member this.GetProcess(pid : string) = Table.read<ProcessRecord> config table pk pid
 
     member this.GetProcesses () = Table.queryPK<ProcessRecord> config table pk
-
-    member this.ClearProcess (pid : string, force) = async {
+    
+    member this.ClearProcess (pid : string, full, force) = async {
         let! record = this.GetProcess(pid)
         if force = false && not record.Completed then
             failwithf "Cannot clear process %s. Process not completed." pid 
-        do! Table.delete<ProcessRecord> config table record
-        let container = Storage.processIdToStorageId pid
-        let provider = ConfigurationRegistry.Resolve<ClientProvider>(config)
-        let tableRef = provider.TableClient.GetTableReference(container)
-        do! tableRef.DeleteIfExistsAsync()
-        let containerRef = provider.BlobClient.GetContainerReference(container)
-        do! containerRef.DeleteIfExistsAsync()
-        return ()
+        if record <> Unchecked.defaultof<_> then
+            do! Table.delete<ProcessRecord> config table record
+        if full then
+            let! rks = Table.queryDynamic config table pid
+            rks |> Array.iter(fun de -> de.ETag <- "*")
+            do! Table.deleteBatch config table rks
+            let bc = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let dir = bc.GetDirectoryReference(pid)
+            let processBlobs = dir.ListBlobs()
+            let refs = processBlobs
+                        |> Seq.map (fun b -> dir.GetBlockBlobReference(b.Uri.Segments |> Seq.last))
+            do! refs |> Seq.map (fun r -> r.DeleteIfExistsAsync())
+                     |> Seq.map Async.AwaitTask
+                     |> Async.Parallel
+                     |> Async.Ignore
+            ()
     }
 
-    member this.ClearAllProcesses (force) = async {
+    member this.ClearAllProcesses (force, full) = async {
         let! ps = this.GetProcesses()
         let xs = ResizeArray<exn>()
         for p in ps do 
-            let! result = Async.Catch <| this.ClearProcess(p.Id, force)
+            let! result = Async.Catch <| this.ClearProcess(p.Id, force, full)
             match result with
             | Choice2Of2 e -> xs.Add(e)
             | _ -> ()

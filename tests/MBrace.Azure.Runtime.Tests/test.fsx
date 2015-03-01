@@ -8,7 +8,7 @@
 #time "on"
 
 open MBrace
-open MBrace.Azure.Runtime
+open MBrace.Azure
 open MBrace.Azure.Client
 open System
 
@@ -35,16 +35,18 @@ Runtime.Spawn(config, 4, 16)
 // ----------------------------
 
 let runtime = Runtime.GetHandle(config)
-runtime.AttachLogger(new Common.ConsoleLogger()) 
+runtime.AttachClientLogger(new ConsoleLogger()) 
+//runtime.Reset(reactivate = false)
+//runtime.Reset()
 
-//runtime.Reset(false, true)
-
-cloud { return 42 }
-|> runtime.Run
+let ps = cloud { return 42 } |> runtime.CreateProcess
+ps.AwaitResult()
 
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
+
+runtime.ClearAllProcesses()
 
 let ps =
     [1..30]
@@ -71,14 +73,14 @@ let rec wf i max =
         else return! wf (i + 1) max <|> wf (i + 1) max
     }
 
-let ps = runtime.CreateProcess(wf 0 2)
+let ps = runtime.CreateProcess(wf 0 3)
 ps.ShowInfo()
 ps.AwaitResult() 
 
 let ct = runtime.CreateCancellationTokenSource()
 let ctask = runtime.Run(Cloud.StartAsCloudTask(cloud { return 42 }, cancellationToken = ct.Token))
-ctask.Result
 
+ctask.Result
 ctask.Id
 
 
@@ -93,7 +95,6 @@ let wf = cloud {
     let! sp, rp = CloudChannel.New<int>()
     do! cloud {
             for i = 0 to 10 do
-                do! Cloud.Sleep 1000
                 do! CloudChannel.Send(sp, i)
                 printfn "send %d" i
             return ()

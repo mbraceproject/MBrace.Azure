@@ -5,6 +5,7 @@ open System.Runtime.Serialization
 open Microsoft.ServiceBus.Messaging
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
+open MBrace.Azure
 
 [<AutoOpenAttribute>]
 module private Constants = 
@@ -13,6 +14,7 @@ module private Constants =
     let MaxTTL = TimeSpan.MaxValue
     let ServerWaitTime = TimeSpan.FromMilliseconds(100.)
     let AffinityPropertyName = "Affinity"
+    let PIDPropertyName = "ProcessId"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
     
 type QueueMessage(config, msg : BrokeredMessage) = 
@@ -25,6 +27,11 @@ type QueueMessage(config, msg : BrokeredMessage) =
     member __.Affinity = affinity
 
     member __.DeliveryCount = msg.DeliveryCount
+
+    member __.ProcessId : string option =
+        match msg.Properties.TryGetValue(PIDPropertyName) with
+        | true, pid -> Some(pid :?> string)
+        | false, _ -> None
 
     member this.CompleteAsync() = 
         async { 
@@ -51,17 +58,18 @@ type QueueMessage(config, msg : BrokeredMessage) =
     
     member __.GetPayloadAsync<'T>() : Async<'T> = 
         async { 
-            let p = msg.GetBody<Uri>()
-            let t = BlobCell.OfUri<'T>(config, p)
+            let p = msg.GetBody<string>()
+            let t = Blob.FromPath(config, p)
             return! t.GetValue()
         }
 
-type internal Subscription (config, topic, affinity : string) = 
+type internal Subscription (config, affinity : string) = 
     let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
-    let subscription = sprintf "affinity_%s" affinity
+    let subscription = sprintf "%s_%s" config.RuntimeTopic affinity
 
     do 
         let ns = cp.NamespaceClient
+        let topic = config.RuntimeTopic
         if not <| ns.SubscriptionExists(topic, subscription) then 
             let sd = new SubscriptionDescription(topic, subscription)
             sd.DefaultMessageTimeToLive <- MaxTTL
@@ -70,7 +78,7 @@ type internal Subscription (config, topic, affinity : string) =
             let filter = new SqlFilter(sprintf "%s = '%s'" AffinityPropertyName affinity)
             ns.CreateSubscription(sd, filter) |> ignore
     
-    let sub = cp.SubscriptionClient(topic, subscription)
+    let sub = cp.SubscriptionClient(config.RuntimeTopic, subscription)
     member __.TryDequeue<'T>() : Async<QueueMessage option> = 
         async { 
             let! msg = sub.ReceiveAsync(ServerWaitTime)
@@ -78,92 +86,94 @@ type internal Subscription (config, topic, affinity : string) =
             else return Some(QueueMessage(config, msg))
         }
 
-type internal Topic (config, topic) = 
+type internal Topic (config) = 
     let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
-    let tc = cp.TopicClient(topic)
-    member __.Name = topic
-    member __.GetSubscription(affinity) : Subscription = new Subscription(config, topic, affinity)
+    let tc = cp.TopicClient(config.RuntimeTopic)
+    member __.GetSubscription(affinity) : Subscription = new Subscription(config, affinity)
     
-    member __.EnqueueBatch<'T>(xs : ('T * string) []) = 
+    member __.EnqueueBatch<'T>(xs : ('T * string) [], ?pid) = 
         async { 
             let! ys = xs
                       |> Array.map (fun (x, affinity) -> 
                              async { 
-                                 let! bc = BlobCell.Create(config, topic, fun () -> x)
-                                 let msg = new BrokeredMessage(bc.Uri)
+                                 let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
+                                 let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
+                                 pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
                                  return msg
                              })
                       |> Async.Parallel
             do! tc.SendBatchAsync(ys)
         }
 
-    member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = 
+    member __.EnqueueBatch<'T>(xs : 'T [], affinity : string, ?pid) = 
         async { 
             let! ys = xs
                       |> Array.map (fun x -> 
                              async { 
-                                 let! bc = BlobCell.Create(config, topic, fun () -> x)
-                                 let msg = new BrokeredMessage(bc.Uri)
+                                 let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
+                                 let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
+                                 pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
                                  return msg
                              })
                       |> Async.Parallel
             do! tc.SendBatchAsync(ys)
         }
     
-    member __.Enqueue<'T>(t : 'T, affinity : string) = 
+    member __.Enqueue<'T>(t : 'T, affinity : string, ?pid) = 
         async { 
-            let! bc = BlobCell.Create(config, topic, fun () -> t)
-            let msg = new BrokeredMessage(bc.Uri)
+            let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> t)
+            let msg = new BrokeredMessage(bc.Path)
             msg.Properties.Add(AffinityPropertyName, affinity)
+            pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
             do! tc.SendAsync(msg)
         }
     
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
-            info.AddValue("topic", topic, typeof<string>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
     new(info : SerializationInfo, _ : StreamingContext) = 
-        let topic = info.GetValue("topic", typeof<string>) :?> string
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new Topic(config, topic)
+        new Topic(config)
 
-    static member Create(config, name) = 
+    static member Create(config) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
+            let name = config.RuntimeTopic
             if not <| ns.TopicExists(name) then 
                 let td = new TopicDescription(name)
                 td.EnableBatchedOperations <- true
                 td.EnablePartitioning <- true
                 td.DefaultMessageTimeToLive <- MaxTTL 
                 do! ns.CreateTopicAsync(td)
-            return new Topic(config, name)
+            return new Topic(config)
         }
 
 /// Queue implementation.
-type internal Queue (config : ConfigurationId, res : Uri) = 
-    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(res.Primary, ReceiveMode.PeekLock)
+type internal Queue (config : ConfigurationId) = 
+    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
     let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
     
-    member __.Path = queue.Path
+    member __.Length = ns.GetQueue(config.RuntimeQueue).MessageCount
     
-    member __.Length = ns.GetQueue(res.Primary).MessageCount
-    
-    member __.EnqueueBatch<'T>(xs : 'T []) = 
+    member __.EnqueueBatch<'T>(xs : 'T [], ?pid) = 
         async { 
             let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = BlobCell.Create(config, res.Primary, fun () -> x)
-                                                     return new BrokeredMessage(bc.Uri) })
+                      |> Array.map (fun x -> async { let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
+                                                     let msg = new BrokeredMessage(bc.Path)
+                                                     pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
+                                                     return msg })
                       |> Async.Parallel
             do! queue.SendBatchAsync(ys)
         }
     
-    member __.Enqueue<'T>(t : 'T) = 
+    member __.Enqueue<'T>(t : 'T, ?pid) = 
         async { 
-            let! bc = BlobCell.Create(config, res.Primary, fun () -> t)
-            let msg = new BrokeredMessage(bc.Uri)
+            let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> t)
+            let msg = new BrokeredMessage(bc.Path)
+            pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
             do! queue.SendAsync(msg)
         }
     
@@ -174,31 +184,25 @@ type internal Queue (config : ConfigurationId, res : Uri) =
             else return Some(QueueMessage(config, msg))
         }
     
-    member __.Uri = res
-    
     interface ISerializable with
         member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
-            info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
     
     new(info : SerializationInfo, _ : StreamingContext) = 
-        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new Queue(config, res)
+        new Queue(config)
     
-    static member private GetUri(container) = uri "queue:%s" container
-    static member Create(config, container : string) = 
+    static member Create(config : ConfigurationId) = 
         async { 
-            let res = Queue.GetUri container
             let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
-            let qd = new QueueDescription(res.Primary)
+            let qd = new QueueDescription(config.RuntimeQueue)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- MaxTTL
             qd.LockDuration <- MaxLockDuration
-            let! exists = ns.QueueExistsAsync(res.Primary)
+            let! exists = ns.QueueExistsAsync(config.RuntimeQueue)
             if not exists then do! ns.CreateQueueAsync(qd)
-            return new Queue(config, res)
+            return new Queue(config)
         }
 
 // Unified access to Queue/Topic/Subscription.
@@ -235,17 +239,15 @@ type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) 
             return msg
         }
 
-    member __.Enqueue<'T>(item : 'T, ?affinity) : Async<unit> =
+    member __.Enqueue<'T>(item : 'T, ?affinity, ?pid : string) : Async<unit> =
         async {
             match affinity with
-            | None -> return! queue.Enqueue<'T>(item)
-            | Some affinity -> return! topic.Enqueue<'T>(item, affinity)
+            | None -> return! queue.Enqueue<'T>(item, ?pid = pid)
+            | Some affinity -> return! topic.Enqueue<'T>(item, affinity, ?pid = pid)
         }
-    member __.EnqueueBatch<'T>(xs : 'T []) = queue.EnqueueBatch<'T>(xs)
+    member __.EnqueueBatch<'T>(xs : 'T [], ?pid : string) = queue.EnqueueBatch<'T>(xs, ?pid = pid)
 
-    //member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = topic.EnqueueBatch<'T>(xs, affinity)
-
-    member __.EnqueueBatch<'T>(xs : ('T * string option) []) = async {
+    member __.EnqueueBatch<'T>(xs : ('T * string option) [], ?pid : string) = async {
             let queueTasks = new ResizeArray<'T>()
             let topicTasks = new ResizeArray<'T * string>()
 
@@ -256,11 +258,11 @@ type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) 
             
             let! handle1 = 
                 if topicTasks.Count = 0 then async.Zero() 
-                else topic.EnqueueBatch(topicTasks.ToArray())
+                else topic.EnqueueBatch(topicTasks.ToArray(), ?pid = pid)
                 |> Async.StartChild
             let! handle2 =
                 if queueTasks.Count = 0 then async.Zero()
-                else queue.EnqueueBatch(queueTasks.ToArray())
+                else queue.EnqueueBatch(queueTasks.ToArray(), ?pid = pid)
                 |> Async.StartChild
             do! Async.Parallel [handle1 ; handle2]
                 |> Async.Ignore
@@ -278,9 +280,9 @@ type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) 
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
         new JobQueue(config, queue, topic)
 
-    static member Create(config, queue, topic) =
+    static member Create(config) =
         async {
-            let! queue = Queue.Create(config, queue)
-            let! topic = Topic.Create(config, topic)
+            let! queue = Queue.Create(config)
+            let! topic = Topic.Create(config)
             return new JobQueue(config, queue, topic)
         }

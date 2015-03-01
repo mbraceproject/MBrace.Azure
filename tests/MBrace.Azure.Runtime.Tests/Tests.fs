@@ -3,6 +3,7 @@
 open NUnit.Framework
 open MBrace
 open MBrace.Continuation
+open MBrace.Azure
 open MBrace.Azure.Client
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Standalone
@@ -46,12 +47,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
             let! ps = runtime.CreateProcessAsync(workflow cts, cancellationToken = cts.Token)
-            return! async {
-                try
-                    return! Async.Catch <| ps.AwaitResultAsync()
-                finally
-                    runtime.ClearProcess(ps.Id, true)
-            }
+            return! Async.Catch <| ps.AwaitResultAsync()
         } |> Async.RunSync
 
     override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)

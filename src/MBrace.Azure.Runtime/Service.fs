@@ -1,16 +1,16 @@
 ﻿namespace MBrace.Azure.Runtime
-
-open System
-open System.Threading
+open MBrace
+open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
-open MBrace
-open MBrace.Continuation
-open MBrace.Store
-open System.Diagnostics
 open MBrace.Azure.Store
-open MBrace.Runtime.Store
+open MBrace.Continuation
 open MBrace.Runtime
+open MBrace.Runtime.Store
+open MBrace.Store
+open System
+open System.Diagnostics
+open System.Threading
 
 module private ReleaseInfo =
     open System.Reflection
@@ -31,7 +31,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable atomProvider    = None
     let mutable cache           = None
     let mutable resources       = ResourceRegistry.Empty
-    let mutable config          = config
+    let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
     let logger                  = new LoggerCombiner() 
     let worker                  = new Worker()
@@ -46,8 +46,8 @@ type Service (config : Configuration, serviceId : string) =
     member __.AttachLogger(l) = check(); logger.Attach(l)
     
     member __.Configuration  
-        with get () = config
-        and set c = check (); config <- c
+        with get () = configuration
+        and set c = check (); configuration <- c
 
     member __.MaxConcurrentJobs 
         with get () = maxJobs
@@ -75,12 +75,14 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Starting Service %s" serviceId
                 let sw = new Stopwatch() in sw.Start()
 
-                logf "Activating Configuration"
+                let cfg = __.Configuration.WithAppendedId
+
+                logf "Activating Configuration %05d, Hash %d" cfg.Id (hash cfg.ConfigurationId)
                 Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
-                do! Configuration.ActivateAsync(config)
+                do! Configuration.ActivateAsync(cfg)
 
                 logf "Creating storage logger"
-                let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Worker(id = __.Id))
+                let storageLogger = new StorageLogger(cfg.ConfigurationId, Worker(id = __.Id))
                 logger.Attach(storageLogger)
 
                 logf "%s" <| ReleaseInfo.prettyPrint()
@@ -89,9 +91,9 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Serializer : %s" serializer.Id
 
                 logf "Initializing RuntimeState"
-                let! state = RuntimeState.FromConfiguration(config)
+                let! state = RuntimeState.FromConfiguration(cfg)
 
-                storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
+                storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(cfg.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
                 logf "Creating InMemoryCache"
@@ -123,7 +125,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
-                let wmon = WorkerManager.Create(config, MaxJobs = __.MaxConcurrentJobs)
+                let wmon = WorkerManager.Create(cfg.ConfigurationId, MaxJobs = __.MaxConcurrentJobs)
                 let! e = wmon.RegisterCurrent(serviceId)
                 logf "Declared node : %s \nPID : %d \nServiceId : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
                 
@@ -144,7 +146,7 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Starting worker loop"
                 let config = { 
                     State              = state
-                    MaxConcurrentJobs = __.MaxConcurrentJobs
+                    MaxConcurrentJobs  = __.MaxConcurrentJobs
                     Resources          = resources
                     Store              = store
                     Channel            = channelProvider.Value

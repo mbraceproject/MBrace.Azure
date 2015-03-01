@@ -10,7 +10,9 @@
 
 open MBrace
 open MBrace.Continuation
+open MBrace.Azure
 open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Client
 open System
 open System.IO
@@ -23,20 +25,18 @@ let selectEnv name =
 let config = 
     { Configuration.Default with
         StorageConnectionString = selectEnv "azurestorageconn"
-        ServiceBusConnectionString = selectEnv "azureservicebusconn" }
-
-//Configuration.DeleteResourcesAsync(config) |> Async.RunSynchronously
-Configuration.Activate(config)
+        ServiceBusConnectionString = selectEnv "azureservicebusconn" }.WithAppendedId
 
 
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure.Runtime.Resources
 let run (task : Async<'T>) = Async.RunSynchronously task
-
+Configuration.ActivateAsync(config) |> run
+let clone x = Configuration.Pickler.Clone(x)
 
 //#region TaskQueue 
 
-let tq = TaskQueue.Create(config.ConfigurationId, "tempqueue", "temptopic") |> run
+let tq = JobQueue.Create(config.ConfigurationId) |> run
 
 let affinity = Guid.NewGuid().ToString "N"
 tq.Affinity <- affinity
@@ -91,10 +91,10 @@ ClientProvider.BlobClient.ListContainers("process")
 //#endregion
 
 //#region Cells
-let c = Counter.Create(config.ConfigurationId, "tmp", 1) |> run
+let c = Counter.Create(config.ConfigurationId, 1, "tmp") |> run |> clone
 c.Increment() |> run
 
-let l = Latch.Create(config.ConfigurationId, "tmp", 11) |> run
+let l = Latch.Create(config.ConfigurationId, 11, "tmp") |> run |> clone
 l.Decrement() |> run
 
 [|1..5|]
@@ -105,7 +105,7 @@ l.Decrement() |> run
 
 l.Value
 
-let c = BlobCell.Create(config.ConfigurationId, "tmp", fun () -> 42) |> run
+let c = Blob.CreateIfNotExists(config.ConfigurationId, "temp", "bar", fun () -> 42) |> run |> clone
 c.GetValue() |> run
 
 //#endregion
@@ -135,8 +135,8 @@ let b' = Configuration.Serializer.UnPickle<Queue<int>>(b)
 //#endregion
 
 //#region Results
-let rs = ResultCell<int>.Create(config.ConfigurationId, "foobar", "temp") |> run
-
+let rs = ResultCell<int>.Create(config.ConfigurationId, "temp") |> run |> clone
+rs.Path
 async { do! Async.Sleep 10000 
         do! rs.SetResult(Result.Completed 42) }
 |> Async.Start
@@ -144,7 +144,7 @@ async { do! Async.Sleep 10000
 rs.TryGetResult() |> run
 rs.AwaitResult()  |> run
 
-let ra = ResultAggregator<int>.Create(config.ConfigurationId, "tmp", 10) |> run
+let ra = ResultAggregator<int>.Create(config.ConfigurationId, 10, "process000") |> run |> clone
 for x in 0..9 do
     printfn "%b" <| (run <| ra.SetResult(x, x * 10))
 ra.Complete
@@ -159,14 +159,18 @@ let dcts0 = DCTS.Create(config.ConfigurationId, "tmp") |> run
 
 dcts0.IsCancellationRequested
 
-dcts0.Cancel()
-
 let t1 = async { while true do 
                     do! Async.Sleep 2000
                     printfn "t1" }
 
 Async.Start(t1, (dcts0 :> ICloudCancellationToken).LocalToken)
 dcts0.Cancel()
+
+let a = DCTS.Create(config.ConfigurationId, "foo") |> run
+let b = DCTS.Create(config.ConfigurationId, "bar", parent = a) |> run
+let c = DCTS.Create(config.ConfigurationId, "zar", parent = a) |> run
+a.Links
+a.Cancel()
 
 let root = DCTS.Create(config.ConfigurationId, "tmp") |> run
 let chain = 

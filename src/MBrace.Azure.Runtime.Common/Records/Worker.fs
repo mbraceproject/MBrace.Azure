@@ -6,14 +6,16 @@ open MBrace.Azure.Runtime
 open System.Net
 open System.Threading
 open MBrace
+open MBrace.Azure
 
-type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset) =    
+type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset, configurationHasH) =    
     member __.Id = id
     member __.Hostname = hostname 
     member __.ProcessId = pid 
     member __.ProcessName = pname 
     member __.InitializationTime = joined 
     member __.HeartbeatTime = heartbeat
+    member __.ConfigurationHash = configurationHasH
     override __.GetHashCode() = hash id
     override __.Equals(other:obj) =
         match other with
@@ -28,7 +30,7 @@ type WorkerRef (id : string, hostname : string, pid : int, pname : string, joine
         member __.Id = id
         member __.Type = "MBrace.Azure.Worker"
 
-type WorkerRecord(pk, id, hostname, pid, pname, joined) =
+type WorkerRecord(pk, id, hostname, pid, pname, joined, configurationHash) =
     inherit TableEntity(pk, id)
     member val Hostname : string = hostname with get, set
     member val Id = id : string with get, set
@@ -36,7 +38,7 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
     member val ProcessName :string = pname with get, set
     member val InitializationTime : DateTimeOffset = joined with get, set
     member val IsActive : bool = true with get, set
-
+    member val ConfigurationHash : int = configurationHash with get, set
     member val MaxJobs = 0 with get, set
     member val ActiveJobs = 0 with get, set
 
@@ -47,10 +49,10 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
     member val NetworkUp = Unchecked.defaultof<_> with get, set
     member val NetworkDown = Unchecked.defaultof<_> with get, set
 
-    new () = new WorkerRecord(null, null, null, -1, null, Unchecked.defaultof<_>)
+    new () = new WorkerRecord(null, null, null, -1, null, Unchecked.defaultof<_>, -1)
 
     member __.AsWorkerRef () = 
-        new WorkerRef(__.Id, __.Hostname, __.ProcessId, __.ProcessName, __.InitializationTime, __.Timestamp)
+        new WorkerRef(__.Id, __.Hostname, __.ProcessId, __.ProcessName, __.InitializationTime, __.Timestamp, __.ConfigurationHash)
 
     member __.UpdateCounters(counters : NodePerformanceInfo) =
             __.CPU <- counters.CpuUsage
@@ -59,15 +61,16 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined) =
             __.NetworkUp <- counters.NetworkUsageUp
             __.NetworkDown <- counters.NetworkUsageDown
 
-type WorkerManager private (config, table : string) =
-    let pk = "worker"
+type WorkerManager private (config : ConfigurationId) =
+    let pk = "WorkerRef"
+    let table = config.RuntimeTable
 
     let current = ref None
     let perfMon = lazy new PerformanceMonitor()
     let mutable active = false
     let mutable activeJobs = 0
 
-    static member Create(config : Configuration) = new WorkerManager(config.ConfigurationId, config.DefaultTableOrContainer)
+    static member Create(config : ConfigurationId) = new WorkerManager(config)
 
     member __.ActiveJobs = activeJobs
     
@@ -107,7 +110,7 @@ type WorkerManager private (config, table : string) =
                 perfMon.Value.Start()
                 let ps = Diagnostics.Process.GetCurrentProcess()
                 let joined = DateTimeOffset.UtcNow
-                let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), ps.Id, ps.ProcessName, joined)
+                let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), ps.Id, ps.ProcessName, joined, hash config)
                 w.UpdateCounters(perfMon.Value.GetCounters())
                 do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
                 current := Some w

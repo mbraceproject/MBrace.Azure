@@ -2,16 +2,17 @@
 
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
+open MBrace.Azure
 
 
 type ResourceFactory private (configId : ConfigurationId) =
-    member __.RequestCounter(container, count) = Counter.Create(configId, container, count)
-    member __.RequestResultAggregator<'T>(container, count : int) = ResultAggregator<'T>.Create(configId, container, count)
-    member __.RequestCancellationTokenSource(container, ?metadata, ?parent) = DistributedCancellationTokenSource.Create(configId, container, ?metadata = metadata, ?parent = parent)
-    member __.RequestResultCell<'T>(taskId, container) = ResultCell<'T>.Create(configId, taskId, container)
-    member __.RequestProcessLogger(container, pid) : MBrace.Runtime.ICloudLogger = 
+    member __.RequestCounter(count, pid) = Counter.Create(configId, count, pid)
+    member __.RequestResultAggregator<'T>(count : int, pid) = ResultAggregator<'T>.Create(configId, count, pid)
+    member __.RequestCancellationTokenSource(pid, ?metadata, ?parent) = DistributedCancellationTokenSource.Create(configId, pid, ?metadata = metadata, ?parent = parent)
+    member __.RequestResultCell<'T>(taskId, pid) = ResultCell<'T>.Create(configId, taskId, pid)
+    member __.RequestProcessLogger(pid) : MBrace.Runtime.ICloudLogger = 
         // TODO : change
-        let pl = new ProcessLogger(configId, container, pid) 
+        let pl = new ProcessLogger(configId, pid) 
         let lc = new LoggerCombiner()
         lc.Attach(new ConsoleLogger())
         lc.Attach(pl)

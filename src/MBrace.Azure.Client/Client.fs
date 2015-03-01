@@ -4,6 +4,7 @@
     #nowarn "444"
 
     open MBrace
+    open MBrace.Azure
     open MBrace.Azure.Runtime
     open MBrace.Azure.Runtime.Common
     open MBrace.Continuation
@@ -19,14 +20,15 @@
     /// </summary>
     [<AutoSerializable(false)>]
     type Runtime private (clientId, config : Configuration) =
+        let configuration = config.WithAppendedId
         do Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
-        do Configuration.Activate(config)
-        let state = Async.RunSync(RuntimeState.FromConfiguration(config))
-        let storageLogger = new StorageLogger(config.ConfigurationId, config.DefaultLogTable, Client(id = clientId))
+           Async.RunSync(Configuration.ActivateAsync(configuration))
+        let state = Async.RunSync(RuntimeState.FromConfiguration(configuration))
+        let storageLogger = new StorageLogger(configuration.ConfigurationId, Client(id = clientId))
         let clientLogger = new LoggerCombiner()
         do  clientLogger.Attach(storageLogger)
-        let wmon = WorkerManager.Create(config)
-        let resources, defaultStoreClient = StoreClient.CreateDefault(config)
+        let wmon = WorkerManager.Create(configuration.ConfigurationId)
+        let resources, defaultStoreClient = StoreClient.CreateDefault(configuration)
         let compiler = CloudCompiler.Init()
         let pmon = state.ProcessMonitor
         do clientLogger.Logf "Client %s created" clientId
@@ -40,7 +42,7 @@
         member __.ClientId = clientId
 
         /// Gets the runtime associated configuration.
-        member __.Configuration = config
+        member __.Configuration = configuration
 
         /// Client logger.
         member __.ClientLogger : ICloudLogger = clientLogger :> _
@@ -51,10 +53,8 @@
         /// <summary>
         /// Creates a fresh CloudCancellationTokenSource for this runtime.
         /// </summary>
-        /// <param name="table">Optional table name where the cancellation token will be created. Defaults to Configuration.DefaultTable.</param>
-        member __.CreateCancellationTokenSource (?table : string) =
-            let table = defaultArg table config.DefaultTableOrContainer
-            state.ResourceFactory.RequestCancellationTokenSource(table) 
+        member __.CreateCancellationTokenSource () =
+            state.ResourceFactory.RequestCancellationTokenSource(guid()) 
             |> Async.RunSync :> ICloudCancellationTokenSource
 
         /// <summary>
@@ -148,21 +148,19 @@
                 let computation = compiler.Compile(workflow, ?name = name)
           
                 let pid = guid ()
-                let defaultContainer = Storage.processIdToStorageId pid
                 let info = 
                     { 
                         Id = pid
                         Name = defaultArg name computation.Name
-                        DefaultDirectory = defaultArg defaultDirectory defaultContainer
+                        DefaultDirectory = defaultArg defaultDirectory configuration.UserDataContainer
                         FileStore = fileStore
-                        DefaultAtomContainer = defaultArg defaultAtomContainer defaultContainer
+                        DefaultAtomContainer = defaultArg defaultAtomContainer configuration.UserDataTable
                         AtomProvider = atomProvider
-                        DefaultChannelContainer = defaultArg defaultChannelContainer defaultContainer
+                        DefaultChannelContainer = defaultArg defaultChannelContainer configuration.UserDataContainer
                         ChannelProvider = channelProvider 
                     }
 
                 clientLogger.Logf "Creating process %s %s" info.Id info.Name
-                clientLogger.Logf "Default process container %s." defaultContainer
                 clientLogger.Logf "Calculating dependencies." 
                 for d in computation.Dependencies do
                     clientLogger.Logf "- %s" d.FullName
@@ -171,7 +169,7 @@
                 clientLogger.Logf "Submit process %s." info.Id
                 let! _ = state.StartAsProcess(info, computation.Dependencies, faultPolicy, computation.Workflow, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
-                return Process<'T>(config.ConfigurationId, info.Id, pmon)
+                return Process<'T>(configuration.ConfigurationId, info.Id, pmon)
             }
             
         /// <summary>
@@ -280,7 +278,7 @@
                 let! e = pmon.GetProcess(pid)
                 let deps = e.UnpickleDependencies()
                 do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
-                return Process.Create(config.ConfigurationId, pid, e.UnpickleType(), pmon)
+                return Process.Create(configuration.ConfigurationId, pid, e.UnpickleType(), pmon)
             }
         /// <summary>
         /// Print process information for given process id.
@@ -299,78 +297,72 @@
         /// Delete runtime records for given process.
         /// </summary>
         /// <param name="pid">Process Id.</param>
+        /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearProcess(pid, ?force) = __.ClearProcessAsync(pid, ?force = force) |> Async.RunSync
+        member __.ClearProcess(pid, ?fullClear, ?force) = __.ClearProcessAsync(pid, ?fullClear = fullClear, ?force = force) |> Async.RunSync
         /// <summary>
         /// Delete runtime records for given process.
         /// </summary>
         /// <param name="pid">Process Id.</param>
+        /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearProcessAsync(pid, ?force : bool) = 
+        member __.ClearProcessAsync(pid, ?fullClear, ?force : bool) = 
             let force = defaultArg force false
-            pmon.ClearProcess(pid, force = force)
+            let fullClear = defaultArg fullClear true
+            pmon.ClearProcess(pid, full = fullClear, force = force)
         
         /// <summary>
         /// Delete runtime records for all processes.
         /// </summary>
+        /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearAllProcesses(?force) = __.ClearAllProcessesAsync(?force = force) |> Async.RunSync
+        member __.ClearAllProcesses(?fullClear, ?force) = __.ClearAllProcessesAsync(?fullClear = fullClear, ?force = force) |> Async.RunSync
         /// <summary>
         /// Delete runtime records for all processes.
         /// </summary>
+        /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearAllProcessesAsync(?force : bool) = 
+        member __.ClearAllProcessesAsync(?fullClear, ?force : bool) = 
             let force = defaultArg force false
-            pmon.ClearAllProcesses(force = force)
+            let fullClear = defaultArg fullClear true
+            pmon.ClearAllProcesses(force = force, full = fullClear)
 
         /// <summary>
         /// Delete and re-activate runtime state.
-        /// Using 'Reset' may cause unexpected behavior in clients and workers.
+        /// Using 'Reset' may cause unexpected behavior in clients and workers.</summary>
         /// Workers should be restarted manually.
-        /// </summary>
-        /// <param name="reactivate">Reactivate runtime state. Defaults to true.</param>
-        /// <param name="clearAllProcesses">First ClearAllProcesses. Defaults to false.</param>
+        /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
+        /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
+        /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
+        /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
+        /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
         [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-        member __.Reset(?reactivate, ?clearAllProcesses) =
+        member __.Reset(?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
             async {
-                // TODO : Refactor
-                let clearAllProcesses = defaultArg clearAllProcesses false
+                let deleteState = defaultArg deleteState true
+                let deleteQueue = defaultArg deleteQueue true
+                let deleteUserData = defaultArg deleteUserData true
+                let deleteRuntimeLogs = defaultArg deleteLogs true
                 let reactivate = defaultArg reactivate true
 
                 clientLogger.Logf "Calling Reset."
                 storageLogger.Stop()
-                let cl = new Common.ConsoleLogger() // Using client (storage) logger will throw exc.
-                let! step1 =
-                    if clearAllProcesses then
-                        cl.Logf "Calling ClearAllProcesses."
-                        __.ClearAllProcessesAsync(true)
-                    else 
-                        async.Zero()
-                    |> Async.Catch
-                match step1 with
-                | Choice2Of2 ex ->
-                    cl.Logf "Failed to ClearAllProcesses %A" ex
-                | _ -> ()
-
-                cl.Logf "Deleting resources."
-                let rec loop retryCount = async {
-                    cl.Logf "RetryCount %d." retryCount
-                    let! step2 = Async.Catch <| Configuration.DeleteResourcesAsync(config)
-                    match step2 with
-                    | Choice1Of2 _ ->
-                        cl.Logf "Done."
-                    | Choice2Of2 ex ->
-                        cl.Logf "Failed with %A" ex
-                        do! Async.Sleep 5000
-                        return! loop (retryCount + 1)
-                }
-                do! loop 0
-
+                let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
+                
+                clientLogger.Logf "Deleting Queues."
+                if deleteQueue then do! Configuration.DeleteRuntimeQueues(configuration)
+                clientLogger.Logf "Deleting Container and Table."
+                if deleteState then do! Configuration.DeleteRuntimeState(configuration)
+                clientLogger.Logf "Deleting Logs."
+                if deleteRuntimeLogs then do! Configuration.DeleteRuntimeLogs(configuration)
+                clientLogger.Logf "Deleting UserData."
+                if deleteUserData then do! Configuration.DeleteUserData(configuration)
+               
                 if reactivate then
                     cl.Logf "Activating Configuration."
                     let rec loop retryCount = async {
                         cl.Logf "RetryCount %d." retryCount
-                        let! step2 = Async.Catch <| Configuration.ActivateAsync(config)
+                        let! step2 = Async.Catch <| Configuration.ActivateAsync(configuration)
                         match step2 with
                         | Choice1Of2 _ -> 
                             cl.Logf "Done."
@@ -383,7 +375,7 @@
                     do! loop 0
 
                     cl.Logf "Initializing RuntimeState."
-                    let! _ = RuntimeState.FromConfiguration(config)
+                    let! _ = RuntimeState.FromConfiguration(configuration)
 
                     storageLogger.Start()
 

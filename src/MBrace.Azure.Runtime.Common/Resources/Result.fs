@@ -9,6 +9,8 @@ open System.Runtime.Serialization
 open MBrace.Continuation
 open MBrace
 open System.Threading
+open MBrace.Azure
+open Microsoft.WindowsAzure.Storage.Table
 
 /// Result value
 type Result<'T> =
@@ -22,14 +24,15 @@ with
         | Exception edi -> ExceptionDispatchInfo.raise true edi
         | Cancelled c -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true c
 
-type ResultCell<'T> internal (config, res : Uri) as self = 
-
+type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self = 
+    let table = config.RuntimeTable
     let localCell = lazy CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
-        
-    override this.ToString () = this.Uri.ToString()
-            
+    let mutable localResult : Result<'T> option = None
+
+    member this.Path = sprintf "%s/%s" pk rk
+
     interface ICloudTask<'T> with
-        member c.Id = res.Secondary
+        member c.Id = pk
 
         member c.AwaitResult(?timeout:int) = cloud {
             let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
@@ -72,21 +75,25 @@ type ResultCell<'T> internal (config, res : Uri) as self =
 
     member __.SetResult(result : Result<'T>) : Async<unit> =
         async {
-            let! bc = BlobCell.Create(config, res.Primary, fun () -> result)
-            let uri = bc.Uri
-            let e = new LightCellEntity(res.SecondaryWithScheme, uri.ToString(), ETag = "*")
-            let! _ = Table.merge config res.Primary e
+            let! bc = Blob.CreateIfNotExists(config, pk, guid(), fun () -> result)
+            let uri = bc.Path
+            let e = new BlobReferenceEntity(pk, rk, uri.ToString(), ETag = "*")
+            let! _ = Table.merge config table e
             return ()
         }
 
     member __.TryGetResult() : Async<Result<'T> option> = 
         async {
-            let! e = Table.read<LightCellEntity> config res.Primary res.SecondaryWithScheme ""
-            if String.IsNullOrEmpty e.Uri then return None
-            else
-                let bc = BlobCell.OfUri<Result<'T>>(config, new Uri(e.Uri))
-                let! v = bc.GetValue()
-                return Some v
+            match localResult with
+            | None ->
+                let! e = Table.read<BlobReferenceEntity> config table pk rk
+                if String.IsNullOrEmpty e.Uri then return None
+                else
+                    let bc = Blob.FromPath(config, e.Uri)
+                    let! v = bc.GetValue()
+                    localResult <- Some v
+                    return localResult
+            | Some _ -> return localResult
         }
     
     member __.AwaitResult() : Async<Result<'T>> = 
@@ -97,44 +104,64 @@ type ResultCell<'T> internal (config, res : Uri) as self =
             | Some r -> return r
         }
     
-    member __.Uri = res
-
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, _ : StreamingContext): unit = 
-            info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("pk", pk, typeof<string>)
+            info.AddValue("rk", rk, typeof<string>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, _ : StreamingContext) =
-        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        let pk = info.GetValue("pk", typeof<string>) :?> string
+        let rk = info.GetValue("rk", typeof<string>) :?> string
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new ResultCell<'T>(config, res)
+        new ResultCell<'T>(config, pk, rk)
 
-    static member private GetUri(container, id) = uri "resultcell:%s/%s" container id
-    static member FromUri<'T>(config : ConfigurationId, uri) = new ResultCell<'T>(config, uri)
-    static member Create<'T>(config, id, container : string) : Async<ResultCell<'T>> = 
+    static member FromPath(config : ConfigurationId, path : string) = 
+        let pkrk = path.Split('/')
+        new ResultCell<'T>(config, pkrk.[0], pkrk.[1])
+
+    static member Create(config, id, pid) : Async<ResultCell<'T>> = 
         async { 
-            let res = ResultCell<_>.GetUri(container, id)
-            let e = new LightCellEntity(res.SecondaryWithScheme, null)
-            do! Table.insert<LightCellEntity> config res.Primary e
-            return new ResultCell<'T>(config, res)
+            let e = new BlobReferenceEntity(pid, id, null, EntityType = "RESULT")
+            do! Table.insert<BlobReferenceEntity> config config.RuntimeTable e
+            return new ResultCell<'T>(config, pid, id)
         }
 
 
-type ResultAggregator<'T> internal (config, res : Uri) = 
+type ResultAggregator<'T> internal (config : ConfigurationId, pk, rk, size) = 
+    static let mkRowKey name i = sprintf "%s:%010d" name i
     
+    let table = config.RuntimeTable
+
+    let getEntities () = async {
+        let pkFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk)
+        let lower = mkRowKey rk 0
+        let upper = mkRowKey rk size
+        let rkFilter = 
+            TableQuery.CombineFilters(
+                TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, upper),
+                TableOperators.And,
+                TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, lower))
+
+        let query = TableQuery<BlobReferenceEntity>().Where(TableQuery.CombineFilters(pkFilter, TableOperators.And, rkFilter))
+
+        let! xs = Table.query<BlobReferenceEntity> config table query
+        return xs
+    }
+
     let completed () =
         async {
-            let! xs = Table.queryPK<ResultAggregatorEntity> config res.Primary res.SecondaryWithScheme
-            return xs |> Seq.forall (fun e -> e.Uri <> String.Empty)
+            let! xs = getEntities()
+            return xs |> Seq.forall (fun e -> not <| String.IsNullOrEmpty(e.Uri))
         }
 
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
-            let e = new ResultAggregatorEntity(res.SecondaryWithScheme, index, null, ETag = "*")
-            let! bc = BlobCell.Create(config, res.Primary, fun () -> value)
-            e.Uri <- bc.Uri.ToString()
-            let! _ = Table.replace config res.Primary e
-            return __.Complete
+            let e = new BlobReferenceEntity(pk, mkRowKey rk index, null, ETag = "*")
+            let! bc = Blob.CreateIfNotExists(config, pk, guid(), fun () -> value)
+            e.Uri <- bc.Path
+            let! _ = Table.merge config table e
+            return! completed()
         }
     
     member __.Complete = Async.RunSync(completed())
@@ -144,14 +171,14 @@ type ResultAggregator<'T> internal (config, res : Uri) =
             if not __.Complete then 
                 return! Async.Raise <| new InvalidOperationException("Result aggregator incomplete.")
             else
-                let! xs = Table.queryPK<ResultAggregatorEntity> config res.Primary res.SecondaryWithScheme
+                let! xs = getEntities()
                 let bs = 
                     xs
-                    |> Seq.sortBy (fun x -> x.Index)
+                    |> Seq.sortBy (fun x -> x.RowKey)
                     |> Seq.map (fun x -> x.Uri)
-                    |> Seq.map (fun x -> BlobCell<_>.OfUri(config, new Uri(x)))
+                    |> Seq.map (fun x -> Blob<_>.FromPath(config, x))
                     |> Seq.toArray
-            
+
                 let re = Array.zeroCreate<'T> bs.Length
                 let i = ref 0
                 for b in bs do
@@ -160,25 +187,29 @@ type ResultAggregator<'T> internal (config, res : Uri) =
                     incr i
                 return re
         }
-    
-    member __.Uri = res
-
+   
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("uri", res, typeof<Uri>)
+            info.AddValue("pk", pk, typeof<string>)
+            info.AddValue("rk", rk, typeof<string>)
+            info.AddValue("size", size, typeof<int>)
             info.AddValue("config", config, typeof<ConfigurationId>)
 
     new(info: SerializationInfo, _: StreamingContext) =
-        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
+        let pk = info.GetValue("pk", typeof<string>) :?> string
+        let rk = info.GetValue("rk", typeof<string>) :?> string
+        let size = info.GetValue("size", typeof<int>) :?> int
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new ResultAggregator<'T>(config, res)
+        new ResultAggregator<'T>(config, pk, rk, size)
 
-    static member private GetUri<'T>(container, id) = uri "aggregator:%s/%s" container id
-    static member Create<'T>(config, container : string, size : int) = 
+    static member Create<'T>(config, size, pid) = 
         async { 
-            let res = ResultAggregator<_>.GetUri(container, guid())
-            for i = 0 to size - 1 do
-                let e = new ResultAggregatorEntity(res.SecondaryWithScheme, i, String.Empty)
-                do! Table.insert config res.Primary e
-            return new ResultAggregator<'T>(config, res)
+            let name = guid()
+            let entities = seq {
+                for i = 0 to size - 1 do
+                    let name = mkRowKey name i
+                    yield new BlobReferenceEntity(pid, name, String.Empty, EntityType = "AGGR")
+            }
+            do! Table.insertBatch config config.RuntimeTable entities
+            return new ResultAggregator<'T>(config, pid, name, size)
         }

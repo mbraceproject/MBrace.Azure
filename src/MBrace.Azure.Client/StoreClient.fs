@@ -5,20 +5,18 @@ open MBrace.Continuation
 open MBrace.Store
 open MBrace.Runtime.Store
 open MBrace.Azure.Store
+open MBrace.Azure
 
 [<Sealed>]
 type internal StoreClient private () =
     
     static member CreateDefault(config : Configuration) : ResourceRegistry * MBrace.Client.StoreClient =
-
-        Configuration.Activate(config)
-
         let storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
         let atomProvider = AtomProvider.Create(config.StorageConnectionString) :> ICloudAtomProvider
         let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString) :> ICloudChannelProvider
     
-        let defaultStoreContainer = config.DefaultTableOrContainer
-        let defaultAtomContainer = config.DefaultTableOrContainer
+        let defaultStoreContainer = config.UserDataContainer
+        let defaultAtomContainer = config.UserDataTable
         let defaultChannelContainer = ""
 
         let resources = 

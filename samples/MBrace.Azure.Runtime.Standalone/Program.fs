@@ -1,5 +1,6 @@
 ﻿module internal MBrace.Azure.Runtime.Standalone.Program 
     open System
+    open MBrace.Azure
     open MBrace.Azure.Runtime
     open MBrace.Azure.Runtime.Common
     open System.Diagnostics

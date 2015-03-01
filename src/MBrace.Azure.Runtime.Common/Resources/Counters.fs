@@ -6,90 +6,88 @@ open System.Runtime.Serialization
 open MBrace.Continuation
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
+open MBrace.Azure
 
-type IntCell internal (config : ConfigurationId, res : Uri) = 
+type IntCell internal (config : ConfigurationId, pk, rk) = 
+    let table = config.RuntimeTable
     member __.Value = 
-        let e = Table.read<CounterEntity> config res.Primary res.SecondaryWithScheme String.Empty |> Async.RunSync
+        let e = Table.read<CounterEntity> config table pk rk |> Async.RunSync
         e.Value
     
     member internal __.Update(updatef : int -> int) = 
         async { 
-            let! e = Table.transact<CounterEntity> config res.Primary res.SecondaryWithScheme String.Empty (fun e -> e.Value <- updatef e.Value)
+            let! e = Table.transact<CounterEntity> config table pk rk (fun e -> e.Value <- updatef e.Value)
             return e.Value
         }
     
-    member __.Uri = res
-
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
+            info.AddValue("pk", pk, typeof<string>)
+            info.AddValue("rk", rk, typeof<string>)
 
     new(info: SerializationInfo, _: StreamingContext) =
-        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new IntCell(config, res)
+        let pk = info.GetValue("pk", typeof<string>) :?> string
+        let rk = info.GetValue("rk", typeof<string>) :?> string
+        new IntCell(config, pk, rk)
 
-    static member GetUri(container, id) = uri "intcell:%s/%s" container id
-    static member Create(config, container : string, value : int) = 
+    static member Create(config, name : string, value : int, pid) = 
         async { 
-            let res = IntCell.GetUri(container, guid () )
-            let e = new CounterEntity(res.SecondaryWithScheme, value)
-            do! Table.insert config res.Primary e
-            return new IntCell(config, res)
+            let e = new CounterEntity(pid, name, value)
+            do! Table.insert config config.RuntimeTable e
+            return new IntCell(config, pid, name)
         }
 
 
-type Latch internal (config, res : Uri) = 
-    inherit IntCell(config, res)
+type Latch internal (config, pk, rk) = 
+    inherit IntCell(config, pk, rk)
 
     member __.Decrement() = base.Update(fun v -> v - 1)
 
-    member __.Uri = res
-    
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
+            info.AddValue("pk", pk, typeof<string>)
+            info.AddValue("rk", rk, typeof<string>)
 
     new(info: SerializationInfo, _: StreamingContext) =
-        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new Latch(config, res)
+        let pk = info.GetValue("pk", typeof<string>) :?> string
+        let rk = info.GetValue("rk", typeof<string>) :?> string
+        new Latch(config, pk, rk)
 
-    static member private GetUri(container, id) = uri "latch:%s/%s" container id
-    static member Create(config, container : string, id : string, value : int) = 
+    static member Create(config, name : string, value : int, pid) = 
         async { 
-            let res = Latch.GetUri(container, id)
-            let e = new LatchEntity(res.SecondaryWithScheme, value, value)
-            do! Table.insert config res.Primary e
-            return new Latch(config, res)
+            let e = new LatchEntity(pid, name, value, value)
+            do! Table.insert config config.RuntimeTable e
+            return new Latch(config, pid, name)
         }
-    static member Create(config, container : string, value : int) = 
-        Latch.Create(config, container, guid(), value)
+    static member Create(config, value : int, pid) = 
+        Latch.Create(config, guid(), value, pid)
 
-type Counter internal (config, res : Uri) = 
-    inherit IntCell(config, res)
-    
-    member __.Increment() = base.Update(fun x -> x + 1)
-    
-    member __.Uri = res
+type Counter internal (config, pk, rk) = 
+    inherit IntCell(config, pk, rk)
+
+    member __.Increment() = base.Update(fun v -> v + 1)
 
     interface ISerializable with
         member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("uri", res, typeof<Uri>)
             info.AddValue("config", config, typeof<ConfigurationId>)
+            info.AddValue("pk", pk, typeof<string>)
+            info.AddValue("rk", rk, typeof<string>)
 
     new(info: SerializationInfo, _: StreamingContext) =
-        let res = info.GetValue("uri", typeof<Uri>) :?> Uri
         let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new Counter(config, res)
+        let pk = info.GetValue("pk", typeof<string>) :?> string
+        let rk = info.GetValue("rk", typeof<string>) :?> string
+        new Counter(config, pk, rk)
 
-    static member private GetUri(container, id) = uri "counter:%s/%s" container id
-    static member Create(config, container : string, value : int) = 
+    static member Create(config, name : string, value : int, pid) = 
         async { 
-            let res = Counter.GetUri(container, guid())
-            let e = new CounterEntity(res.SecondaryWithScheme, value)
-            do! Table.insert config res.Primary e
-            return new Counter(config, res)
+            let e = new CounterEntity(pid, name, value)
+            do! Table.insert config config.RuntimeTable e
+            return new Counter(config, pid, name)
         }
+    static member Create(config, value : int, pid) = 
+        Counter.Create(config, guid(), value, pid)
