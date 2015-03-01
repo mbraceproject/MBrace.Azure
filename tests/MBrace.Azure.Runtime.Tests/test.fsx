@@ -40,11 +40,12 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 let ps = cloud { return 42 } |> runtime.CreateProcess
+ps.AwaitResult()
 
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
-
+runtime.ClearAllProcesses(true)
 let ps =
     [1..5]
     |> Seq.map (fun i -> cloud { return i * i })
