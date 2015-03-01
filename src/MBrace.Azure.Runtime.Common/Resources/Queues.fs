@@ -90,8 +90,8 @@ type internal Topic (config) =
             let! ys = xs
                       |> Array.map (fun (x, affinity) -> 
                              async { 
-                                 let! bc = Blob.Create(config, fun () -> x)
-                                 let msg = new BrokeredMessage(bc.Filename)
+                                 let! bc = Blob.CreateIfNotExists(config, "jobs", guid(), fun () -> x)
+                                 let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
                              })
@@ -104,8 +104,8 @@ type internal Topic (config) =
             let! ys = xs
                       |> Array.map (fun x -> 
                              async { 
-                                 let! bc = Blob.Create(config, fun () -> x)
-                                 let msg = new BrokeredMessage(bc.Filename)
+                                 let! bc = Blob.CreateIfNotExists(config, "jobs", guid(), fun () -> x)
+                                 let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  return msg
                              })
@@ -115,8 +115,8 @@ type internal Topic (config) =
     
     member __.Enqueue<'T>(t : 'T, affinity : string) = 
         async { 
-            let! bc = Blob.Create(config, fun () -> t)
-            let msg = new BrokeredMessage(bc.Filename)
+            let! bc = Blob.CreateIfNotExists(config, "jobs", guid(), fun () -> t)
+            let msg = new BrokeredMessage(bc.Path)
             msg.Properties.Add(AffinityPropertyName, affinity)
             do! tc.SendAsync(msg)
         }
@@ -152,16 +152,16 @@ type internal Queue (config : ConfigurationId) =
     member __.EnqueueBatch<'T>(xs : 'T []) = 
         async { 
             let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = Blob.Create(config, fun () -> x)
-                                                     return new BrokeredMessage(bc.Filename) })
+                      |> Array.map (fun x -> async { let! bc = Blob.CreateIfNotExists(config, "jobs", guid(), fun () -> x)
+                                                     return new BrokeredMessage(bc.Path) })
                       |> Async.Parallel
             do! queue.SendBatchAsync(ys)
         }
     
     member __.Enqueue<'T>(t : 'T) = 
         async { 
-            let! bc = Blob.Create(config, fun () -> t)
-            let msg = new BrokeredMessage(bc.Filename)
+            let! bc = Blob.CreateIfNotExists(config, guid(), "jobs", fun () -> t)
+            let msg = new BrokeredMessage(bc.Path)
             do! queue.SendAsync(msg)
         }
     

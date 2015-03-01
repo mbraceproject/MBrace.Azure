@@ -39,9 +39,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(reactivate = false)
 //runtime.Reset()
 
-
-cloud { return 42 }
-|> runtime.Run
+let ps = cloud { return 42 } |> runtime.CreateProcess
 
 runtime.ShowProcesses()
 runtime.ShowWorkers()

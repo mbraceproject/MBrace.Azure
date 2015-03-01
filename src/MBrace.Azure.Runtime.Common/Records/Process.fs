@@ -128,10 +128,21 @@ type ProcessManager private (config : ConfigurationId) =
         let! record = this.GetProcess(pid)
         if force = false && not record.Completed then
             failwithf "Cannot clear process %s. Process not completed." pid 
-        do! Table.delete<ProcessRecord> config table record
+        if record <> Unchecked.defaultof<_> then
+            do! Table.delete<ProcessRecord> config table record
         if full then
             let! rks = Table.queryDynamic config table pid
             do! Table.deleteBatch config table rks
+            let bc = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let dir = bc.GetDirectoryReference(pid)
+            let processBlobs = dir.ListBlobs()
+            let refs = processBlobs
+                        |> Seq.map (fun b -> dir.GetBlockBlobReference(b.Uri.Segments |> Seq.last))
+            do! refs |> Seq.map (fun r -> r.DeleteIfExistsAsync())
+                     |> Seq.map Async.AwaitTask
+                     |> Async.Parallel
+                     |> Async.Ignore
+            ()
     }
 
     member this.ClearAllProcesses (force, full) = async {

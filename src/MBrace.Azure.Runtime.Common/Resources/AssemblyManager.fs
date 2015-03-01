@@ -15,12 +15,12 @@ type AssemblyManager private (config : ConfigurationId) =
     
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            return! Blob.CreateIfNotExists(config, filename pkg.Id, fun () -> pkg) |> Async.Ignore
+            return! Blob.CreateIfNotExists(config, "assemblies", filename pkg.Id, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
         async { 
-            let blob = Blob.FromPath(config, filename id)
+            let blob = Blob.FromPath(config, "assemblies", filename id)
             return! blob.GetValue()
         }
     

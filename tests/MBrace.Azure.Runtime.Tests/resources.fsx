@@ -36,7 +36,7 @@ let clone x = Configuration.Pickler.Clone(x)
 
 //#region TaskQueue 
 
-let tq = TaskQueue.Create(config.ConfigurationId, "tempqueue", "temptopic") |> run
+let tq = JobQueue.Create(config.ConfigurationId) |> run
 
 let affinity = Guid.NewGuid().ToString "N"
 tq.Affinity <- affinity
@@ -105,7 +105,7 @@ l.Decrement() |> run
 
 l.Value
 
-let c = Blob.Create(config.ConfigurationId, fun () -> 42) |> run |> clone
+let c = Blob.CreateIfNotExists(config.ConfigurationId, "temp", "bar", fun () -> 42) |> run |> clone
 c.GetValue() |> run
 
 //#endregion
