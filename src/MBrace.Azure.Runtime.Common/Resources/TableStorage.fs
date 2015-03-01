@@ -138,14 +138,14 @@ module Table =
     let insertOrReplace<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.InsertOrReplace(e) |> exec config table |> Async.Ignore
     
-    let queryDynamic config table pk : Async<DynamicTableEntity seq> =
+    let queryDynamic config table pk : Async<DynamicTableEntity []> =
         async {  
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let q = TableQuery<DynamicTableEntity>()
                         .Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
                         .Select([|"RowKey"|])
             return t.ExecuteQuery(q)
-
+                   |> Seq.toArray
         }
 
     let read<'T when 'T :> ITableEntity> config table pk rk : Async<'T> = 
@@ -159,13 +159,15 @@ module Table =
         async {
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             return t.ExecuteQuery<'T>(query)
+                   |> Seq.toArray
         }
 
-    let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table pk : Async<'T seq> = 
+    let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table pk : Async<'T []> = 
         async {  
             let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
             let q = TableQuery<'T>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
             return t.ExecuteQuery<'T>(q)
+                   |> Seq.toArray
         }
     
     let merge<'T when 'T :> ITableEntity> config table (e : 'T) : Async<'T> = 
