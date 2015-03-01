@@ -1,23 +1,24 @@
 ﻿namespace MBrace.Azure.Store
 
-open Microsoft.ServiceBus.Messaging
-open MBrace
-open MBrace.Continuation
-open MBrace.Store
 open System
 open System.IO
 open System.Runtime.Serialization
+
+open MBrace
+open MBrace.Runtime.Vagabond
+open MBrace.Continuation
+open MBrace.Store
+
 open Microsoft.ServiceBus
+open Microsoft.ServiceBus.Messaging
 
 // TODO : Channel semantics.
 
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type SendPort<'T> internal (queuePath, connectionString, serializer : ISerializer) =
+type SendPort<'T> internal (queuePath, connectionString) =
     
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
-    [<DataMember(Name = "Serializer")>]
-    let serializer = serializer
     [<DataMember(Name = "QueuePath")>]
     let queuePath = queuePath
 
@@ -33,18 +34,16 @@ type SendPort<'T> internal (queuePath, connectionString, serializer : ISerialize
         
         member __.Send(message : 'T) : Cloud<unit> = 
             async {
-                let bin = pickle message serializer
+                let bin = VagabondRegistry.Instance.Pickler.Pickle message
                 use ms = new MemoryStream(bin) in ms.Position <- 0L
                 let msg = new BrokeredMessage(ms)
                 do! client.SendAsync(msg)
             } |> Cloud.OfAsync
 
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type ReceivePort<'T> internal (queuePath, connectionString, serializer : ISerializer) =
+type ReceivePort<'T> internal (queuePath, connectionString) =
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
-    [<DataMember(Name = "Serializer")>]
-    let serializer = serializer
     [<DataMember(Name = "QueuePath")>]
     let queuePath = queuePath
 
@@ -86,16 +85,16 @@ type ReceivePort<'T> internal (queuePath, connectionString, serializer : ISerial
                         aux ()
 
                 use stream = msg.GetBody<Stream>()
-                return serializer.Deserialize<'T>(stream, false)
+                return VagabondRegistry.Instance.Pickler.Deserialize<'T>(stream)
             } |> Cloud.OfAsync
 
+
+/// MBrace Channel provider over Azure Service Bus queues
 [<Sealed; DataContract>]
-type ChannelProvider private (connectionString : string, serializer : ISerializer) =
+type ChannelProvider private (connectionString : string) =
     
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
-    [<DataMember(Name = "Serializer")>]
-    let serializer = serializer
 
     [<IgnoreDataMember>]
     let mutable nsClient = NamespaceManager.CreateFromConnectionString(connectionString)
@@ -120,9 +119,13 @@ type ChannelProvider private (connectionString : string, serializer : ISerialize
                 qd.SupportOrdering <- true
                 qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
                 do! nsClient.CreateQueueAsync(qd)
-                return new SendPort<'T>(queuePath, connectionString, serializer) :> ISendPort<'T>, 
-                        new ReceivePort<'T>(queuePath, connectionString, serializer) :> IReceivePort<'T>
+                return new SendPort<'T>(queuePath, connectionString) :> ISendPort<'T>, 
+                        new ReceivePort<'T>(queuePath, connectionString) :> IReceivePort<'T>
             }
 
-    static member Create(connectionString : string, serializer : ISerializer) : ICloudChannelProvider =
-        new ChannelProvider(connectionString, serializer) :> _
+    /// <summary>
+    ///     Creates an Azure Service bus queue connection string.
+    /// </summary>
+    /// <param name="connectionString">Azure service bus connection string.</param>
+    static member Create(connectionString : string) =
+        new ChannelProvider(connectionString)

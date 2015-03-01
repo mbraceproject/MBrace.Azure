@@ -27,20 +27,19 @@ module private Config =
              CloudFileStoreConfiguration.Create(store, serializer)
 
     let remoteAtomStoreConfig =
-        lazy let store = 
-                { new AtomProvider(remoteConn.Value, serializer) with
-                    override __.ComputeSize(value : 'T) = VagabondRegistry.Instance.Pickler.ComputeSize(value) } :> ICloudAtomProvider 
-             CloudAtomConfiguration.Create(store, "mbracetest")
+        lazy 
+            let store = AtomProvider.Create(remoteConn.Value) :> ICloudAtomProvider 
+            in CloudAtomConfiguration.Create(store, "mbracetest")
 
     let emulatorAtomStoreConfig =
-        lazy let store = 
-                { new AtomProvider(emulatorConn, serializer) with
-                    override __.ComputeSize(value : 'T) = VagabondRegistry.Instance.Pickler.ComputeSize(value) } :> ICloudAtomProvider 
-             CloudAtomConfiguration.Create(store, "mbracetest")
+        lazy 
+            let store = AtomProvider.Create(emulatorConn) :> ICloudAtomProvider 
+            in CloudAtomConfiguration.Create(store, "mbracetest")
 
     let remoteChannelStoreConfig =
-        lazy let store = ChannelProvider.Create(Tests.Utils.selectEnv "azureservicebusconn", serializer)
-             CloudChannelConfiguration.Create(store)
+        lazy 
+            let store = ChannelProvider.Create(Tests.Utils.selectEnv "azureservicebusconn") :> ICloudChannelProvider
+            in CloudChannelConfiguration.Create(store)
 
 
 [<TestFixture>]

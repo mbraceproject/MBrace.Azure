@@ -12,10 +12,8 @@ type internal StoreClient private () =
     
     static member CreateDefault(config : Configuration) : ResourceRegistry * MBrace.Client.StoreClient =
         let storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
-        let atomProvider = 
-            { new AtomProvider(config.StorageConnectionString, Configuration.Serializer) with
-                override __.ComputeSize(value : 'T) = Configuration.Pickler.ComputeSize(value) } :> ICloudAtomProvider
-        let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString, Configuration.Serializer)
+        let atomProvider = AtomProvider.Create(config.StorageConnectionString) :> ICloudAtomProvider
+        let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString) :> ICloudChannelProvider
     
         let defaultStoreContainer = config.UserDataContainer
         let defaultAtomContainer = config.UserDataTable
