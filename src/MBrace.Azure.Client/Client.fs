@@ -304,27 +304,27 @@
         /// Delete runtime records for given process.
         /// </summary>
         /// <param name="pid">Process Id.</param>
-        /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to false.</param>
+        /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
         member __.ClearProcessAsync(pid, ?fullClear, ?force : bool) = 
             let force = defaultArg force false
-            let fullClear = defaultArg fullClear false
+            let fullClear = defaultArg fullClear true
             pmon.ClearProcess(pid, full = fullClear, force = force)
         
         /// <summary>
         /// Delete runtime records for all processes.
         /// </summary>
-        /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to false.</param>
+        /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
         member __.ClearAllProcesses(?fullClear, ?force) = __.ClearAllProcessesAsync(?fullClear = fullClear, ?force = force) |> Async.RunSync
         /// <summary>
         /// Delete runtime records for all processes.
         /// </summary>
-        /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to false.</param>
+        /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
         member __.ClearAllProcessesAsync(?fullClear, ?force : bool) = 
             let force = defaultArg force false
-            let fullClear = defaultArg fullClear false
+            let fullClear = defaultArg fullClear true
             pmon.ClearAllProcesses(force = force, full = fullClear)
 
         /// <summary>
