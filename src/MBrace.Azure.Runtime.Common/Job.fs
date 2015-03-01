@@ -223,7 +223,7 @@ with
             let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
             jobs.[i] <- { PickledJob = jobp; Dependencies = dependencies }, affinity
         async {
-            do! rt.JobQueue.EnqueueBatch<JobItem>(jobs)
+            do! rt.JobQueue.EnqueueBatch<JobItem>(jobs, pid = psInfo.Id)
             do! rt.ProcessMonitor.IncreaseTotalJobs(psInfo.Id, jobs.Length)
         }
 
@@ -248,7 +248,7 @@ with
         let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
         let jobItem = { PickledJob = jobp; Dependencies = dependencies }
         async {
-            do! rt.JobQueue.Enqueue<JobItem>(jobItem, ?affinity = affinity)
+            do! rt.JobQueue.Enqueue<JobItem>(jobItem, ?affinity = affinity, pid = psInfo.Id)
             do! rt.ProcessMonitor.IncreaseTotalJobs(psInfo.Id)
         }
 

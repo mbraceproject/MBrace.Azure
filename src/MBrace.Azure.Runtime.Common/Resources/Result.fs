@@ -114,8 +114,7 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
     static member FromPath(config : ConfigurationId, path : string) = 
         let pkrk = path.Split('/')
         new ResultCell<'T>(config, pkrk.[0], pkrk.[1])
-    static member Create(config, pid) : Async<ResultCell<'T>> = 
-        ResultCell.Create(config, guid(), pid)
+
     static member Create(config, id, pid) : Async<ResultCell<'T>> = 
         async { 
             let e = new BlobReferenceEntity(pid, id, null, EntityType = "RESULT")

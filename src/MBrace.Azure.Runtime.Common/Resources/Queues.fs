@@ -14,6 +14,7 @@ module private Constants =
     let MaxTTL = TimeSpan.MaxValue
     let ServerWaitTime = TimeSpan.FromMilliseconds(100.)
     let AffinityPropertyName = "Affinity"
+    let PIDPropertyName = "ProcessId"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
     
 type QueueMessage(config, msg : BrokeredMessage) = 
@@ -26,6 +27,11 @@ type QueueMessage(config, msg : BrokeredMessage) =
     member __.Affinity = affinity
 
     member __.DeliveryCount = msg.DeliveryCount
+
+    member __.ProcessId : string option =
+        match msg.Properties.TryGetValue(PIDPropertyName) with
+        | true, pid -> Some(pid :?> string)
+        | false, _ -> None
 
     member this.CompleteAsync() = 
         async { 
@@ -85,39 +91,42 @@ type internal Topic (config) =
     let tc = cp.TopicClient(config.RuntimeTopic)
     member __.GetSubscription(affinity) : Subscription = new Subscription(config, affinity)
     
-    member __.EnqueueBatch<'T>(xs : ('T * string) []) = 
+    member __.EnqueueBatch<'T>(xs : ('T * string) [], ?pid) = 
         async { 
             let! ys = xs
                       |> Array.map (fun (x, affinity) -> 
                              async { 
-                                 let! bc = Blob.CreateIfNotExists(config, "jobs", guid(), fun () -> x)
+                                 let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
                                  let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
+                                 pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
                                  return msg
                              })
                       |> Async.Parallel
             do! tc.SendBatchAsync(ys)
         }
 
-    member __.EnqueueBatch<'T>(xs : 'T [], affinity : string) = 
+    member __.EnqueueBatch<'T>(xs : 'T [], affinity : string, ?pid) = 
         async { 
             let! ys = xs
                       |> Array.map (fun x -> 
                              async { 
-                                 let! bc = Blob.CreateIfNotExists(config, "jobs", guid(), fun () -> x)
+                                 let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
                                  let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
+                                 pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
                                  return msg
                              })
                       |> Async.Parallel
             do! tc.SendBatchAsync(ys)
         }
     
-    member __.Enqueue<'T>(t : 'T, affinity : string) = 
+    member __.Enqueue<'T>(t : 'T, affinity : string, ?pid) = 
         async { 
-            let! bc = Blob.CreateIfNotExists(config, "jobs", guid(), fun () -> t)
+            let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> t)
             let msg = new BrokeredMessage(bc.Path)
             msg.Properties.Add(AffinityPropertyName, affinity)
+            pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
             do! tc.SendAsync(msg)
         }
     
@@ -149,19 +158,22 @@ type internal Queue (config : ConfigurationId) =
     
     member __.Length = ns.GetQueue(config.RuntimeQueue).MessageCount
     
-    member __.EnqueueBatch<'T>(xs : 'T []) = 
+    member __.EnqueueBatch<'T>(xs : 'T [], ?pid) = 
         async { 
             let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = Blob.CreateIfNotExists(config, "jobs", guid(), fun () -> x)
-                                                     return new BrokeredMessage(bc.Path) })
+                      |> Array.map (fun x -> async { let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
+                                                     let msg = new BrokeredMessage(bc.Path)
+                                                     pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
+                                                     return msg })
                       |> Async.Parallel
             do! queue.SendBatchAsync(ys)
         }
     
-    member __.Enqueue<'T>(t : 'T) = 
+    member __.Enqueue<'T>(t : 'T, ?pid) = 
         async { 
-            let! bc = Blob.CreateIfNotExists(config, guid(), "jobs", fun () -> t)
+            let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> t)
             let msg = new BrokeredMessage(bc.Path)
+            pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
             do! queue.SendAsync(msg)
         }
     
@@ -227,15 +239,15 @@ type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) 
             return msg
         }
 
-    member __.Enqueue<'T>(item : 'T, ?affinity) : Async<unit> =
+    member __.Enqueue<'T>(item : 'T, ?affinity, ?pid : string) : Async<unit> =
         async {
             match affinity with
-            | None -> return! queue.Enqueue<'T>(item)
-            | Some affinity -> return! topic.Enqueue<'T>(item, affinity)
+            | None -> return! queue.Enqueue<'T>(item, ?pid = pid)
+            | Some affinity -> return! topic.Enqueue<'T>(item, affinity, ?pid = pid)
         }
-    member __.EnqueueBatch<'T>(xs : 'T []) = queue.EnqueueBatch<'T>(xs)
+    member __.EnqueueBatch<'T>(xs : 'T [], ?pid : string) = queue.EnqueueBatch<'T>(xs, ?pid = pid)
 
-    member __.EnqueueBatch<'T>(xs : ('T * string option) []) = async {
+    member __.EnqueueBatch<'T>(xs : ('T * string option) [], ?pid : string) = async {
             let queueTasks = new ResizeArray<'T>()
             let topicTasks = new ResizeArray<'T * string>()
 
@@ -246,11 +258,11 @@ type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) 
             
             let! handle1 = 
                 if topicTasks.Count = 0 then async.Zero() 
-                else topic.EnqueueBatch(topicTasks.ToArray())
+                else topic.EnqueueBatch(topicTasks.ToArray(), ?pid = pid)
                 |> Async.StartChild
             let! handle2 =
                 if queueTasks.Count = 0 then async.Zero()
-                else queue.EnqueueBatch(queueTasks.ToArray())
+                else queue.EnqueueBatch(queueTasks.ToArray(), ?pid = pid)
                 |> Async.StartChild
             do! Async.Parallel [handle1 ; handle2]
                 |> Async.Ignore

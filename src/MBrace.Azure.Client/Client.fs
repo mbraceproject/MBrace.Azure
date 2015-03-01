@@ -297,7 +297,7 @@
         /// Delete runtime records for given process.
         /// </summary>
         /// <param name="pid">Process Id.</param>
-        /// <param name="fullClear">Delete all records and blobs used by this process.</param>
+        /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
         member __.ClearProcess(pid, ?fullClear, ?force) = __.ClearProcessAsync(pid, ?fullClear = fullClear, ?force = force) |> Async.RunSync
         /// <summary>

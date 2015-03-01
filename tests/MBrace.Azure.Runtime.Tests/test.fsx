@@ -46,11 +46,11 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
-runtime.ClearProcess("", true, true)
-runtime.ClearAllProcesses(true, true)
+
+
 
 let ps =
-    [1..5]
+    [1..30]
     |> Seq.map (fun i -> cloud { return i * i })
     |> Cloud.Parallel
     |> runtime.CreateProcess
