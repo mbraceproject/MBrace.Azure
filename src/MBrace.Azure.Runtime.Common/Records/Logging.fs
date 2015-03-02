@@ -173,6 +173,18 @@ type ConsoleLogger () =
         override __.Log(entry : string) : unit = 
             Console.Write("{0} {1}", DateTimeOffset.Now.ToString(format), prettyPrint entry)
 
+type TimeEllapsedLogger (logger : ICloudLogger) =
+    let sync = new Object()
+    let time = ref DateTime.Now
+    let touch () = lock sync (fun () -> time := DateTime.Now)
+
+    interface ICloudLogger with
+        member x.Log(entry: string): unit =
+            let elapsed = DateTime.Now - time.Value
+            let msg = sprintf "[Elapsed %A] %s" elapsed entry
+            logger.Log(msg)
+            touch ()   
+
 type CustomLogger (f : Action<string>) =
     interface ICloudLogger with
         override x.Log(entry : string) : unit = 

@@ -167,9 +167,11 @@
                 clientLogger.Logf "Uploading dependencies."
                 do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
                 clientLogger.Logf "Submit process %s." info.Id
-                let! _ = state.StartAsProcess(info, computation.Dependencies, faultPolicy, computation.Workflow, ?ct = cancellationToken)
+                let! _ = state.StartAsProcess(info, computation.Dependencies, faultPolicy, computation.Workflow, logger = clientLogger, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
-                return Process<'T>(configuration.ConfigurationId, info.Id, pmon)
+                let ps = Process<'T>(configuration.ConfigurationId, info.Id, pmon)
+                clientLogger.Logf "Done"
+                return ps
             }
             
         /// <summary>

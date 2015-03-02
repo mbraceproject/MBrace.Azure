@@ -227,29 +227,36 @@ with
             do! rt.ProcessMonitor.IncreaseTotalJobs(psInfo.Id, jobs.Length)
         }
 
-    member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, jobType : JobType, parentJobId) : Async<unit> =
-        let startJob ctx =
-            let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-            Cloud.StartWithContinuations(wf, cont, ctx)
-        let affinity = match jobType with Affined a -> Some a | _ -> None
-        let job = 
-            { 
-                Type = typeof<'T>
-                ProcessInfo = psInfo
-                JobId = jobId
-                StartJob = startJob
-                CancellationTokenSource = cts
-                FaultPolicy = fp
-                Econt = ec
-                JobType = jobType
-                ParentJobId = parentJobId
-            }
-        
-        let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
-        let jobItem = { PickledJob = jobp; Dependencies = dependencies }
+    member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, jobType : JobType, parentJobId, ?logger : ICloudLogger) : Async<unit> =
         async {
+            let logger = defaultArg logger (NullLogger() :> _)
+        
+            let startJob ctx =
+                let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
+                Cloud.StartWithContinuations(wf, cont, ctx)
+            let affinity = match jobType with Affined a -> Some a | _ -> None
+            let job = 
+                { 
+                    Type = typeof<'T>
+                    ProcessInfo = psInfo
+                    JobId = jobId
+                    StartJob = startJob
+                    CancellationTokenSource = cts
+                    FaultPolicy = fp
+                    Econt = ec
+                    JobType = jobType
+                    ParentJobId = parentJobId
+                }
+        
+            logger.Logf "Pickle Job."
+            let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
+            logger.Logf "Pickled Job [%d bytes]." jobp.Bytes.Length
+            let jobItem = { PickledJob = jobp; Dependencies = dependencies }
+            logger.Logf "Job Enqueue."
             do! rt.JobQueue.Enqueue<JobItem>(jobItem, ?affinity = affinity, pid = psInfo.Id)
+            logger.Logf "Job Enqueue completed."
             do! rt.ProcessMonitor.IncreaseTotalJobs(psInfo.Id)
+            logger.Log "Set process Total Jobs to 1."
         }
 
     /// Schedules a cloud workflow as an ICloudTask.
@@ -271,15 +278,19 @@ with
 
     /// Schedules a cloud workflow as an ICloudJob.
     /// Used for root-level workflows.
-    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, fp, wf : Cloud<'T>, ?ct : ICloudCancellationToken) = async {
+    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, fp, wf : Cloud<'T>, logger : ICloudLogger, ?ct : ICloudCancellationToken) = async {
         let jobId = guid ()
+        
+        logger.Logf "Request for CancellationTokenSource"
         let! cts = 
             match ct with
             | None -> rt.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, metadata = jobId)
             | Some ct -> async { return ct :?> DistributedCancellationTokenSource }
-
+        
+        logger.Logf "Request for ResultCell"
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.Id)
 
+        logger.Logf "Creating Process Record for %s" psInfo.Id
         let! _ = rt.ProcessMonitor
                    .CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies,
                                    string cts.RowKey, 
@@ -300,7 +311,7 @@ with
         let econt ctx e = setResult ctx (Exception e)
         let ccont ctx c = setResult ctx (Cancelled c)
 
-        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root, String.Empty)
+        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root, String.Empty, logger = logger)
         return resultCell
     }
 
