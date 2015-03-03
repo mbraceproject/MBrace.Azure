@@ -70,6 +70,7 @@ type Configuration =
 
 
     /// Append Configuration.Id on all values.
+    /// Note : This property should not be used by clients.
     member this.WithAppendedId =
         let withId s = sprintf "%s%05d" s this.Id
         { this with
@@ -101,13 +102,27 @@ type Configuration =
           UserDataContainer = this.UserDataContainer.ToLower()
           UserDataTable = this.UserDataTable.ToLower()
         }
-            
-        
-    /// Returns a new copy with altered storage connection string.
+     
+    /// Return a new copy with altered Id.
+    member this.WithId(id) =
+        { this with Id = id }
+
+    /// Return a new copy with altered runtime Queues, Containers and Tables.
+    member this.WithRuntimeFolders(runtimeQueue, runtimeTopic, runtimeContainer, runtimeTable, runtimeLogsTable, userDataContainer, userDataTable) =
+        { this with
+            RuntimeQueue      = runtimeQueue
+            RuntimeTopic      = runtimeTopic
+            RuntimeContainer  = runtimeContainer
+            RuntimeTable      = runtimeTable
+            RuntimeLogsTable  = runtimeLogsTable
+            UserDataContainer = userDataContainer
+            UserDataTable     = userDataTable }
+
+    /// Return a new copy with altered storage connection string.
     member this.WithStorageConnectionString(conn : string) =
         { this with StorageConnectionString = conn }
 
-    /// Returns a new copy with altered service bus connection string.
+    /// Return a new copy with altered service bus connection string.
     member this.WithServiceBusConnectionString(conn : string) =
         { this with ServiceBusConnectionString = conn }
 
@@ -116,26 +131,25 @@ namespace MBrace.Azure.Runtime
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
 open Microsoft.WindowsAzure.Storage
-open Nessos.FsPickler
-open MBrace.Runtime
 open Nessos.Vagabond
 open System
 open System.Collections.Concurrent
 open System.Reflection
-open System.Security.Cryptography
-open System.Text
-open System.Threading
 open MBrace.Azure
+
+/// Exception indicating invalid Configuration.
+type InvalidConfigurationException (msg : string, inner) =
+    inherit Exception(msg, inner)
 
 [<AutoSerializable(false)>]
 type ClientProvider (config : Configuration) =
-    let acc = CloudStorageAccount.Parse(config.StorageConnectionString)
+    let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
     do System.Net.ServicePointManager.Expect100Continue <- false
     do System.Net.ServicePointManager.UseNagleAlgorithm <- false
 
-    member __.TableClient = acc.CreateCloudTableClient()
+    member __.TableClient = acc.Value.CreateCloudTableClient()
     member __.BlobClient = 
-        let client = acc.CreateCloudBlobClient()
+        let client = acc.Value.CreateCloudBlobClient()
         client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(4 * System.Environment.ProcessorCount)
         client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(1L <<< 23) // 8MB, possible ranges: 1..64MB, default 32MB
         client.DefaultRequestOptions.MaximumExecutionTime <- Nullable<_>(TimeSpan.FromMinutes(10.))
@@ -174,12 +188,20 @@ type ClientProvider (config : Configuration) =
 
     member __.InitAll() =
         async {
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeTable).CreateIfNotExistsAsync()
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeLogsTable).CreateIfNotExistsAsync()
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.UserDataTable).CreateIfNotExistsAsync()
-            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.RuntimeContainer).CreateIfNotExistsAsync()
-            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.UserDataContainer).CreateIfNotExistsAsync()
-            ()
+            try
+                let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeTable).CreateIfNotExistsAsync()
+                let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeLogsTable).CreateIfNotExistsAsync()
+                let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.UserDataTable).CreateIfNotExistsAsync()
+                let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.RuntimeContainer).CreateIfNotExistsAsync()
+                let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.UserDataContainer).CreateIfNotExistsAsync()
+                ()
+            with e ->
+                raise <| InvalidConfigurationException("Invalid Storage Account Configuration", e)
+            try
+                let! _ = Async.AwaitTask <| __.NamespaceClient.QueueExistsAsync(config.RuntimeQueue)
+                ()
+            with e ->
+                raise <| InvalidConfigurationException("Invalid Service Bus Configuration", e)
         }
 
 [<Sealed;AbstractClass>]
