@@ -118,22 +118,23 @@ type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
 type ProcessLogger(config : ConfigurationId, pid : string) =
     let loggerType = ProcessLog pid
     let table = config.UserDataTable
-    let timeToRK (time : DateTimeOffset) = sprintf "%020d" time.Ticks 
+    let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" time.Ticks unique
 
     interface ICloudLogger with
         override __.Log(entry : string) : unit = 
             let time = DateTimeOffset.UtcNow
-            let e = new LogRecord(string loggerType, timeToRK time, entry, DateTimeOffset.UtcNow)
+            let e = new LogRecord(string loggerType, timeToRK time (guid()), entry, DateTimeOffset.UtcNow)
             Async.RunSync(Table.insert<LogRecord> config table e)
-            Threading.Thread.Sleep(100) // See HACK
 
     member __.GetLogs (?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
         let query = new TableQuery<LogRecord>()
         let loggerType = Some loggerType
+        let lower = Guid.Empty.ToString "N"
+        let upper = lower.Replace('0','f')
         let filters = 
             [ loggerType |> Option.map (fun pk -> TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, string pk))
-              fromDate   |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, timeToRK t))
-              toDate     |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, timeToRK t)) ]
+              fromDate   |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, timeToRK t lower))
+              toDate     |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, timeToRK t upper)) ]
         let filter = 
             filters 
             |> List.fold (fun state filter -> 

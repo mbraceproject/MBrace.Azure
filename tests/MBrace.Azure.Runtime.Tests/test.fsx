@@ -35,24 +35,13 @@ Runtime.Spawn(config, 4, 16)
 // ----------------------------
 
 let runtime = Runtime.GetHandle(config)
-runtime.AttachClientLogger(new TimeEllapsedLogger(new ConsoleLogger()))
+runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(reactivate = false)
 //runtime.Reset()
 
 
-type Foo () =
-    member __.Bar () = ()
-
-let ps = runtime.Run(cloud { return typeof<Foo>.Assembly.Location })
-
-
-let ps = 
- [for i in 0 .. 3 ->
-   cloud { return System.DateTime.Now }
-    |> runtime.CreateProcess ]
-
-
 let ps = cloud { return 42 } |> runtime.CreateProcess
+
 ps.AwaitResult()
 
 runtime.ShowProcesses()
