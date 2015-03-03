@@ -46,7 +46,7 @@ type CancellationTokenSourceEntity(pid, id : string, links : (string * string) l
                 links 
                 |> Seq.map (fun (pk, rk) -> sprintf "%s/%s" pk rk)
                 |> String.concat ";"
-            let chunkSize = 64 * 1024 * 1024 // 64KB per property
+            let chunkSize = 64 * 1024 // 64KB per property
             {0..chunkSize..s.Length-1}
             |> Seq.map(fun i -> s.Substring(i, Math.Min(chunkSize, s.Length-i)))
             |> Seq.toArray
