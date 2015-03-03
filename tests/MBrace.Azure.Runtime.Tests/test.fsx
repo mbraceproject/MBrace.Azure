@@ -27,18 +27,18 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-// local only---
-#r "MBrace.Azure.Runtime.Standalone"
-open MBrace.Azure.Runtime.Standalone
-Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 4, 16)
-// ----------------------------
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(reactivate = false)
 //runtime.Reset()
 
+// local only---
+#r "MBrace.Azure.Runtime.Standalone"
+open MBrace.Azure.Runtime.Standalone
+Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+Runtime.Spawn(config, 4, 16)
+// ----------------------------
 
 let ps = cloud { return 42 } |> runtime.CreateProcess
 
