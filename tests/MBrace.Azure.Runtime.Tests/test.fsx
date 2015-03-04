@@ -40,9 +40,6 @@ Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runt
 Runtime.Spawn(config, 4, 16)
 // ----------------------------
 
-
-
-
 let wf =
     cloud {
         return! [1..16] |> List.map (fun _ -> cloud { return 42 }) |> Cloud.Parallel

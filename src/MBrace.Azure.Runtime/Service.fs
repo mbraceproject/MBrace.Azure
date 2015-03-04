@@ -164,7 +164,11 @@ type Service (config : Configuration, serviceId : string) =
                     yield logger
                     yield wmon
                     yield state.ProcessMonitor 
+                    // TODO : This is for debugging purposes. Maybe remove.
+                    yield ConfigurationRegistry.Resolve<ClientProvider>(cfg.ConfigurationId)
                 }
+                
+                
                 state.JobQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 
