@@ -151,7 +151,7 @@ Target "NuGet.CoreAzure" (fun _ ->
             AccessKey = getBuildParamOrDefault "nugetkey" ""
             Dependencies = 
                 [
-                    "FsPickler", "1.0.12"
+                    "FsPickler", "1.0.13"
                     "MBrace.Core", RequireExactly MBraceCoreVersion
                     "MBrace.Runtime.Core", RequireExactly MBraceCoreVersion
                     "Microsoft.Data.OData", RequireExactly  "5.6.3"
