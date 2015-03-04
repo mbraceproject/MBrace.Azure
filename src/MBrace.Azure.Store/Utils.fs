@@ -49,9 +49,9 @@ module internal Utils =
     /// Creates a Microsoft.WindowsAzure.Storage.BlobClient instance given a cloud storage account
     let getBlobClient (account : CloudStorageAccount) =
         let client = account.CreateCloudBlobClient()
-            
+        client.DefaultRequestOptions.ServerTimeout <- Nullable(TimeSpan.FromMinutes(40.))
         client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(4 * System.Environment.ProcessorCount)
-        client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(1L <<< 23) // 8MB, possible ranges: 1..64MB, default 32MB
+        client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(4L * 1024L * 1024L) // possible ranges: 1..64MB, default 32MB
         
         client
 

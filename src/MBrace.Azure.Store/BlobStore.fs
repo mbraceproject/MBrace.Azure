@@ -121,7 +121,7 @@ type BlobStore private (connectionString : string) =
             async {
                 let! blob = getBlobRef acc path
                 // http://msdn.microsoft.com/en-us/library/azure/dd179431.aspx
-                let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(10.)))
+                let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
                 use! stream = blob.OpenWriteAsync(null, options, OperationContext())
                 return! writer(stream)
             } 
@@ -135,7 +135,7 @@ type BlobStore private (connectionString : string) =
         member this.OfStream(source: Stream, target: string) : Async<unit> = 
             async {
                 let! blob = getBlobRef acc target
-                let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(10.)))
+                let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
                 let! _ = Async.AwaitIAsyncResult <| blob.UploadFromStreamAsync(source, null, options, OperationContext())
                 return ()
             }

@@ -44,6 +44,16 @@ Runtime.Spawn(config, 4, 16)
 let x = runtime.Run <| cloud { return 42 }
 
 let path = @"C:\workspace\krontogiannis\eirik-brisk\data\train.csv"
+
+let writer (stream : IO.Stream) = 
+    async {
+        use fs = System.IO.File.OpenRead(path)
+        fs.CopyTo(stream)
+    }
+let cf = runtime.DefaultStoreClient.FileStore.File.Create(writer,"data/train.csv")
+
+
+
 #r "Streams.Core"
 open System
 open System.IO
