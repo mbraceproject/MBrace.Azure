@@ -35,6 +35,13 @@ type Blob<'T> internal (config : ConfigurationId, prefix, filename) =
         Blob<'T>.FromPath(config, p.[0], p.[1])
     static member FromPath(config : ConfigurationId, prefix, file) = 
         new Blob<'T>(config, prefix, file)
+    static member Exists(config, prefix, filename) =
+        async {
+            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let! _ = c.CreateIfNotExistsAsync()
+            let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+            return! b.ExistsAsync()
+        }
     static member CreateIfNotExists(config, prefix, filename : string, f : unit -> 'T) = 
         async { 
             let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)

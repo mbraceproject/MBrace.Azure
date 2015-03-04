@@ -150,6 +150,7 @@ type JobItem =
     { PickledJob : Pickle<Job>
       Dependencies : AssemblyId list }
 
+[<AutoSerializable(false)>]
 /// Defines a handle to the state of a runtime instance.
 type RuntimeState =
     {
@@ -163,13 +164,16 @@ type RuntimeState =
         ResourceFactory : ResourceFactory
         /// Process monitoring.
         ProcessMonitor : ProcessManager
+        /// Runtime Logger.
+        Logger : LoggerCombiner
     }
 with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration) = async {
         let configurationId = config.ConfigurationId
+        let logger = new LoggerCombiner()
         let! jobQueue = JobQueue.Create(configurationId)
-        let assemblyManager = AssemblyManager.Create(configurationId) 
+        let assemblyManager = AssemblyManager.Create(configurationId, logger) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
         let pmon = ProcessManager.Create(configurationId)
         return { 
@@ -177,6 +181,7 @@ with
             AssemblyManager = assemblyManager 
             ResourceFactory = resourceFactory 
             ProcessMonitor = pmon
+            Logger = logger
         }
     }
 

@@ -8,19 +8,30 @@ open System
 open System.Runtime.Serialization
 open MBrace.Runtime.Vagabond
 open MBrace.Azure
+open MBrace.Runtime
 
-type AssemblyManager private (config : ConfigurationId) = 
+type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) = 
     
     let filename id = sprintf "%s-%s" id.FullName (Convert.toBase32String id.ImageHash)
-    
+    let prefix = "assemblies"
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
-            return! Blob.CreateIfNotExists(config, "assemblies", filename pkg.Id, fun () -> pkg) |> Async.Ignore
+            let file =  filename pkg.Id
+            let! exists = Blob<_>.Exists(config, prefix, file)
+            if not exists then
+                let imgSize = 
+                    match pkg.Image with
+                    | Some i -> sprintf "[%d bytes]" i.Length
+                    | None -> String.Empty
+                logger.Logf "Uploading file %s %s" pkg.FullName imgSize
+                return! Blob.CreateIfNotExists(config, prefix, file, fun () -> pkg) |> Async.Ignore
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
         async { 
-            let blob = Blob.FromPath(config, "assemblies", filename id)
+            let file = filename id
+            logger.Logf "Downloading file %s" id.FullName
+            let blob = Blob.FromPath(config, prefix, file)
             return! blob.GetValue()
         }
     
@@ -52,15 +63,7 @@ type AssemblyManager private (config : ConfigurationId) =
         VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
         |> List.map Utilities.ComputeAssemblyId
 
-    interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
-            info.AddValue("config", config, typeof<ConfigurationId>)
-    
-    new(info : SerializationInfo, _ : StreamingContext) = 
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new AssemblyManager(config)
-
-    static member Create(config) = 
-        new AssemblyManager(config)
+    static member Create(config, logger) = 
+        new AssemblyManager(config, logger)
 
     

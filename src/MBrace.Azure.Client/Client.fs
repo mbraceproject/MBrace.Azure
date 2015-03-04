@@ -25,15 +25,13 @@
            Async.RunSync(Configuration.ActivateAsync(configuration))
         let state = Async.RunSync(RuntimeState.FromConfiguration(configuration))
         let storageLogger = new StorageLogger(configuration.ConfigurationId, Client(id = clientId))
-        let clientLogger = new LoggerCombiner()
+        let clientLogger = state.Logger
         do  clientLogger.Attach(storageLogger)
         let wmon = WorkerManager.Create(configuration.ConfigurationId)
         let resources, defaultStoreClient = StoreClient.CreateDefault(configuration)
         let compiler = CloudCompiler.Init()
         let pmon = state.ProcessMonitor
         do clientLogger.Logf "Client %s created" clientId
-
-        member private __.RuntimeState = state
 
         /// Provides common methods on store related primitives.
         member __.DefaultStoreClient = defaultStoreClient
@@ -161,16 +159,12 @@
                     }
 
                 clientLogger.Logf "Creating process %s %s" info.Id info.Name
-                clientLogger.Logf "Calculating dependencies." 
-                for d in computation.Dependencies do
-                    clientLogger.Logf "- %s" d.FullName
                 clientLogger.Logf "Uploading dependencies."
                 do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
                 clientLogger.Logf "Submit process %s." info.Id
                 let! _ = state.StartAsProcess(info, computation.Dependencies, faultPolicy, computation.Workflow, logger = clientLogger, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
                 let ps = Process<'T>(configuration.ConfigurationId, info.Id, pmon)
-                clientLogger.Logf "Done"
                 return ps
             }
             

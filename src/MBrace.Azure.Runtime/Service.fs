@@ -113,6 +113,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "Initializing RuntimeState"
                 let! state = RuntimeState.FromConfiguration(cfg)
+                state.Logger.Attach(logger)
 
                 storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(cfg.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id

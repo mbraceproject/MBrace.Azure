@@ -109,8 +109,7 @@ type internal Worker () =
                                     config.Logger.Log "Got JobItem."
                                     config.Logger.Logf "Message DeliveryCount : %d" msg.DeliveryCount
                                     let! ti = msg.GetPayloadAsync<JobItem>()
-                                    let deps = ti.Dependencies |> Seq.map (fun d -> d.FullName) |> String.concat Environment.NewLine
-                                    config.Logger.Logf "Loading Dependencies\n%s" deps
+                                    config.Logger.Logf "Loading Dependencies"
                                     do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
                                     config.Logger.Logf "Job UnPickle [%d bytes]." ti.PickledJob.Bytes.Length
                                     let job = VagabondRegistry.Instance.Pickler.UnPickleTyped<Job> ti.PickledJob
