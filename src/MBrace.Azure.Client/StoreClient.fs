@@ -11,11 +11,7 @@ open MBrace.Azure
 type internal StoreClient private () =
     
     static member CreateDefault(config : Configuration) : ResourceRegistry * MBrace.Client.StoreClient =
-        let storeProvider = 
-            let blob = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
-            let cache = FileSystemStore.CreateSharedLocal() :> ICloudFileStore
-            FileStoreCache.Create(blob, cache) :> ICloudFileStore
-                
+        let storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
         let atomProvider = AtomProvider.Create(config.StorageConnectionString) :> ICloudAtomProvider
         let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString) :> ICloudChannelProvider
     
