@@ -40,6 +40,37 @@ Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runt
 Runtime.Spawn(config, 4, 16)
 // ----------------------------
 
+
+
+
+let wf =
+    cloud {
+        return! [1..16] |> List.map (fun _ -> cloud { return 42 }) |> Cloud.Parallel
+    }
+
+
+
+let ps = runtime.CreateProcess wf
+ps.AwaitResult()
+ps.ShowInfo()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 let ps = cloud { return 42 } |> runtime.CreateProcess
 
 ps.AwaitResult()

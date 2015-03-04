@@ -30,6 +30,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable channelProvider = None
     let mutable atomProvider    = None
     let mutable cache           = None
+    let mutable useCache        = true
     let mutable resources       = ResourceRegistry.Empty
     let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
@@ -42,33 +43,53 @@ type Service (config : Configuration, serviceId : string) =
     /// MBrace Runtime Service.
     new(config : Configuration) = new Service (config, guid())
 
+    /// Get service's unique identifier.
     member __.Id = serviceId
+    
+    /// Attach logger to worker.
     member __.AttachLogger(l) = check(); logger.Attach(l)
     
+    /// Get or set service configuration.
     member __.Configuration  
         with get () = configuration
         and set c = check (); configuration <- c
+    
+    /// Determines if the registered local cache will be used.
+    member __.UseLocalCache
+        with get () = useCache
+        and set c = check (); useCache <- c
 
+    /// Get or set the maximum number of jobs that this worker may execute concurrently.
     member __.MaxConcurrentJobs 
         with get () = maxJobs
         and set c = check (); maxJobs <- c
     
+    /// Register an ICloudFileStore instance. Defaults to BlobStore with configuration's storage connection string.
     member __.RegisterStoreProvider(store : ICloudFileStore) =
         check () ; storeProvider <- Some store
     
+    /// Register an ICloudAtomProvider instance. Defaults to table store implementation with configuration's storage connection string.
     member __.RegisterAtomProvider(atom : ICloudAtomProvider) = 
         check () ; atomProvider <- Some atom
     
+    /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
     member __.RegisterChannelProvider(channel : ICloudChannelProvider) = 
         check () ; channelProvider <- Some channel
     
+    /// Register a local filesystem cache implementation. Defaults to FileSystemStore in local TEMP folder.
     member __.RegisterCache(cacheStore : ICloudFileStore) =
         check () ; cache <- Some <| cacheStore
 
+    /// Add a custom resource in workers ResourceRegistry.
     member __.RegisterResource(resource : 'TResource) = check () ; resources <- resources.Register(resource)
     
+    /// Start Service and worker loop as a Task.
     member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
+    
+    /// Start Service and worker loop as a Task.
     member __.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(__.StartAsync(), cancellationToken = ct) :> _     
+    
+    /// Asynchronously start Service and worker loop.
     member __.StartAsync() : Async<unit> =
         async {
             try
@@ -98,16 +119,21 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "Creating InMemoryCache"
                 let inMemoryCache = InMemoryCache.Create()
-                
-                cache <- 
-                    Some <|
-                        match cache with
-                        | Some cs -> cs
-                        | None -> FileSystemStore.CreateSharedLocal() :> ICloudFileStore
 
-                logf "Local Cache Store %s" cache.Value.Id
-                let store = FileStoreCache.Create(storeProvider.Value, cache.Value) :> ICloudFileStore
-                logf "CachedStore %s created" store.Id
+                let store = 
+                    if __.UseLocalCache then
+                        cache <- 
+                            Some <|
+                                match cache with
+                                | Some cs -> cs
+                                | None -> FileSystemStore.CreateSharedLocal() :> ICloudFileStore
+
+                        logf "Local Cache Store %s" cache.Value.Id
+                        let store = FileStoreCache.Create(storeProvider.Value, cache.Value) :> ICloudFileStore
+                        logf "CachedStore %s created" store.Id
+                        store
+                    else
+                        storeProvider.Value
 
                 atomProvider <- 
                     Some <|
@@ -167,8 +193,10 @@ type Service (config : Configuration, serviceId : string) =
                 return! Async.Raise ex
         }
 
+    /// Start Service. This method is blocking until worker loop completes.
     member __.Start() = Async.RunSync(__.StartAsync())
 
+    /// Stop Service and worker loop. Wait for any pending jobs.
     member __.StopAsync () =
         async {
             try
@@ -181,4 +209,5 @@ type Service (config : Configuration, serviceId : string) =
                 return! Async.Raise ex
         }
 
+    /// Stop Service and worker loop. Wait for any pending jobs.
     member __.Stop () = Async.RunSync(__.StopAsync())
