@@ -40,7 +40,11 @@ type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) =
     
     member __.UploadDependencies(ids : AssemblyId list) = 
         async { 
+            logger.Logf "Creating Assembly Packages."
             let pkgs = VagabondRegistry.Instance.CreateAssemblyPackages(ids, includeAssemblyImage = true)
+            for p in pkgs do
+                logger.Logf "Package %s" p.FullName
+            logger.Logf "Uploading dependencies"
             do! pkgs
                 |> Seq.map uploadPkg
                 |> Async.Parallel
@@ -59,6 +63,7 @@ type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) =
                                           |> Async.Parallel
                               return pkgs |> Seq.toList
                           } }
+            logger.Log "Downloading dependencies."
             do! VagabondRegistry.Instance.ReceiveDependencies publisher
         }
     
