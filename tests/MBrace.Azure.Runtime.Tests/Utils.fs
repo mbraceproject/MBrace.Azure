@@ -56,7 +56,7 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
         do System.Threading.Thread.Sleep 2000
 
     member __.Stop () =
-        state |> Option.iter (fun (r,l) -> r.Reset(false, true))
+        state |> Option.iter (fun (r,l) -> r.Reset(reactivate = false))
         state <- None
 
     member __.Runtime =
