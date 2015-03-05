@@ -157,7 +157,7 @@
                     }
 
                 clientLogger.Logf "Creating process %s %s" info.Id info.Name
-                do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
+                do! state.AssemblyManager.UploadDependencies(dependencies)
                 clientLogger.Logf "Submit process %s." info.Id
                 let! _ = state.StartAsProcess(info, dependencies, faultPolicy, workflow, logger = clientLogger, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
