@@ -49,8 +49,12 @@ type Blob<'T> internal (config : ConfigurationId, prefix, filename) =
             let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
             let! exists = b.ExistsAsync()
             if not exists then
-                use! stream = b.OpenWriteAsync()
-                Configuration.Pickler.Serialize<'T>(stream, f())
+                let tmpPath = Path.GetRandomFileName()
+                let tmp = File.Create(tmpPath)
+                Configuration.Pickler.Serialize<'T>(tmp, f())
+                tmp.Dispose()
+                do! b.UploadFromFileAsync(tmpPath, FileMode.Open) //UploadFromStreamAsync(tmp) 
+                File.Delete(tmpPath)
                 return new Blob<'T>(config, prefix, filename)
             else
                 return Blob.FromPath(config, prefix, filename)

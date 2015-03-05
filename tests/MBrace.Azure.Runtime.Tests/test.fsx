@@ -44,14 +44,6 @@ let x = runtime.Run <| cloud { return 42 }
 
 let path = @"C:\workspace\krontogiannis\eirik-brisk\data\train.csv"
 
-let writer (stream : IO.Stream) = 
-    async {
-        use fs = System.IO.File.OpenRead(path)
-        fs.CopyTo(stream)
-    }
-let cf = runtime.DefaultStoreClient.FileStore.File.Create(writer,"data/train.csv")
-
-
 
 #r "Streams.Core"
 open System
@@ -97,17 +89,17 @@ let classifier = knn l2 10
 
 
 // local multicore evaluation
-let evaluateLocalMulticore () =
-    ParStream.ofArray validation
-    |> ParStream.map(fun (expected,point) -> expected, classifier training point)
-    |> ParStream.map(fun (expected,prediction) -> if expected = prediction then 1. else 0.)
-    |> ParStream.sum
-    |> fun results -> results / float validation.Length
-
-#time
-// Performance (Quad core i7 CPU)
-// Real: 00:01:25.783, CPU: 00:10:51.647, GC gen0: 153, gen1: 73, gen2: 43
-evaluateLocalMulticore()
+//let evaluateLocalMulticore () =
+//    ParStream.ofArray validation
+//    |> ParStream.map(fun (expected,point) -> expected, classifier training point)
+//    |> ParStream.map(fun (expected,prediction) -> if expected = prediction then 1. else 0.)
+//    |> ParStream.sum
+//    |> fun results -> results / float validation.Length
+//
+//#time
+//// Performance (Quad core i7 CPU)
+//// Real: 00:01:25.783, CPU: 00:10:51.647, GC gen0: 153, gen1: 73, gen2: 43
+//evaluateLocalMulticore()
 
 
 //
@@ -121,7 +113,11 @@ open MBrace.Azure.Client
 
 
 // Save training set as cloud reference in Azure store, returning a typed reference to data
-let trainingRef = runtime.DefaultStoreClient.CloudSequence.New training
+//let trainingRef = runtime.DefaultStoreClient.CloudSequence.New training
+
+let trainingRef = runtime.DefaultStoreClient.CloudSequence.Parse<int * Point> "mbraceuserdata00000/2ey4kklp.asg"
+//trainingRef.ToEnumerable() |> runtime.RunLocal
+
 
 let evaluateDistributed (inputs : (int * Point) []) = cloud {
     let evaluateSingleThreaded (inputs : (int * Point) []) = cloud {
