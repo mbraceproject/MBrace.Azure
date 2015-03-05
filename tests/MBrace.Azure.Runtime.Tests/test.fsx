@@ -139,9 +139,48 @@ let job = validation |> evaluateDistributed |> runtime.CreateProcess
 
 
 
+#r "MBrace.Core.dll"
+#r "MBrace.Runtime.Core.dll"
+#r "Vagabond.dll"
+#r "Microsoft.ServiceBus.dll"
+
+open MBrace.Runtime
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Resources
+open Nessos.Vagabond
+open System
+open System.Runtime.Serialization
+open MBrace.Azure
+open MBrace.Runtime
+
+let compute (graph) =
+    Vagabond.VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
+    |> List.map Utilities.ComputeAssemblyId
 
 
 
+//let ids = compute(validation |> evaluateDistributed)
+
+
+let mgr = MBrace.Azure.Runtime.Resources.AssemblyManager.Create(config.WithAppendedId.ConfigurationId, new ConsoleLogger())
+let deps = mgr.ComputeDependencies(validation |> evaluateDistributed)
+
+let fsiAsm = deps.[3]
+let fsiPkg = Vagabond.VagabondRegistry.Instance.CreateAssemblyPackage(fsiAsm, true)
+
+let fs = File.Create @"c:\workspace\krontogiannis\temp\foo.bin"
+Vagabond.VagabondRegistry.Instance.Pickler.Serialize(fs, fsiPkg)
+
+
+//bytes.Length / 1024 / 1024
+
+
+
+
+mgr.UploadDependencies(deps) |> Async.RunSynchronously
+
+mgr.LoadDependencies(deps) |> Async.RunSynchronously
 
 
 

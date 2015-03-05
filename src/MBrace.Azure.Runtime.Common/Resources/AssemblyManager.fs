@@ -12,7 +12,7 @@ open MBrace.Runtime
 
 type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) = 
     
-    let filename id = sprintf "%s-%s" id.FullName (Convert.toBase32String id.ImageHash)
+    let filename id = sprintf "%s-%s" id.FullName (Convert.toBase32String id.ImageHash) 
     let prefix = "assemblies"
     let uploadPkg (pkg : AssemblyPackage) = 
         async { 
@@ -20,12 +20,16 @@ type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) =
             let! exists = Blob<_>.Exists(config, prefix, file)
             if not exists then
                 let imgSize = 
-                    match pkg.Image with
-                    | Some i -> sprintf "[%d bytes]" i.Length
-                    | None -> String.Empty
+                    match pkg.Image, pkg.StaticInitializer with
+                    | Some img, Some init -> sprintf "[IL %d bytes, Data %d bytes]" img.Length init.Data.Length
+                    | Some img, None -> sprintf "[IL %d bytes]" img.Length
+                    | None, Some init -> sprintf "[Data %d bytes]" init.Data.Length
+                    | _ -> String.Empty
                 logger.Logf "Uploading file %s %s" pkg.FullName imgSize
                 do! Blob.CreateIfNotExists(config, prefix, file, fun () -> pkg) |> Async.Ignore
                 logger.Logf "File %s done." pkg.FullName
+            else
+                logger.Logf "File %s exists." pkg.FullName
         }
     
     let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
