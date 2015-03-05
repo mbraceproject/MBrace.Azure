@@ -49,9 +49,11 @@ let x = runtime.Run <| cloud { return 42 }
 runtime.ClearAllProcesses()
 
 let ps =
-    [1..30]
-    |> Seq.map (fun i -> cloud { return i * i })
-    |> Cloud.Parallel
+    cloud {
+        return! [1..30]
+                |> Seq.map (fun i -> cloud { return i * i })
+                |> Cloud.Parallel
+    }
     |> runtime.CreateProcess
 
 ps.ShowInfo()

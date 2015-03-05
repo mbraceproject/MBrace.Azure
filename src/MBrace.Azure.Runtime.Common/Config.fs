@@ -136,6 +136,7 @@ open System
 open System.Collections.Concurrent
 open System.Reflection
 open MBrace.Azure
+open System.Net
 
 /// Exception indicating invalid Configuration.
 type InvalidConfigurationException (msg : string, inner) =
@@ -143,10 +144,11 @@ type InvalidConfigurationException (msg : string, inner) =
 
 [<AutoSerializable(false)>]
 type ClientProvider (config : Configuration) =
-    let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
-    do System.Net.ServicePointManager.Expect100Continue <- false
-    do System.Net.ServicePointManager.UseNagleAlgorithm <- false
+    do ServicePointManager.Expect100Continue <- false
+    do ServicePointManager.UseNagleAlgorithm <- false
+    do ServicePointManager.DefaultConnectionLimit <- 512
 
+    let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
     member __.TableClient = acc.Value.CreateCloudTableClient()
     member __.BlobClient = 
         let client = acc.Value.CreateCloudBlobClient()
