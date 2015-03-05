@@ -1,21 +1,27 @@
-﻿namespace MBrace.Azure.Runtime.Common
-
-open System
-open Microsoft.WindowsAzure.Storage.Table
-open MBrace.Azure.Runtime
-open System.Net
-open System.Threading
+﻿namespace MBrace.Azure
 open MBrace
-open MBrace.Azure
+open System
 
-type WorkerRef (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset, configurationHasH) =    
+/// IWorkerRef implementation for MBrace.Azure workers.
+type WorkerRef internal (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset, configurationHash, maxJobCount, processorCount) =    
+    /// Worker/Service Id.
     member __.Id = id
+    /// Machine's name.
     member __.Hostname = hostname 
+    /// Host process id.
     member __.ProcessId = pid 
+    /// Host process name.
     member __.ProcessName = pname 
+    /// First worker's heartbeat time.
     member __.InitializationTime = joined 
+    /// Last worker's heatbeat time.
     member __.HeartbeatTime = heartbeat
-    member __.ConfigurationHash = configurationHasH
+    /// Hash of worker's activated ConfigurationId.
+    member __.ConfigurationHash = configurationHash
+    /// Worker's MaxConcurrentJobCount.
+    member __.MaxJobCount = maxJobCount
+    /// Workers' processor count.
+    member __.ProcessorCount = processorCount
     override __.GetHashCode() = hash id
     override __.Equals(other:obj) =
         match other with
@@ -29,6 +35,16 @@ type WorkerRef (id : string, hostname : string, pid : int, pname : string, joine
             | _ -> invalidArg "obj" "Invalid IWorkerRef instance."
         member __.Id = id
         member __.Type = "MBrace.Azure.Worker"
+
+namespace MBrace.Azure.Runtime.Common
+
+open System
+open Microsoft.WindowsAzure.Storage.Table
+open MBrace.Azure.Runtime
+open System.Net
+open System.Threading
+open MBrace
+open MBrace.Azure
 
 type WorkerRecord(pk, id, hostname, pid, pname, joined, configurationHash) =
     inherit TableEntity(pk, id)
@@ -52,7 +68,16 @@ type WorkerRecord(pk, id, hostname, pid, pname, joined, configurationHash) =
     new () = new WorkerRecord(null, null, null, -1, null, Unchecked.defaultof<_>, -1)
 
     member __.AsWorkerRef () = 
-        new WorkerRef(__.Id, __.Hostname, __.ProcessId, __.ProcessName, __.InitializationTime, __.Timestamp, __.ConfigurationHash)
+        new WorkerRef(
+            __.Id,
+            __.Hostname, 
+            __.ProcessId, 
+            __.ProcessName, 
+            __.InitializationTime, 
+            __.Timestamp, 
+            __.ConfigurationHash,
+            __.MaxJobs,
+            __.ProcessorCount)
 
     member __.UpdateCounters(counters : NodePerformanceInfo) =
             __.CPU <- counters.CpuUsage
