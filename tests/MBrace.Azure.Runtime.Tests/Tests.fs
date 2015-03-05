@@ -22,7 +22,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
 
     let session = new RuntimeSession(config)
 
-    let run (wf : Cloud<'T>) = self.Run wf
+    let run (wf : Workflow<'T>) = self.Run wf
     let repeat f = repeat self.Repeats f
 
     member __.Configuration = config
@@ -37,12 +37,12 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
 
     override __.IsTargetWorkerSupported = true
 
-    override __.Run (workflow : Cloud<'T>) = 
+    override __.Run (workflow : Workflow<'T>) = 
         session.Runtime.RunAsync(workflow)
         |> Async.Catch
         |> Async.RunSync
 
-    override __.Run (workflow : ICloudCancellationTokenSource -> Cloud<'T>) = 
+    override __.Run (workflow : ICloudCancellationTokenSource -> #Workflow<'T>) = 
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
@@ -50,7 +50,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
             return! Async.Catch <| ps.AwaitResultAsync()
         } |> Async.RunSync
 
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
+    override __.RunLocal(workflow : Workflow<'T>) = session.Runtime.RunLocal(workflow)
 
     override __.Logs = failwith "Not implemented"
     override __.FsCheckMaxTests = 4

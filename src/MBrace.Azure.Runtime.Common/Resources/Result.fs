@@ -34,12 +34,12 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
     interface ICloudTask<'T> with
         member c.Id = pk
 
-        member c.AwaitResult(?timeout:int) = cloud {
+        member c.AwaitResult(?timeout:int) = local {
             let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
             return r.Value
         }
 
-        member c.TryGetResult() = cloud {
+        member c.TryGetResult() = local {
             let! r = Cloud.OfAsync <| c.TryGetResult()
             return r |> Option.map (fun r -> r.Value)
         }
