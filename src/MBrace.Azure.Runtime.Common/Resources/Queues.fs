@@ -96,7 +96,7 @@ type internal Topic (config) =
             let! ys = xs
                       |> Array.map (fun (x, affinity) -> 
                              async { 
-                                 let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
+                                 let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
                                  let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
@@ -111,7 +111,7 @@ type internal Topic (config) =
             let! ys = xs
                       |> Array.map (fun x -> 
                              async { 
-                                 let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
+                                 let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
                                  let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
                                  pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
@@ -123,7 +123,7 @@ type internal Topic (config) =
     
     member __.Enqueue<'T>(t : 'T, affinity : string, ?pid) = 
         async { 
-            let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> t)
+            let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> t)
             let msg = new BrokeredMessage(bc.Path)
             msg.Properties.Add(AffinityPropertyName, affinity)
             pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
@@ -161,7 +161,7 @@ type internal Queue (config : ConfigurationId) =
     member __.EnqueueBatch<'T>(xs : 'T [], ?pid) = 
         async { 
             let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> x)
+                      |> Array.map (fun x -> async { let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
                                                      let msg = new BrokeredMessage(bc.Path)
                                                      pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
                                                      return msg })
@@ -171,7 +171,7 @@ type internal Queue (config : ConfigurationId) =
     
     member __.Enqueue<'T>(t : 'T, ?pid) = 
         async { 
-            let! bc = Blob.CreateIfNotExists(config, defaultArg pid "jobs", guid(), fun () -> t)
+            let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> t)
             let msg = new BrokeredMessage(bc.Path)
             pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
             do! queue.SendAsync(msg)

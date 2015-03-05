@@ -147,7 +147,7 @@
                 let info = 
                     { 
                         Id = pid
-                        Name = defaultArg name ""
+                        Name = defaultArg name String.Empty
                         DefaultDirectory = defaultArg defaultDirectory configuration.UserDataContainer
                         FileStore = fileStore
                         DefaultAtomContainer = defaultArg defaultAtomContainer configuration.UserDataTable
@@ -157,7 +157,6 @@
                     }
 
                 clientLogger.Logf "Creating process %s %s" info.Id info.Name
-                clientLogger.Logf "Uploading dependencies."
                 do! state.AssemblyManager.UploadDependencies(dependencies)
                 clientLogger.Logf "Submit process %s." info.Id
                 let! _ = state.StartAsProcess(info, dependencies, faultPolicy, workflow, logger = clientLogger, ?ct = cancellationToken)

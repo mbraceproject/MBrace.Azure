@@ -75,7 +75,7 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
 
     member __.SetResult(result : Result<'T>) : Async<unit> =
         async {
-            let! bc = Blob.CreateIfNotExists(config, pk, guid(), fun () -> result)
+            let! bc = Blob.Create(config, pk, guid(), fun () -> result)
             let uri = bc.Path
             let e = new BlobReferenceEntity(pk, rk, uri.ToString(), ETag = "*")
             let! _ = Table.merge config table e
@@ -158,7 +158,7 @@ type ResultAggregator<'T> internal (config : ConfigurationId, pk, rk, size) =
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
             let e = new BlobReferenceEntity(pk, mkRowKey rk index, null, ETag = "*")
-            let! bc = Blob.CreateIfNotExists(config, pk, guid(), fun () -> value)
+            let! bc = Blob.Create(config, pk, guid(), fun () -> value)
             e.Uri <- bc.Path
             let! _ = Table.merge config table e
             return! completed()

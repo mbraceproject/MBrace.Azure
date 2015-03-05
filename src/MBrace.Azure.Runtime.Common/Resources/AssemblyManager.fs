@@ -18,15 +18,15 @@ type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) =
         async { 
             let file =  filename pkg.Id
             let! exists = Blob<_>.Exists(config, prefix, file)
-            if not exists then
+            if not exists || pkg.StaticInitializer.IsSome then
                 let imgSize = 
                     match pkg.Image, pkg.StaticInitializer with
                     | Some img, Some init -> sprintf "[IL %d bytes, Data %d bytes]" img.Length init.Data.Length
-                    | Some img, None -> sprintf "[IL %d bytes]" img.Length
-                    | None, Some init -> sprintf "[Data %d bytes]" init.Data.Length
-                    | _ -> String.Empty
+                    | Some img, None      -> sprintf "[IL %d bytes]" img.Length
+                    | None, Some init     -> sprintf "[Data %d bytes]" init.Data.Length
+                    | _                   -> String.Empty
                 logger.Logf "Uploading file %s %s" pkg.FullName imgSize
-                do! Blob.CreateIfNotExists(config, prefix, file, fun () -> pkg) |> Async.Ignore
+                do! Blob.Create(config, prefix, file, fun () -> pkg) |> Async.Ignore
                 logger.Logf "File %s done." pkg.FullName
             else
                 logger.Logf "File %s exists." pkg.FullName
@@ -44,10 +44,7 @@ type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) =
     
     member __.UploadDependencies(ids : AssemblyId list) = 
         async { 
-            logger.Logf "Creating Assembly Packages."
             let pkgs = VagabondRegistry.Instance.CreateAssemblyPackages(ids, includeAssemblyImage = true)
-            for p in pkgs do
-                logger.Logf "Package %s" p.FullName
             logger.Logf "Uploading dependencies"
             do! pkgs
                 |> Seq.map uploadPkg

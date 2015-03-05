@@ -40,159 +40,11 @@ Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runt
 Runtime.Spawn(config, 4, 16)
 // ----------------------------
 
-let x = runtime.Run <| cloud { return 42 }
-
-let path = @"C:\workspace\krontogiannis\eirik-brisk\data\train.csv"
-
-
-#r "Streams.Core"
-open System
-open System.IO
-open Nessos.Streams
-
-type Point = int []
-type Distance = Point -> Point -> int
-type TrainingSet = (int * Point) []
-type Classifier = TrainingSet -> Point -> int
-
-// read using streams
-let data : TrainingSet =
-    File.ReadAllLines path
-    |> Stream.ofArray
-    |> Stream.skip 1
-    |> Stream.map (fun line -> line.Split(','))
-    |> Stream.map (fun line -> line |> Array.map int)
-    |> Stream.map (fun line -> line.[0], line.[1..])
-    |> Stream.toArray
-
-// separating training & validation set
-let training : TrainingSet = data.[..39999]
-let validation : TrainingSet = data.[40000..]
- 
-// l^2 distance 
-let l2 : Distance = Array.fold2 (fun acc x y -> acc + pown (x-y) 2) 0
-
-// single-threaded, stream-based k-nearest neighbour classifier
-let knn (d : Distance) (k : int) : Classifier =
-    fun (training : TrainingSet) (point : Point) ->
-        training
-        |> Stream.ofArray
-        |> Stream.sortBy (fun ex -> d (snd ex) point)
-        |> Stream.take k
-        |> Stream.map fst
-        |> Stream.countBy id
-        |> Stream.maxBy snd
-        |> fst
-
-// classifier instance used for this example
-let classifier = knn l2 10
-
-
-// local multicore evaluation
-//let evaluateLocalMulticore () =
-//    ParStream.ofArray validation
-//    |> ParStream.map(fun (expected,point) -> expected, classifier training point)
-//    |> ParStream.map(fun (expected,prediction) -> if expected = prediction then 1. else 0.)
-//    |> ParStream.sum
-//    |> fun results -> results / float validation.Length
-//
-//#time
-//// Performance (Quad core i7 CPU)
-//// Real: 00:01:25.783, CPU: 00:10:51.647, GC gen0: 153, gen1: 73, gen2: 43
-//evaluateLocalMulticore()
-
-
-//
-//  Section: MBrace
-//
-
-open MBrace
-open MBrace.Store
-open MBrace.Workflows
-open MBrace.Azure.Client
-
-
-// Save training set as cloud reference in Azure store, returning a typed reference to data
-//let trainingRef = runtime.DefaultStoreClient.CloudSequence.New training
-
-let trainingRef = runtime.DefaultStoreClient.CloudSequence.Parse<int * Point> "mbraceuserdata00000/2ey4kklp.asg"
-//trainingRef.ToEnumerable() |> runtime.RunLocal
-
-
-let evaluateDistributed (inputs : (int * Point) []) = cloud {
-    let evaluateSingleThreaded (inputs : (int * Point) []) = cloud {
-        let! _ = trainingRef.Cache() // cache to local memory for future use
-        let! training = trainingRef.ToArray()
-        return
-            inputs
-            |> Stream.ofArray
-            |> Stream.map (fun (expected,point) -> if expected = classifier training point then 1 else 0)
-            |> Stream.sum
-    }
-
-    let! successful = inputs |> Distributed.reduceCombine evaluateSingleThreaded (Cloud.lift Array.sum)
-    return float successful / float inputs.Length
-}
-
-let job = validation |> evaluateDistributed |> runtime.CreateProcess
-
-
-
-
-#r "MBrace.Core.dll"
-#r "MBrace.Runtime.Core.dll"
-#r "Vagabond.dll"
-#r "Microsoft.ServiceBus.dll"
-
-open MBrace.Runtime
-open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
-open MBrace.Azure.Runtime.Resources
-open Nessos.Vagabond
-open System
-open System.Runtime.Serialization
-open MBrace.Azure
-open MBrace.Runtime
-
-let compute (graph) =
-    Vagabond.VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
-    |> List.map Utilities.ComputeAssemblyId
-
-
-
-//let ids = compute(validation |> evaluateDistributed)
-
-
-let mgr = MBrace.Azure.Runtime.Resources.AssemblyManager.Create(config.WithAppendedId.ConfigurationId, new ConsoleLogger())
-let deps = mgr.ComputeDependencies(validation |> evaluateDistributed)
-
-let fsiAsm = deps.[3]
-let fsiPkg = Vagabond.VagabondRegistry.Instance.CreateAssemblyPackage(fsiAsm, true)
-
-let fs = File.Create @"c:\workspace\krontogiannis\temp\foo.bin"
-Vagabond.VagabondRegistry.Instance.Pickler.Serialize(fs, fsiPkg)
-
-
-//bytes.Length / 1024 / 1024
-
-
-
-
-mgr.UploadDependencies(deps) |> Async.RunSynchronously
-
-mgr.LoadDependencies(deps) |> Async.RunSynchronously
-
-
-
-
-
-let ps = cloud { return 42 } |> runtime.CreateProcess
-
-ps.AwaitResult()
-
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
+
+let x = runtime.Run <| cloud { return 42 }
 
 runtime.ClearAllProcesses()
 
@@ -205,10 +57,10 @@ let ps =
 ps.ShowInfo()
 ps.AwaitResult()
 
-runtime.Run(Cloud.Parallel(cloud { return System.Diagnostics.Process.GetCurrentProcess().Id }))
+runtime.Run(Cloud.ParallelEverywhere(cloud { return System.Diagnostics.Process.GetCurrentProcess().Id }))
 
 
-runtime.Run <| Cloud.Parallel Cloud.CurrentWorker
+runtime.Run <| Cloud.ParallelEverywhere Cloud.CurrentWorker
 
 
 runtime.Run <| cloud { return 42 }
@@ -316,7 +168,7 @@ ps.AwaitResult()
 
 open MBrace.Store
 
-let ps = runtime.CreateProcess(CloudRef.New(42))
+let ps = runtime.CreateProcess(CloudCell.New(42))
 let c = ps.AwaitResult()
 
 c.Value |> runtime.RunLocal
@@ -329,7 +181,7 @@ cr.Size |> runtime.RunLocal
 cr.ToEnumerable() |> runtime.RunLocal
 
 
-runtime.DefaultStoreClient.CloudRef.Read(c)
+runtime.DefaultStoreClient.CloudCell.Read(c)
 
 
 

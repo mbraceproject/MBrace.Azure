@@ -6,6 +6,8 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open System.IO
 open MBrace.Azure
+open Microsoft.WindowsAzure.Storage.Blob
+open Microsoft.WindowsAzure.Storage
 
 
 type Blob<'T> internal (config : ConfigurationId, prefix, filename) = 
@@ -42,20 +44,21 @@ type Blob<'T> internal (config : ConfigurationId, prefix, filename) =
             let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
             return! b.ExistsAsync()
         }
-    static member CreateIfNotExists(config, prefix, filename : string, f : unit -> 'T) = 
+    static member Create(config, prefix, filename : string, f : unit -> 'T) = 
         async { 
             let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             let! _ = c.CreateIfNotExistsAsync()
             let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+
+            let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
+            use! stream = b.OpenWriteAsync(null, options, OperationContext(), Async.DefaultCancellationToken)
+            Configuration.Pickler.Serialize<'T>(stream, f())
+            do! stream.FlushAsync()
+            stream.Dispose()
+
+            // For some reason large client uploads, fail to upload but do not throw exception...
             let! exists = b.ExistsAsync()
-            if not exists then
-                let tmpPath = Path.GetRandomFileName()
-                let tmp = File.Create(tmpPath)
-                Configuration.Pickler.Serialize<'T>(tmp, f())
-                tmp.Dispose()
-                do! b.UploadFromFileAsync(tmpPath, FileMode.Open) //UploadFromStreamAsync(tmp) 
-                File.Delete(tmpPath)
-                return new Blob<'T>(config, prefix, filename)
-            else
-                return Blob.FromPath(config, prefix, filename)
+            if not exists then failwith(sprintf "Failed to upload %s/%s" prefix filename)
+
+            return new Blob<'T>(config, prefix, filename)
         }
