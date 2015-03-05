@@ -40,7 +40,6 @@ Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runt
 Runtime.Spawn(config, 4, 16)
 // ----------------------------
 
-
 let x = runtime.Run <| cloud { return 42 }
 
 let path = @"C:\workspace\krontogiannis\eirik-brisk\data\train.csv"

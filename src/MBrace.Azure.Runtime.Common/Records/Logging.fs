@@ -43,7 +43,7 @@ type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
     let maxWaitTime = 5000
     let table = config.RuntimeLogsTable
     let logs = ResizeArray<LogRecord>()
-    let timeToRK (time : DateTimeOffset) = sprintf "%020d" time.Ticks 
+    let timeToRK (time : DateTimeOffset) = sprintf "%020d" (time.ToUniversalTime()).Ticks 
     let mutable running = true
 
     let flush () = async {
@@ -118,7 +118,7 @@ type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
 type ProcessLogger(config : ConfigurationId, pid : string) =
     let loggerType = ProcessLog pid
     let table = config.UserDataTable
-    let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" time.Ticks unique
+    let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
 
     interface ICloudLogger with
         override __.Log(entry : string) : unit = 
