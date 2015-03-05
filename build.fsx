@@ -35,7 +35,7 @@ let nugetVersion = release.NugetVersion
 let gitHome = "https://github.com/mbraceproject"
 let gitName = "MBrace.Azure"
 
-let MBraceCoreVersion = "0.9.2-alpha"
+let MBraceCoreVersion = "0.9.3-alpha"
 
 // Generate assembly info files with the right version & up-to-date information
 Target "AssemblyInfo" (fun _ ->

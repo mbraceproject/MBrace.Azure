@@ -9,7 +9,6 @@
     open MBrace.Azure.Runtime.Common
     open MBrace.Continuation
     open MBrace.Runtime
-    open MBrace.Runtime.Compiler
     open MBrace.Runtime.InMemory
     open MBrace.Store
     open System
@@ -29,7 +28,6 @@
         do  clientLogger.Attach(storageLogger)
         let wmon = WorkerManager.Create(configuration.ConfigurationId)
         let resources, defaultStoreClient = StoreClient.CreateDefault(configuration)
-        let compiler = CloudCompiler.Init()
         let pmon = state.ProcessMonitor
         do clientLogger.Logf "Client %s created" clientId
 
@@ -62,7 +60,7 @@
         /// <param name="logger">Optional logger to use.</param>
         /// <param name="cancellationToken">Optional cancellation token.</param>
         /// <param name="faultPolicy">Optional fault policy.</param>
-        member __.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
+        member __.RunLocalAsync(workflow : Workflow<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
             async {
                 let runtimeProvider = ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
                 let rsc = resource { yield! resources; yield runtimeProvider :> ICloudRuntimeProvider }
@@ -70,7 +68,7 @@
                     match cancellationToken with
                     | Some ct -> async { return ct }
                     | None -> Async.CancellationToken
-                return! Cloud.ToAsync(workflow, rsc, new InMemoryCancellationToken(ct))
+                return! Workflow.ToAsync(workflow, rsc, new InMemoryCancellationToken(ct))
             }
 
         /// <summary>
@@ -80,7 +78,7 @@
         /// <param name="logger">Optional logger to use.</param>
         /// <param name="cancellationToken">Optional cancellation token.</param>
         /// <param name="faultPolicy">Optional fault policy.</param>
-        member __.RunLocal(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
+        member __.RunLocal(workflow : Workflow<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
             __.RunLocalAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             |> Async.RunSynchronously
 
@@ -97,7 +95,7 @@
         /// <param name="channelProvider">Optional CloudChannelProvider.</param>
         /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
         /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
-        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
+        member __.CreateProcessAsTask(workflow : Workflow<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
             __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
             |> Async.StartAsTask
 
@@ -114,7 +112,7 @@
         /// <param name="channelProvider">Optional CloudChannelProvider.</param>
         /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
         /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
-        member __.CreateProcess(workflow : Cloud<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : ICloudCancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
+        member __.CreateProcess(workflow : Workflow<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : ICloudCancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
             __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
             |> Async.RunSynchronously
 
@@ -131,7 +129,7 @@
         /// <param name="channelProvider">Optional CloudChannelProvider.</param>
         /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
         /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
-        member __.CreateProcessAsync(workflow : Cloud<'T>, 
+        member __.CreateProcessAsync(workflow : Workflow<'T>, 
                                      ?name : string, 
                                      ?defaultDirectory : string,
                                      ?fileStore : ICloudFileStore,
@@ -143,13 +141,13 @@
                                      ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
                 let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
-                let computation = compiler.Compile(workflow, ?name = name)
+                let dependencies = MBrace.Runtime.Vagabond.VagabondRegistry.ComputeObjectDependencies workflow
           
                 let pid = guid ()
                 let info = 
                     { 
                         Id = pid
-                        Name = defaultArg name computation.Name
+                        Name = defaultArg name ""
                         DefaultDirectory = defaultArg defaultDirectory configuration.UserDataContainer
                         FileStore = fileStore
                         DefaultAtomContainer = defaultArg defaultAtomContainer configuration.UserDataTable
@@ -159,9 +157,10 @@
                     }
 
                 clientLogger.Logf "Creating process %s %s" info.Id info.Name
-                do! state.AssemblyManager.UploadDependencies(computation.Dependencies)
+                clientLogger.Logf "Uploading dependencies."
+                do! state.AssemblyManager.UploadDependencies(dependencies)
                 clientLogger.Logf "Submit process %s." info.Id
-                let! _ = state.StartAsProcess(info, computation.Dependencies, faultPolicy, computation.Workflow, logger = clientLogger, ?ct = cancellationToken)
+                let! _ = state.StartAsProcess(info, dependencies, faultPolicy, workflow, logger = clientLogger, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
                 let ps = Process<'T>(configuration.ConfigurationId, info.Id, pmon)
                 return ps
@@ -173,7 +172,7 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) = async {
+        member __.RunAsync(workflow : Workflow<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) = async {
             let! p = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             try
                 return p.AwaitResult()
@@ -187,7 +186,7 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
+        member __.RunAsTask(workflow : Workflow<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
             let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             Async.StartAsTask(asyncwf)
 
@@ -197,7 +196,7 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
+        member __.Run(workflow : Workflow<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
             __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
         /// <summary>

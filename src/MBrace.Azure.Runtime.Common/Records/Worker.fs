@@ -35,6 +35,7 @@ type WorkerRef internal (id : string, hostname : string, pid : int, pname : stri
             | _ -> invalidArg "obj" "Invalid IWorkerRef instance."
         member __.Id = id
         member __.Type = "MBrace.Azure.Worker"
+        member __.ProcessorCount = processorCount
 
 namespace MBrace.Azure.Runtime.Common
 

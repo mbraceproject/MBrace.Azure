@@ -32,7 +32,7 @@ type SendPort<'T> internal (queuePath, connectionString) =
     interface ISendPort<'T> with
         member x.Id : string = queuePath
         
-        member __.Send(message : 'T) : Cloud<unit> = 
+        member __.Send(message : 'T) : Local<unit> = 
             async {
                 let bin = VagabondRegistry.Instance.Pickler.Pickle message
                 use ms = new MemoryStream(bin) in ms.Position <- 0L
@@ -60,12 +60,12 @@ type ReceivePort<'T> internal (queuePath, connectionString) =
     interface IReceivePort<'T> with
         member __.Id : string = queuePath
 
-        member __.Dispose () : Cloud<unit> = 
+        member __.Dispose () : Local<unit> = 
             nsClient.DeleteQueueAsync(queuePath)
             |> Async.AwaitTask
             |> Cloud.OfAsync
 
-        member __.Receive(?timeout : int) : Cloud<'T> =
+        member __.Receive(?timeout : int) : Local<'T> =
             async {
                 let! msg =
                     match timeout with 

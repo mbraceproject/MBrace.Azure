@@ -37,7 +37,7 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
 
         member this.Id = sprintf "%s/%s/%s" table pk rk
 
-        member this.Update(updater: 'T -> 'T, ?maxRetries : int): Cloud<unit> = 
+        member this.Update(updater: 'T -> 'T, ?maxRetries : int): Local<unit> = 
             async {
                 let interval = let r = new Random() in r.Next(2,10) 
                 let maxInterval = 5000
@@ -63,15 +63,13 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
                 return! update interval 0
             } |> Cloud.OfAsync
              
-        member this.Dispose(): Cloud<unit> = 
-            cloud {
-                return! Cloud.OfAsync <| async {
-                    let! e = Table.read<FatEntity> client table pk rk
-                    return! Table.delete<FatEntity> client table e
-                }
-            }
+        member this.Dispose(): Local<unit> = 
+            async {
+                let! e = Table.read<FatEntity> client table pk rk
+                return! Table.delete<FatEntity> client table e
+            } |> Cloud.OfAsync
 
-        member this.Force(newValue: 'T): Cloud<unit> = 
+        member this.Force(newValue: 'T): Local<unit> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 let newBinary = VagabondRegistry.Instance.Pickler.Pickle newValue
@@ -80,7 +78,7 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
                 return ()
             } |> Cloud.OfAsync
 
-        member this.Value : Cloud<'T> = 
+        member this.Value : Local<'T> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 let value = VagabondRegistry.Instance.Pickler.UnPickle<'T> (e.GetPayload())
