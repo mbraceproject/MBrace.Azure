@@ -44,14 +44,6 @@ let x = runtime.Run <| cloud { return 42 }
 
 let path = @"C:\workspace\krontogiannis\eirik-brisk\data\train.csv"
 
-let writer (stream : IO.Stream) = 
-    async {
-        use fs = System.IO.File.OpenRead(path)
-        fs.CopyTo(stream)
-    }
-let cf = runtime.DefaultStoreClient.FileStore.File.Create(writer,"data/train.csv")
-
-
 
 #r "Streams.Core"
 open System
@@ -121,7 +113,11 @@ open MBrace.Azure.Client
 
 
 // Save training set as cloud reference in Azure store, returning a typed reference to data
-let trainingRef = runtime.DefaultStoreClient.CloudSequence.New training
+//let trainingRef = runtime.DefaultStoreClient.CloudSequence.New training
+
+let trainingRef = runtime.DefaultStoreClient.CloudSequence.Parse<int * Point> "mbraceuserdata00000/2ey4kklp.asg"
+trainingRef.ToEnumerable() |> runtime.RunLocal
+
 
 let evaluateDistributed (inputs : (int * Point) []) = cloud {
     let evaluateSingleThreaded (inputs : (int * Point) []) = cloud {
