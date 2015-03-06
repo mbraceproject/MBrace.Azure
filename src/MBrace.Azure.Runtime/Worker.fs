@@ -45,7 +45,7 @@ type internal Worker () =
         /// Used for jobs that cannot be UnPickled.
         let maxJobDeliveryCount = 1
         /// Sleep time for runtime errors.
-        let onErrorWaitTime = 10000
+        let onErrorWaitTime = 5000
 
         let runJob (config : WorkerConfig) job deps faultCount  =
             let provider = RuntimeProvider.FromJob config.State config.WorkerMonitor deps job
@@ -90,12 +90,29 @@ type internal Worker () =
             finally
                 config.WorkerMonitor.DecrementJobCount()
                 config.Logger.Logf "ActiveJobs : %d" config.WorkerMonitor.ActiveJobs
+        }
 
+        let waitForPendingJobs (config : WorkerConfig) = async {
+            config.Logger.Log "Stop requested. Waiting for pending jobs."
+            let rec wait () = async {
+                if config.WorkerMonitor.ActiveJobs > 0 then
+                    do! Async.Sleep receiveTimeout
+                    return! wait ()
+            }
+            do! wait ()
+            config.Logger.Log "No active jobs."
+            config.Logger.Log "Unregister current worker."
+            do! config.WorkerMonitor.UnregisterCurrent()
+            config.Logger.Log "Worker stopped."
         }
 
         new MailboxProcessor<WorkerMessage>(fun inbox ->
             let rec workerLoop (state : WorkerState) = async {
-                let! message = inbox.TryReceive(receiveTimeout)
+                let! message = async {
+                    if inbox.CurrentQueueLength > 0 then 
+                        return! inbox.TryReceive()
+                    else return None
+                }
                 match message, state with
                 | None, Running(config, _) ->
                     if config.WorkerMonitor.ActiveJobs >= config.MaxConcurrentJobs then
@@ -106,13 +123,13 @@ type internal Worker () =
                         | Choice1Of2 None -> return! workerLoop state
                         | Choice1Of2(Some msg) ->
                             let! job = Async.Catch <| async {
-                                    config.Logger.Log "Got JobItem."
-                                    config.Logger.Logf "Message DeliveryCount : %d" msg.DeliveryCount
-                                    let! ti = msg.GetPayloadAsync<JobItem>()
-                                    do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
-                                    config.Logger.Logf "Job UnPickle [%d bytes]." ti.PickledJob.Bytes.Length
-                                    let job = VagabondRegistry.Instance.Pickler.UnPickleTyped<Job> ti.PickledJob
-                                    return job, ti.Dependencies
+                                config.Logger.Log "Got JobItem."
+                                config.Logger.Logf "Message DeliveryCount : %d" msg.DeliveryCount
+                                let! ti = msg.GetPayloadAsync<JobItem>()
+                                do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
+                                config.Logger.Logf "Job UnPickle [%d bytes]." ti.PickledJob.Bytes.Length
+                                let job = VagabondRegistry.Instance.Pickler.UnPickleTyped<Job> ti.PickledJob
+                                return job, ti.Dependencies
                             } 
                             match job with
                             | Choice1Of2(job, deps) ->
@@ -140,17 +157,7 @@ type internal Worker () =
                 | Some(Start(config, handle)), Idle ->
                     return! workerLoop(Running(config, handle))
                 | Some(Stop ch), Running(config, handle) ->
-                    config.Logger.Log "Stop requested. Waiting for pending jobs."
-                    let rec wait () = async {
-                        if config.WorkerMonitor.ActiveJobs > 0 then
-                            do! Async.Sleep receiveTimeout
-                            return! wait ()
-                    }
-                    do! wait ()
-                    config.Logger.Log "No active jobs."
-                    config.Logger.Log "Unregister current worker."
-                    do! config.WorkerMonitor.UnregisterCurrent()
-                    config.Logger.Log "Worker stopped."
+                    do! waitForPendingJobs config
                     ch.Reply ()
                     handle.Reply()
                     return! workerLoop Idle

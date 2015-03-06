@@ -12,7 +12,7 @@ module private Constants =
     let RenewLockInverval = 10000
     let MaxLockDuration = TimeSpan.FromMilliseconds(3. * float RenewLockInverval)
     let MaxTTL = TimeSpan.MaxValue
-    let ServerWaitTime = TimeSpan.FromMilliseconds(100.)
+    let ServerWaitTime = TimeSpan.FromMilliseconds(50.)
     let AffinityPropertyName = "Affinity"
     let PIDPropertyName = "ProcessId"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
@@ -69,7 +69,7 @@ type QueueMessage(config : ConfigurationId, msg : BrokeredMessage) =
 [<AutoSerializable(false)>]
 type internal Subscription (config : ConfigurationId, affinity : string) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
-    let subscription = sprintf "%s_%s" config.RuntimeTopic affinity
+    let subscription = affinity
 
     do 
         let ns = cp.NamespaceClient

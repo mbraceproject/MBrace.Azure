@@ -261,7 +261,6 @@ with
             do! rt.JobQueue.Enqueue<JobItem>(jobItem, ?affinity = affinity, pid = psInfo.Id)
             logger.Logf "Job Enqueue completed."
             do! rt.ProcessMonitor.IncreaseTotalJobs(psInfo.Id)
-            logger.Log "Set process Total Jobs to 1."
         }
 
     /// Schedules a cloud workflow as an ICloudTask.

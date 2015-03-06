@@ -234,7 +234,7 @@ module Configuration =
 
     let private init =
         runOnce(fun () ->
-            let _ = System.Threading.ThreadPool.SetMinThreads(100, 100)
+            let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
             ignoredAssemblies.Add(Assembly.GetExecutingAssembly()) |> ignore
             VagabondRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
             
