@@ -65,7 +65,7 @@ type QueueMessage(config, msg : BrokeredMessage) =
 
 type internal Subscription (config, affinity : string) = 
     let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
-    let subscription = sprintf "%s_%s" config.RuntimeTopic affinity
+    let subscription = affinity
 
     do 
         let ns = cp.NamespaceClient

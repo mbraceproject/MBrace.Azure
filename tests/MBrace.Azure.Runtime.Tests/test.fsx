@@ -24,7 +24,6 @@ let selectEnv name =
 
 let config = 
     { Configuration.Default with
-        Id = 42us
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
@@ -59,8 +58,33 @@ let ps =
     |> runtime.CreateProcess
 
 ps.ShowInfo()
+
 ps.AwaitResult()
 ps.Kill()
+
+
+
+
+let ps () = 
+ cloud { let tasks = new ResizeArray<_>()
+         for i in [ 0 .. 200 ] do 
+             let! x = Cloud.StartAsCloudTask (cloud { do! Cloud.Sleep 1000
+                                                      return 1 })
+             tasks.Add x
+         for t in tasks.ToArray() do 
+             let! res = t.AwaitResult()
+             ()
+        }
+
+let job = 
+   cloud { return! ps() }
+     |> runtime.CreateProcess
+
+
+job.ShowInfo()
+
+
+
 
 runtime.Run(Cloud.ParallelEverywhere(cloud { return System.Diagnostics.Process.GetCurrentProcess().Id }))
 
