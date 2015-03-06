@@ -13,7 +13,7 @@ open Microsoft.WindowsAzure.Storage
 type Blob<'T> internal (config : ConfigurationId, prefix, filename) = 
     member __.GetValue() : Async<'T> = 
         async { 
-            let container = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             use! s = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename).OpenReadAsync()
             return Configuration.Pickler.Deserialize<'T>(s) 
         }
@@ -39,14 +39,14 @@ type Blob<'T> internal (config : ConfigurationId, prefix, filename) =
         new Blob<'T>(config, prefix, file)
     static member Exists(config, prefix, filename) =
         async {
-            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let c = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             let! _ = c.CreateIfNotExistsAsync()
             let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
             return! b.ExistsAsync()
         }
     static member Create(config, prefix, filename : string, f : unit -> 'T) = 
         async { 
-            let c = ConfigurationRegistry.Resolve<ClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let c = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             let! _ = c.CreateIfNotExistsAsync()
             let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
 

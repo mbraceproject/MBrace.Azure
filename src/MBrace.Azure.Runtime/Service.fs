@@ -166,7 +166,7 @@ type Service (config : Configuration, serviceId : string) =
                     yield wmon
                     yield state.ProcessMonitor 
                     // TODO : This is for debugging purposes. Maybe remove.
-                    yield ConfigurationRegistry.Resolve<ClientProvider>(cfg.ConfigurationId)
+                    yield ConfigurationRegistry.Resolve<StoreClientProvider>(cfg.ConfigurationId)
                 }
                 
                 
