@@ -24,6 +24,7 @@ let selectEnv name =
 
 let config = 
     { Configuration.Default with
+        Id = 42us
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
@@ -32,6 +33,7 @@ let runtime = Runtime.GetHandle(config)
 runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(reactivate = false)
 //runtime.Reset()
+
 
 // local only---
 #r "MBrace.Azure.Runtime.Standalone"
