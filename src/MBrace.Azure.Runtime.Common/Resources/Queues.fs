@@ -64,7 +64,7 @@ type QueueMessage(config, msg : BrokeredMessage) =
         }
 
 type internal Subscription (config, affinity : string) = 
-    let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
+    let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let subscription = affinity
 
     do 
@@ -87,7 +87,7 @@ type internal Subscription (config, affinity : string) =
         }
 
 type internal Topic (config) = 
-    let cp = ConfigurationRegistry.Resolve<ClientProvider>(config)
+    let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let tc = cp.TopicClient(config.RuntimeTopic)
     member __.GetSubscription(affinity) : Subscription = new Subscription(config, affinity)
     
@@ -140,7 +140,7 @@ type internal Topic (config) =
 
     static member Create(config) = 
         async { 
-            let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
+            let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
             let name = config.RuntimeTopic
             if not <| ns.TopicExists(name) then 
                 let td = new TopicDescription(name)
@@ -153,8 +153,8 @@ type internal Topic (config) =
 
 /// Queue implementation.
 type internal Queue (config : ConfigurationId) = 
-    let queue = ConfigurationRegistry.Resolve<ClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
-    let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
+    let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
+    let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
     
     member __.Length = ns.GetQueue(config.RuntimeQueue).MessageCount
     
@@ -194,7 +194,7 @@ type internal Queue (config : ConfigurationId) =
     
     static member Create(config : ConfigurationId) = 
         async { 
-            let ns = ConfigurationRegistry.Resolve<ClientProvider>(config).NamespaceClient
+            let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
             let qd = new QueueDescription(config.RuntimeQueue)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true

@@ -92,7 +92,7 @@ module Table =
 
     let private exec<'U> config table op : Async<obj> = 
         async {
-            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
             let! _ = t.CreateIfNotExistsAsync()
             let! (e : TableResult) = t.ExecuteAsync(op)
             return e.Result 
@@ -107,7 +107,7 @@ module Table =
             let jobs = new ResizeArray<Async<unit>>()
             let batch = ref <| new TableBatchOperation()
             let mkHandle batch = Async.StartChild <| async {
-                let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+                let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
                 let! _ = t.CreateIfNotExistsAsync()
                 let! _ = t.ExecuteBatchAsync(batch)
                 ()
@@ -140,7 +140,7 @@ module Table =
     
     let queryDynamic config table pk : Async<DynamicTableEntity []> =
         async {  
-            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
             let q = TableQuery<DynamicTableEntity>()
                         .Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
                         .Select([|"RowKey"|])
@@ -150,21 +150,21 @@ module Table =
 
     let read<'T when 'T :> ITableEntity> config table pk rk : Async<'T> = 
         async { 
-            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
             let! (e : TableResult) = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk))
             return e.Result :?> 'T
         }
     
     let query<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table query =
         async {
-            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
             return t.ExecuteQuery<'T>(query)
                    |> Seq.toArray
         }
 
     let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table pk : Async<'T []> = 
         async {  
-            let t = ConfigurationRegistry.Resolve<ClientProvider>(config).TableClient.GetTableReference(table)
+            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
             let q = TableQuery<'T>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
             return t.ExecuteQuery<'T>(q)
                    |> Seq.toArray

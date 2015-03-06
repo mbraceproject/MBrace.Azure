@@ -142,8 +142,9 @@ open System.Net
 type InvalidConfigurationException (msg : string, inner) =
     inherit Exception(msg, inner)
 
+/// Provides Azure client instances for storage related entities
 [<AutoSerializable(false)>]
-type ClientProvider (config : Configuration) =
+type StoreClientProvider (config : Configuration) =
     do ServicePointManager.Expect100Continue <- false
     do ServicePointManager.UseNagleAlgorithm <- false
     do ServicePointManager.DefaultConnectionLimit <- 512
@@ -250,9 +251,9 @@ module Configuration =
     let ActivateAsync(config : Configuration) : Async<unit> = 
       async {
         init ()
-        let cp = new ClientProvider(config)
+        let cp = new StoreClientProvider(config)
         do! cp.InitAll()
-        ConfigurationRegistry.Register<ClientProvider>(config.ConfigurationId, cp)
+        ConfigurationRegistry.Register<StoreClientProvider>(config.ConfigurationId, cp)
     }
 
     let AddIgnoredAssembly(asm : Assembly) =
@@ -266,7 +267,7 @@ module Configuration =
     let DeleteRuntimeQueues (config : Configuration) =
         async {
             init()
-            let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
             do! cp.ClearRuntimeQueues()
         }
 
@@ -274,7 +275,7 @@ module Configuration =
     let DeleteRuntimeState (config : Configuration) =
         async {
             init()
-            let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
             do! cp.ClearRuntimeState()
         }
 
@@ -282,7 +283,7 @@ module Configuration =
     let DeleteUserData (config : Configuration) =
         async {
             init()
-            let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
             do! cp.ClearUserData()
         }
 
@@ -290,6 +291,6 @@ module Configuration =
     let DeleteRuntimeLogs (config : Configuration) =
         async {
             init()
-            let cp = ConfigurationRegistry.Resolve<ClientProvider>(config.ConfigurationId)
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
             do! cp.ClearRuntimeLogs()
         }
