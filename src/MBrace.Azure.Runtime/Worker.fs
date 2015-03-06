@@ -106,13 +106,13 @@ type internal Worker () =
                         | Choice1Of2 None -> return! workerLoop state
                         | Choice1Of2(Some msg) ->
                             let! job = Async.Catch <| async {
-                                    config.Logger.Log "Got JobItem."
-                                    config.Logger.Logf "Message DeliveryCount : %d" msg.DeliveryCount
-                                    let! ti = msg.GetPayloadAsync<JobItem>()
-                                    do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
-                                    config.Logger.Logf "Job UnPickle [%d bytes]." ti.PickledJob.Bytes.Length
-                                    let job = VagabondRegistry.Instance.Pickler.UnPickleTyped<Job> ti.PickledJob
-                                    return job, ti.Dependencies
+                                config.Logger.Log "Got JobItem."
+                                config.Logger.Logf "Message DeliveryCount : %d" msg.DeliveryCount
+                                let! ti = msg.GetPayloadAsync<JobItem>()
+                                do! config.State.AssemblyManager.LoadDependencies ti.Dependencies
+                                config.Logger.Logf "Job UnPickle [%d bytes]." ti.PickledJob.Bytes.Length
+                                let job = VagabondRegistry.Instance.Pickler.UnPickleTyped<Job> ti.PickledJob
+                                return job, ti.Dependencies
                             } 
                             match job with
                             | Choice1Of2(job, deps) ->

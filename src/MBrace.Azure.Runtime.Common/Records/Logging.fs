@@ -43,14 +43,13 @@ type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
     let maxWaitTime = 5000
     let table = config.RuntimeLogsTable
     let logs = ResizeArray<LogRecord>()
-    let timeToRK (time : DateTimeOffset) = sprintf "%020d" (time.ToUniversalTime()).Ticks 
+    let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
     let mutable running = true
 
     let flush () = async {
         let count = logs.Count
         if count > 0 then
             let records =
-                // See *HACK* in log 
                 lock logs (fun () -> 
                             let r = logs.ToArray()
                             logs.Clear()
@@ -72,17 +71,9 @@ type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
         Async.Start(loop ())
 
     let log msg = 
-        // HACK: We want to use DateTime.Ticks as a RowKey in table storage,
-        // in order to have efficient querying.
-        // But RowKeys must be unique per PartitionKey,
-        // so we need to make sure that two subsequent calls to __.Log
-        // don't produce the same Ticks.
-        // We serialize all access to logs by using the lock.
-        // Also sleeping for 100 milliseconds to ensure ticks are unique.
         lock logs (fun () ->
-            System.Threading.Thread.Sleep(100)
             let time = DateTimeOffset.UtcNow
-            let e = new LogRecord(string loggerType, timeToRK time, msg, time)
+            let e = new LogRecord(string loggerType, timeToRK time (guid()), msg, time)
             logs.Add(e))
 
     interface ICloudLogger with
@@ -95,10 +86,12 @@ type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
 
     member __.GetLogs (?loggerType : LoggerType, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
         let query = new TableQuery<LogRecord>()
+        let lower = Guid.Empty.ToString "N"
+        let upper = lower.Replace('0','f')
         let filters = 
             [ loggerType |> Option.map (fun pk -> TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, string pk))
-              fromDate   |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, timeToRK t))
-              toDate     |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, timeToRK t)) ]
+              fromDate   |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, timeToRK t lower))
+              toDate     |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, timeToRK t upper)) ]
         let filter = 
             filters 
             |> List.fold (fun state filter -> 
