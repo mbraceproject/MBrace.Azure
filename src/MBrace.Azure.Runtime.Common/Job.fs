@@ -158,7 +158,7 @@ type RuntimeState =
         /// Queue contains pickled job and its dependencies.
         JobQueue : JobQueue
         /// Assembly manager.
-        AssemblyManager : AssemblyManager
+        AssemblyManager : BlobAssemblyManager
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
@@ -173,7 +173,7 @@ with
         let configurationId = config.ConfigurationId
         let logger = new LoggerCombiner()
         let! jobQueue = JobQueue.Create(configurationId)
-        let assemblyManager = AssemblyManager.Create(configurationId, logger) 
+        let assemblyManager = BlobAssemblyManager.Create(configurationId, logger) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
         let pmon = ProcessManager.Create(configurationId)
         return { 

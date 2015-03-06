@@ -10,15 +10,33 @@ open MBrace.Runtime.Vagabond
 open MBrace.Azure
 open MBrace.Runtime
 
-type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) = 
+type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogger) = 
+
+    // temporary fix; avoid multiple uploadings for dynamic assemblies
+    // this is still wrong; need IRemoteAssemblyReceiver implementation for uploading to blob store
+    let partialAssemblies = new System.Collections.Concurrent.ConcurrentDictionary<AssemblyId, bool> ()
+    let isPartialDynamicAssembly (pkg : AssemblyPackage) =
+        match pkg.StaticInitializer with
+        | None -> false
+        // is partially evaluated slice; record occurrence and return true
+        | Some init when init.IsPartial -> partialAssemblies.[pkg.Id] <- true ; true
+        
+        | Some _  ->
+            let ok, wasPartial = partialAssemblies.TryGetValue pkg.Id
+            // is fully evaluated slice for the first time; record occurence and return true
+            if ok && wasPartial then
+                partialAssemblies.[pkg.Id] <- false ; true
+            // fully evaluated slice is already uploaded
+            else
+                false
     
     let filename id = sprintf "%s-%s" id.FullName (Convert.toBase32String id.ImageHash) 
     let prefix = "assemblies"
     let uploadPkg (pkg : AssemblyPackage) = 
-        async { 
+        async {
             let file =  filename pkg.Id
             let! exists = Blob<_>.Exists(config, prefix, file)
-            if not exists || pkg.StaticInitializer.IsSome then
+            if not exists || isPartialDynamicAssembly pkg then
                 let imgSize = 
                     match pkg.Image, pkg.StaticInitializer with
                     | Some img, Some init -> sprintf "[IL %d bytes, Data %d bytes]" img.Length init.Data.Length
@@ -73,6 +91,6 @@ type AssemblyManager private (config : ConfigurationId, logger : ICloudLogger) =
         |> List.map Utilities.ComputeAssemblyId
 
     static member Create(config, logger) = 
-        new AssemblyManager(config, logger)
+        new BlobAssemblyManager(config, logger)
 
     

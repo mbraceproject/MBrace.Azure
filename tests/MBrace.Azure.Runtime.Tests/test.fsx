@@ -221,3 +221,12 @@ cloud {
 |> runtime.RunLocal
 
 
+let c = ref 0
+for i in 1 .. 10 do
+    c := runtime.Run(cloud { return !c + 1 })
+
+
+let x = cloud { return 42 }
+
+
+runtime.Run x

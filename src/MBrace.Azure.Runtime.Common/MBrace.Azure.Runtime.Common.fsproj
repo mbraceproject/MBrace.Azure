@@ -82,13 +82,13 @@
     <Compile Include="Resources\Cells.fs" />
     <Compile Include="Resources\Queues.fs" />
     <Compile Include="Resources\CancellationToken.fs" />
-    <Compile Include="Resources\AssemblyManager.fs" />
     <Compile Include="Resources\Result.fs" />
     <Compile Include="Records\PerformanceMonitor.fs" />
     <Compile Include="Records\Worker.fs" />
     <Compile Include="Records\Logging.fs" />
     <Compile Include="Records\Process.fs" />
-    <Compile Include="Resources.fs" />
+    <Compile Include="ResourceFactory.fs" />
+    <Compile Include="BlobAssemblyManager.fs" />
     <Compile Include="Job.fs" />
     <Compile Include="Combinators.fs" />
     <Compile Include="RuntimeProvider.fs" />
