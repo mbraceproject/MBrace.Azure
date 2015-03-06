@@ -35,7 +35,7 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depe
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = currentCts, metadata = jobId)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = currentCts, metadata = jobId, elevate = true)
             
             let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length, psInfo.Id)
             let! cancellationLatch = state.ResourceFactory.RequestCounter(0, psInfo.Id)
@@ -94,7 +94,7 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depend
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = currentCts, metadata = jobId)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = currentCts, metadata = jobId, elevate = true)
 
             let! completionLatch = state.ResourceFactory.RequestCounter(0, psInfo.Id)
             let! cancellationLatch = state.ResourceFactory.RequestCounter(0, psInfo.Id)

@@ -288,17 +288,14 @@ with
         logger.Logf "Request for CancellationTokenSource"
         let! cts = 
             match ct with
-            | None -> rt.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, metadata = jobId)
+            | None -> rt.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, metadata = jobId, elevate = true)
             | Some ct -> async { return ct :?> DistributedCancellationTokenSource }
         
         logger.Logf "Request for ResultCell"
         let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.Id)
 
         logger.Logf "Creating Process Record for %s" psInfo.Id
-        let! _ = rt.ProcessMonitor
-                   .CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies,
-                                   string cts.RowKey, 
-                                   string resultCell.Path)
+        let! _ = rt.ProcessMonitor.CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies, cts, string resultCell.Path)
 
         let setResult ctx r = 
             async {

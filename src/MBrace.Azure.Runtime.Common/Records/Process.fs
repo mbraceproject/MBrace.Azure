@@ -12,6 +12,7 @@ open System.Net
 open System.Runtime.Serialization
 open Nessos.Vagabond
 open MBrace.Azure
+open MBrace.Azure.Runtime.Resources
 
 type ProcessState = 
     | Posted
@@ -59,12 +60,17 @@ type ProcessManager private (config : ConfigurationId) =
     
     static member Create(configId : ConfigurationId) = new ProcessManager(configId)
 
-    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, ctsUri, resultUri) = async { 
+    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, cts : DistributedCancellationTokenSource, resultUri) = async { 
         let now = DateTimeOffset.UtcNow
         let pickledTy = Configuration.Pickler.Pickle(ty)
         let deps = Configuration.Pickler.Pickle(deps)
         let tyName = Runtime.Utils.PrettyPrinters.Type.prettyPrint ty
-        let e = new ProcessRecord(pk, pid, name, ctsUri, string ProcessState.Posted, now, now, false, resultUri, pickledTy, tyName, deps)
+        let ctsKey =
+            cts.ElevateCancellationToken() |> ignore
+            match cts.RowKey with
+            | None -> raise <| new OperationCanceledException()
+            | Some rK -> rK
+        let e = new ProcessRecord(pk, pid, name, ctsKey, string ProcessState.Posted, now, now, false, resultUri, pickledTy, tyName, deps)
         do! Table.insertOrReplace<ProcessRecord> config table e
         return e
     }

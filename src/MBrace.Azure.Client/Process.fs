@@ -79,7 +79,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     /// Asynchronously sends a kill signal for this process.
     member __.KillAsync() = async {
             do! pmon.SetKillRequested(pid)
-            do! __.DistributedCancellationTokenSource.CancelAsync()
+            do __.DistributedCancellationTokenSource.Cancel()
         }
 
     /// Asynchronously returns all cloud logs for this process.
