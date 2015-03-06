@@ -60,6 +60,7 @@ let ps =
 
 ps.ShowInfo()
 ps.AwaitResult()
+ps.Kill()
 
 runtime.Run(Cloud.ParallelEverywhere(cloud { return System.Diagnostics.Process.GetCurrentProcess().Id }))
 
