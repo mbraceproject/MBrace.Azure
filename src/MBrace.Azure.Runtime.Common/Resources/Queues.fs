@@ -16,8 +16,10 @@ module private Constants =
     let AffinityPropertyName = "Affinity"
     let PIDPropertyName = "ProcessId"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
-    
-type QueueMessage(config, msg : BrokeredMessage) = 
+
+/// Local wrapper for Service Bus message
+[<AutoSerializable(false)>]
+type QueueMessage(config : ConfigurationId, msg : BrokeredMessage) = 
     let mutable completed = false
     let affinity = 
         match msg.Properties.TryGetValue(AffinityPropertyName) with
@@ -63,7 +65,9 @@ type QueueMessage(config, msg : BrokeredMessage) =
             return! t.GetValue()
         }
 
-type internal Subscription (config, affinity : string) = 
+/// Local queue subscription client
+[<AutoSerializable(false)>]
+type internal Subscription (config : ConfigurationId, affinity : string) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let subscription = sprintf "%s_%s" config.RuntimeTopic affinity
 
@@ -86,7 +90,9 @@ type internal Subscription (config, affinity : string) =
             else return Some(QueueMessage(config, msg))
         }
 
-type internal Topic (config) = 
+/// Local queue topic client
+[<AutoSerializable(false)>]
+type internal Topic (config : ConfigurationId) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let tc = cp.TopicClient(config.RuntimeTopic)
     member __.GetSubscription(affinity) : Subscription = new Subscription(config, affinity)
@@ -129,14 +135,6 @@ type internal Topic (config) =
             pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
             do! tc.SendAsync(msg)
         }
-    
-    interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
-            info.AddValue("config", config, typeof<ConfigurationId>)
-    
-    new(info : SerializationInfo, _ : StreamingContext) = 
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new Topic(config)
 
     static member Create(config) = 
         async { 
@@ -151,7 +149,8 @@ type internal Topic (config) =
             return new Topic(config)
         }
 
-/// Queue implementation.
+/// Queue client implementation
+[<AutoSerializable(false)>]
 type internal Queue (config : ConfigurationId) = 
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
     let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
@@ -184,14 +183,6 @@ type internal Queue (config : ConfigurationId) =
             else return Some(QueueMessage(config, msg))
         }
     
-    interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
-            info.AddValue("config", config, typeof<ConfigurationId>)
-    
-    new(info : SerializationInfo, _ : StreamingContext) = 
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new Queue(config)
-    
     static member Create(config : ConfigurationId) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
@@ -206,7 +197,8 @@ type internal Queue (config : ConfigurationId) =
         }
 
 // Unified access to Queue/Topic/Subscription.
-type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) = 
+[<AutoSerializable(false)>]
+type JobQueue internal (queue : Queue, topic : Topic) = 
     let mutable affinity : string option = None
     let mutable subscription : Subscription option = None 
     let mutable flag = false
@@ -267,22 +259,11 @@ type JobQueue internal (config : ConfigurationId, queue : Queue, topic : Topic) 
             do! Async.Parallel [handle1 ; handle2]
                 |> Async.Ignore
         }
-
-    interface ISerializable with
-        member x.GetObjectData(info : SerializationInfo, _ : StreamingContext) : unit = 
-            info.AddValue("queue", queue, typeof<Queue>)
-            info.AddValue("topic", topic, typeof<Topic>)
-            info.AddValue("config", config, typeof<ConfigurationId>)
     
-    new(info : SerializationInfo, _ : StreamingContext) = 
-        let queue = info.GetValue("queue", typeof<Queue>) :?> Queue
-        let topic = info.GetValue("topic", typeof<Topic>) :?> Topic
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new JobQueue(config, queue, topic)
-
-    static member Create(config) =
+    /// Yadda Yadda
+    static member Create(config : ConfigurationId) =
         async {
             let! queue = Queue.Create(config)
             let! topic = Topic.Create(config)
-            return new JobQueue(config, queue, topic)
+            return new JobQueue(queue, topic)
         }

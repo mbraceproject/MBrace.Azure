@@ -12,7 +12,7 @@ open System.Threading
 open MBrace.Azure
 open Microsoft.WindowsAzure.Storage.Table
 
-/// Result value
+/// Cloud computation result
 type Result<'T> =
     | Completed of 'T
     | Exception of ExceptionDispatchInfo
@@ -24,15 +24,34 @@ with
         | Exception edi -> ExceptionDispatchInfo.raise true edi
         | Cancelled c -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true c
 
-type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self = 
-    let table = config.RuntimeTable
-    let localCell = lazy CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
+/// Azure store computation result container
+[<DataContract; Sealed>]
+type ResultCell<'T> internal (config : ConfigurationId, partitionKey : string, rowKey : string) = 
+    
+    [<DataMember(Name = "config")>]
+    let config = config
+    [<DataMember(Name = "partitionKey")>]
+    let partitionKey = partitionKey
+    [<DataMember(Name = "rowKey")>]
+    let rowKey = rowKey
+
+    [<IgnoreDataMember>]
+    let mutable localCell : CacheAtom<Result<'T> option> option = None
+    [<IgnoreDataMember>]
     let mutable localResult : Result<'T> option = None
 
-    member this.Path = sprintf "%s/%s" pk rk
+    member self.GetCell() =
+        match localCell with
+        | Some lc -> lc
+        | None ->
+            let lc = CacheAtom.Create((fun () -> self.TryGetResult() |> Async.RunSync), intervalMilliseconds = 200)
+            localCell <- Some lc
+            lc
+
+    member this.Path = sprintf "%s/%s" partitionKey rowKey
 
     interface ICloudTask<'T> with
-        member c.Id = pk
+        member c.Id = partitionKey
 
         member c.AwaitResult(?timeout:int) = local {
             let! r = Cloud.OfAsync <| Async.WithTimeout(c.AwaitResult(), defaultArg timeout Timeout.Infinite)
@@ -45,22 +64,22 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
         }
 
         member c.IsCompleted = 
-            match localCell.Value.Value with
+            match c.GetCell().Value with
             | Some(Completed _) -> true
             | _ -> false
 
         member c.IsFaulted =
-            match localCell.Value.Value with
+            match c.GetCell().Value with
             | Some(Exception _) -> true
             | _ -> false
 
         member c.IsCanceled =
-            match localCell.Value.Value with
+            match c.GetCell().Value with
             | Some(Cancelled _) -> true
             | _ -> false
 
         member c.Status =
-            match localCell.Value.Value with
+            match c.GetCell().Value with
             | Some (Completed _) -> Tasks.TaskStatus.RanToCompletion
             | Some (Exception _) -> Tasks.TaskStatus.Faulted
             | Some (Cancelled _) -> Tasks.TaskStatus.Canceled
@@ -75,10 +94,10 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
 
     member __.SetResult(result : Result<'T>) : Async<unit> =
         async {
-            let! bc = Blob.Create(config, pk, guid(), fun () -> result)
+            let! bc = Blob.Create(config, partitionKey, guid(), fun () -> result)
             let uri = bc.Path
-            let e = new BlobReferenceEntity(pk, rk, uri.ToString(), ETag = "*")
-            let! _ = Table.merge config table e
+            let e = new BlobReferenceEntity(partitionKey, rowKey, uri.ToString(), ETag = "*")
+            let! _ = Table.merge config config.RuntimeTable e
             return ()
         }
 
@@ -86,7 +105,7 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
         async {
             match localResult with
             | None ->
-                let! e = Table.read<BlobReferenceEntity> config table pk rk
+                let! e = Table.read<BlobReferenceEntity> config config.RuntimeTable partitionKey rowKey
                 if String.IsNullOrEmpty e.Uri then return None
                 else
                     let bc = Blob.FromPath(config, e.Uri)
@@ -103,18 +122,6 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
             | None -> return! __.AwaitResult()
             | Some r -> return r
         }
-    
-    interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, _ : StreamingContext): unit = 
-            info.AddValue("pk", pk, typeof<string>)
-            info.AddValue("rk", rk, typeof<string>)
-            info.AddValue("config", config, typeof<ConfigurationId>)
-
-    new(info: SerializationInfo, _ : StreamingContext) =
-        let pk = info.GetValue("pk", typeof<string>) :?> string
-        let rk = info.GetValue("rk", typeof<string>) :?> string
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new ResultCell<'T>(config, pk, rk)
 
     static member FromPath(config : ConfigurationId, path : string) = 
         let pkrk = path.Split('/')
@@ -127,16 +134,23 @@ type ResultCell<'T> internal (config : ConfigurationId, pk, rk) as self =
             return new ResultCell<'T>(config, pid, id)
         }
 
-
-type ResultAggregator<'T> internal (config : ConfigurationId, pk, rk, size) = 
+[<DataContract; Sealed>]
+type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : string, rowKey : string, size : int) = 
     static let mkRowKey name i = sprintf "%s:%010d" name i
-    
-    let table = config.RuntimeTable
+
+    [<DataMember(Name = "config")>]
+    let config = config
+    [<DataMember(Name = "partitionKey")>]
+    let partitionKey = partitionKey
+    [<DataMember(Name = "rowKey")>]
+    let rowKey = rowKey
+    [<DataMember(Name = "size")>]
+    let size = size
 
     let getEntities () = async {
-        let pkFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk)
-        let lower = mkRowKey rk 0
-        let upper = mkRowKey rk size
+        let pkFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, partitionKey)
+        let lower = mkRowKey rowKey 0
+        let upper = mkRowKey rowKey size
         let rkFilter = 
             TableQuery.CombineFilters(
                 TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, upper),
@@ -145,7 +159,7 @@ type ResultAggregator<'T> internal (config : ConfigurationId, pk, rk, size) =
 
         let query = TableQuery<BlobReferenceEntity>().Where(TableQuery.CombineFilters(pkFilter, TableOperators.And, rkFilter))
 
-        let! xs = Table.query<BlobReferenceEntity> config table query
+        let! xs = Table.query<BlobReferenceEntity> config config.RuntimeTable query
         return xs
     }
 
@@ -157,10 +171,10 @@ type ResultAggregator<'T> internal (config : ConfigurationId, pk, rk, size) =
 
     member __.SetResult(index : int, value : 'T) : Async<bool> = 
         async { 
-            let e = new BlobReferenceEntity(pk, mkRowKey rk index, null, ETag = "*")
-            let! bc = Blob.Create(config, pk, guid(), fun () -> value)
+            let e = new BlobReferenceEntity(partitionKey, mkRowKey rowKey index, null, ETag = "*")
+            let! bc = Blob.Create(config, partitionKey, guid(), fun () -> value)
             e.Uri <- bc.Path
-            let! _ = Table.merge config table e
+            let! _ = Table.merge config config.RuntimeTable e
             return! completed()
         }
     
@@ -187,20 +201,6 @@ type ResultAggregator<'T> internal (config : ConfigurationId, pk, rk, size) =
                     incr i
                 return re
         }
-   
-    interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("pk", pk, typeof<string>)
-            info.AddValue("rk", rk, typeof<string>)
-            info.AddValue("size", size, typeof<int>)
-            info.AddValue("config", config, typeof<ConfigurationId>)
-
-    new(info: SerializationInfo, _: StreamingContext) =
-        let pk = info.GetValue("pk", typeof<string>) :?> string
-        let rk = info.GetValue("rk", typeof<string>) :?> string
-        let size = info.GetValue("size", typeof<int>) :?> int
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new ResultAggregator<'T>(config, pk, rk, size)
 
     static member Create<'T>(config, size, pid) = 
         async { 

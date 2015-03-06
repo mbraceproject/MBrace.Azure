@@ -8,29 +8,25 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure
 
-type IntCell internal (config : ConfigurationId, pk, rk) = 
-    let table = config.RuntimeTable
+[<DataContract>]
+type IntCell internal (config : ConfigurationId, partitionKey : string, rowKey : string) =
+
+    [<DataMember(Name = "config")>]
+    let config = config
+    [<DataMember(Name = "partitionKey")>]
+    let partitionKey = partitionKey
+    [<DataMember(Name = "rowKey")>]
+    let rowKey = rowKey
+
     member __.Value = 
-        let e = Table.read<CounterEntity> config table pk rk |> Async.RunSync
+        let e = Table.read<CounterEntity> config config.RuntimeTable partitionKey rowKey |> Async.RunSync
         e.Value
     
     member internal __.Update(updatef : int -> int) = 
         async { 
-            let! e = Table.transact<CounterEntity> config table pk rk (fun e -> e.Value <- updatef e.Value)
+            let! e = Table.transact<CounterEntity> config config.RuntimeTable partitionKey rowKey (fun e -> e.Value <- updatef e.Value)
             return e.Value
         }
-    
-    interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("config", config, typeof<ConfigurationId>)
-            info.AddValue("pk", pk, typeof<string>)
-            info.AddValue("rk", rk, typeof<string>)
-
-    new(info: SerializationInfo, _: StreamingContext) =
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        let pk = info.GetValue("pk", typeof<string>) :?> string
-        let rk = info.GetValue("rk", typeof<string>) :?> string
-        new IntCell(config, pk, rk)
 
     static member Create(config, name : string, value : int, pid) = 
         async { 
@@ -39,23 +35,11 @@ type IntCell internal (config : ConfigurationId, pk, rk) =
             return new IntCell(config, pid, name)
         }
 
-
-type Latch internal (config, pk, rk) = 
-    inherit IntCell(config, pk, rk)
+[<DataContract>]
+type Latch internal (config, partitionKey, rowKey) = 
+    inherit IntCell(config, partitionKey, rowKey)
 
     member __.Decrement() = base.Update(fun v -> v - 1)
-
-    interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("config", config, typeof<ConfigurationId>)
-            info.AddValue("pk", pk, typeof<string>)
-            info.AddValue("rk", rk, typeof<string>)
-
-    new(info: SerializationInfo, _: StreamingContext) =
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        let pk = info.GetValue("pk", typeof<string>) :?> string
-        let rk = info.GetValue("rk", typeof<string>) :?> string
-        new Latch(config, pk, rk)
 
     static member Create(config, name : string, value : int, pid) = 
         async { 
@@ -63,25 +47,15 @@ type Latch internal (config, pk, rk) =
             do! Table.insert config config.RuntimeTable e
             return new Latch(config, pid, name)
         }
+
     static member Create(config, value : int, pid) = 
         Latch.Create(config, guid(), value, pid)
 
-type Counter internal (config, pk, rk) = 
-    inherit IntCell(config, pk, rk)
+[<DataContract>]
+type Counter internal (config, partitionKey, rowKey) = 
+    inherit IntCell(config, partitionKey, rowKey)
 
     member __.Increment() = base.Update(fun v -> v + 1)
-
-    interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, _: StreamingContext): unit = 
-            info.AddValue("config", config, typeof<ConfigurationId>)
-            info.AddValue("pk", pk, typeof<string>)
-            info.AddValue("rk", rk, typeof<string>)
-
-    new(info: SerializationInfo, _: StreamingContext) =
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        let pk = info.GetValue("pk", typeof<string>) :?> string
-        let rk = info.GetValue("rk", typeof<string>) :?> string
-        new Counter(config, pk, rk)
 
     static member Create(config, name : string, value : int, pid) = 
         async { 
@@ -89,5 +63,6 @@ type Counter internal (config, pk, rk) =
             do! Table.insert config config.RuntimeTable e
             return new Counter(config, pid, name)
         }
+
     static member Create(config, value : int, pid) = 
         Counter.Create(config, guid(), value, pid)

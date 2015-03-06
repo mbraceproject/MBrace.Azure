@@ -11,53 +11,70 @@ open MBrace
 open System.Collections.Generic
 open MBrace.Azure
 
-[<Sealed>]
-type DistributedCancellationTokenSource internal (config : ConfigurationId, pk, rk) = 
-    let table = config.RuntimeTable
+/// Azure Table Store implementation of ICloudCancellationTokenSource
+[<DataContract; Sealed>]
+type DistributedCancellationTokenSource internal (config : ConfigurationId, partitionKey : string , rowKey : string) = 
+
+    [<DataMember(Name = "config")>]
+    let config = config
+    [<DataMember(Name = "partitionKey")>]
+    let partitionKey = partitionKey
+    [<DataMember(Name = "rowKey")>]
+    let rowKey = rowKey
+    [<DataMember(Name = "isCancelled")>]
+    let mutable isCancellationRequested = false
+    
+    [<IgnoreDataMember>]
+    let mutable localToken : CancellationToken option = None
 
     let cancel () = async {
         // Cancel current
-        let e = new CancellationTokenSourceEntity(pk, rk, Unchecked.defaultof<_>, IsCancellationRequested = true, ETag = "*")
-        do! Table.merge config table e
+        let e = new CancellationTokenSourceEntity(partitionKey, rowKey, Unchecked.defaultof<_>, IsCancellationRequested = true, ETag = "*")
+        do! Table.merge config config.RuntimeTable e
             |> Async.Ignore
          
         // Gather all Uri's to update
         let visited = new HashSet<string>()
         let uris = new ResizeArray<string * string>()
 
-        let rec walk pk rk = async {
+        let rec walk partitionKey rowKey = async {
             // Get all CTS links for current CTS.
-            if visited.Add(rk) then
-                let! e = Table.read<CancellationTokenSourceEntity> config table pk rk
+            if visited.Add(rowKey) then
+                let! e = Table.read<CancellationTokenSourceEntity> config config.RuntimeTable partitionKey rowKey
                 let ch = e.GetLinks()
-                for (pk, rk) as e in ch do
-                    if not <| visited.Contains(rk) then
+                for (partitionKey, rowKey) as e in ch do
+                    if not <| visited.Contains(rowKey) then
                         uris.Add(e)
-                        do! walk pk rk
+                        do! walk partitionKey rowKey
         }
-        do! walk pk rk
+        do! walk partitionKey rowKey
         
         do! uris
-            |> Seq.groupBy (fun (pk, _) -> pk)
+            |> Seq.groupBy (fun (partitionKey, _) -> partitionKey)
             |> Seq.map (fun (_, xs) -> 
                 xs 
-                |> Seq.map (fun (pk, rk) -> new CancellationTokenSourceEntity(pk, rk, Unchecked.defaultof<_>, IsCancellationRequested = true, ETag = "*"))
-                |> Table.mergeBatch config table
+                |> Seq.map (fun (partitionKey, rowKey) -> new CancellationTokenSourceEntity(partitionKey, rowKey, Unchecked.defaultof<_>, IsCancellationRequested = true, ETag = "*"))
+                |> Table.mergeBatch config config.RuntimeTable
                 )
             |> Async.Parallel
             |> Async.Ignore
     }
 
-    let mutable isCancellationRequested = false
     let check() = 
         async { 
-            let! e = Table.read<CancellationTokenSourceEntity> config table pk rk
+            let! e = Table.read<CancellationTokenSourceEntity> config config.RuntimeTable partitionKey rowKey
             isCancellationRequested <- e.IsCancellationRequested
             return isCancellationRequested
         }
-    
-    let localCts =
-        lazy
+
+    let getLocalToken () =
+        match localToken with
+        | Some t -> t
+        | None when isCancellationRequested -> 
+            let t = new CancellationToken(true)
+            localToken <- Some t
+            t
+        | None ->
             let cts = new CancellationTokenSource()
             let rec loop () = async {
                 let! isCancelled = check ()
@@ -68,12 +85,12 @@ type DistributedCancellationTokenSource internal (config : ConfigurationId, pk, 
                     return! loop ()
             }
             Async.Start(loop())
-            cts
-
+            localToken <- Some cts.Token
+            cts.Token
 
     interface ICloudCancellationToken with
         member this.IsCancellationRequested : bool = this.IsCancellationRequested
-        member this.LocalToken : CancellationToken = localCts.Value.Token
+        member this.LocalToken : CancellationToken = getLocalToken ()
 
     interface ICloudCancellationTokenSource with
         member this.Cancel() : unit = this.Cancel()
@@ -84,29 +101,17 @@ type DistributedCancellationTokenSource internal (config : ConfigurationId, pk, 
     member __.CancelAsync() = cancel ()
     member __.Cancel() = Async.RunSync(__.CancelAsync())
     
-    override this.ToString() = sprintf "%s/%s" pk rk
+    override this.ToString() = sprintf "%s/%s" partitionKey rowKey
 
-    member this.PartitionKey = pk
-    member this.RowKey = rk
+    member this.PartitionKey = partitionKey
+    member this.RowKey = rowKey
     member this.Links = 
         Async.RunSync <| async {
-            let! e = Table.read<CancellationTokenSourceEntity> config config.RuntimeTable pk rk
+            let! e = Table.read<CancellationTokenSourceEntity> config config.RuntimeTable partitionKey rowKey
             return e.GetLinks()
         }
-    
-    interface ISerializable with
-        member x.GetObjectData(info: SerializationInfo, _ : StreamingContext): unit = 
-            info.AddValue("pk", pk, typeof<string>)
-            info.AddValue("rk", rk, typeof<string>)
-            info.AddValue("config", config, typeof<ConfigurationId>)
 
-    new(info: SerializationInfo, _ : StreamingContext) =
-        let pk = info.GetValue("pk", typeof<string>) :?> string
-        let rk = info.GetValue("rk", typeof<string>) :?> string
-        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
-        new DistributedCancellationTokenSource(config, pk, rk)
-
-    static member FromPath(config : ConfigurationId, pid, rk) = new DistributedCancellationTokenSource(config, pid, rk)
+    static member FromPath(config : ConfigurationId, pid, rowKey) = new DistributedCancellationTokenSource(config, pid, rowKey)
     static member Create(config, pid, ?metadata, ?parent : DistributedCancellationTokenSource) = 
         async {
             // Create DCTS record 
