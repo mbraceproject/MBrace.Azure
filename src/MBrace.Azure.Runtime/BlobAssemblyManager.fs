@@ -23,7 +23,7 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
         
         | Some _  ->
             let ok, wasPartial = partialAssemblies.TryGetValue pkg.Id
-            // is fully evaluated slice for the first time; record occurence and return true
+            // is fully evaluated slice for the first time; record occurrence and return true
             if ok && wasPartial then
                 partialAssemblies.[pkg.Id] <- false ; true
             // fully evaluated slice is already uploaded

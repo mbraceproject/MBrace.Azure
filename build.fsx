@@ -167,7 +167,6 @@ Target "NuGet.CoreAzure" (fun _ ->
             Files =
                 [
                     yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Store.dll"
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.Common.dll"
                     yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.dll"
                     yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Client.dll"
                 ]
@@ -207,7 +206,6 @@ Target "NuGet.Client" (fun _ ->
                     yield! addAssembly @"tools" @"..\bin\Microsoft.WindowsAzure.Configuration.dll"
                     yield! addAssembly @"tools" @"..\bin\Microsoft.WindowsAzure.Storage.dll"
                     yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Store.dll"
-                    yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Runtime.Common.dll"
                     yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Runtime.dll"
                     yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Client.dll"
                 ]

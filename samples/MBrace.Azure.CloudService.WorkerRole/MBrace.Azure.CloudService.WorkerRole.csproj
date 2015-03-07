@@ -83,12 +83,8 @@
       <Project>{5aae037c-f0c3-4a04-a5f4-46001ec513bf}</Project>
       <Name>MBrace.Azure.Client</Name>
     </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Azure.Runtime.Common\MBrace.Azure.Runtime.Common.fsproj">
-      <Project>{5ed05ec2-a9a0-4247-bb66-4d4c866f43ad}</Project>
-      <Name>MBrace.Azure.Runtime.Common</Name>
-    </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Azure.Runtime\MBrace.Azure.Runtime.fsproj">
-      <Project>{c823708c-9dcf-407c-aa67-d41ab128f172}</Project>
+      <Project>{5ed05ec2-a9a0-4247-bb66-4d4c866f43ad}</Project>
       <Name>MBrace.Azure.Runtime</Name>
     </ProjectReference>
     <ProjectReference Include="..\..\src\MBrace.Azure.Store\MBrace.Azure.Store.fsproj">

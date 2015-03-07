@@ -14,7 +14,7 @@ type WorkerRef internal (id : string, hostname : string, pid : int, pname : stri
     member __.ProcessName = pname 
     /// First worker's heartbeat time.
     member __.InitializationTime = joined 
-    /// Last worker's heatbeat time.
+    /// Last worker's heartbeat time.
     member __.HeartbeatTime = heartbeat
     /// Hash of worker's activated ConfigurationId.
     member __.ConfigurationHash = configurationHash
