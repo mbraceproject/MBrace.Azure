@@ -7,6 +7,7 @@ open MBrace.Continuation
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure
+open Microsoft.WindowsAzure.Storage.Table
 
 [<DataContract>]
 type IntCell internal (config : ConfigurationId, partitionKey : string, rowKey : string) =
@@ -35,21 +36,21 @@ type IntCell internal (config : ConfigurationId, partitionKey : string, rowKey :
             return new IntCell(config, pid, name)
         }
 
-[<DataContract>]
-type Latch internal (config, partitionKey, rowKey) = 
-    inherit IntCell(config, partitionKey, rowKey)
-
-    member __.Decrement() = base.Update(fun v -> v - 1)
-
-    static member Create(config, name : string, value : int, pid) = 
-        async { 
-            let e = new LatchEntity(pid, name, value, value)
-            do! Table.insert config config.RuntimeTable e
-            return new Latch(config, pid, name)
-        }
-
-    static member Create(config, value : int, pid) = 
-        Latch.Create(config, guid(), value, pid)
+//[<DataContract>]
+//type Latch internal (config, partitionKey, rowKey) = 
+//    inherit IntCell(config, partitionKey, rowKey)
+//
+//    member __.Decrement() = base.Update(fun v -> v - 1)
+//
+//    static member Create(config, name : string, value : int, pid) = 
+//        async { 
+//            let e = new LatchEntity(pid, name, value, value)
+//            do! Table.insert config config.RuntimeTable e
+//            return new Latch(config, pid, name)
+//        }
+//
+//    static member Create(config, value : int, pid) = 
+//        Latch.Create(config, guid(), value, pid)
 
 [<DataContract>]
 type Counter internal (config, partitionKey, rowKey) = 
@@ -57,12 +58,11 @@ type Counter internal (config, partitionKey, rowKey) =
 
     member __.Increment() = base.Update(fun v -> v + 1)
 
-    static member Create(config, name : string, value : int, pid) = 
-        async { 
-            let e = new CounterEntity(pid, name, value)
-            do! Table.insert config config.RuntimeTable e
-            return new Counter(config, pid, name)
-        }
-
     static member Create(config, value : int, pid) = 
-        Counter.Create(config, guid(), value, pid)
+        let name = guid()
+        let e = new CounterEntity(pid, name, value)
+        let op = TableOperation.Insert(e)
+        { new TableResourceOperation<Counter> with
+            member x.Operations = Seq.singleton op
+            member x.Resource = new Counter(config, pid, name)
+        }

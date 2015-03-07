@@ -127,12 +127,14 @@ type ResultCell<'T> internal (config : ConfigurationId, partitionKey : string, r
         let pkrk = path.Split('/')
         new ResultCell<'T>(config, pkrk.[0], pkrk.[1])
 
-    static member Create(config, id, pid) : Async<ResultCell<'T>> = 
-        async { 
-            let e = new BlobReferenceEntity(pid, id, null, EntityType = "RESULT")
-            do! Table.insert<BlobReferenceEntity> config config.RuntimeTable e
-            return new ResultCell<'T>(config, pid, id)
+    static member Create(config, id, pid) = 
+        let e = new BlobReferenceEntity(pid, id, null, EntityType = "RESULT")
+        let op = TableOperation.Insert(e)
+        { new TableResourceOperation<ResultCell<'T>> with
+              member x.Operations = Seq.singleton op
+              member x.Resource = new ResultCell<'T>(config, pid, id)
         }
+
 
 [<DataContract; Sealed>]
 type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : string, rowKey : string, size : int) = 
@@ -203,13 +205,15 @@ type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : str
         }
 
     static member Create<'T>(config, size, pid) = 
-        async { 
-            let name = guid()
-            let entities = seq {
-                for i = 0 to size - 1 do
-                    let name = mkRowKey name i
-                    yield new BlobReferenceEntity(pid, name, String.Empty, EntityType = "AGGR")
-            }
-            do! Table.insertBatch config config.RuntimeTable entities
-            return new ResultAggregator<'T>(config, pid, name, size)
+        let name = guid()
+        let entities = seq {
+            for i = 0 to size - 1 do
+                let name = mkRowKey name i
+                yield new BlobReferenceEntity(pid, name, String.Empty, EntityType = "AGGR")
+        }
+        let ops = entities |> Seq.map TableOperation.Insert
+        { new TableResourceOperation<ResultAggregator<'T>> with
+              member x.Operations = ops
+              member x.Resource = new ResultAggregator<'T>(config, pid, name, size)
+              
         }

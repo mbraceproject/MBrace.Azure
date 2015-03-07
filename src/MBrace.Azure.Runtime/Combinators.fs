@@ -35,10 +35,13 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depe
         | Choice1Of2 computations ->
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
+            
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = currentCts, metadata = jobId, elevate = true)
             
-            let! resultAggregator = state.ResourceFactory.RequestResultAggregator<'T>(computations.Length, psInfo.Id)
-            let! cancellationLatch = state.ResourceFactory.RequestCounter(0, psInfo.Id)
+            let requestBatch = state.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
+            let resultAggregator = requestBatch.RequestResultAggregator<'T>(computations.Length)
+            let cancellationLatch = requestBatch.RequestCounter(0)
+            do! requestBatch.CommitAsync()
 
             let onSuccess i ctx (t : 'T) = 
                 async {
@@ -95,9 +98,11 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depend
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
             let! childCts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = currentCts, metadata = jobId, elevate = true)
-
-            let! completionLatch = state.ResourceFactory.RequestCounter(0, psInfo.Id)
-            let! cancellationLatch = state.ResourceFactory.RequestCounter(0, psInfo.Id)
+            
+            let batchRequest = state.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
+            let completionLatch = batchRequest.RequestCounter(0)
+            let cancellationLatch = batchRequest.RequestCounter(0)
+            do! batchRequest.CommitAsync()
 
             let onSuccess ctx (topt : 'T option) =
                 async {

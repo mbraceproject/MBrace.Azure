@@ -60,20 +60,21 @@ type ProcessManager private (config : ConfigurationId) =
     
     static member Create(configId : ConfigurationId) = new ProcessManager(configId)
 
-    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, cts : DistributedCancellationTokenSource, resultUri) = async { 
-        let now = DateTimeOffset.UtcNow
-        let pickledTy = Configuration.Pickler.Pickle(ty)
-        let deps = Configuration.Pickler.Pickle(deps)
-        let tyName = Runtime.Utils.PrettyPrinters.Type.prettyPrint ty
-        let ctsKey =
-            cts.ElevateCancellationToken() |> ignore
-            match cts.RowKey with
-            | None -> raise <| new OperationCanceledException()
-            | Some rK -> rK
-        let e = new ProcessRecord(pk, pid, name, ctsKey, string ProcessState.Posted, now, now, false, resultUri, pickledTy, tyName, deps)
-        do! Table.insertOrReplace<ProcessRecord> config table e
-        return e
-    }
+    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, cts : DistributedCancellationTokenSource, resultUri) = 
+        async {
+            let now = DateTimeOffset.UtcNow
+            let pickledTy = Configuration.Pickler.Pickle(ty)
+            let deps = Configuration.Pickler.Pickle(deps)
+            let tyName = Runtime.Utils.PrettyPrinters.Type.prettyPrint ty
+            let ctsKey =
+                cts.ElevateCancellationToken() |> ignore
+                match cts.RowKey with
+                | None -> raise <| new OperationCanceledException()
+                | Some rK -> rK
+            let e = new ProcessRecord(pk, pid, name, ctsKey, string ProcessState.Posted, now, now, false, resultUri, pickledTy, tyName, deps)
+            return! Table.insert config config.RuntimeTable e
+        }
+
 
     // TODO : These methods cannot be used atomically
     member this.IncreaseTotalJobs(pid : string, ?count) = 

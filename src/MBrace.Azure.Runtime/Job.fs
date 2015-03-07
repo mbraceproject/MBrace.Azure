@@ -266,7 +266,12 @@ with
     /// Schedules a cloud workflow as an ICloudTask.
     member internal rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Workflow<'T>, jobType, parentJobId) : Async<ICloudTask<'T>> = async {
         let jobId = guid()
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.Id)
+        let! resultCell = async {
+            let batch = rt.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
+            let rc = batch.RequestResultCell(jobId)
+            do! batch.CommitAsync()
+            return rc
+        }
         let setResult ctx r = 
             async {
                 do! resultCell.SetResult r
@@ -291,11 +296,12 @@ with
             | None -> rt.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, metadata = jobId, elevate = true)
             | Some ct -> async { return ct :?> DistributedCancellationTokenSource }
         
-        logger.Logf "Request for ResultCell"
-        let! resultCell = rt.ResourceFactory.RequestResultCell<'T>(jobId, psInfo.Id)
-
+        let requests = rt.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
+        let resultCell = requests.RequestResultCell<'T>(jobId)
         logger.Logf "Creating Process Record for %s" psInfo.Id
-        let! _ = rt.ProcessMonitor.CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies, cts, string resultCell.Path)
+        do! Async.Parallel [| rt.ProcessMonitor.CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies, cts, string resultCell.Path)
+                              requests.CommitAsync() |]
+            |> Async.Ignore
 
         let setResult ctx r = 
             async {

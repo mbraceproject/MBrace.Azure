@@ -137,6 +137,7 @@ open System.Collections.Concurrent
 open System.Reflection
 open MBrace.Azure
 open System.Net
+open System.Threading.Tasks
 
 /// Exception indicating invalid Configuration.
 type InvalidConfigurationException (msg : string, inner) =
@@ -145,63 +146,64 @@ type InvalidConfigurationException (msg : string, inner) =
 /// Provides Azure client instances for storage related entities
 [<AutoSerializable(false)>]
 type StoreClientProvider (config : Configuration) =
+    do ServicePointManager.DefaultConnectionLimit <- 512
     do ServicePointManager.Expect100Continue <- false
     do ServicePointManager.UseNagleAlgorithm <- false
-    do ServicePointManager.DefaultConnectionLimit <- 512
 
     let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
-    member __.TableClient = acc.Value.CreateCloudTableClient()
-    member __.BlobClient = 
+    member this.TableClient = acc.Value.CreateCloudTableClient()
+    member this.BlobClient = 
         let client = acc.Value.CreateCloudBlobClient()
         client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(4 * System.Environment.ProcessorCount)
         client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(1L <<< 23) // 8MB, possible ranges: 1..64MB, default 32MB
         client.DefaultRequestOptions.MaximumExecutionTime <- Nullable<_>(TimeSpan.FromMinutes(10.))
         client
-    member __.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
+    member this.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
     member __.QueueClient(queue : string, mode) = QueueClient.CreateFromConnectionString(config.ServiceBusConnectionString, queue, mode)
     member __.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic, name)
-    member __.TopicClient(topic) = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic)
+    member this.TopicClient(topic) = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic)
 
-    member __.ClearUserData() =
+    member this.ClearUserData() =
         async {
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.UserDataTable).DeleteIfExistsAsync()
-            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.UserDataContainer).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| this.TableClient.GetTableReference(config.UserDataTable).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| this.BlobClient.GetContainerReference(config.UserDataContainer).DeleteIfExistsAsync()
             ()
         }
 
-    member __.ClearRuntimeState() =
+    member this.ClearRuntimeState() =
         async { 
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeTable).DeleteIfExistsAsync()
-            let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.RuntimeContainer).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| this.TableClient.GetTableReference(config.RuntimeTable).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| this.BlobClient.GetContainerReference(config.RuntimeContainer).DeleteIfExistsAsync()
             ()
         }
 
-    member __.ClearRuntimeLogs() =
+    member this.ClearRuntimeLogs() =
         async { 
-            let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeLogsTable).DeleteIfExistsAsync()
+            let! _ = Async.AwaitTask <| this.TableClient.GetTableReference(config.RuntimeLogsTable).DeleteIfExistsAsync()
             ()
         }
 
-    member __.ClearRuntimeQueues() =
+    member this.ClearRuntimeQueues() =
         async {
-            let! _ = Async.AwaitIAsyncResult <| __.NamespaceClient.DeleteQueueAsync(config.RuntimeQueue)
-            let! _ = Async.AwaitIAsyncResult <| __.NamespaceClient.DeleteTopicAsync(config.RuntimeTopic)
+            let! _ = Async.AwaitIAsyncResult <| this.NamespaceClient.DeleteQueueAsync(config.RuntimeQueue)
+            let! _ = Async.AwaitIAsyncResult <| this.NamespaceClient.DeleteTopicAsync(config.RuntimeTopic)
             ()
         }
 
-    member __.InitAll() =
+    member this.InitAll() =
         async {
             try
-                let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeTable).CreateIfNotExistsAsync()
-                let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.RuntimeLogsTable).CreateIfNotExistsAsync()
-                let! _ = Async.AwaitTask <| __.TableClient.GetTableReference(config.UserDataTable).CreateIfNotExistsAsync()
-                let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.RuntimeContainer).CreateIfNotExistsAsync()
-                let! _ = Async.AwaitTask <| __.BlobClient.GetContainerReference(config.UserDataContainer).CreateIfNotExistsAsync()
-                ()
+                do! Async.Parallel [|
+                        Async.AwaitIAsyncResult <| this.TableClient.GetTableReference(config.RuntimeTable).CreateIfNotExistsAsync()
+                        Async.AwaitIAsyncResult <| this.TableClient.GetTableReference(config.RuntimeLogsTable).CreateIfNotExistsAsync()
+                        Async.AwaitIAsyncResult <| this.TableClient.GetTableReference(config.UserDataTable).CreateIfNotExistsAsync()
+                        Async.AwaitIAsyncResult <| this.BlobClient.GetContainerReference(config.RuntimeContainer).CreateIfNotExistsAsync()
+                        Async.AwaitIAsyncResult <| this.BlobClient.GetContainerReference(config.UserDataContainer).CreateIfNotExistsAsync()
+                    |] |> Async.Ignore
             with e ->
                 raise <| InvalidConfigurationException("Invalid Storage Account Configuration", e)
             try
-                let! _ = Async.AwaitTask <| __.NamespaceClient.QueueExistsAsync(config.RuntimeQueue)
+                let! _ = Async.AwaitTask <| this.NamespaceClient.QueueExistsAsync(config.RuntimeQueue)
                 ()
             with e ->
                 raise <| InvalidConfigurationException("Invalid Service Bus Configuration", e)

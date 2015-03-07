@@ -25,10 +25,10 @@ type CounterEntity(pid, name : string, value : int) =
     member val Value = value with get, set
     new () = new CounterEntity(empty, empty, 0)
 
-type LatchEntity(pid, name : string, value : int, size : int) = 
-    inherit CounterEntity(pid, name, value)
-    member val Size = size with get, set
-    new () = new LatchEntity(empty, empty, -1, -1)
+//type LatchEntity(pid, name : string, value : int, size : int) = 
+//    inherit CounterEntity(pid, name, value)
+//    member val Size = size with get, set
+//    new () = new LatchEntity(empty, empty, -1, -1)
 
 type BlobReferenceEntity(pid, name : string, uri : string) =
     inherit RuntimeEntity(pid, name, "REF")
@@ -79,7 +79,12 @@ type CancellationTokenSourceEntity(pid, id : string, links : (string * string) l
         
     new () = new CancellationTokenSourceEntity(empty, empty, Unchecked.defaultof<_>)
 
-
+// Used to create batch operations on multiple resource requests.
+type TableResourceOperation =
+    abstract Operations : TableOperation seq
+type TableResourceOperation<'TResource> =
+    inherit TableResourceOperation
+    abstract Resource : 'TResource
 
 module Table =
     let PreconditionFailed (e : exn) =
@@ -101,8 +106,7 @@ module Table =
     let insert<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.Insert(e) |> exec config table |> Async.Ignore
 
-
-    let batch<'T when 'T :> ITableEntity> (operation : 'T -> TableBatchOperation -> unit) config table (es : seq<'T>) : Async<unit> =
+    let batch config table (operations : TableBatchOperation) = 
         async {
             let jobs = new ResizeArray<Async<unit>>()
             let batch = ref <| new TableBatchOperation()
@@ -112,9 +116,9 @@ module Table =
                 let! _ = t.ExecuteBatchAsync(batch)
                 ()
             }
-            for e in es do
-                operation e batch.Value
-                if batch.Value.Count = 100 then
+            for e in operations do
+                batch.Value.Add(e)
+                if batch.Value.Count = 100 then // Tables support up to 100 ops.
                     let! handle = mkHandle batch.Value
                     batch := new TableBatchOperation()
                     jobs.Add(handle)
@@ -127,13 +131,19 @@ module Table =
         }
 
     let insertBatch<'T when 'T :> ITableEntity> config table (es : seq<'T>) : Async<unit> =
-        batch (fun e b -> b.Insert(e)) config table es
+        let b = new TableBatchOperation()
+        es |> Seq.iter (fun e -> b.Add(TableOperation.Insert(e)))
+        batch config table b
 
     let mergeBatch<'T when 'T :> ITableEntity> config table (es : seq<'T>) : Async<unit> =
-        batch (fun e b -> b.Merge(e)) config table es
+        let b = new TableBatchOperation()
+        es |> Seq.iter (fun e -> b.Add(TableOperation.Merge(e)))
+        batch config table b
 
     let deleteBatch<'T when 'T :> ITableEntity> config table (es : seq<'T>) : Async<unit> =
-        batch (fun e b -> b.Delete(e)) config table es
+        let b = new TableBatchOperation()
+        es |> Seq.iter (fun e -> b.Add(TableOperation.Delete(e)))
+        batch config table b
 
     let insertOrReplace<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.InsertOrReplace(e) |> exec config table |> Async.Ignore
