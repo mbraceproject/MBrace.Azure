@@ -92,10 +92,10 @@
     <Compile Include="Job.fs" />
     <Compile Include="Combinators.fs" />
     <Compile Include="RuntimeProvider.fs" />
-    <Compile Include="Worker.fs" />
-    <Compile Include="Service.fs" />
     <Content Include="paket.references" />
     <Content Include="app.config" />
+    <Compile Include="Worker\Worker.fs" />
+    <Compile Include="Worker\Service.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
