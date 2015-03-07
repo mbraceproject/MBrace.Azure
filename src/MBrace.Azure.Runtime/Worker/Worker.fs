@@ -27,7 +27,7 @@ type internal WorkerConfig =
       WorkerMonitor      : WorkerManager
       ProcessMonitor     : ProcessManager }
 
-type internal WorkerMessage =
+type private WorkerMessage =
     | Start of WorkerConfig  * AsyncReplyChannel<unit>
     | Update of WorkerConfig * AsyncReplyChannel<unit>
     | Stop of AsyncReplyChannel<unit>
@@ -116,6 +116,7 @@ type internal Worker () =
                 match message, state with
                 | None, Running(config, _) ->
                     if config.WorkerMonitor.ActiveJobs >= config.MaxConcurrentJobs then
+                        do! Async.Sleep receiveTimeout
                         return! workerLoop state
                     else
                         let! job = Async.Catch <| config.State.TryDequeue()
@@ -153,6 +154,7 @@ type internal Worker () =
                             do! Async.Sleep onErrorWaitTime
                             return! workerLoop state
                 | None, Idle -> 
+                    do! Async.Sleep receiveTimeout
                     return! workerLoop state
                 | Some(Start(config, handle)), Idle ->
                     return! workerLoop(Running(config, handle))
