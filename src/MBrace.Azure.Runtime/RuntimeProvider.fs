@@ -16,7 +16,7 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
 
     let mkNestedCts (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
-        let dcts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory, parent = parentCts, elevate = false)
+        let dcts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = parentCts, elevate = false)
                    |> Async.RunSynchronously
         dcts :> ICloudCancellationTokenSource
 
@@ -29,7 +29,7 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
             async {
                 match parents with
                 | [||] -> 
-                    let! cts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.DefaultDirectory, elevate = false) 
+                    let! cts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, elevate = false) 
                     return cts :> ICloudCancellationTokenSource
                 | [| ct |] -> return mkNestedCts ct
                 | _ -> return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
