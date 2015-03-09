@@ -74,7 +74,7 @@
     <Compile Include="StreamsTests.fs" />
     <None Include="test.fsx" />
     <None Include="resources.fsx" />
-    <None Include="nunit.fsx" />
+    <None Include="azure.fsx" />
     <Content Include="paket.references" />
     <Content Include="app.config" />
   </ItemGroup>

@@ -3,7 +3,6 @@
 #r "FsPickler.dll"
 #r "Vagabond.dll"
 #r "Microsoft.ServiceBus.dll"
-#r "MBrace.Azure.Runtime.Common.dll"
 #r "MBrace.Azure.Runtime.dll"
 #r "MBrace.Azure.Client.dll"
 #time "on"
