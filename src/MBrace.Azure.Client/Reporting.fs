@@ -1,5 +1,7 @@
 ﻿namespace MBrace.Azure.Client
 
+#nowarn "52"
+
 open MBrace.Azure.Runtime.Common
 open MBrace.Runtime.Utils.PrettyPrinters
 open System
@@ -32,11 +34,11 @@ type internal WorkerReporter() =
           Field.create "% CPU / Cores" Center (fun p -> sprintf "%s / %d" (double_printer p.CPU) p.ProcessorCount)
           Field.create "% Memory / Total(MB)" Center (fun p -> sprintf "%s / %s" <| double_printer p.Memory <| double_printer p.TotalMemory)
           Field.create "Network(ul/dl : kbps)" Center (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUp <| double_printer n.NetworkDown)
-          Field.create "Jobs" Center (fun p -> sprintf "%d / %d" p.ActiveJobs p.MaxJobs)
+          Field.create "Jobs" Center (fun p -> sprintf "%d / %d" p.ActiveJobs.Value p.MaxJobs.Value)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
           Field.create "Heartbeat" Left (fun p -> p.Timestamp)
-          Field.create "Is active" Left (fun p -> p.IsActive)
+          Field.create "Is active" Left (fun p -> p.IsActive.Value)
         ]
     
     static member Report(workers : WorkerRecord seq, title, borders) = 

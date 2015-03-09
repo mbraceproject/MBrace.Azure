@@ -44,66 +44,66 @@ type Service (config : Configuration, serviceId : string) =
     new(config : Configuration) = new Service (config, guid())
 
     /// Get service's unique identifier.
-    member __.Id = serviceId
+    member this.Id = serviceId
     
     /// Attach logger to worker.
-    member __.AttachLogger(l) = check(); logger.Attach(l)
+    member this.AttachLogger(l) = check(); logger.Attach(l)
     
     /// Get or set service configuration.
-    member __.Configuration  
+    member this.Configuration  
         with get () = configuration
         and set c = check (); configuration <- c
     
     /// Determines if the registered local cache will be used.
-    member __.UseLocalCache
+    member this.UseLocalCache
         with get () = useCache
         and set c = check (); useCache <- c
 
     /// Get or set the maximum number of jobs that this worker may execute concurrently.
-    member __.MaxConcurrentJobs 
+    member this.MaxConcurrentJobs 
         with get () = maxJobs
         and set c = check (); maxJobs <- c
     
     /// Register an ICloudFileStore instance. Defaults to BlobStore with configuration's storage connection string.
-    member __.RegisterStoreProvider(store : ICloudFileStore) =
+    member this.RegisterStoreProvider(store : ICloudFileStore) =
         check () ; storeProvider <- Some store
     
     /// Register an ICloudAtomProvider instance. Defaults to table store implementation with configuration's storage connection string.
-    member __.RegisterAtomProvider(atom : ICloudAtomProvider) = 
+    member this.RegisterAtomProvider(atom : ICloudAtomProvider) = 
         check () ; atomProvider <- Some atom
     
     /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
-    member __.RegisterChannelProvider(channel : ICloudChannelProvider) = 
+    member this.RegisterChannelProvider(channel : ICloudChannelProvider) = 
         check () ; channelProvider <- Some channel
     
     /// Register a local filesystem cache implementation. Defaults to FileSystemStore in local TEMP folder.
-    member __.RegisterCache(cacheStore : ICloudFileStore) =
+    member this.RegisterCache(cacheStore : ICloudFileStore) =
         check () ; cache <- Some <| cacheStore
 
     /// Add a custom resource in workers ResourceRegistry.
-    member __.RegisterResource(resource : 'TResource) = check () ; resources <- resources.Register(resource)
+    member this.RegisterResource(resource : 'TResource) = check () ; resources <- resources.Register(resource)
     
     /// Start Service and worker loop as a Task.
-    member __.StartAsTask() : Tasks.Task = Async.StartAsTask(__.StartAsync()) :> _
+    member this.StartAsTask() : Tasks.Task = Async.StartAsTask(this.StartAsync()) :> _
     
     /// Start Service and worker loop as a Task.
-    member __.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(__.StartAsync(), cancellationToken = ct) :> _     
+    member this.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(this.StartAsync(), cancellationToken = ct) :> _     
     
     /// Asynchronously start Service and worker loop.
-    member __.StartAsync() : Async<unit> =
+    member this.StartAsync() : Async<unit> =
         async {
             try
                 logf "Starting Service %s" serviceId
                 let sw = new Stopwatch() in sw.Start()
 
-                let cfg = __.Configuration.WithAppendedId
+                let cfg = this.Configuration.WithAppendedId
 
                 logf "Activating Configuration %05d, Hash %d" cfg.Id (hash cfg.ConfigurationId)
                 Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
                 do! Configuration.ActivateAsync(cfg)
 
                 logf "Creating storage logger"
-                let storageLogger = new StorageLogger(cfg.ConfigurationId, Worker(id = __.Id))
+                let storageLogger = new StorageLogger(cfg.ConfigurationId, Worker(id = this.Id))
                 logger.Attach(storageLogger)
 
                 logf "%s" <| ReleaseInfo.prettyPrint()
@@ -115,14 +115,11 @@ type Service (config : Configuration, serviceId : string) =
                 let! state = RuntimeState.FromConfiguration(cfg)
                 state.Logger.Attach(logger)
 
-                logf "Initializing JobEvaluator"
-                worker.InitializeJobEvaluator()
-
                 storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(cfg.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
                 let store = 
-                    if __.UseLocalCache then
+                    if this.UseLocalCache then
                         cache <- 
                             Some <|
                                 match cache with
@@ -152,10 +149,10 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
-                let wmon = WorkerManager.Create(cfg.ConfigurationId, MaxJobs = __.MaxConcurrentJobs)
-                let! e = wmon.RegisterCurrent(serviceId)
+                let wmon = WorkerManager.Create(cfg.ConfigurationId, state.Logger)
+                let! e = wmon.RegisterCurrent(serviceId, this.MaxConcurrentJobs)
                 logf "Declared node : %s \nPID : %d \nServiceId : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
-                
+
                 Async.Start(wmon.HeartbeatLoop())
                 logf "Started heartbeat loop" 
 
@@ -167,15 +164,18 @@ type Service (config : Configuration, serviceId : string) =
                     yield state.ProcessManager 
                 }
                 
-                
                 state.JobQueue.Affinity <- serviceId
                 logf "Subscription for %s created" serviceId
 
-                logf "MaxConcurrentJobs : %d" __.MaxConcurrentJobs
+                logf "MaxConcurrentJobs : %d" this.MaxConcurrentJobs
+                
+                logf "Initializing JobEvaluator"
+                worker.InitializeJobEvaluator()
+                
                 logf "Starting worker loop"
                 let config = { 
                     State                     = state
-                    MaxConcurrentJobs         = __.MaxConcurrentJobs
+                    MaxConcurrentJobs         = this.MaxConcurrentJobs
                     Resources                 = resources
                     JobEvaluatorConfiguration =
                         { Store               = store
@@ -192,15 +192,15 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Service %s started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
                 return! handle
             with ex ->
-                logf "Service Start for %s failed with %A" __.Id  ex
+                logf "Service Start for %s failed with %A" this.Id  ex
                 return! Async.Raise ex
         }
 
     /// Start Service. This method is blocking until worker loop completes.
-    member __.Start() = Async.RunSync(__.StartAsync())
+    member this.Start() = Async.RunSync(this.StartAsync())
 
     /// Stop Service and worker loop. Wait for any pending jobs.
-    member __.StopAsync () =
+    member this.StopAsync () =
         async {
             try
                 logf "Stopping Service %s." serviceId
@@ -208,9 +208,9 @@ type Service (config : Configuration, serviceId : string) =
                 worker.Stop()
                 logf "Service %s stopped." serviceId
             with ex ->
-                logf "Service Stop for %s failed with %A" __.Id  ex
+                logf "Service Stop for %s failed with %A" this.Id  ex
                 return! Async.Raise ex
         }
 
     /// Stop Service and worker loop. Wait for any pending jobs.
-    member __.Stop () = Async.RunSync(__.StopAsync())
+    member this.Stop () = Async.RunSync(this.StopAsync())

@@ -23,7 +23,6 @@ type internal StaticJobEvaluatorConfiguration =
     { State          : RuntimeState
       Resources      : ResourceRegistry
       Cache          : IObjectCache
-      Logger         : ICloudLogger
       WorkerManager  : WorkerManager
       ProcessManager : ProcessManager }
 
@@ -48,29 +47,32 @@ type internal JobEvaluator(config : Configuration, serviceId : string) =
                 do! Configuration.ActivateAsync(config)
 
                 let logger = new StorageLogger(config.ConfigurationId, Worker(id = serviceId))
+                
                 let serializer = Configuration.Serializer
                 let! state = RuntimeState.FromConfiguration(config)
-                state.Logger.Attach(logger)
-                state.Logger.Attach(new ConsoleLogger())
                 state.Logger.ShowAppDomainAsPrefix <- true
+                state.Logger.Attach(logger)
+                state.Logger.Attach(new MBrace.Azure.ConsoleLogger())
                 state.JobQueue.Affinity <- serviceId
                 let inMemoryCache = InMemoryCache.Create()
-                let workerManager = WorkerManager.Create(config.ConfigurationId)
+                let workerManager = WorkerManager.Create(config.ConfigurationId, state.Logger)
+                do! workerManager.RegisterLocal(serviceId)
                 let resources = resource { 
                     yield serializer
                     yield logger
                     yield workerManager
                     yield state.ProcessManager 
                 }
-            
+
                 staticConfiguration <-
                     { State = state
                       Resources = resources
                       Cache = inMemoryCache
-                      Logger = logger
                       WorkerManager = workerManager
                       ProcessManager = state.ProcessManager
                     }
+
+                state.Logger.Logf "AppDomain Initialized"
             }
             |> Async.RunSynchronously
 
@@ -88,36 +90,26 @@ type internal JobEvaluator(config : Configuration, serviceId : string) =
         Job.RunAsync provider resources faultCount job
 
     static let run (config : JobEvaluatorConfiguration) (msg : QueueMessage) (jobItem : JobItem) = async {
-        let inline logf fmt = Printf.ksprintf staticConfiguration.Logger.Log fmt
-
-        logf "Loading dependencies"
-        do! staticConfiguration.State.AssemblyManager.LoadDependencies(jobItem.Dependencies)
-
-        let job = VagabondRegistry.Instance.Pickler.UnPickleTyped(jobItem.PickledJob)
-
-//        config.Logger.Logf "Failed to UnPickle Job :\n%A" ex
-//        if msg.DeliveryCount >= maxJobDeliveryCount then
-//            // TODO : Set Process as Faulted.
-//            config.Logger.Logf "Faulted message : Complete."
-//            do! config.State.JobQueue.CompleteAsync(msg)
-//        else
-//            config.Logger.Logf "Faulted message : Abandon."
-//            do! config.State.JobQueue.AbandonAsync(msg)
-
-        if job.JobType = JobType.Root then
-            logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
-            do! staticConfiguration.ProcessManager.SetRunning(job.ProcessInfo.Id)
-
-        if msg.DeliveryCount = 1 then
-            do! staticConfiguration.ProcessManager.AddActiveJob(job.ProcessInfo.Id)
-
-        logf "Starting job\n%s" (string job)
-        let sw = new Stopwatch()
-        sw.Start()
-        let! result = Async.Catch(runJob config job jobItem.Dependencies (msg.DeliveryCount-1))
-        sw.Stop()
-
+        let inline logf fmt = Printf.ksprintf (staticConfiguration.State.Logger :> ICloudLogger).Log fmt
         try
+            logf "Loading dependencies"
+            do! staticConfiguration.State.AssemblyManager.LoadDependencies(jobItem.Dependencies)
+            
+            logf "UnPickle Job [%d bytes]" jobItem.PickledJob.Bytes.Length
+            let job = VagabondRegistry.Instance.Pickler.UnPickleTyped(jobItem.PickledJob)
+
+            if job.JobType = JobType.Root then
+                logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
+                do! staticConfiguration.ProcessManager.SetRunning(job.ProcessInfo.Id)
+
+            if msg.DeliveryCount = 1 then
+                do! staticConfiguration.ProcessManager.AddActiveJob(job.ProcessInfo.Id)
+            
+            logf "Starting job\n%s" (string job)
+            let sw = Stopwatch.StartNew()
+            let! result = Async.Catch(runJob config job jobItem.Dependencies (msg.DeliveryCount-1))
+            sw.Stop()
+
             match result with
             | Choice1Of2 () -> 
                 do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
@@ -127,14 +119,24 @@ type internal JobEvaluator(config : Configuration, serviceId : string) =
                 do! staticConfiguration.State.JobQueue.AbandonAsync(msg)
                 do! staticConfiguration.ProcessManager.AddFaultedJob(job.ProcessInfo.Id)
                 logf "Job fault %s with :\n%O" (string job) e
-        finally
-            staticConfiguration.WorkerManager.DecrementJobCount()
-            staticConfiguration.Logger.Logf "ActiveJobs : %d" staticConfiguration.WorkerManager.ActiveJobs
+        with ex ->
+            logf "Failed to UnPickle Job :\n%A" ex
+            if msg.DeliveryCount >= 1 then
+                // TODO : Set Process as Faulted.
+                logf "Faulted message : Complete."
+                do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
+            else
+                logf "Faulted message : Abandon."
+                do! staticConfiguration.State.JobQueue.AbandonAsync(msg)
     }
 
-    let pool = AppDomainEvaluatorPool.Create(mkAppDomainInitializer config serviceId, threshold = TimeSpan.FromHours 2.)
-    
+    let pool = AppDomainEvaluatorPool.Create(
+                mkAppDomainInitializer config serviceId, 
+                threshold = TimeSpan.FromHours 2., 
+                minimumConcurrentDomains = 1,
+                maximumConcurrentDomains = 64)
+
     member __.EvaluateAsync(config : JobEvaluatorConfiguration, message : QueueMessage) = async {
         let! jobItem = message.GetPayloadAsync<JobItem>()
-        return! pool.EvaluateAsync(jobItem.Dependencies, run config message jobItem)
+        return! pool.EvaluateAsync(jobItem.Dependencies, Async.Catch(run config message jobItem))
     }

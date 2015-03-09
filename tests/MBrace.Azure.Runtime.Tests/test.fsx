@@ -44,7 +44,9 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
-let x = runtime.Run <| cloud { return 42 }
+let x = runtime.CreateProcess <| cloud { return 42 }
+x.ShowInfo()
+x.AwaitResult()
 
 runtime.ClearAllProcesses()
 
@@ -57,7 +59,6 @@ let ps =
     |> runtime.CreateProcess
 
 ps.ShowInfo()
-
 ps.AwaitResult()
 ps.Kill()
 

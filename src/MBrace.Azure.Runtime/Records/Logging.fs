@@ -34,7 +34,7 @@ type LoggerCombiner (loggers, showAppDomain) =
 
     interface ICloudLogger with
         member this.Log entry =
-            let entry = if this.ShowAppDomainAsPrefix then sprintf "[AppDomain %s] %s" appDomain entry else entry
+            let entry = if this.ShowAppDomainAsPrefix then sprintf "AppDomain %s\n%s" appDomain entry else entry
             for l in attached do
                 l.Log(entry)
 

@@ -15,6 +15,7 @@ open MBrace.Runtime.Vagabond
 open MBrace.Store
 open MBrace.Runtime
 open System
+open System.Threading
 
 type private WorkerMessage =
     | Start of WorkerConfig  * AsyncReplyChannel<unit>
@@ -30,6 +31,8 @@ type internal Worker (configuration : Configuration, serviceId : string) =
 
     let jobEvaluator =  lazy new JobEvaluator(configuration, serviceId)
     
+    let mutable currentJobCount = 0
+    
     let workerLoopAgent =
         /// Timeout for the Mailbox loop.
         let receiveTimeout = 100
@@ -40,7 +43,7 @@ type internal Worker (configuration : Configuration, serviceId : string) =
         let waitForPendingJobs (config : WorkerConfig) = async {
             config.Logger.Log "Stop requested. Waiting for pending jobs."
             let rec wait () = async {
-                if config.WorkerManager.ActiveJobs > 0 then
+                if currentJobCount > 0 then
                     do! Async.Sleep receiveTimeout
                     return! wait ()
             }
@@ -60,15 +63,23 @@ type internal Worker (configuration : Configuration, serviceId : string) =
                 }
                 match message, state with
                 | None, Running(config, _) ->
-                    if config.WorkerManager.ActiveJobs >= config.MaxConcurrentJobs then
+                    if currentJobCount >= config.MaxConcurrentJobs then
                         do! Async.Sleep receiveTimeout
                         return! workerLoop state
                     else
                         let! job = Async.Catch <| config.State.TryDequeue()
                         match job with
-                        | Choice1Of2 None -> return! workerLoop state
+                        | Choice1Of2 None -> 
+                            return! workerLoop state
                         | Choice1Of2(Some message) ->
-                            let! _ = Async.StartChild(jobEvaluator.Value.EvaluateAsync(config.JobEvaluatorConfiguration, message))
+                            let _ = Interlocked.Increment &currentJobCount
+                            let! _ = Async.StartChild <| async { 
+                                    let! _ = config.WorkerManager.IncrementJobCount()
+                                    let! _ = jobEvaluator.Value.EvaluateAsync(config.JobEvaluatorConfiguration, message)
+                                    let  _ = Interlocked.Decrement &currentJobCount
+                                    let! _ = config.WorkerManager.DecrementJobCount()
+                                    return ()
+                            }
                             return! workerLoop state
                         | Choice2Of2 ex ->
                             config.Logger.Logf "Worker JobQueue fault\n%A" ex
