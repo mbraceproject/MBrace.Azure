@@ -72,12 +72,14 @@ type internal Worker (configuration : Configuration, serviceId : string) =
                         | Choice1Of2 None -> 
                             return! workerLoop state
                         | Choice1Of2(Some message) ->
-                            let _ = Interlocked.Increment &currentJobCount
+                            let jc = Interlocked.Increment &currentJobCount
+                            config.WorkerManager.SetJobCountLocal(jc)
+                            config.Logger.Logf "Active Jobs %d" jc
                             let! _ = Async.StartChild <| async { 
-                                    let! _ = config.WorkerManager.IncrementJobCount()
                                     let! _ = jobEvaluator.Value.EvaluateAsync(config.JobEvaluatorConfiguration, message)
-                                    let  _ = Interlocked.Decrement &currentJobCount
-                                    let! _ = config.WorkerManager.DecrementJobCount()
+                                    let jc = Interlocked.Decrement &currentJobCount
+                                    config.WorkerManager.SetJobCountLocal(jc)
+                                    config.Logger.Logf "Active Jobs %d" jc
                                     return ()
                             }
                             return! workerLoop state

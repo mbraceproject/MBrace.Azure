@@ -69,7 +69,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val NetworkUp          = Nullable<double>() with get, set
     member val NetworkDown        = Nullable<double>() with get, set
 
-    new () = new WorkerRecord(null, null, null, defaultNull, null, Unchecked.defaultof<_>, defaultNull)
+    new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>, nullableDefault)
 
     member this.AsWorkerRef () = 
         new WorkerRef(
@@ -106,17 +106,20 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             |> Async.Ignore
     }
 
-    member this.IncrementJobCount () = async {
-        let! w = Table.transact<WorkerRecord> config table pk this.Current.RowKey 
-                    (fun w -> w.ActiveJobs <- w.ActiveJobs ?+ 1 )
-        return w.ActiveJobs.Value
-    }
+//    member this.IncrementJobCount () = async {
+//        let! w = Table.transact<WorkerRecord> config table pk this.Current.RowKey 
+//                    (fun w -> w.ActiveJobs <- w.ActiveJobs ?+ 1 )
+//        return w.ActiveJobs.Value
+//    }
+//
+//    member this.DecrementJobCount () = async {
+//        let! w = Table.transact<WorkerRecord> config table pk this.Current.RowKey 
+//                    (fun w -> w.ActiveJobs <- w.ActiveJobs ?- 1 )
+//        return w.ActiveJobs.Value
+//    }
 
-    member this.DecrementJobCount () = async {
-        let! w = Table.transact<WorkerRecord> config table pk this.Current.RowKey 
-                    (fun w -> w.ActiveJobs <- w.ActiveJobs ?- 1 )
-        return w.ActiveJobs.Value
-    }
+    member this.SetJobCountLocal(jobCount) =
+        this.Current.ActiveJobs <- nullable jobCount
 
     member this.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
         let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
@@ -126,6 +129,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             let counters = perfMon.Value.GetCounters()
             worker.UpdateCounters(counters)
             worker.IsActive <- nullable true
+            //worker.ActiveJobs <- nullableDefault
             worker.ETag <- "*"
             let! e = Table.merge<WorkerRecord> config table worker
             current <- Some e

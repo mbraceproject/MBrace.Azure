@@ -13,7 +13,7 @@
         let inline nullable< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > (value : 'T) = 
             new Nullable<'T>(value)
 
-        let inline defaultNull< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > = 
+        let inline nullableDefault< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > = 
             new Nullable<'T>()
 
         type Async with

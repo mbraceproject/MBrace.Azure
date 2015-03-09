@@ -37,14 +37,14 @@ runtime.AttachClientLogger(new ConsoleLogger())
 #r "MBrace.Azure.Runtime.Standalone"
 open MBrace.Azure.Runtime.Standalone
 Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 4, 16)
+Runtime.Spawn(config, 1, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
-let x = runtime.CreateProcess <| cloud { return 42 }
+let x = runtime.CreateProcess <| Cloud.Sleep 20000
 x.ShowInfo()
 x.AwaitResult()
 
