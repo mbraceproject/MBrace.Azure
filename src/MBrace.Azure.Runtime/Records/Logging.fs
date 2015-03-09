@@ -25,17 +25,21 @@ type LogRecord(pk, rk, message, time) =
     member val Time : DateTimeOffset = time with get, set
     new () = new LogRecord(null, null, null, Unchecked.defaultof<_>)
 
-type LoggerCombiner (loggers) =
+type LoggerCombiner (loggers, showAppDomain) =
     let attached = new ConcurrentBag<ICloudLogger>(loggers)
+    let appDomain = AppDomain.CurrentDomain.FriendlyName
 
     member __.Attach(logger) = attached.Add(logger)
+    member val ShowAppDomainAsPrefix = showAppDomain with get, set
 
     interface ICloudLogger with
-        member __.Log entry =
+        member this.Log entry =
+            let entry = if this.ShowAppDomainAsPrefix then sprintf "[AppDomain %s] %s" appDomain entry else entry
             for l in attached do
                 l.Log(entry)
 
-    new () = LoggerCombiner(Seq.empty)
+    new () = LoggerCombiner(Seq.empty, false)
+    new (showAppDomain) = LoggerCombiner(Seq.empty, showAppDomain)
     
   
 

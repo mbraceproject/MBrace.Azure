@@ -35,7 +35,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
     let logger                  = new LoggerCombiner() 
-    let worker                  = new Worker()
+    let worker                  = new Worker(configuration, serviceId)
     
     let logf fmt = logger.Logf fmt
     let check () = if worker.IsActive then invalidOp "Cannot change Service while it is active."
@@ -115,11 +115,11 @@ type Service (config : Configuration, serviceId : string) =
                 let! state = RuntimeState.FromConfiguration(cfg)
                 state.Logger.Attach(logger)
 
+                logf "Initializing JobEvaluator"
+                worker.InitializeJobEvaluator()
+
                 storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(cfg.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
-
-                logf "Creating InMemoryCache"
-                let inMemoryCache = InMemoryCache.Create()
 
                 let store = 
                     if __.UseLocalCache then
@@ -164,9 +164,7 @@ type Service (config : Configuration, serviceId : string) =
                     yield serializer
                     yield logger
                     yield wmon
-                    yield state.ProcessMonitor 
-                    // TODO : This is for debugging purposes. Maybe remove.
-                    yield ConfigurationRegistry.Resolve<StoreClientProvider>(cfg.ConfigurationId)
+                    yield state.ProcessManager 
                 }
                 
                 
@@ -176,16 +174,16 @@ type Service (config : Configuration, serviceId : string) =
                 logf "MaxConcurrentJobs : %d" __.MaxConcurrentJobs
                 logf "Starting worker loop"
                 let config = { 
-                    State              = state
-                    MaxConcurrentJobs  = __.MaxConcurrentJobs
-                    Resources          = resources
-                    Store              = store
-                    Channel            = channelProvider.Value
-                    Atom               = atomProvider.Value
-                    Cache              = inMemoryCache
-                    Logger             = logger
-                    WorkerMonitor      = wmon
-                    ProcessMonitor     = state.ProcessMonitor 
+                    State                     = state
+                    MaxConcurrentJobs         = __.MaxConcurrentJobs
+                    Resources                 = resources
+                    JobEvaluatorConfiguration =
+                        { Store               = store
+                          Channel             = channelProvider.Value
+                          Atom                = atomProvider.Value }
+                    Logger                    = logger
+                    WorkerManager             = wmon
+                    ProcessManager            = state.ProcessManager 
                 }
                 let! handle = Async.StartChild <| async { do worker.Start(config) }
                 logf "Worker loop started"
