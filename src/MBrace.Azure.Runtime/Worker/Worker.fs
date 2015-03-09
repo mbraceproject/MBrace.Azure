@@ -62,8 +62,6 @@ type internal Worker () =
         let run (config : WorkerConfig) (msg : QueueMessage) (job : Job) dependencies = async {
             let inline logf fmt = Printf.ksprintf config.Logger.Log fmt
 
-            let! _ = Async.StartChild(msg.RenewLoopAsync())
-
             if job.JobType = JobType.Root then
                 logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
                 do! config.ProcessMonitor.SetRunning(job.ProcessInfo.Id)
@@ -80,11 +78,11 @@ type internal Worker () =
             try
                 match result with
                 | Choice1Of2 () -> 
-                    do! msg.CompleteAsync()
+                    do! config.State.JobQueue.CompleteAsync(msg)
                     do! config.ProcessMonitor.AddCompletedJob(job.ProcessInfo.Id)
                     logf "Completed job\n%s\nTime : %O" (string job) sw.Elapsed
                 | Choice2Of2 e -> 
-                    do! msg.AbandonAsync()
+                    do! config.State.JobQueue.AbandonAsync(msg)
                     do! config.ProcessMonitor.AddFaultedJob(job.ProcessInfo.Id)
                     logf "Job fault %s with :\n%O" (string job) e
             finally
@@ -143,10 +141,10 @@ type internal Worker () =
                                 if msg.DeliveryCount >= maxJobDeliveryCount then
                                     // TODO : Set Process as Faulted.
                                     config.Logger.Logf "Faulted message : Complete."
-                                    do! msg.CompleteAsync()
+                                    do! config.State.JobQueue.CompleteAsync(msg)
                                 else
                                     config.Logger.Logf "Faulted message : Abandon."
-                                    do! msg.AbandonAsync()
+                                    do! config.State.JobQueue.AbandonAsync(msg)
                                 do! Async.Sleep onErrorWaitTime
                             return! workerLoop state
                         | Choice2Of2 ex ->

@@ -172,7 +172,7 @@ with
     static member FromConfiguration (config : Configuration) = async {
         let configurationId = config.ConfigurationId
         let logger = new LoggerCombiner()
-        let! jobQueue = JobQueue.Create(configurationId)
+        let! jobQueue = JobQueue.Create(configurationId, logger)
         let assemblyManager = BlobAssemblyManager.Create(configurationId, logger) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
         let pmon = ProcessManager.Create(configurationId)

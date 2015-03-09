@@ -6,68 +6,63 @@ open Microsoft.ServiceBus.Messaging
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Common
 open MBrace.Azure
+open MBrace.Runtime
 
 [<AutoOpenAttribute>]
-module private Constants = 
+module private Helpers = 
     let RenewLockInverval = 10000
     let MaxLockDuration = TimeSpan.FromMilliseconds(3. * float RenewLockInverval)
     let MaxTTL = TimeSpan.MaxValue
     let ServerWaitTime = TimeSpan.FromMilliseconds(50.)
     let AffinityPropertyName = "Affinity"
-    let PIDPropertyName = "ProcessId"
+    let ProcessIdPropertyName = "ProcessId"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
 
+    let rec renewLoop (message : BrokeredMessage) = async {
+        try
+            do! message.RenewLockAsync()
+        with :? MessageLockLostException ->
+            return ()
+        do! Async.Sleep RenewLockInverval
+        return! renewLoop message
+    }
+
 /// Local wrapper for Service Bus message
-[<AutoSerializable(false)>]
-type QueueMessage(config : ConfigurationId, msg : BrokeredMessage) = 
-    let mutable completed = false
-    let affinity = 
-        match msg.Properties.TryGetValue(AffinityPropertyName) with
-        | false, _ -> None
-        | true, affinity -> Some (string affinity)
+type QueueMessage(config : ConfigurationId, affinity, deliveryCount, processId, lockToken, body, isQueueMessage) = 
+
+    member __.IsQueueMessage = isQueueMessage
+
+    member __.LockToken = lockToken
 
     member __.Affinity = affinity
 
-    member __.DeliveryCount = msg.DeliveryCount
+    member __.DeliveryCount = deliveryCount
 
-    member __.ProcessId : string option =
-        match msg.Properties.TryGetValue(PIDPropertyName) with
-        | true, pid -> Some(pid :?> string)
-        | false, _ -> None
-
-    member this.CompleteAsync() = 
-        async { 
-            completed <- true
-            do! msg.CompleteAsync()
-        }
-    
-    member this.AbandonAsync() = 
-        async { 
-            completed <- true
-            do! msg.AbandonAsync()
-        }
-    
-    member __.RenewLoopAsync() = 
-        let rec loop() = 
-            async { 
-                if completed then return ()
-                else 
-                    do! msg.RenewLockAsync()
-                    do! Async.Sleep RenewLockInverval
-                    return! loop()
-            }
-        loop()
+    member __.ProcessId = processId
     
     member __.GetPayloadAsync<'T>() : Async<'T> = 
         async { 
-            let p = msg.GetBody<string>()
-            let t = Blob.FromPath(config, p)
+            let t = Blob.FromPath(config, body)
             return! t.GetValue()
         }
 
+    static member FromBrokeredMessage(config : ConfigurationId, message : BrokeredMessage, isQueueMessage) =
+        let affinity = 
+            match message.Properties.TryGetValue(AffinityPropertyName) with
+            | true, aff -> Some(aff :?> string)
+            | false, _  -> None
+        let deliveryCount = message.DeliveryCount
+        let processId = 
+            match message.Properties.TryGetValue(AffinityPropertyName) with
+            | true, aff -> Some(aff :?> string)
+            | false, _  -> None
+        let lockToken = message.LockToken
+        let body = message.GetBody<string>()
+        new QueueMessage(config, affinity, deliveryCount, processId, lockToken, body, isQueueMessage)
+
 /// Local queue subscription client
 [<AutoSerializable(false)>]
-type internal Subscription (config : ConfigurationId, affinity : string) = 
+type internal Subscription (config : ConfigurationId, logger : ICloudLogger, affinity : string) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let subscription = affinity
 
@@ -81,21 +76,35 @@ type internal Subscription (config : ConfigurationId, affinity : string) =
             sd.AutoDeleteOnIdle <- SubscriptionAutoDeleteInterval
             let filter = new SqlFilter(sprintf "%s = '%s'" AffinityPropertyName affinity)
             ns.CreateSubscription(sd, filter) |> ignore
-    
+
     let sub = cp.SubscriptionClient(config.RuntimeTopic, subscription)
+
+    member __.CompleteAsync(message : QueueMessage) =
+        async {
+            do! sub.CompleteAsync(message.LockToken)
+        }
+
+    member __.AbandonAsync(message : QueueMessage) =
+        async {
+            do! sub.AbandonAsync(message.LockToken)
+        }
+    
     member __.TryDequeue<'T>() : Async<QueueMessage option> = 
         async { 
             let! msg = sub.ReceiveAsync(ServerWaitTime)
-            if msg = null then return None
-            else return Some(QueueMessage(config, msg))
+            if msg = null then 
+                return None
+            else 
+                do! Async.StartChild(renewLoop msg) |> Async.Ignore 
+                return Some(QueueMessage.FromBrokeredMessage(config, msg, false))
         }
 
 /// Local queue topic client
 [<AutoSerializable(false)>]
-type internal Topic (config : ConfigurationId) = 
+type internal Topic (config : ConfigurationId, logger : ICloudLogger) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let tc = cp.TopicClient(config.RuntimeTopic)
-    member __.GetSubscription(affinity) : Subscription = new Subscription(config, affinity)
+    member __.GetSubscription(affinity) : Subscription = new Subscription(config, logger, affinity)
     
     member __.EnqueueBatch<'T>(xs : ('T * string) [], ?pid) = 
         async { 
@@ -105,7 +114,7 @@ type internal Topic (config : ConfigurationId) =
                                  let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
                                  let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
-                                 pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
+                                 pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
                                  return msg
                              })
                       |> Async.Parallel
@@ -120,7 +129,7 @@ type internal Topic (config : ConfigurationId) =
                                  let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
                                  let msg = new BrokeredMessage(bc.Path)
                                  msg.Properties.Add(AffinityPropertyName, affinity)
-                                 pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
+                                 pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
                                  return msg
                              })
                       |> Async.Parallel
@@ -132,11 +141,11 @@ type internal Topic (config : ConfigurationId) =
             let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> t)
             let msg = new BrokeredMessage(bc.Path)
             msg.Properties.Add(AffinityPropertyName, affinity)
-            pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
+            pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
             do! tc.SendAsync(msg)
         }
 
-    static member Create(config) = 
+    static member Create(config, logger) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
             let name = config.RuntimeTopic
@@ -146,23 +155,33 @@ type internal Topic (config : ConfigurationId) =
                 td.EnablePartitioning <- true
                 td.DefaultMessageTimeToLive <- MaxTTL 
                 do! ns.CreateTopicAsync(td)
-            return new Topic(config)
+            return new Topic(config, logger)
         }
 
 /// Queue client implementation
 [<AutoSerializable(false)>]
-type internal Queue (config : ConfigurationId) = 
+type internal Queue (config : ConfigurationId, logger) = 
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
     let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
     
     member __.Length = ns.GetQueue(config.RuntimeQueue).MessageCount
-    
+
+    member __.CompleteAsync(message : QueueMessage) =
+        async {
+            do! queue.CompleteAsync(message.LockToken)
+        }
+
+    member __.AbandonAsync(message : QueueMessage) =
+        async {
+            do! queue.AbandonAsync(message.LockToken)
+        }
+
     member __.EnqueueBatch<'T>(xs : 'T [], ?pid) = 
         async { 
             let! ys = xs
                       |> Array.map (fun x -> async { let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
                                                      let msg = new BrokeredMessage(bc.Path)
-                                                     pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
+                                                     pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
                                                      return msg })
                       |> Async.Parallel
             do! queue.SendBatchAsync(ys)
@@ -172,18 +191,21 @@ type internal Queue (config : ConfigurationId) =
         async { 
             let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> t)
             let msg = new BrokeredMessage(bc.Path)
-            pid |> Option.iter(fun pid -> msg.Properties.Add(PIDPropertyName, pid))
+            pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
             do! queue.SendAsync(msg)
         }
     
     member __.TryDequeue<'T>() : Async<QueueMessage option> = 
         async { 
             let! msg = queue.ReceiveAsync(ServerWaitTime)
-            if msg = null then return None
-            else return Some(QueueMessage(config, msg))
+            if msg = null then 
+                return None
+            else
+                do! Async.StartChild(renewLoop msg) |> Async.Ignore 
+                return Some(QueueMessage.FromBrokeredMessage(config, msg, true))
         }
     
-    static member Create(config : ConfigurationId) = 
+    static member Create(config : ConfigurationId, logger) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
             let qd = new QueueDescription(config.RuntimeQueue)
@@ -193,12 +215,12 @@ type internal Queue (config : ConfigurationId) =
             qd.LockDuration <- MaxLockDuration
             let! exists = ns.QueueExistsAsync(config.RuntimeQueue)
             if not exists then do! ns.CreateQueueAsync(qd)
-            return new Queue(config)
+            return new Queue(config, logger)
         }
 
 // Unified access to Queue/Topic/Subscription.
 [<AutoSerializable(false)>]
-type JobQueue internal (queue : Queue, topic : Topic) = 
+type JobQueue internal (queue : Queue, topic : Topic, logger) = 
     let mutable affinity : string option = None
     let mutable subscription : Subscription option = None 
     let mutable flag = false
@@ -209,6 +231,17 @@ type JobQueue internal (queue : Queue, topic : Topic) =
             affinity <- Some aff
             subscription <- Some(topic.GetSubscription(aff))
 
+    member __.CompleteAsync(message : QueueMessage) =
+        async {
+            if message.IsQueueMessage then do! queue.CompleteAsync(message)
+            else do! subscription.Value.CompleteAsync(message)
+        }
+
+    member __.AbandonAsync(message : QueueMessage) =
+        async {
+            if message.IsQueueMessage then do! queue.AbandonAsync(message)
+            else do! subscription.Value.AbandonAsync(message)
+        }
 
     member __.TryDequeue() : Async<QueueMessage option> =
         async {
@@ -261,9 +294,9 @@ type JobQueue internal (queue : Queue, topic : Topic) =
         }
     
     /// Yadda Yadda
-    static member Create(config : ConfigurationId) =
+    static member Create(config : ConfigurationId, logger) =
         async {
-            let! queue = Queue.Create(config)
-            let! topic = Topic.Create(config)
-            return new JobQueue(queue, topic)
+            let! queue = Queue.Create(config, logger)
+            let! topic = Topic.Create(config, logger)
+            return new JobQueue(queue, topic, logger)
         }
