@@ -162,8 +162,10 @@ type RuntimeState =
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
-        /// Process monitoring.
+        /// Process management.
         ProcessManager : ProcessManager
+        /// Worker management.
+        WorkerManager : WorkerManager
         /// Runtime Logger.
         Logger : LoggerCombiner
     }
@@ -175,12 +177,14 @@ with
         let! jobQueue = JobQueue.Create(configurationId, logger)
         let assemblyManager = BlobAssemblyManager.Create(configurationId, logger) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
-        let pmon = ProcessManager.Create(configurationId)
+        let pman = ProcessManager.Create(configurationId)
+        let wman = WorkerManager.Create(configurationId, logger)
         return { 
             JobQueue = jobQueue
             AssemblyManager = assemblyManager 
             ResourceFactory = resourceFactory 
-            ProcessManager = pmon
+            ProcessManager = pman
+            WorkerManager = wman
             Logger = logger
         }
     }

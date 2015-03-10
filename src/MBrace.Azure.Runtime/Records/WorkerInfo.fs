@@ -100,24 +100,6 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
 
     member this.Current : WorkerRecord = current.Value
     
-    member this.SetMaxJobs(maxJobs) = async {
-        current.Value.MaxJobs <- nullable maxJobs
-        do! Table.merge config table current.Value
-            |> Async.Ignore
-    }
-
-//    member this.IncrementJobCount () = async {
-//        let! w = Table.transact<WorkerRecord> config table pk this.Current.RowKey 
-//                    (fun w -> w.ActiveJobs <- w.ActiveJobs ?+ 1 )
-//        return w.ActiveJobs.Value
-//    }
-//
-//    member this.DecrementJobCount () = async {
-//        let! w = Table.transact<WorkerRecord> config table pk this.Current.RowKey 
-//                    (fun w -> w.ActiveJobs <- w.ActiveJobs ?- 1 )
-//        return w.ActiveJobs.Value
-//    }
-
     member this.SetJobCountLocal(jobCount) =
         this.Current.ActiveJobs <- nullable jobCount
 
@@ -145,7 +127,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             current <- Some record
         }
 
-    member this.RegisterCurrent(workerId : string, maxJobs) : Async<WorkerRef> = 
+    member this.RegisterCurrent(workerId : string, ?maxJobs) : Async<WorkerRecord> = 
         async {
             match current with 
             | Some w -> 
@@ -158,10 +140,10 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 w.UpdateCounters(perfMon.Value.GetCounters())
                 w.ActiveJobs <- nullable 0
                 w.IsActive <- nullable true
-                w.MaxJobs <- nullable maxJobs
+                w.MaxJobs <- match maxJobs with None -> nullableDefault | Some mj -> nullable mj
                 do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
                 current <- Some w
-                return w.AsWorkerRef()
+                return w
         }
 
     member this.UnregisterCurrent () : Async<unit> = 

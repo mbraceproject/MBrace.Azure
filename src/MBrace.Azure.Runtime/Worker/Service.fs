@@ -12,16 +12,6 @@ open System
 open System.Diagnostics
 open System.Threading
 
-module private ReleaseInfo =
-    open System.Reflection
-
-    let prettyPrint () =
-        let asm = Assembly.GetExecutingAssembly()
-        let attributes = 
-            asm.GetCustomAttributes<AssemblyMetadataAttribute>()
-            |> Seq.map (fun ma -> ma.Key, ma.Value)
-            |> Map.ofSeq
-        attributes.["Release Signature"]
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
@@ -34,10 +24,10 @@ type Service (config : Configuration, serviceId : string) =
     let mutable resources       = ResourceRegistry.Empty
     let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
-    let logger                  = new LoggerCombiner() 
-    let worker                  = new Worker(configuration, serviceId)
+    let customLogger            = new LoggerCombiner() 
+    let worker                  = new Worker()
     
-    let logf fmt = logger.Logf fmt
+    let logf fmt = customLogger.Logf fmt
     let check () = if worker.IsActive then invalidOp "Cannot change Service while it is active."
     
     /// MBrace Runtime Service.
@@ -47,7 +37,7 @@ type Service (config : Configuration, serviceId : string) =
     member this.Id = serviceId
     
     /// Attach logger to worker.
-    member this.AttachLogger(l) = check(); logger.Attach(l)
+    member this.AttachLogger(l) = check(); customLogger.Attach(l)
     
     /// Get or set service configuration.
     member this.Configuration  
@@ -93,29 +83,11 @@ type Service (config : Configuration, serviceId : string) =
     member this.StartAsync() : Async<unit> =
         async {
             try
-                logf "Starting Service %s" serviceId
                 let sw = new Stopwatch() in sw.Start()
 
-                let cfg = this.Configuration.WithAppendedId
+                let! state, resources = Init.Initializer(config, serviceId, true, customLogger, maxJobs = this.MaxConcurrentJobs)
 
-                logf "Activating Configuration %05d, Hash %d" cfg.Id (hash cfg.ConfigurationId)
-                Configuration.AddIgnoredAssembly(typeof<Service>.Assembly)
-                do! Configuration.ActivateAsync(cfg)
-
-                logf "Creating storage logger"
-                let storageLogger = new StorageLogger(cfg.ConfigurationId, Worker(id = this.Id))
-                logger.Attach(storageLogger)
-
-                logf "%s" <| ReleaseInfo.prettyPrint()
-
-                let serializer = Configuration.Serializer
-                logf "Serializer : %s" serializer.Id
-
-                logf "Initializing RuntimeState"
-                let! state = RuntimeState.FromConfiguration(cfg)
-                state.Logger.Attach(logger)
-
-                storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(cfg.StorageConnectionString) :> _))
+                storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
                 let store = 
@@ -149,41 +121,22 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
-                let wmon = WorkerManager.Create(cfg.ConfigurationId, state.Logger)
-                let! e = wmon.RegisterCurrent(serviceId, this.MaxConcurrentJobs)
-                logf "Declared node : %s \nPID : %d \nServiceId : %s" e.Hostname e.ProcessId (e :> IWorkerRef).Id
-
-                Async.Start(wmon.HeartbeatLoop())
-                logf "Started heartbeat loop" 
-
-                let resources = resource { 
-                    yield! resources
-                    yield serializer
-                    yield logger
-                    yield wmon
-                    yield state.ProcessManager 
-                }
-                
-                state.JobQueue.Affinity <- serviceId
-                logf "Subscription for %s created" serviceId
-
                 logf "MaxConcurrentJobs : %d" this.MaxConcurrentJobs
-                
+
                 logf "Initializing JobEvaluator"
-                worker.InitializeJobEvaluator()
+                let jobEvaluator = new JobEvaluator(config, serviceId, customLogger)
                 
                 logf "Starting worker loop"
                 let config = { 
                     State                     = state
+                    JobEvaluator              = jobEvaluator
                     MaxConcurrentJobs         = this.MaxConcurrentJobs
                     Resources                 = resources
                     JobEvaluatorConfiguration =
                         { Store               = store
                           Channel             = channelProvider.Value
                           Atom                = atomProvider.Value }
-                    Logger                    = logger
-                    WorkerManager             = wmon
-                    ProcessManager            = state.ProcessManager 
+                    Logger                    = customLogger
                 }
                 let! handle = Async.StartChild <| async { do worker.Start(config) }
                 logf "Worker loop started"

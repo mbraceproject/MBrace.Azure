@@ -17,6 +17,14 @@ open MBrace.Runtime
 open System
 open System.Threading
 
+type internal WorkerConfig = 
+    { State                     : RuntimeState
+      MaxConcurrentJobs         : int
+      Resources                 : ResourceRegistry
+      JobEvaluatorConfiguration : JobEvaluatorConfiguration
+      Logger                    : ICloudLogger
+      JobEvaluator              : JobEvaluator }
+
 type private WorkerMessage =
     | Start of WorkerConfig  * AsyncReplyChannel<unit>
     | Update of WorkerConfig * AsyncReplyChannel<unit>
@@ -27,10 +35,8 @@ type private WorkerState =
     | Idle
     | Running of WorkerConfig * AsyncReplyChannel<unit>
 
-type internal Worker (configuration : Configuration, serviceId : string) =
+type internal Worker () =
 
-    let jobEvaluator =  lazy new JobEvaluator(configuration, serviceId)
-    
     let mutable currentJobCount = 0
     
     let workerLoopAgent =
@@ -50,7 +56,7 @@ type internal Worker (configuration : Configuration, serviceId : string) =
             do! wait ()
             config.Logger.Log "No active jobs."
             config.Logger.Log "Unregister current worker."
-            do! config.WorkerManager.UnregisterCurrent()
+            do! config.State.WorkerManager.UnregisterCurrent()
             config.Logger.Log "Worker stopped."
         }
 
@@ -73,12 +79,12 @@ type internal Worker (configuration : Configuration, serviceId : string) =
                             return! workerLoop state
                         | Choice1Of2(Some message) ->
                             let jc = Interlocked.Increment &currentJobCount
-                            config.WorkerManager.SetJobCountLocal(jc)
+                            config.State.WorkerManager.SetJobCountLocal(jc)
                             config.Logger.Logf "Active Jobs %d" jc
                             let! _ = Async.StartChild <| async { 
-                                    let! _ = jobEvaluator.Value.EvaluateAsync(config.JobEvaluatorConfiguration, message)
+                                    let! _ = config.JobEvaluator.EvaluateAsync(config.JobEvaluatorConfiguration, message)
                                     let jc = Interlocked.Decrement &currentJobCount
-                                    config.WorkerManager.SetJobCountLocal(jc)
+                                    config.State.WorkerManager.SetJobCountLocal(jc)
                                     config.Logger.Logf "Active Jobs %d" jc
                                     return ()
                             }
@@ -127,5 +133,3 @@ type internal Worker (configuration : Configuration, serviceId : string) =
     member __.Restart(configuration) =
         __.Stop()
         __.Start(configuration)
-
-    member __.InitializeJobEvaluator () = jobEvaluator.Force() |> ignore
