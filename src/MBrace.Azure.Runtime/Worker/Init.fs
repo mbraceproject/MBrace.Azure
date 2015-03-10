@@ -72,7 +72,7 @@ type Init =
 
             let resources = resource { 
                 yield Configuration.Serializer
-                yield logger // TODO : is this needed?
+                //yield logger // TODO : is this needed?
                 yield state.WorkerManager
                 yield state.ProcessManager 
             }

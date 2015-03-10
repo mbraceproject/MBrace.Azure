@@ -64,7 +64,6 @@ and [<AutoSerializable(false)>]
     static let run (config : JobEvaluatorConfiguration) (msg : QueueMessage) (jobItem : JobItem) = async {
         let inline logf fmt = Printf.ksprintf (staticConfiguration.State.Logger :> ICloudLogger).Log fmt
         try
-            logf "Loading dependencies"
             do! staticConfiguration.State.AssemblyManager.LoadDependencies(jobItem.Dependencies)
 
             logf "UnPickle Job [%d bytes]" jobItem.PickledJob.Bytes.Length
@@ -104,8 +103,8 @@ and [<AutoSerializable(false)>]
 
     let pool = AppDomainEvaluatorPool.Create(
                 mkAppDomainInitializer config serviceId customLogger, 
-                threshold = TimeSpan.FromHours 2., 
-                minimumConcurrentDomains = 1,
+                threshold = TimeSpan.FromDays 2., 
+                minimumConcurrentDomains = 4,
                 maximumConcurrentDomains = 64)
 
     member __.EvaluateAsync(config : JobEvaluatorConfiguration, message : QueueMessage) = async {
