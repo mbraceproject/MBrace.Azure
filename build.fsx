@@ -132,8 +132,8 @@ let addAssembly (target : string) assembly =
 
     seq {
         yield! includeFile true assembly
-        yield! includeFile false <| Path.ChangeExtension(assembly, "pdb")
-        yield! includeFile false <| Path.ChangeExtension(assembly, "xml")
+        yield! includeFile true <| Path.ChangeExtension(assembly, "xml")
+        yield! includeFile true <| Path.ChangeExtension(assembly, "pdb")
         yield! includeFile false <| assembly + ".config"
     }
 
