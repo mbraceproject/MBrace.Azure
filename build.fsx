@@ -123,7 +123,7 @@ let addFile (target : string) (file : string) =
     if File.Exists (Path.Combine("nuget", file)) then (file, Some target, None)
     else raise <| new FileNotFoundException(file)
 
-let addAssembly (target : string) assembly =
+let addAssembly reqXml (target : string) assembly =
     let includeFile force file =
         let file = file
         if File.Exists (Path.Combine("nuget", file)) then [(file, Some target, None)]
@@ -132,8 +132,8 @@ let addAssembly (target : string) assembly =
 
     seq {
         yield! includeFile true assembly
-        yield! includeFile true <| Path.ChangeExtension(assembly, "xml")
-        yield! includeFile true <| Path.ChangeExtension(assembly, "pdb")
+        yield! includeFile reqXml <| Path.ChangeExtension(assembly, "xml")
+        yield! includeFile false <| Path.ChangeExtension(assembly, "pdb")
         yield! includeFile false <| assembly + ".config"
     }
 
@@ -166,9 +166,9 @@ Target "NuGet.CoreAzure" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Store.dll"
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Runtime.dll"
-                    yield! addAssembly @"lib\net45" @"..\bin\MBrace.Azure.Client.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Azure.Store.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Azure.Runtime.dll"
+                    yield! addAssembly true @"lib\net45" @"..\bin\MBrace.Azure.Client.dll"
                 ]
         })
         ("nuget/MBrace.Azure.nuspec")
@@ -189,25 +189,26 @@ Target "NuGet.Client" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield! addAssembly @"tools" @"..\bin\Newtonsoft.Json.dll"
-                    yield! addAssembly @"tools" @"..\bin\FsPickler.dll"
-                    yield! addAssembly @"tools" @"..\bin\System.Spatial.dll"
-                    yield! addAssembly @"tools" @"..\bin\Mono.Cecil.dll"
-                    yield! addAssembly @"tools" @"..\bin\Vagabond.Cecil.dll"
-                    yield! addAssembly @"tools" @"..\bin\Vagabond.dll"
-                    yield! addAssembly @"tools" @"..\bin\MBrace.Core.dll"
-                    yield! addAssembly @"tools" @"..\bin\MBrace.Runtime.Core.dll"
-                    yield! addAssembly @"tools" @"..\bin\Streams.Core.dll"
-                    yield! addAssembly @"tools" @"..\bin\MBrace.Streams.dll"
-                    yield! addAssembly @"tools" @"..\bin\Microsoft.Data.Edm.dll"
-                    yield! addAssembly @"tools" @"..\bin\Microsoft.Data.OData.dll"
-                    yield! addAssembly @"tools" @"..\bin\Microsoft.Data.Services.Client.dll"
-                    yield! addAssembly @"tools" @"..\bin\Microsoft.ServiceBus.dll"
-                    yield! addAssembly @"tools" @"..\bin\Microsoft.WindowsAzure.Configuration.dll"
-                    yield! addAssembly @"tools" @"..\bin\Microsoft.WindowsAzure.Storage.dll"
-                    yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Store.dll"
-                    yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Runtime.dll"
-                    yield! addAssembly @"tools" @"..\bin\MBrace.Azure.Client.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Newtonsoft.Json.dll"
+                    yield! addAssembly false @"tools" @"..\bin\FsPickler.dll"
+                    yield! addAssembly false @"tools" @"..\bin\System.Spatial.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Mono.Cecil.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Vagabond.Cecil.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Vagabond.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Microsoft.Data.Edm.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Microsoft.Data.OData.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Microsoft.Data.Services.Client.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Microsoft.ServiceBus.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Microsoft.WindowsAzure.Configuration.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Microsoft.WindowsAzure.Storage.dll"
+
+                    yield! addAssembly true @"tools" @"..\bin\MBrace.Core.dll"
+                    yield! addAssembly true @"tools" @"..\bin\MBrace.Runtime.Core.dll"
+                    yield! addAssembly true @"tools" @"..\bin\Streams.Core.dll"
+                    yield! addAssembly true @"tools" @"..\bin\MBrace.Streams.dll"
+                    yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Store.dll"
+                    yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Runtime.dll"
+                    yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Client.dll"
                 ]
         })
         ("nuget/MBrace.Azure.nuspec")
