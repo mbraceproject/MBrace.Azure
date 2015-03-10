@@ -12,7 +12,7 @@ open MBrace.Runtime.InMemory
 open MBrace.Azure.Runtime.Resources
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism : bool) =
+type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism : bool) =
 
     let mkNestedCts (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
@@ -21,8 +21,8 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
         dcts :> ICloudCancellationTokenSource
 
     /// Creates a runtime provider instance for a provided job
-    static member FromJob state  wmon  dependencies (job : Job) =
-        new RuntimeProvider(state, wmon, job.FaultPolicy, job.JobId, job.ProcessInfo, dependencies, false)
+    static member FromJob state dependencies (job : Job) =
+        new RuntimeProvider(state, job.FaultPolicy, job.JobId, job.ProcessInfo, dependencies, false)
 
     interface ICloudRuntimeProvider with
         member __.CreateLinkedCancellationTokenSource(parents: ICloudCancellationToken []): Async<ICloudCancellationTokenSource> = 
@@ -40,11 +40,11 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, wmon, newPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, newPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism) :> ICloudRuntimeProvider
 
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
         member __.WithForcedLocalParallelismSetting setting =
-            new RuntimeProvider(state, wmon, faultPolicy, jobId, psInfo, dependencies, setting) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, faultPolicy, jobId, psInfo, dependencies, setting) :> ICloudRuntimeProvider
 
         member __.IsTargetedWorkerSupported = true
 
@@ -69,9 +69,9 @@ type RuntimeProvider private (state : RuntimeState, wmon : WorkerManager, faultP
            Combinators.StartAsCloudTask state psInfo jobId dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 
-            let! ws = wmon.GetWorkerRefs(showInactive = false)
+            let! ws = state.WorkerManager.GetWorkerRefs(showInactive = false)
             return ws |> Seq.map (fun w -> w :> IWorkerRef)
                       |> Seq.toArray 
             }
-        member __.CurrentWorker = wmon.Current.AsWorkerRef() :> IWorkerRef
+        member __.CurrentWorker = state.WorkerManager.Current.AsWorkerRef() :> IWorkerRef
         member __.Logger = state.ResourceFactory.RequestProcessLogger(psInfo.Id) 

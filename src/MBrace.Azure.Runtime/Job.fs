@@ -162,8 +162,10 @@ type RuntimeState =
         /// Reference to the runtime resource manager
         /// Used for generating latches, cancellation tokens and result cells.
         ResourceFactory : ResourceFactory
-        /// Process monitoring.
-        ProcessMonitor : ProcessManager
+        /// Process management.
+        ProcessManager : ProcessManager
+        /// Worker management.
+        WorkerManager : WorkerManager
         /// Runtime Logger.
         Logger : LoggerCombiner
     }
@@ -172,15 +174,17 @@ with
     static member FromConfiguration (config : Configuration) = async {
         let configurationId = config.ConfigurationId
         let logger = new LoggerCombiner()
-        let! jobQueue = JobQueue.Create(configurationId)
+        let! jobQueue = JobQueue.Create(configurationId, logger)
         let assemblyManager = BlobAssemblyManager.Create(configurationId, logger) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
-        let pmon = ProcessManager.Create(configurationId)
+        let pman = ProcessManager.Create(configurationId)
+        let wman = WorkerManager.Create(configurationId, logger)
         return { 
             JobQueue = jobQueue
             AssemblyManager = assemblyManager 
             ResourceFactory = resourceFactory 
-            ProcessMonitor = pmon
+            ProcessManager = pman
+            WorkerManager = wman
             Logger = logger
         }
     }
@@ -229,7 +233,7 @@ with
             jobs.[i] <- { PickledJob = jobp; Dependencies = dependencies }, affinity
         async {
             do! rt.JobQueue.EnqueueBatch<JobItem>(jobs, pid = psInfo.Id)
-            do! rt.ProcessMonitor.IncreaseTotalJobs(psInfo.Id, jobs.Length)
+            do! rt.ProcessManager.IncreaseTotalJobs(psInfo.Id, jobs.Length)
         }
 
     member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Workflow<'T>, jobType : JobType, parentJobId, ?logger : ICloudLogger) : Async<unit> =
@@ -260,7 +264,7 @@ with
             logger.Logf "Job Enqueue."
             do! rt.JobQueue.Enqueue<JobItem>(jobItem, ?affinity = affinity, pid = psInfo.Id)
             logger.Logf "Job Enqueue completed."
-            do! rt.ProcessMonitor.IncreaseTotalJobs(psInfo.Id)
+            do! rt.ProcessManager.IncreaseTotalJobs(psInfo.Id)
         }
 
     /// Schedules a cloud workflow as an ICloudTask.
@@ -299,7 +303,7 @@ with
         let requests = rt.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
         let resultCell = requests.RequestResultCell<'T>(jobId)
         logger.Logf "Creating Process Record for %s" psInfo.Id
-        do! Async.Parallel [| rt.ProcessMonitor.CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies, cts, string resultCell.Path)
+        do! Async.Parallel [| rt.ProcessManager.CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies, cts, string resultCell.Path)
                               requests.CommitAsync() |]
             |> Async.Ignore
 

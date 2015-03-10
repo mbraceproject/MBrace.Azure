@@ -147,6 +147,9 @@ module Table =
 
     let insertOrReplace<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.InsertOrReplace(e) |> exec config table |> Async.Ignore
+
+    let insertOrMerge<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
+        TableOperation.InsertOrMerge(e) |> exec config table |> Async.Ignore
     
     let queryDynamic config table pk : Async<DynamicTableEntity []> =
         async {  

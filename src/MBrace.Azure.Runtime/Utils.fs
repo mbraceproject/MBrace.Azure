@@ -10,6 +10,12 @@
         let guid() = Guid.NewGuid().ToString("N")
         let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
 
+        let inline nullable< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > (value : 'T) = 
+            new Nullable<'T>(value)
+
+        let inline nullableDefault< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > = 
+            new Nullable<'T>()
+
         type Async with
             static member Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
             static member Sleep(timespan : TimeSpan) = Async.Sleep(int timespan.TotalMilliseconds)

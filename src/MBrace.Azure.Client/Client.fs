@@ -26,9 +26,9 @@
         let storageLogger = new StorageLogger(configuration.ConfigurationId, Client(id = clientId))
         let clientLogger = state.Logger
         do  clientLogger.Attach(storageLogger)
-        let wmon = WorkerManager.Create(configuration.ConfigurationId)
+        let wmon = WorkerManager.Create(configuration.ConfigurationId, state.Logger)
         let resources, defaultStoreClient = StoreClient.CreateDefault(configuration)
-        let pmon = state.ProcessMonitor
+        let pmon = state.ProcessManager
         do clientLogger.Logf "Client %s created" clientId
 
         /// Provides common methods on store related primitives.
