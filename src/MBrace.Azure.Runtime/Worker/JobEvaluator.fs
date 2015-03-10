@@ -66,7 +66,7 @@ and [<AutoSerializable(false)>]
         try
             logf "Loading dependencies"
             do! staticConfiguration.State.AssemblyManager.LoadDependencies(jobItem.Dependencies)
-            
+
             logf "UnPickle Job [%d bytes]" jobItem.PickledJob.Bytes.Length
             let job = VagabondRegistry.Instance.Pickler.UnPickleTyped(jobItem.PickledJob)
 

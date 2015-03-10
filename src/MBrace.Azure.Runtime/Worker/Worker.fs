@@ -45,7 +45,6 @@ type internal Worker () =
         /// Sleep time for runtime errors.
         let onErrorWaitTime = 5000
 
-
         let waitForPendingJobs (config : WorkerConfig) = async {
             config.Logger.Log "Stop requested. Waiting for pending jobs."
             let rec wait () = async {

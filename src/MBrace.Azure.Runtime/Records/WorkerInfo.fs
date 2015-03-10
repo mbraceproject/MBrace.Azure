@@ -90,23 +90,27 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
             this.NetworkUp <- counters.NetworkUsageUp
             this.NetworkDown <- counters.NetworkUsageDown
 
+[<AutoSerializable(false)>]
 type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
     let pk = "WorkerRef"
     let table = config.RuntimeTable
 
     let perfMon = lazy new PerformanceMonitor()
-    let mutable current : WorkerRecord option = None
     let mutable active = false
+    let current = ref None
 
-    member this.Current : WorkerRecord = current.Value
+    member this.Current : WorkerRecord = 
+        match current.Value with
+        | Some c -> c
+        | None -> failwith "No worker registered."
     
     member this.SetJobCountLocal(jobCount) =
-        this.Current.ActiveJobs <- nullable jobCount
+        current.Value.Value.ActiveJobs <- nullable jobCount
 
     member this.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
         let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
         active <- true
-        let worker = current.Value
+        let worker = this.Current
         let rec loop () = async {
             let counters = perfMon.Value.GetCounters()
             worker.UpdateCounters(counters)
@@ -114,7 +118,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             //worker.ActiveJobs <- nullableDefault
             worker.ETag <- "*"
             let! e = Table.merge<WorkerRecord> config table worker
-            current <- Some e
+            current := Some e
             do! Async.Sleep (int ts.TotalMilliseconds)
             if active then return! loop ()
         }
@@ -124,12 +128,12 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
     member this.RegisterLocal(workerId) =
         async {
             let! record = Table.read<WorkerRecord> config table pk workerId
-            current <- Some record
+            current := Some record
         }
 
-    member this.RegisterCurrent(workerId : string, ?maxJobs) : Async<WorkerRecord> = 
+    member this.RegisterCurrent(workerId : string, ?maxJobs) : Async<unit> = 
         async {
-            match current with 
+            match current.Value with 
             | Some w -> 
                 return failwithf "Worker %A is active" w
             | None ->
@@ -142,8 +146,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 w.IsActive <- nullable true
                 w.MaxJobs <- match maxJobs with None -> nullableDefault | Some mj -> nullable mj
                 do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
-                current <- Some w
-                return w
+                current := Some w
         }
 
     member this.UnregisterCurrent () : Async<unit> = 

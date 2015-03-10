@@ -60,20 +60,20 @@ type Init =
             logf "Registering Subscription %s" serviceId
             state.JobQueue.Affinity <- serviceId
 
-            let workerManager = WorkerManager.Create(config.ConfigurationId, state.Logger)
             if isDefaultInitialization then 
                 logf "Declaring worker"
-                let! record = workerManager.RegisterCurrent(serviceId, ?maxJobs = maxJobs)
+                do! state.WorkerManager.RegisterCurrent(serviceId, ?maxJobs = maxJobs)
+                let record = state.WorkerManager.Current
                 logf "Declared worker : %s \nPID : %d \nServiceId : %s" record.Hostname record.ProcessId.Value record.Id
-                Async.Start(workerManager.HeartbeatLoop())
+                Async.Start(state.WorkerManager.HeartbeatLoop())
                 logf "Started heartbeat loop" 
             else
-                do! workerManager.RegisterLocal(serviceId)
+                do! state.WorkerManager.RegisterLocal(serviceId)
 
             let resources = resource { 
                 yield Configuration.Serializer
-                yield logger
-                yield workerManager
+                yield logger // TODO : is this needed?
+                yield state.WorkerManager
                 yield state.ProcessManager 
             }
 
