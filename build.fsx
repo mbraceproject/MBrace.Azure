@@ -100,7 +100,7 @@ let testAssemblies =
 
 Target "RunTests" (fun _ ->
     let nunitVersion = GetPackageVersion "packages" "NUnit.Runners"
-    let nunitPath = sprintf "packages/NUnit.Runners.%s/tools" nunitVersion
+    let nunitPath = "packages/NUnit.Runners/tools" 
     ActivateFinalTarget "CloseTestRunner"
 
     testAssemblies
