@@ -1,3 +1,6 @@
+#### 0.6.3-alpha
+* Hotfix packaging issue.
+
 #### 0.6.2-alpha
 * Hotfix packaging issue.
 
