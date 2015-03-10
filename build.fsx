@@ -15,7 +15,7 @@ open System.IO
 
 
 let project = "MBrace.Azure"
-let authors = [ "Kostas Rontogiannis" ]
+let authors = [ "Nick Palladinos" ; "Kostas Rontogiannis" ; "Eirik Tsarpalis" ]
 
 let description = """ MBrace on Windows Azure. """
 
