@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Info
 
     open System
     open System.Net

@@ -2,8 +2,9 @@
 
 open MBrace
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
-open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Info
+open MBrace.Azure.Runtime.Utilities
+open MBrace.Azure.Runtime.Primitives
 open MBrace.Runtime
 open MBrace.Continuation
 open MBrace.Runtime.Compiler

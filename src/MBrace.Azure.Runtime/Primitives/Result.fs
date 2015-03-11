@@ -1,9 +1,8 @@
-﻿namespace MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Primitives
 
 open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
-open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Utilities
 open System
 open System.Runtime.Serialization
 open MBrace.Continuation

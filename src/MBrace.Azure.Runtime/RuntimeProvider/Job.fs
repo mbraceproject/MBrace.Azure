@@ -16,8 +16,9 @@ open Nessos.Vagabond
 
 open MBrace
 open MBrace.Azure
-open MBrace.Azure.Runtime.Common
-open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Primitives
+open MBrace.Azure.Runtime.Info
+open MBrace.Azure.Runtime.Utilities
 open MBrace.Continuation
 open MBrace.Runtime
 open MBrace.Runtime.Utils
@@ -281,10 +282,10 @@ with
                 do! resultCell.SetResult r
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
-
-        let scont ctx t = setResult ctx (Completed t)
-        let econt ctx e = setResult ctx (Exception e)
-        let ccont ctx c = setResult ctx (Cancelled c)
+            
+        let scont ctx t = setResult ctx (Result.Completed t)
+        let econt ctx e = setResult ctx (Result.Exception e)
+        let ccont ctx c = setResult ctx (Result.Cancelled c)
         do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, jobType, parentJobId)
         return resultCell :> ICloudTask<'T>
     }
@@ -312,15 +313,15 @@ with
                 do! resultCell.SetResult r
                 let pmon = ctx.Resources.Resolve<ProcessManager>()
                 match r with
-                | Completed _ 
-                | Exception _ -> do! pmon.SetCompleted(psInfo.Id)
-                | Cancelled _ -> do! pmon.SetKilled(psInfo.Id)
+                | Result.Completed _ 
+                | Result.Exception _ -> do! pmon.SetCompleted(psInfo.Id)
+                | Result.Cancelled _ -> do! pmon.SetKilled(psInfo.Id)
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
 
-        let scont ctx t = setResult ctx (Completed t)
-        let econt ctx e = setResult ctx (Exception e)
-        let ccont ctx c = setResult ctx (Cancelled c)
+        let scont ctx t = setResult ctx (Result.Completed t)
+        let econt ctx e = setResult ctx (Result.Exception e)
+        let ccont ctx c = setResult ctx (Result.Cancelled c)
 
         do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root, String.Empty, logger = logger)
         return resultCell

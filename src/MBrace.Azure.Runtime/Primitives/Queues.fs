@@ -1,10 +1,10 @@
-﻿namespace MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Primitives
 
 open System
 open System.Runtime.Serialization
 open Microsoft.ServiceBus.Messaging
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure
 open MBrace.Runtime
 

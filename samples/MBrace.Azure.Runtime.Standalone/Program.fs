@@ -2,7 +2,7 @@
     open System
     open MBrace.Azure
     open MBrace.Azure.Runtime
-    open MBrace.Azure.Runtime.Common
+    open MBrace.Azure.Runtime.Info
     open System.Diagnostics
     open MBrace.Azure.Store
     open MBrace.Store

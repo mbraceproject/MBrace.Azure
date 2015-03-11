@@ -11,7 +11,7 @@ open MBrace.Azure.Runtime
 
 #nowarn "444"
 
-open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Primitives
 open MBrace.Continuation
 
 let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =

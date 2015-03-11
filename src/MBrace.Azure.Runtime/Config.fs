@@ -223,6 +223,7 @@ type ConfigurationRegistry private () =
         | true, v  -> v :?> 'T
         | false, _ -> failwith <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>
 
+[<RequireQualifiedAccess>]
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Configuration =
     open MBrace.Runtime.Vagabond

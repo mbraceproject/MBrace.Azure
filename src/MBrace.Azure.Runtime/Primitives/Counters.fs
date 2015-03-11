@@ -1,11 +1,11 @@
-﻿namespace MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Primitives
 
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
 open System.Runtime.Serialization
 open MBrace.Continuation
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure
 open Microsoft.WindowsAzure.Storage.Table
 
@@ -29,7 +29,7 @@ type IntCell internal (config : ConfigurationId, partitionKey : string, rowKey :
             return e.Value
         }
 
-    static member Create(config, name : string, value : int, pid) = 
+    static member Create(config : ConfigurationId, name : string, value : int, pid) = 
         async { 
             let e = new CounterEntity(pid, name, value)
             do! Table.insert config config.RuntimeTable e

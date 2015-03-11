@@ -1,8 +1,7 @@
-﻿namespace MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Primitives
 
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
-open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Utilities
 open Nessos.Vagabond
 open System
 open System.Runtime.Serialization

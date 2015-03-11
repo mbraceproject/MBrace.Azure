@@ -2,7 +2,9 @@
 
 open MBrace.Azure
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Info
+open MBrace.Azure.Runtime.Utilities
+open MBrace.Azure.Runtime.Primitives
 open MBrace.Runtime
 open System.Diagnostics
 open MBrace

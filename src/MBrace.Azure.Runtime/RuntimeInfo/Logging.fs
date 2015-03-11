@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Info
 
 open System
 open Microsoft.WindowsAzure.Storage.Table
@@ -6,6 +6,7 @@ open MBrace.Azure
 open MBrace.Continuation
 open System.Collections.Concurrent
 open MBrace.Runtime
+open MBrace.Azure.Runtime.Utilities
 
 type LoggerType =
     | Worker of id : string

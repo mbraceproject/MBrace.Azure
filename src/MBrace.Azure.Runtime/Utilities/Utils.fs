@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Utilities
 
     open System
     open System.Threading.Tasks

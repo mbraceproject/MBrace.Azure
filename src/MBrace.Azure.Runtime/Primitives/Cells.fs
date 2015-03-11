@@ -1,9 +1,9 @@
-﻿namespace MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Primitives
 
 open System
 open System.Runtime.Serialization
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Utilities
 open System.IO
 open MBrace.Azure
 open Microsoft.WindowsAzure.Storage.Blob

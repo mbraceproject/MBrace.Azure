@@ -38,7 +38,7 @@ type WorkerRef internal (id : string, hostname : string, pid : int, pname : stri
         member this.Type = "MBrace.Azure.Worker"
         member this.ProcessorCount = processorCount
 
-namespace MBrace.Azure.Runtime.Common
+namespace MBrace.Azure.Runtime.Info
 
 open System
 open Microsoft.WindowsAzure.Storage.Table
@@ -49,6 +49,7 @@ open MBrace
 open MBrace.Azure
 open Microsoft.FSharp.Linq.NullableOperators
 open MBrace.Runtime
+open MBrace.Azure.Runtime.Utilities
 
 type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string, joined : DateTimeOffset, configurationHash : Nullable<int>) =
     inherit TableEntity(pk, id)

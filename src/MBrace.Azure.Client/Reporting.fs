@@ -2,7 +2,8 @@
 
 #nowarn "52"
 
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Info
+open MBrace.Azure.Runtime.Primitives
 open MBrace.Runtime.Utils.PrettyPrinters
 open System
 

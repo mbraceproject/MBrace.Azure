@@ -2,7 +2,7 @@
 open MBrace
 open MBrace.Azure
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Store
 open MBrace.Continuation
 open MBrace.Runtime
@@ -11,6 +11,8 @@ open MBrace.Store
 open System
 open System.Diagnostics
 open System.Threading
+open MBrace.Azure.Runtime.Info
+open MBrace.Azure.Runtime.Utilities
 
 
 /// MBrace Runtime Service.

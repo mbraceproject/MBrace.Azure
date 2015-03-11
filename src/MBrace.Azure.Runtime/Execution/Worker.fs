@@ -8,8 +8,8 @@ open Nessos.Vagabond.AppDomainPool
 
 open MBrace.Azure
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
-open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Utilities
+open MBrace.Azure.Runtime.Primitives
 open MBrace.Continuation
 open MBrace.Runtime.Vagabond
 open MBrace.Store

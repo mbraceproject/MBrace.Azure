@@ -1,9 +1,11 @@
-﻿namespace MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Primitives
 
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure
 open Microsoft.WindowsAzure.Storage.Table
+open MBrace.Azure.Runtime.Primitives
+open MBrace.Azure.Runtime.Info
 
 [<AutoSerializableAttribute(false)>]
 type ResourceBatchRequest internal (configId : ConfigurationId, pid : string) =

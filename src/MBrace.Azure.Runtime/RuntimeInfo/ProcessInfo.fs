@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Common
+﻿namespace MBrace.Azure.Runtime.Info
 
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
@@ -12,7 +12,8 @@ open System.Net
 open System.Runtime.Serialization
 open Nessos.Vagabond
 open MBrace.Azure
-open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Primitives
+open MBrace.Azure.Runtime.Utilities
 
 type ProcessState = 
     | Posted

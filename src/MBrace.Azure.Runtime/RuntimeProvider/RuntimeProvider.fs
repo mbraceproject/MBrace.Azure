@@ -6,10 +6,10 @@ open MBrace
 open MBrace.Runtime
 
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Info
+open MBrace.Azure.Runtime.Primitives
 open System
 open MBrace.Runtime.InMemory
-open MBrace.Azure.Runtime.Resources
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism : bool) =

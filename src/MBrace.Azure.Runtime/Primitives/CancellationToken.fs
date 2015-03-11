@@ -1,11 +1,11 @@
-﻿namespace MBrace.Azure.Runtime.Resources
+﻿namespace MBrace.Azure.Runtime.Primitives
 
 open System
 open System.Threading
 open System.Runtime.Serialization
 open MBrace.Azure.Runtime
 open MBrace.Continuation
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Utilities
 open Microsoft.WindowsAzure.Storage.Table
 open MBrace
 open System.Collections.Generic

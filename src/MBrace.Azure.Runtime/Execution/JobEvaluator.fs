@@ -4,12 +4,12 @@ open MBrace.Azure
 open Nessos.FsPickler
 open Nessos.Vagabond.AppDomainPool
 open System
-open MBrace.Azure.Runtime.Resources
+open MBrace.Azure.Runtime.Primitives
 open System.Diagnostics
 open MBrace.Continuation
 open MBrace.Store
 open MBrace.Runtime
-open MBrace.Azure.Runtime.Common
+open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
 open Nessos.Vagabond
