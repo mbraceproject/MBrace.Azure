@@ -6,7 +6,6 @@ open MBrace.Continuation
 open MBrace.Azure
 open MBrace.Azure.Client
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Standalone
 open MBrace.Tests
 
 #nowarn "445" // 'Reset'
@@ -116,8 +115,8 @@ type ``Standalone - Storage Emulator`` () =
 
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
-        Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-        Runtime.Spawn(base.Configuration, 4) 
+        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+        Runtime.SpawnLocal(base.Configuration, 4) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -132,8 +131,8 @@ type ``Standalone`` () =
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
-        Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-        Runtime.Spawn(base.Configuration, 4) 
+        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+        Runtime.SpawnLocal(base.Configuration, 4) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]

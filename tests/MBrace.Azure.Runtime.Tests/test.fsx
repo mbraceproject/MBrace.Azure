@@ -11,6 +11,8 @@ open MBrace.Azure
 open MBrace.Azure.Client
 open System
 
+Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
       Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
@@ -34,10 +36,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 
 
 // local only---
-#r "MBrace.Azure.Runtime.Standalone"
-open MBrace.Azure.Runtime.Standalone
-Runtime.WorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
-Runtime.Spawn(config, 4, 16)
+let localRuntime = Runtime.InitLocal(config, 4, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -88,18 +87,6 @@ runtime.Run <| Cloud.ParallelEverywhere Cloud.CurrentWorker
 
 
 runtime.Run <| cloud { return 42 }
-
-open MBrace.Workflows
-
-let rec wf i max = 
-    cloud { 
-        if i = max then return 42 
-        else return! wf (i + 1) max <|> wf (i + 1) max
-    }
-
-let ps = runtime.CreateProcess(wf 0 3)
-ps.ShowInfo()
-ps.AwaitResult() 
 
 let ct = runtime.CreateCancellationTokenSource()
 let ctask = runtime.Run(Cloud.StartAsCloudTask(cloud { return 42 }, cancellationToken = ct.Token))

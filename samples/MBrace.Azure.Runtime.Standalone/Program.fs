@@ -11,7 +11,7 @@
     let main (args : string []) =
         try
             let ps = Process.GetCurrentProcess()
-            let cfg = Argument.toConfiguration args
+            let cfg = Arguments.Config.OfBase64Pickle args
             let config = cfg.Configuration
 
             let svc = new Service(config)
