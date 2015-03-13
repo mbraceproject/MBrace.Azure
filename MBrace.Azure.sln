@@ -15,6 +15,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64BD78-3886-4FC5-A6F9-2A71A99769B9}"
 	ProjectSection(SolutionItems) = preProject
 		appveyor.yml = appveyor.yml
+		nuget\bootstrap.fsx = nuget\bootstrap.fsx
 		build.cmd = build.cmd
 		build.fsx = build.fsx
 		build.sh = build.sh

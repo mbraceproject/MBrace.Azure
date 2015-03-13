@@ -189,6 +189,7 @@ Target "NuGet.Client" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
+                    yield addFile @"" @"bootstrap.fsx"
                     yield! addAssembly false @"tools" @"..\bin\Newtonsoft.Json.dll"
                     yield! addAssembly false @"tools" @"..\bin\FsPickler.dll"
                     yield! addAssembly false @"tools" @"..\bin\System.Spatial.dll"
@@ -209,6 +210,7 @@ Target "NuGet.Client" (fun _ ->
                     yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Store.dll"
                     yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Runtime.dll"
                     yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Client.dll"
+                    yield! addAssembly false @"tools" @"..\bin\mbrace.azureworker.exe"
                 ]
         })
         ("nuget/MBrace.Azure.nuspec")
