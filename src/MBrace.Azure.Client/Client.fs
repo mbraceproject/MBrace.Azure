@@ -295,6 +295,15 @@ type Runtime private (clientId, config : Configuration) =
         printf "%s" <| LogReporter.Report(ls, "Logs", false)
 
     /// <summary>
+    ///     Attaches a local worker to the cluster instance.
+    /// </summary>
+    /// <param name="workerCount">Local workers to be spawned. Defaults to 1.</param>
+    /// <param name="maxTasks">Maximum tasks for worker. Defaults to local core count.</param>
+    member __.AttachLocalWorker(?workerCount:int, ?maxTasks:int) : unit =
+        let workerCount = defaultArg workerCount 1
+        Runtime.SpawnLocal(config, workerCount, ?maxTasks = maxTasks)
+
+    /// <summary>
     /// Get a process handle for given process id.
     /// </summary>
     /// <param name="pid">Process Id</param>
