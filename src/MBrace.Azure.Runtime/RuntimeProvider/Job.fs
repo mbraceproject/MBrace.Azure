@@ -116,7 +116,7 @@ with
     /// <param name="runtimeProvider">Local scheduler implementation.</param>
     /// <param name="dependencies">Job dependent assemblies.</param>
     /// <param name="job">Job to be executed.</param>
-    static member RunAsync (runtimeProvider : ICloudRuntimeProvider) 
+    static member RunAsync (runtimeProvider : IDistributionProvider) 
                            (resources : ResourceRegistry)
                            (faultCount : int)
                            (job : Job) = async {
@@ -201,7 +201,7 @@ with
     /// <param name="cc">Cancellation continuation.</param>
     /// <param name="wfs">Workflows</param>
     /// <param name="affinity">Optional job affinity.</param>
-    member internal rt.EnqueueJobBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : (#Workflow<'T> * IWorkerRef option) [], distribType : DistributionType, parentJobId) : Async<unit> =
+    member internal rt.EnqueueJobBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : (#Cloud<'T> * IWorkerRef option) [], distribType : DistributionType, parentJobId) : Async<unit> =
         let jobs = Array.zeroCreate wfs.Length
         for i = 0 to wfs.Length - 1 do
             let jobId = guid()
@@ -209,7 +209,7 @@ with
             let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
             let startJob ctx =
                 let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
-                Workflow.StartWithContinuations(wf, cont, ctx)
+                Cloud.StartWithContinuations(wf, cont, ctx)
             let jobType aff  =
                 match distribType, aff with
                 | Parallel, Some a -> ParallelAffined(a, i, wfs.Length-1)
@@ -237,13 +237,13 @@ with
             do! rt.ProcessManager.IncreaseTotalJobs(psInfo.Id, jobs.Length)
         }
 
-    member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Workflow<'T>, jobType : JobType, parentJobId, ?logger : ICloudLogger) : Async<unit> =
+    member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, jobType : JobType, parentJobId, ?logger : ICloudLogger) : Async<unit> =
         async {
             let logger = defaultArg logger (NullLogger() :> _)
         
             let startJob ctx =
                 let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
-                Workflow.StartWithContinuations(wf, cont, ctx)
+                Cloud.StartWithContinuations(wf, cont, ctx)
             let affinity = match jobType with Affined a -> Some a | _ -> None
             let job = 
                 { 
@@ -269,7 +269,7 @@ with
         }
 
     /// Schedules a cloud workflow as an ICloudTask.
-    member internal rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Workflow<'T>, jobType, parentJobId) : Async<ICloudTask<'T>> = async {
+    member internal rt.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, jobType, parentJobId) : Async<ICloudTask<'T>> = async {
         let jobId = guid()
         let! resultCell = async {
             let batch = rt.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
@@ -292,7 +292,7 @@ with
 
     /// Schedules a cloud workflow as an ICloudJob.
     /// Used for root-level workflows.
-    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, fp, wf : Workflow<'T>, logger : ICloudLogger, ?ct : ICloudCancellationToken) = async {
+    member rt.StartAsProcess(psInfo : ProcessInfo, dependencies, fp, wf : Cloud<'T>, logger : ICloudLogger, ?ct : ICloudCancellationToken) = async {
         let jobId = guid ()
         
         logger.Logf "Request for CancellationTokenSource"
