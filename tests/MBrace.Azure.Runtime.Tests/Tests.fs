@@ -115,7 +115,7 @@ type ``Standalone - Storage Emulator`` () =
 
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
-        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
         Runtime.SpawnLocal(base.Configuration, 4) 
         base.Init()
         
@@ -131,7 +131,7 @@ type ``Standalone`` () =
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
-        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
         Runtime.SpawnLocal(base.Configuration, 4) 
         base.Init()
         

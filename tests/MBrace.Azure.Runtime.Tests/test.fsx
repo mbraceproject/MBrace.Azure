@@ -11,7 +11,7 @@ open MBrace.Azure
 open MBrace.Azure.Client
 open System
 
-Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/MBrace.Azure.Runtime.Standalone.exe"
+Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),

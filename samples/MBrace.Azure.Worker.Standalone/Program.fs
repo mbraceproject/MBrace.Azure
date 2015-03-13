@@ -1,4 +1,5 @@
-﻿module internal MBrace.Azure.Runtime.Standalone.Program 
+﻿module internal MBrace.Azure.Worker.Standalone
+
     open System
     open MBrace.Azure
     open MBrace.Azure.Runtime
