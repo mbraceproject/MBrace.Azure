@@ -32,11 +32,11 @@ let config =
 let runtime = Runtime.GetHandle(config)
 runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(reactivate = false)
-//runtime.Reset()
-
+runtime.Reset()
+runtime.ShowWorkers()
 
 // local only---
-let localRuntime = Runtime.InitLocal(config, 4, 16)
+let runtime = Runtime.InitLocal(config, 4, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -56,8 +56,6 @@ let ps =
 ps.ShowInfo()
 ps.AwaitResult()
 ps.Kill()
-
-
 
 
 let ps () = 

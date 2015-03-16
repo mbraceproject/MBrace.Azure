@@ -49,7 +49,7 @@ type BlobStore private (connectionString : string) =
         member this.GetFileSize(path: string) : Async<int64> = 
             async {
                 let! blob = getBlobRef acc path
-                let! _ = Async.AwaitIAsyncResult <| blob.FetchAttributesAsync()
+                do! blob.FetchAttributesAsync().ContinueWith ignore
                 return blob.Properties.Length
             }
         member this.FileExists(path: string) : Async<bool> = 
@@ -84,7 +84,7 @@ type BlobStore private (connectionString : string) =
         member this.DeleteFile(path: string) : Async<unit> = 
             async {
                 let! blob = getBlobRef acc path
-                let! _ =  Async.AwaitIAsyncResult <| blob.DeleteAsync()
+                do! blob.DeleteAsync().ContinueWith ignore
                 return ()
             }
 
@@ -136,13 +136,11 @@ type BlobStore private (connectionString : string) =
             async {
                 let! blob = getBlobRef acc target
                 let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-                let! _ = Async.AwaitIAsyncResult <| blob.UploadFromStreamAsync(source, null, options, OperationContext())
-                return ()
+                do! blob.UploadFromStreamAsync(source, null, options, OperationContext()).ContinueWith ignore
             }
         
         member this.ToStream(sourceFile: string, target: Stream) : Async<unit> = 
             async {
                 let! blob = getBlobRef acc sourceFile
-                let! _ = Async.AwaitIAsyncResult <| blob.DownloadToStreamAsync(target)
-                return ()
+                do! blob.DownloadToStreamAsync(target).ContinueWith ignore
             }
