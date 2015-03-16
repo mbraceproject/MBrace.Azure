@@ -80,6 +80,12 @@
     <Compile Include="Atom.fs" />
     <Compile Include="Channel.fs" />
     <None Include="script.fsx" />
+    <Content Include="app.config.install.xdt">
+      <Paket>True</Paket>
+    </Content>
+    <Content Include="web.config.install.xdt">
+      <Paket>True</Paket>
+    </Content>
     <Content Include="paket.references" />
     <Content Include="app.config" />
   </ItemGroup>

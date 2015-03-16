@@ -97,6 +97,12 @@
     <Compile Include="Execution\JobEvaluator.fs" />
     <Compile Include="Execution\Worker.fs" />
     <Compile Include="Execution\Service.fs" />
+    <Content Include="app.config.install.xdt">
+      <Paket>True</Paket>
+    </Content>
+    <Content Include="web.config.install.xdt">
+      <Paket>True</Paket>
+    </Content>
     <Content Include="paket.references" />
     <Content Include="app.config" />
   </ItemGroup>

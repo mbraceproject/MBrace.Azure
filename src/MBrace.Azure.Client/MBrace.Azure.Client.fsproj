@@ -79,6 +79,12 @@
     <Compile Include="Process.fs" />
     <Compile Include="StoreClient.fs" />
     <Compile Include="Client.fs" />
+    <Content Include="app.config.install.xdt">
+      <Paket>True</Paket>
+    </Content>
+    <Content Include="web.config.install.xdt">
+      <Paket>True</Paket>
+    </Content>
     <Content Include="app.config" />
     <Content Include="paket.references" />
   </ItemGroup>

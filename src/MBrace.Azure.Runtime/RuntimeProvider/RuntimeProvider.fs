@@ -24,7 +24,7 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
     static member FromJob state dependencies (job : Job) =
         new RuntimeProvider(state, job.FaultPolicy, job.JobId, job.ProcessInfo, dependencies, false)
 
-    interface ICloudRuntimeProvider with
+    interface IDistributionProvider with
         member __.CreateLinkedCancellationTokenSource(parents: ICloudCancellationToken []): Async<ICloudCancellationTokenSource> = 
             async {
                 match parents with
@@ -40,11 +40,11 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
 
         member __.FaultPolicy = faultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, newPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, newPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism) :> IDistributionProvider
 
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
         member __.WithForcedLocalParallelismSetting setting =
-            new RuntimeProvider(state, faultPolicy, jobId, psInfo, dependencies, setting) :> ICloudRuntimeProvider
+            new RuntimeProvider(state, faultPolicy, jobId, psInfo, dependencies, setting) :> IDistributionProvider
 
         member __.IsTargetedWorkerSupported = true
 
@@ -65,7 +65,7 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
                 return! Combinators.Choice state psInfo jobId dependencies faultPolicy computations
         }
 
-        member __.ScheduleStartAsTask(workflow : Workflow<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
            Combinators.StartAsCloudTask state psInfo jobId dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 
