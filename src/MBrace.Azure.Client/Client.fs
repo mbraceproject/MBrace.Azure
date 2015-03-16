@@ -117,7 +117,7 @@
         /// <param name="faultPolicy">Optional fault policy.</param>
         member __.RunLocal(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
             __.RunLocalAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
-            |> Async.RunSynchronously
+            |> Async.RunSync
 
         /// <summary>
         /// Submit given workflow for execution and get a Process handle.
@@ -151,7 +151,7 @@
         /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
         member __.CreateProcess(workflow : Cloud<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : ICloudCancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
             __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
-            |> Async.RunSynchronously
+            |> Async.RunSync
 
         /// <summary>
         /// Submit given workflow for execution and get a Process handle.

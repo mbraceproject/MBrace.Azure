@@ -39,6 +39,9 @@
             member __.ReturnFrom(f : Task) : Async<unit> =
                 __.ReturnFrom(Async.AwaitTask f)
 
+
+    open MBrace.Continuation
+
     type Live<'T>(provider : unit -> Async<'T>, initial : Choice<'T,exn>, ?keepLast : bool, ?interval : int, ?stopf : Choice<'T, exn> -> bool) =
         let interval = defaultArg interval 500
         let keepLast = defaultArg keepLast false
@@ -63,7 +66,7 @@
                 return! update ()
         }
 
-        do runOnce() |> Async.Ignore |> Async.RunSynchronously
+        do runOnce() |> Async.Ignore |> Async.RunSync
            update () |> Async.Start
 
         member __.TryGetValue () = 
