@@ -368,8 +368,8 @@
 
         /// <summary>
         /// Delete and re-activate runtime state.
-        /// Using 'Reset' may cause unexpected behavior in clients and workers.</summary>
-        /// Workers should be restarted manually.
+        /// Using 'Reset' may cause unexpected behavior in clients and workers.
+        /// Workers should be restarted manually.</summary>
         /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
         /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
         /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
@@ -388,13 +388,13 @@
                 storageLogger.Stop()
                 let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
                 
-                clientLogger.Logf "Deleting Queues."
+                cl.Logf "Deleting Queues."
                 if deleteQueue then do! Configuration.DeleteRuntimeQueues(configuration)
-                clientLogger.Logf "Deleting Container and Table."
+                cl.Logf "Deleting Container and Table."
                 if deleteState then do! Configuration.DeleteRuntimeState(configuration)
-                clientLogger.Logf "Deleting Logs."
+                cl.Logf "Deleting Logs."
                 if deleteRuntimeLogs then do! Configuration.DeleteRuntimeLogs(configuration)
-                clientLogger.Logf "Deleting UserData."
+                cl.Logf "Deleting UserData."
                 if deleteUserData then do! Configuration.DeleteUserData(configuration)
                
                 if reactivate then

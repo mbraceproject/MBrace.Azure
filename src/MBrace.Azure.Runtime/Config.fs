@@ -150,6 +150,8 @@ type StoreClientProvider (config : Configuration) =
     do ServicePointManager.Expect100Continue <- false
     do ServicePointManager.UseNagleAlgorithm <- false
 
+    let awaitTask (task : Task) = task.ContinueWith ignore |> Async.AwaitTask
+
     let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
     member this.TableClient = acc.Value.CreateCloudTableClient()
     member this.BlobClient = 
@@ -185,20 +187,19 @@ type StoreClientProvider (config : Configuration) =
 
     member this.ClearRuntimeQueues() =
         async {
-            let! _ = Async.AwaitIAsyncResult <| this.NamespaceClient.DeleteQueueAsync(config.RuntimeQueue)
-            let! _ = Async.AwaitIAsyncResult <| this.NamespaceClient.DeleteTopicAsync(config.RuntimeTopic)
-            ()
+            do! awaitTask <| this.NamespaceClient.DeleteQueueAsync(config.RuntimeQueue)
+            do! awaitTask <| this.NamespaceClient.DeleteTopicAsync(config.RuntimeTopic)
         }
 
     member this.InitAll() =
         async {
             try
                 do! Async.Parallel [|
-                        Async.AwaitIAsyncResult <| this.TableClient.GetTableReference(config.RuntimeTable).CreateIfNotExistsAsync()
-                        Async.AwaitIAsyncResult <| this.TableClient.GetTableReference(config.RuntimeLogsTable).CreateIfNotExistsAsync()
-                        Async.AwaitIAsyncResult <| this.TableClient.GetTableReference(config.UserDataTable).CreateIfNotExistsAsync()
-                        Async.AwaitIAsyncResult <| this.BlobClient.GetContainerReference(config.RuntimeContainer).CreateIfNotExistsAsync()
-                        Async.AwaitIAsyncResult <| this.BlobClient.GetContainerReference(config.UserDataContainer).CreateIfNotExistsAsync()
+                        Async.AwaitTask <| this.TableClient.GetTableReference(config.RuntimeTable).CreateIfNotExistsAsync()
+                        Async.AwaitTask <| this.TableClient.GetTableReference(config.RuntimeLogsTable).CreateIfNotExistsAsync()
+                        Async.AwaitTask <| this.TableClient.GetTableReference(config.UserDataTable).CreateIfNotExistsAsync()
+                        Async.AwaitTask <| this.BlobClient.GetContainerReference(config.RuntimeContainer).CreateIfNotExistsAsync()
+                        Async.AwaitTask <| this.BlobClient.GetContainerReference(config.UserDataContainer).CreateIfNotExistsAsync()
                     |] |> Async.Ignore
             with e ->
                 raise <| InvalidConfigurationException("Invalid Storage Account Configuration", e)
