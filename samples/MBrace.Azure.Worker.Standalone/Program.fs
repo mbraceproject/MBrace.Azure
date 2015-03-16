@@ -1,4 +1,5 @@
-﻿module internal MBrace.Azure.Runtime.Standalone.Program 
+﻿module internal MBrace.Azure.Worker.Standalone
+
     open System
     open MBrace.Azure
     open MBrace.Azure.Runtime
@@ -11,7 +12,7 @@
     let main (args : string []) =
         try
             let ps = Process.GetCurrentProcess()
-            let cfg = Argument.toConfiguration args
+            let cfg = Arguments.Config.OfBase64Pickle args
             let config = cfg.Configuration
 
             let svc = new Service(config)

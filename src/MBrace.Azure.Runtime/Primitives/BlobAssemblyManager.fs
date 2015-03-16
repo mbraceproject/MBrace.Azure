@@ -35,7 +35,8 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
         async {
             let file =  filename pkg.Id
             let! exists = Blob<_>.Exists(config, prefix, file)
-            if not exists || isPartialDynamicAssembly pkg then
+            let isPartial = isPartialDynamicAssembly pkg
+            if not exists || isPartial then
                 let imgSize = 
                     match pkg.Image, pkg.StaticInitializer with
                     | Some img, Some init -> sprintf "[IL %d bytes, Data %d bytes]" img.Length init.Data.Length

@@ -15,6 +15,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64BD78-3886-4FC5-A6F9-2A71A99769B9}"
 	ProjectSection(SolutionItems) = preProject
 		appveyor.yml = appveyor.yml
+		nuget\bootstrap.fsx = nuget\bootstrap.fsx
 		build.cmd = build.cmd
 		build.fsx = build.fsx
 		build.sh = build.sh
@@ -32,7 +33,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Runtime.Tests"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5F24F335-F43F-4266-B9DD-E5027835DAAB}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Runtime.Standalone", "samples\MBrace.Azure.Runtime.Standalone\MBrace.Azure.Runtime.Standalone.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Worker.Standalone", "samples\MBrace.Azure.Worker.Standalone\MBrace.Azure.Worker.Standalone.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
 EndProject
 Project("{CC5FD16D-436D-48AD-A40C-5A424C6E3E79}") = "MBrace.Azure.CloudService", "samples\MBrace.Azure.CloudService\MBrace.Azure.CloudService.ccproj", "{BD922B57-1C69-4667-A3C1-B3E114A76ACD}"
 EndProject

@@ -1,3 +1,9 @@
+#### 0.6.4-alpha
+* Update MBrace.Core libraries.
+* Implement AppDomain isolation for user jobs.
+* Add Standalone runtime support.
+* Misc bugfixes and improvements.
+
 #### 0.6.3-alpha
 * Hotfix packaging issue.
 

@@ -8,11 +8,11 @@
     <ProjectGuid>09891260-7d4e-431b-b714-2a13c412fd78</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>MBrace.Azure.Runtime.Standalone</RootNamespace>
-    <AssemblyName>MBrace.Azure.Runtime.Standalone</AssemblyName>
+    <AssemblyName>mbrace.azureworker</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>MBrace.Azure.Runtime.Standalone</Name>
+    <Name>MBrace.Azure.Worker.Standalone</Name>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -79,7 +79,6 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="RuntimeExtensions.fs" />
     <Compile Include="Program.fs" />
     <None Include="App.config" />
     <Content Include="app.config.install.xdt">

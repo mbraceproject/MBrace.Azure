@@ -78,6 +78,7 @@
     <Compile Include="Utilities\Common.fs" />
     <Compile Include="Utilities\Utils.fs" />
     <Compile Include="Utilities\Table.fs" />
+    <Compile Include="Utilities\Argument.fs" />
     <Compile Include="Primitives\Entities.fs" />
     <Compile Include="Primitives\Counters.fs" />
     <Compile Include="Primitives\Cells.fs" />
