@@ -27,6 +27,22 @@ module private Helpers =
         return! renewLoop message
     }
 
+
+    let partitionMessages(messages : BrokeredMessage seq) =
+        let limit = 256L * 1024L
+        let results = new ResizeArray<ResizeArray<BrokeredMessage>>()
+        let mutable currentSize = 0L
+        let mutable currentBatch = new ResizeArray<BrokeredMessage>()
+        for m in messages do
+            if m.Size + currentSize >= limit then
+                results.Add(currentBatch)
+                currentBatch <- new ResizeArray<BrokeredMessage>()
+                currentSize <- 0L
+            currentSize <- m.Size + currentSize
+            currentBatch.Add(m)
+        results
+
+
 /// Local wrapper for Service Bus message
 type QueueMessage(config : ConfigurationId, affinity, deliveryCount, processId, lockToken, body, isQueueMessage) = 
 
@@ -118,22 +134,10 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
                                  return msg
                              })
                       |> Async.Parallel
-            do! tc.SendBatchAsync(ys)
-        }
-
-    member __.EnqueueBatch<'T>(xs : 'T [], affinity : string, ?pid) = 
-        async { 
-            let! ys = xs
-                      |> Array.map (fun x -> 
-                             async { 
-                                 let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
-                                 let msg = new BrokeredMessage(bc.Path)
-                                 msg.Properties.Add(AffinityPropertyName, affinity)
-                                 pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
-                                 return msg
-                             })
-                      |> Async.Parallel
-            do! tc.SendBatchAsync(ys)
+            do! ys |> partitionMessages
+                   |> Seq.map(fun ms -> Async.AwaitTask(tc.SendBatchAsync(ms)))
+                   |> Async.Parallel
+                   |> Async.Ignore
         }
     
     member __.Enqueue<'T>(t : 'T, affinity : string, ?pid) = 
@@ -184,7 +188,10 @@ type internal Queue (config : ConfigurationId, logger) =
                                                      pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
                                                      return msg })
                       |> Async.Parallel
-            do! queue.SendBatchAsync(ys)
+            do! ys |> partitionMessages
+                   |> Seq.map(fun ms -> Async.AwaitTask(queue.SendBatchAsync(ms)))
+                   |> Async.Parallel
+                   |> Async.Ignore
         }
     
     member __.Enqueue<'T>(t : 'T, ?pid) = 
