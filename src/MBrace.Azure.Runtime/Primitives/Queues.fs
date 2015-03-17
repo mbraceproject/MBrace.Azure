@@ -40,6 +40,7 @@ module private Helpers =
                 currentSize <- 0L
             currentSize <- m.Size + currentSize
             currentBatch.Add(m)
+        if currentSize > 0L then results.Add(currentBatch)
         results
 
 
