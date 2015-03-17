@@ -46,7 +46,7 @@ and [<AutoSerializable(false)>]
 
                 state.Logger.Logf "AppDomain Initialized"
             }
-            |> Async.RunSynchronously
+            |> Async.RunSync
 
 
     static let runJob (config : JobEvaluatorConfiguration) (job : Job) (deps : AssemblyId list) (faultCount : int)  =

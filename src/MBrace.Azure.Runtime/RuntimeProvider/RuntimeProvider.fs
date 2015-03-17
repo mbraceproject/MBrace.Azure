@@ -3,6 +3,7 @@
 #nowarn "444"
 
 open MBrace
+open MBrace.Continuation
 open MBrace.Runtime
 
 open MBrace.Azure.Runtime
@@ -17,7 +18,7 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
     let mkNestedCts (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
         let dcts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = parentCts, elevate = false)
-                   |> Async.RunSynchronously
+                   |> Async.RunSync
         dcts :> ICloudCancellationTokenSource
 
     /// Creates a runtime provider instance for a provided job
