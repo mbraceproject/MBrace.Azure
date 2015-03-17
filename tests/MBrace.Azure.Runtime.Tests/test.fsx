@@ -36,7 +36,7 @@ runtime.Reset()
 runtime.ShowWorkers()
 
 // local only---
-let runtime = Runtime.InitLocal(config, 4, 16)
+Runtime.SpawnLocal(config, 4, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -44,6 +44,30 @@ runtime.ShowWorkers()
 runtime.ShowLogs()
 
 runtime.ClearAllProcesses()
+
+
+
+let directory = CloudDirectory.Enumerate("temp") |> runtime.Run
+let files = CloudFile.Enumerate directory.[0] |> runtime.Run
+
+let results =
+   files |> Array.map(fun file -> cloud {
+            //do! Cloud.Log "1"
+            let! text = CloudFile.ReadAllText(file)
+            //do! Cloud.Log (sprintf "%s.out" file.Path)
+            let! mapped = CloudFile.WriteAllText(text, sprintf "%s.out" file.Path, System.Text.Encoding.UTF8)
+            //do! Cloud.Log "3"
+            let! newlength = CloudFile.GetSize mapped
+            return sprintf "%s has length %d, new length %d" file.Path (text.Length / 1000) (newlength / 1000L)
+         })
+         |> Cloud.Parallel
+         |> runtime.CreateProcess
+
+results.ShowInfo()
+
+results.AwaitResult()
+
+results.ShowLogs()
 
 let ps =
     cloud {

@@ -1,3 +1,8 @@
+#### 0.6.5-alpha
+* Update MBrace.Core libraries.
+* Remove transient dependencies from nuget package.
+* Misc bugfixes.
+
 #### 0.6.4-alpha
 * Update MBrace.Core libraries.
 * Implement AppDomain isolation for user jobs.

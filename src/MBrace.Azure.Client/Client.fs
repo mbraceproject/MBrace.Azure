@@ -69,7 +69,7 @@
             Runtime.GetHandle(config)
 
         /// Provides common methods on store related primitives.
-        member __.DefaultStoreClient = defaultStoreClient
+        member __.StoreClient = defaultStoreClient
 
         /// Instance identifier.
         member __.ClientId = clientId

@@ -154,14 +154,8 @@ Target "NuGet.CoreAzure" (fun _ ->
                     "FsPickler", "1.0.13"
                     "MBrace.Core", RequireExactly MBraceCoreVersion
                     "MBrace.Runtime.Core", RequireExactly MBraceCoreVersion
-                    "Microsoft.Data.OData", "5.6.3"
-                    "Microsoft.Data.Edm", "5.6.3"
-                    "Microsoft.Data.Services.Client", "5.6.3"
-                    "Microsoft.WindowsAzure.ConfigurationManager", "2.0.3"
-                    "Newtonsoft.Json", "6.0.6"
-                    "System.Spatial", "5.6.3"
                     "WindowsAzure.Storage", "4.3.0"
-                    "WindowsAzure.ServiceBus", "2.6.2"
+                    "WindowsAzure.ServiceBus", "2.5.2"
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
