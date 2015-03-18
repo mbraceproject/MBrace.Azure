@@ -69,24 +69,24 @@
             Runtime.GetHandle(config)
 
         /// Provides common methods on store related primitives.
-        member __.StoreClient = defaultStoreClient
+        member this.StoreClient = defaultStoreClient
 
         /// Instance identifier.
-        member __.ClientId = clientId
+        member this.ClientId = clientId
 
         /// Gets the runtime associated configuration.
-        member __.Configuration = configuration
+        member this.Configuration = configuration
 
         /// Client logger.
-        member __.ClientLogger : ICloudLogger = clientLogger :> _
+        member this.ClientLogger : ICloudLogger = clientLogger :> _
         
         /// Attach given logger to ClientLogger.
-        member __.AttachClientLogger(logger : ICloudLogger) = clientLogger.Attach(logger)
+        member this.AttachClientLogger(logger : ICloudLogger) = clientLogger.Attach(logger)
 
         /// <summary>
         /// Creates a fresh CloudCancellationTokenSource for this runtime.
         /// </summary>
-        member __.CreateCancellationTokenSource () =
+        member this.CreateCancellationTokenSource () =
             state.ResourceFactory.RequestCancellationTokenSource(guid()) 
             |> Async.RunSync :> ICloudCancellationTokenSource
 
@@ -97,7 +97,7 @@
         /// <param name="logger">Optional logger to use.</param>
         /// <param name="cancellationToken">Optional cancellation token.</param>
         /// <param name="faultPolicy">Optional fault policy.</param>
-        member __.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
+        member this.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
             async {
                 let runtimeProvider = ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
                 let rsc = resource { yield! resources; yield runtimeProvider :> IDistributionProvider }
@@ -115,8 +115,8 @@
         /// <param name="logger">Optional logger to use.</param>
         /// <param name="cancellationToken">Optional cancellation token.</param>
         /// <param name="faultPolicy">Optional fault policy.</param>
-        member __.RunLocal(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
-            __.RunLocalAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
+        member this.RunLocal(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
+            this.RunLocalAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             |> Async.RunSync
 
         /// <summary>
@@ -132,8 +132,8 @@
         /// <param name="channelProvider">Optional CloudChannelProvider.</param>
         /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
         /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
-        member __.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
-            __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
+        member this.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
+            this.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
             |> Async.StartAsTask
 
         /// <summary>
@@ -149,8 +149,8 @@
         /// <param name="channelProvider">Optional CloudChannelProvider.</param>
         /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
         /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
-        member __.CreateProcess(workflow : Cloud<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : ICloudCancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
-            __.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
+        member this.CreateProcess(workflow : Cloud<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : ICloudCancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
+            this.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
             |> Async.RunSync
 
         /// <summary>
@@ -166,7 +166,7 @@
         /// <param name="channelProvider">Optional CloudChannelProvider.</param>
         /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
         /// <param name="faultPolicy">Optional FaultPolicy. Defaults to NoRetry.</param>
-        member __.CreateProcessAsync(workflow : Cloud<'T>, 
+        member this.CreateProcessAsync(workflow : Cloud<'T>, 
                                      ?name : string, 
                                      ?defaultDirectory : string,
                                      ?fileStore : ICloudFileStore,
@@ -199,6 +199,7 @@
                 let! _ = state.StartAsProcess(info, dependencies, faultPolicy, workflow, logger = clientLogger, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
                 let ps = Process<'T>(configuration.ConfigurationId, info.Id, pmon)
+                ProcessCache.Add(ps)
                 return ps
             }
             
@@ -208,8 +209,8 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) = async {
-            let! p = __.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
+        member this.RunAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) = async {
+            let! p = this.CreateProcessAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             try
                 return p.AwaitResult()
             finally
@@ -222,8 +223,8 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
-            let asyncwf = __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
+        member this.RunAsTask(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
+            let asyncwf = this.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
             Async.StartAsTask(asyncwf)
 
         /// <summary>
@@ -232,29 +233,29 @@
         /// <param name="workflow">Workflow to be executed.</param>
         /// <param name="cancellationToken">Cancellation token for computation.</param>
         /// <param name="faultPolicy">Fault policy. Defaults to infinite retries.</param>
-        member __.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
-            __.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
+        member this.Run(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken, ?faultPolicy) =
+            this.RunAsync(workflow, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) |> Async.RunSync
 
         /// <summary>
         /// Get runtime workers.
         /// </summary>
         /// <param name="timespan">Optional timespan. Include workers that failed to give heartbeats in this timespan.</param>
         /// <param name="showInactive">Optionally include inactive workers.</param>
-        member __.GetWorkers(?timespan : TimeSpan, ?showInactive : bool) = 
-            Async.RunSync <| __.GetWorkersAsync(?timespan = timespan, ?showInactive = showInactive)
+        member this.GetWorkers(?timespan : TimeSpan, ?showInactive : bool) = 
+            Async.RunSync <| this.GetWorkersAsync(?timespan = timespan, ?showInactive = showInactive)
         /// <summary>
         /// Get runtime workers.
         /// </summary>
         /// <param name="timespan">Optional timespan. Include workers that failed to give heartbeats in this timespan.</param>
         /// <param name="showInactive">Optionally include inactive workers.</param>
-        member __.GetWorkersAsync(?timespan : TimeSpan, ?showInactive : bool) = 
+        member this.GetWorkersAsync(?timespan : TimeSpan, ?showInactive : bool) = 
             wmon.GetWorkerRefs(?timespan = timespan, ?showInactive = showInactive)
         /// <summary>
         /// Print runtime workers.
         /// </summary>
         /// <param name="timespan">Optional timespan. Include workers that failed to give heartbeats in this timespan.</param>
         /// <param name="showInactive">Optionally include inactive workers.</param>
-        member __.ShowWorkers (?timespan : TimeSpan, ?showInactive : bool) = 
+        member this.ShowWorkers (?timespan : TimeSpan, ?showInactive : bool) = 
             let ws = wmon.GetWorkers(?timespan = timespan, ?showInactive = showInactive) |> Async.RunSync
             printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
@@ -264,15 +265,15 @@
         /// <param name="worker">Get logs from specific worker.</param>
         /// <param name="fromDate">Get logs from this date.</param>
         /// <param name="toDate">Get logs until this date.</param>
-        member __.GetLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
-            Async.RunSync <| __.GetLogsAsync(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
+        member this.GetLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
+            Async.RunSync <| this.GetLogsAsync(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
         /// <summary>
         /// Get runtime logs.
         /// </summary>
         /// <param name="worker">Get logs from specific worker.</param>
         /// <param name="fromDate">Get logs from this date.</param>
         /// <param name="toDate">Get logs until this date.</param>
-        member __.GetLogsAsync(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
+        member this.GetLogsAsync(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
             let loggerType = worker |> Option.map (fun w -> Worker w.Id)
             storageLogger.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
         /// <summary>
@@ -281,17 +282,17 @@
         /// <param name="worker">Get logs from specific worker.</param>
         /// <param name="fromDate">Get logs from this date.</param>
         /// <param name="toDate">Get logs until this date.</param>
-        member __.ShowLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
-            let ls = __.GetLogs(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
+        member this.ShowLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+            let ls = this.GetLogs(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
             printf "%s" <| LogReporter.Report(ls, "Logs", false)
         /// <summary>
         /// Print runtime logs.
         /// </summary>
         /// <param name="worker">Get logs from specific worker.</param>
         /// <param name="n">Get logs written the last n seconds.</param>
-        member __.ShowLogs(n : float, ?worker : IWorkerRef) =
+        member this.ShowLogs(n : float, ?worker : IWorkerRef) =
             let fromDate = DateTimeOffset.Now - (TimeSpan.FromSeconds n)
-            let ls = __.GetLogs(?worker = worker, fromDate = fromDate)
+            let ls = this.GetLogs(?worker = worker, fromDate = fromDate)
             printf "%s" <| LogReporter.Report(ls, "Logs", false)
 
         /// <summary>
@@ -299,36 +300,63 @@
         /// </summary>
         /// <param name="workerCount">Local workers to be spawned. Defaults to 1.</param>
         /// <param name="maxTasks">Maximum tasks for worker. Defaults to local core count.</param>
-        member __.AttachLocalWorker(?workerCount:int, ?maxTasks:int) : unit =
+        member this.AttachLocalWorker(?workerCount:int, ?maxTasks:int) : unit =
             let workerCount = defaultArg workerCount 1
             Runtime.SpawnLocal(config, workerCount, ?maxTasks = maxTasks)
+
+        /// Get handles for all processes.
+        member this.GetProcesses() = Async.RunSync <| this.GetProcessesAsync()
+        /// Get handles for all processes.
+        member this.GetProcessesAsync() =
+            async {
+                let! ps = pmon.GetProcesses()
+                let result = new ResizeArray<MBrace.Azure.Client.Process>()
+                for p in ps do
+                    let! proc = async {
+                        match ProcessCache.TryGet(p) with
+                        | Some p -> return p
+                        | None -> 
+                            let deps = p.UnpickleDependencies()
+                            do! state.AssemblyManager.LoadDependencies(deps)
+                            let ps = Process.Create(configuration.ConfigurationId, pid, e.UnpickleType(), pmon)
+                            ProcessCache.Add(ps)
+                            return ps
+                    }
+                    result.Add(proc)
+                return result :> seq<_>
+            }
 
         /// <summary>
         /// Get a process handle for given process id.
         /// </summary>
         /// <param name="pid">Process Id</param>
-        member __.GetProcess(pid) = Async.RunSync <| __.GetProcessAsync(pid)
+        member this.GetProcess(pid) = Async.RunSync <| this.GetProcessAsync(pid)
         /// <summary>
         /// Get a process handle for given process id.
         /// </summary>
         /// <param name="pid">Process Id</param>
-        member __.GetProcessAsync(pid) = 
+        member this.GetProcessAsync(pid) = 
             async {
-                let! e = pmon.GetProcess(pid)
-                let deps = e.UnpickleDependencies()
-                do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
-                return Process.Create(configuration.ConfigurationId, pid, e.UnpickleType(), pmon)
+                match ProcessCache.TryGet(pid) with
+                | Some ps -> return ps
+                | None ->
+                    let! e = pmon.GetProcess(pid)
+                    let deps = e.UnpickleDependencies()
+                    do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
+                    let ps = Process.Create(configuration.ConfigurationId, pid, e.UnpickleType(), pmon)
+                    ProcessCache.Add(ps)
+                    return ps
             }
         /// <summary>
         /// Print process information for given process id.
         /// </summary>
         /// <param name="pid">Process Id</param>
-        member __.ShowProcess(pid) =
-            let ps = __.GetProcess(pid).ProcessEntity.Value
+        member this.ShowProcess(pid) =
+            let ps = this.GetProcess(pid).ProcessEntity.Value
             printf "%s" <| ProcessReporter.Report([ps], "Process", false)
 
         /// Print all process information.
-        member __.ShowProcesses () = 
+        member this.ShowProcesses () = 
             let ps = pmon.GetProcesses() |> Async.RunSync
             printf "%s" <| ProcessReporter.Report(ps, "Processes", false)
 
@@ -338,14 +366,14 @@
         /// <param name="pid">Process Id.</param>
         /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearProcess(pid, ?fullClear, ?force) = __.ClearProcessAsync(pid, ?fullClear = fullClear, ?force = force) |> Async.RunSync
+        member this.ClearProcess(pid, ?fullClear, ?force) = this.ClearProcessAsync(pid, ?fullClear = fullClear, ?force = force) |> Async.RunSync
         /// <summary>
         /// Delete runtime records for given process.
         /// </summary>
         /// <param name="pid">Process Id.</param>
         /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearProcessAsync(pid, ?fullClear, ?force : bool) = 
+        member this.ClearProcessAsync(pid, ?fullClear, ?force : bool) = 
             let force = defaultArg force false
             let fullClear = defaultArg fullClear true
             pmon.ClearProcess(pid, full = fullClear, force = force)
@@ -355,13 +383,13 @@
         /// </summary>
         /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearAllProcesses(?fullClear, ?force) = __.ClearAllProcessesAsync(?fullClear = fullClear, ?force = force) |> Async.RunSync
+        member this.ClearAllProcesses(?fullClear, ?force) = this.ClearAllProcessesAsync(?fullClear = fullClear, ?force = force) |> Async.RunSync
         /// <summary>
         /// Delete runtime records for all processes.
         /// </summary>
         /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
-        member __.ClearAllProcessesAsync(?fullClear, ?force : bool) = 
+        member this.ClearAllProcessesAsync(?fullClear, ?force : bool) = 
             let force = defaultArg force false
             let fullClear = defaultArg fullClear true
             pmon.ClearAllProcesses(force = force, full = fullClear)
@@ -376,7 +404,7 @@
         /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
         /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
         [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-        member __.Reset(?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
+        member this.Reset(?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
             async {
                 let deleteState = defaultArg deleteState true
                 let deleteQueue = defaultArg deleteQueue true

@@ -14,6 +14,8 @@ open System.IO
 open System.Threading
 open System.Reflection
 open MBrace.Azure
+open System.Collections.Concurrent
+
 
 [<AutoSerializable(false); AbstractClass>]
 /// Represents a cloud process.
@@ -140,3 +142,14 @@ type Process<'T> internal (config, pid : string, pmon : ProcessManager) =
         let flags = BindingFlags.NonPublic ||| BindingFlags.Instance
         let culture = System.Globalization.CultureInfo.InvariantCulture
         Activator.CreateInstance(processT, flags, null, [|config :> obj; pid :> obj ; pmon :> obj |], culture) :?> Process
+
+
+[<AutoSerializable(false); Sealed>]
+type internal ProcessCache () =
+    static let cache = new ConcurrentDictionary<string, Process>()
+
+    static member Add(ps : Process) = cache.TryAdd(ps.Id, ps) |> ignore
+    static member TryGet(pid : string) = 
+        match cache.TryGetValue(pid) with
+        | true, p -> Some p
+        | false, _ -> None

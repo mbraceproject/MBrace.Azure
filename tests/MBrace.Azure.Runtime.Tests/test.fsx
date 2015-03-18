@@ -42,7 +42,8 @@ Runtime.SpawnLocal(config, 4, 16)
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
-runtime.GetWorkers() |> Seq.toArray
+runtime.GetWorkers() 
+|> Seq.iter (fun w -> printfn "%s %s %f" w.Id w.Hostname w.Memory)
 
 runtime.ClearAllProcesses()
 
