@@ -313,12 +313,12 @@
                 let result = new ResizeArray<MBrace.Azure.Client.Process>()
                 for p in ps do
                     let! proc = async {
-                        match ProcessCache.TryGet(p) with
+                        match ProcessCache.TryGet(p.Id) with
                         | Some p -> return p
                         | None -> 
                             let deps = p.UnpickleDependencies()
                             do! state.AssemblyManager.LoadDependencies(deps)
-                            let ps = Process.Create(configuration.ConfigurationId, pid, e.UnpickleType(), pmon)
+                            let ps = Process.Create(configuration.ConfigurationId, p.Id, p.UnpickleType(), pmon)
                             ProcessCache.Add(ps)
                             return ps
                     }
