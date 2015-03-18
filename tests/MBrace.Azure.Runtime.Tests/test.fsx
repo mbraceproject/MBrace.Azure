@@ -38,6 +38,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 Runtime.SpawnLocal(config, 4, 16)
 // ----------------------------
 
+
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
@@ -45,8 +46,9 @@ runtime.ShowLogs()
 runtime.ClearAllProcesses()
 
 
-let ps = runtime.CreateProcess([1..1000] |> Seq.map (fun _ -> cloud { return 42 }) |> Cloud.Parallel)
-
+let ps = runtime.CreateProcess([1..2000] |> Seq.map (fun i -> cloud { return i*i }) |> Cloud.Parallel)
+ps.ShowInfo()
+ps.AwaitResult()
 
 
 
@@ -195,7 +197,7 @@ cr.Size |> runtime.RunLocal
 cr.ToEnumerable() |> runtime.RunLocal
 
 
-runtime.DefaultStoreClient.CloudCell.Read(c)
+runtime.StoreClient.CloudCell.Read(c)
 
 
 

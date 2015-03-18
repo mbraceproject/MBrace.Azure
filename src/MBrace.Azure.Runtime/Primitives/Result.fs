@@ -107,7 +107,7 @@ type ResultCell<'T> internal (config : ConfigurationId, partitionKey : string, r
                 let! e = Table.read<BlobReferenceEntity> config config.RuntimeTable partitionKey rowKey
                 if String.IsNullOrEmpty e.Uri then return None
                 else
-                    let bc = Blob.FromPath(config, e.Uri)
+                    let bc = Blob<Result<'T>>.FromPath(config, e.Uri)
                     let! v = bc.GetValue()
                     localResult <- Some v
                     return localResult

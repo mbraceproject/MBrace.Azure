@@ -165,7 +165,7 @@
         /// <param name="defaultChannelContainer">Optional default container for CloudChannel operations.</param>
         /// <param name="channelProvider">Optional CloudChannelProvider.</param>
         /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
-        /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
+        /// <param name="faultPolicy">Optional FaultPolicy. Defaults to NoRetry.</param>
         member __.CreateProcessAsync(workflow : Cloud<'T>, 
                                      ?name : string, 
                                      ?defaultDirectory : string,
@@ -177,7 +177,7 @@
                                      ?cancellationToken : ICloudCancellationToken, 
                                      ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
-                let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.InfiniteRetry()
+                let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.NoRetry
                 let dependencies = MBrace.Runtime.Vagabond.VagabondRegistry.ComputeObjectDependencies workflow
           
                 let pid = guid ()

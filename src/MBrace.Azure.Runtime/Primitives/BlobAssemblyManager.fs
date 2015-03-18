@@ -54,7 +54,7 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
         async { 
             let file = filename id
             logger.Logf "Downloading file %s" id.FullName
-            let blob = Blob.FromPath(config, prefix, file)
+            let blob = Blob<AssemblyPackage>.FromPath(config, prefix, file)
             let! value = blob.GetValue()
             logger.Logf "File %s done" id.FullName
             return value

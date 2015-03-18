@@ -61,3 +61,53 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
 
             return new Blob<'T>(config, prefix, filename)
         }
+
+[<DataContract>]
+type Blob internal (config : ConfigurationId, prefix : string, filename : string) =
+    
+    [<DataMember(Name = "config")>]
+    let config = config
+    [<DataMember(Name = "prefix")>]
+    let prefix = prefix
+    [<DataMember(Name = "filename")>]
+    let filename = filename
+
+    member __.OpenRead() : Async<Stream> =
+        async {
+            let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let ref = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+            return! ref.OpenReadAsync()
+        }
+    
+    member __.Path = sprintf "%s/%s" prefix filename
+
+    static member FromPath(config : ConfigurationId, path : string) = 
+        let p = path.Split('/')
+        Blob.FromPath(config, p.[0], p.[1])
+
+    static member FromPath(config : ConfigurationId, prefix, file) = 
+        new Blob(config, prefix, file)
+
+    static member Exists(config, prefix, filename) =
+        async {
+            let c = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let! _ = c.CreateIfNotExistsAsync()
+            let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+            return! b.ExistsAsync()
+        }
+
+    static member UploadFromFile(config, prefix, filename, path) = 
+        async { 
+            let c = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let! _ = c.CreateIfNotExistsAsync()
+            let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+
+            let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
+            do! b.UploadFromFileAsync(path, FileMode.Open, null, options, OperationContext(), Async.DefaultCancellationToken)
+
+            // For some reason large client uploads, fail to upload but do not throw exception...
+            let! exists = b.ExistsAsync()
+            if not exists then failwith(sprintf "Failed to upload %s/%s" prefix filename)
+
+            return new Blob(config, prefix, filename)
+        }

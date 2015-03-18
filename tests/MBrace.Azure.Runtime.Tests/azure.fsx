@@ -26,19 +26,40 @@ let sbus = selectEnv "azureservicebusconn"
 
 
 let ns = NamespaceManager.CreateFromConnectionString(sbus)
-let qd = new QueueDescription("tmp") in qd.LockDuration <- TimeSpan.FromMinutes(2.)
+let qd = new QueueDescription("tmp")
+qd.LockDuration <- TimeSpan.FromMinutes(2.)
 ns.CreateQueue(qd) |> ignore
 let queue = QueueClient.CreateFromConnectionString(sbus, "tmp")
 
+
+let m = new BrokeredMessage("Hello")
+m.Properties.Add("foo", "bar")
+m.Properties.Add("goo", "bar")
+m.Size
+m.
+queue.Send(m) //(200 - 68)
+
+queue.SendBatch([m]) //(200 - 68)
+
+let ms = Array.init 1500 (fun i -> new BrokeredMessage(sprintf "Hello %d" i))
+ms |> Seq.sumBy (fun m -> m.Size)
+
+queue.SendBatch(ms)
+queue.PrefetchCount
+qd.MessageCount
+
+let ms' = queue.ReceiveBatch(1000)
+ms' |> Seq.iter (fun msg -> printfn "%s" <| msg.GetBody<string>(); msg.Complete())
+
+
 queue.Send(new BrokeredMessage("Hello world"))
+
 
 let bm = queue.Receive()
 
 bm.RenewLock()
 
-
 queue.Complete(bm.LockToken)
-
 
 //
 //type AutoRenewLease (blob : ICloudBlob) =

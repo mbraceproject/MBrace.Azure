@@ -7,6 +7,8 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure
 open MBrace.Runtime
+open System.Threading.Tasks
+open System.IO
 
 [<AutoOpenAttribute>]
 module private Helpers = 
@@ -16,6 +18,7 @@ module private Helpers =
     let ServerWaitTime = TimeSpan.FromMilliseconds(50.)
     let AffinityPropertyName = "Affinity"
     let ProcessIdPropertyName = "ProcessId"
+    let StreamOffsetPropertyName = "StreamOffset"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
 
     let rec renewLoop (message : BrokeredMessage) = async {
@@ -27,55 +30,60 @@ module private Helpers =
         return! renewLoop message
     }
 
-
     let partitionMessages(messages : BrokeredMessage seq) =
-        let limit = 256L * 1024L
+        let limit = 256L * 1024L // 256K batch limit
+        let minMessageSize = 512L // total size cannot be calculated by .Size; add a min size to hold properties
         let results = new ResizeArray<ResizeArray<BrokeredMessage>>()
         let mutable currentSize = 0L
         let mutable currentBatch = new ResizeArray<BrokeredMessage>()
         for m in messages do
-            if m.Size + currentSize >= limit then
+            let messageSize = m.Size + minMessageSize
+            if messageSize + currentSize >= limit then
                 results.Add(currentBatch)
                 currentBatch <- new ResizeArray<BrokeredMessage>()
                 currentSize <- 0L
-            currentSize <- m.Size + currentSize
+            currentSize <- messageSize + currentSize
             currentBatch.Add(m)
         if currentSize > 0L then results.Add(currentBatch)
         results
 
 
 /// Local wrapper for Service Bus message
-type QueueMessage(config : ConfigurationId, affinity, deliveryCount, processId, lockToken, body, isQueueMessage) = 
+type QueueMessage(config : ConfigurationId, affinity, deliveryCount, processId, lockToken, body, streamOffset) = 
 
-    member __.IsQueueMessage = isQueueMessage
+    member this.IsQueueMessage = this.Affinity.IsNone
 
-    member __.LockToken = lockToken
+    member this.LockToken = lockToken
 
-    member __.Affinity = affinity
+    member this.Affinity : string option = affinity
 
-    member __.DeliveryCount = deliveryCount
+    member this.DeliveryCount = deliveryCount
 
-    member __.ProcessId = processId
+    member this.ProcessId = processId
     
-    member __.GetPayloadAsync<'T>() : Async<'T> = 
+    member this.StreamOffset = streamOffset
+
+    member this.GetPayloadAsync<'T>() : Async<'T> = 
         async { 
-            let t = Blob.FromPath(config, body)
-            return! t.GetValue()
+            let t = Blob.FromPath(config, processId, body)
+            use! stream = t.OpenRead()
+            stream.Seek(this.StreamOffset, SeekOrigin.Begin) |> ignore
+            return Configuration.Pickler.Deserialize<'T>(stream)
         }
 
-    static member FromBrokeredMessage(config : ConfigurationId, message : BrokeredMessage, isQueueMessage) =
-        let affinity = 
-            match message.Properties.TryGetValue(AffinityPropertyName) with
-            | true, aff -> Some(aff :?> string)
-            | false, _  -> None
+    static member FromBrokeredMessage(config : ConfigurationId, message : BrokeredMessage) =
+        let tryGet name = 
+            match message.Properties.TryGetValue(name) with
+            | true, v -> Some(v :?> 'T)
+            | false, _ -> None
+        let affinity = tryGet AffinityPropertyName
         let deliveryCount = message.DeliveryCount
-        let processId = 
-            match message.Properties.TryGetValue(AffinityPropertyName) with
-            | true, aff -> Some(aff :?> string)
-            | false, _  -> None
+        let processId = message.Properties.[ProcessIdPropertyName] :?> string
+        let streamPos = Option.fold (fun _ p -> p) 0L (tryGet StreamOffsetPropertyName) 
+
         let lockToken = message.LockToken
         let body = message.GetBody<string>()
-        new QueueMessage(config, affinity, deliveryCount, processId, lockToken, body, isQueueMessage)
+        new QueueMessage(config, affinity, deliveryCount, processId, lockToken, body, streamPos)
 
 /// Local queue subscription client
 [<AutoSerializable(false)>]
@@ -96,24 +104,24 @@ type internal Subscription (config : ConfigurationId, logger : ICloudLogger, aff
 
     let sub = cp.SubscriptionClient(config.RuntimeTopic, subscription)
 
-    member __.CompleteAsync(message : QueueMessage) =
+    member this.CompleteAsync(message : QueueMessage) =
         async {
             do! sub.CompleteAsync(message.LockToken)
         }
 
-    member __.AbandonAsync(message : QueueMessage) =
+    member this.AbandonAsync(message : QueueMessage) =
         async {
             do! sub.AbandonAsync(message.LockToken)
         }
     
-    member __.TryDequeue<'T>() : Async<QueueMessage option> = 
+    member this.TryDequeue<'T>() : Async<QueueMessage option> = 
         async { 
             let! msg = sub.ReceiveAsync(ServerWaitTime)
             if msg = null then 
                 return None
             else 
                 do! Async.StartChild(renewLoop msg) |> Async.Ignore 
-                return Some(QueueMessage.FromBrokeredMessage(config, msg, false))
+                return Some(QueueMessage.FromBrokeredMessage(config, msg))
         }
 
 /// Local queue topic client
@@ -121,32 +129,47 @@ type internal Subscription (config : ConfigurationId, logger : ICloudLogger, aff
 type internal Topic (config : ConfigurationId, logger : ICloudLogger) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let tc = cp.TopicClient(config.RuntimeTopic)
-    member __.GetSubscription(affinity) : Subscription = new Subscription(config, logger, affinity)
+    member this.GetSubscription(affinity) : Subscription = new Subscription(config, logger, affinity)
     
-    member __.EnqueueBatch<'T>(xs : ('T * string) [], ?pid) = 
+    member this.EnqueueBatch<'T>(xs : ('T * string) [], pid) = 
         async { 
-            let! ys = xs
-                      |> Array.map (fun (x, affinity) -> 
-                             async { 
-                                 let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
-                                 let msg = new BrokeredMessage(bc.Path)
-                                 msg.Properties.Add(AffinityPropertyName, affinity)
-                                 pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
-                                 return msg
-                             })
-                      |> Async.Parallel
-            do! ys |> partitionMessages
-                   |> Seq.map(fun ms -> Async.AwaitTask(tc.SendBatchAsync(ms)))
-                   |> Async.Parallel
-                   |> Async.Ignore
+            logger.Logf "Creating common job file."
+            let temp = Path.GetRandomFileName()
+            let fileStream = File.OpenWrite(temp)
+            let blobName = guid()
+            let lastPosition = ref 0L
+            let ys = new ResizeArray<BrokeredMessage>(xs.Length)
+            for x, affinity in xs do
+                Configuration.Pickler.Serialize(fileStream, x, leaveOpen = true)
+                let msg = new BrokeredMessage(blobName)
+                msg.Properties.Add(ProcessIdPropertyName, pid)
+                msg.Properties.Add(AffinityPropertyName, affinity)
+                msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
+                ys.Add(msg)
+                lastPosition := fileStream.Position
+            fileStream.Flush()
+            fileStream.Dispose()
+
+            logger.Logf "Uploading job file [%d bytes]." lastPosition.Value
+            do! Blob.UploadFromFile(config, pid, blobName, temp)
+                |> Async.Ignore
+
+            let parts = partitionMessages ys
+            logger.Logf "Queue EnqueueBatch %d messages : [%s]" xs.Length (parts |> Seq.map (Seq.length >> string) |> String.concat ", ")
+            return! parts |> Seq.mapi(fun i ms -> async {
+                            do! Async.AwaitTask(tc.SendBatchAsync(ms))
+                            logger.Logf "Batch %d, length %d completed" i ms.Count })
+                          |> Async.Parallel
+                          |> Async.Ignore
         }
     
-    member __.Enqueue<'T>(t : 'T, affinity : string, ?pid) = 
+    member this.Enqueue<'T>(t : 'T, affinity : string, pid) = 
         async { 
-            let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> t)
-            let msg = new BrokeredMessage(bc.Path)
+            let name = guid()
+            do! Blob.Create(config, pid, name, fun () -> t) |> Async.Ignore
+            let msg = new BrokeredMessage(name)
             msg.Properties.Add(AffinityPropertyName, affinity)
-            pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
+            msg.Properties.Add(ProcessIdPropertyName, pid)
             do! tc.SendAsync(msg)
         }
 
@@ -165,52 +188,70 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
 
 /// Queue client implementation
 [<AutoSerializable(false)>]
-type internal Queue (config : ConfigurationId, logger) = 
+type internal Queue (config : ConfigurationId, logger : ICloudLogger) = 
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
     let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
     
-    member __.Length = ns.GetQueue(config.RuntimeQueue).MessageCount
+    member this.Length = ns.GetQueue(config.RuntimeQueue).MessageCount
 
-    member __.CompleteAsync(message : QueueMessage) =
+    member this.CompleteAsync(message : QueueMessage) =
         async {
             do! queue.CompleteAsync(message.LockToken)
         }
 
-    member __.AbandonAsync(message : QueueMessage) =
+    member this.AbandonAsync(message : QueueMessage) =
         async {
             do! queue.AbandonAsync(message.LockToken)
         }
 
-    member __.EnqueueBatch<'T>(xs : 'T [], ?pid) = 
+    member this.EnqueueBatch<'T>(xs : 'T [], pid) = 
         async { 
-            let! ys = xs
-                      |> Array.map (fun x -> async { let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> x)
-                                                     let msg = new BrokeredMessage(bc.Path)
-                                                     pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
-                                                     return msg })
-                      |> Async.Parallel
-            do! ys |> partitionMessages
-                   |> Seq.map(fun ms -> Async.AwaitTask(queue.SendBatchAsync(ms)))
-                   |> Async.Parallel
-                   |> Async.Ignore
+            logger.Logf "Creating common job file."
+            let temp = Path.GetRandomFileName()
+            let fileStream = File.OpenWrite(temp)
+            let blobName = guid()
+            let lastPosition = ref 0L
+            let ys = new ResizeArray<BrokeredMessage>(xs.Length)
+            for x in xs do
+                Configuration.Pickler.Serialize(fileStream, x, leaveOpen = true)
+                let msg = new BrokeredMessage(blobName)
+                msg.Properties.Add(ProcessIdPropertyName, pid)
+                msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
+                ys.Add(msg)
+                lastPosition := fileStream.Position
+            fileStream.Flush()
+            fileStream.Dispose()
+
+            logger.Logf "Uploading job file [%d bytes]." lastPosition.Value
+            do! Blob.UploadFromFile(config, pid, blobName, temp)
+                |> Async.Ignore
+
+            let parts = partitionMessages ys
+            logger.Logf "Queue EnqueueBatch %d messages : %s" xs.Length (parts |> Seq.map (Seq.length >> string) |> String.concat ", ")
+            return! parts |> Seq.mapi(fun i ms -> async {
+                            do! Async.AwaitTask(queue.SendBatchAsync(ms))
+                            logger.Logf "Batch %d, length %d completed." i ms.Count })
+                          |> Async.Parallel
+                          |> Async.Ignore
         }
     
-    member __.Enqueue<'T>(t : 'T, ?pid) = 
+    member this.Enqueue<'T>(t : 'T, pid) = 
         async { 
-            let! bc = Blob.Create(config, defaultArg pid "jobs", guid(), fun () -> t)
-            let msg = new BrokeredMessage(bc.Path)
-            pid |> Option.iter(fun pid -> msg.Properties.Add(ProcessIdPropertyName, pid))
+            let name = guid()
+            do! Blob.Create(config, pid, name, fun () -> t) |> Async.Ignore
+            let msg = new BrokeredMessage(name)
+            msg.Properties.Add(ProcessIdPropertyName, pid)
             do! queue.SendAsync(msg)
         }
     
-    member __.TryDequeue<'T>() : Async<QueueMessage option> = 
+    member this.TryDequeue<'T>() : Async<QueueMessage option> = 
         async { 
             let! msg = queue.ReceiveAsync(ServerWaitTime)
             if msg = null then 
                 return None
             else
                 do! Async.StartChild(renewLoop msg) |> Async.Ignore 
-                return Some(QueueMessage.FromBrokeredMessage(config, msg, true))
+                return Some(QueueMessage.FromBrokeredMessage(config, msg))
         }
     
     static member Create(config : ConfigurationId, logger) = 
@@ -233,25 +274,25 @@ type JobQueue internal (queue : Queue, topic : Topic, logger) =
     let mutable subscription : Subscription option = None 
     let mutable flag = false
 
-    member __.Affinity 
+    member this.Affinity 
         with get () = affinity.Value
         and set aff = 
             affinity <- Some aff
             subscription <- Some(topic.GetSubscription(aff))
 
-    member __.CompleteAsync(message : QueueMessage) =
+    member this.CompleteAsync(message : QueueMessage) =
         async {
             if message.IsQueueMessage then do! queue.CompleteAsync(message)
             else do! subscription.Value.CompleteAsync(message)
         }
 
-    member __.AbandonAsync(message : QueueMessage) =
+    member this.AbandonAsync(message : QueueMessage) =
         async {
             if message.IsQueueMessage then do! queue.AbandonAsync(message)
             else do! subscription.Value.AbandonAsync(message)
         }
 
-    member __.TryDequeue() : Async<QueueMessage option> =
+    member this.TryDequeue() : Async<QueueMessage option> =
         async {
             let! msg = async {
                 match flag, subscription with
@@ -272,15 +313,16 @@ type JobQueue internal (queue : Queue, topic : Topic, logger) =
             return msg
         }
 
-    member __.Enqueue<'T>(item : 'T, ?affinity, ?pid : string) : Async<unit> =
+    member this.Enqueue<'T>(item : 'T, pid : string, ?affinity) : Async<unit> =
         async {
             match affinity with
-            | None -> return! queue.Enqueue<'T>(item, ?pid = pid)
-            | Some affinity -> return! topic.Enqueue<'T>(item, affinity, ?pid = pid)
+            | None -> return! queue.Enqueue<'T>(item, pid)
+            | Some affinity -> return! topic.Enqueue<'T>(item, affinity, pid)
         }
-    member __.EnqueueBatch<'T>(xs : 'T [], ?pid : string) = queue.EnqueueBatch<'T>(xs, ?pid = pid)
+    
+    member this.EnqueueBatch<'T>(xs : 'T [], pid : string) = queue.EnqueueBatch<'T>(xs, pid)
 
-    member __.EnqueueBatch<'T>(xs : ('T * string option) [], ?pid : string) = async {
+    member this.EnqueueBatch<'T>(xs : ('T * string option) [], pid : string) = async {
             let queueTasks = new ResizeArray<'T>()
             let topicTasks = new ResizeArray<'T * string>()
 
@@ -291,11 +333,11 @@ type JobQueue internal (queue : Queue, topic : Topic, logger) =
             
             let! handle1 = 
                 if topicTasks.Count = 0 then async.Zero() 
-                else topic.EnqueueBatch(topicTasks.ToArray(), ?pid = pid)
+                else topic.EnqueueBatch(topicTasks.ToArray(), pid)
                 |> Async.StartChild
             let! handle2 =
                 if queueTasks.Count = 0 then async.Zero()
-                else queue.EnqueueBatch(queueTasks.ToArray(), ?pid = pid)
+                else queue.EnqueueBatch(queueTasks.ToArray(), pid)
                 |> Async.StartChild
             do! Async.Parallel [handle1 ; handle2]
                 |> Async.Ignore

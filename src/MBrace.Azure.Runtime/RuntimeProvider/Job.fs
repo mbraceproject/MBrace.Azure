@@ -133,7 +133,7 @@ with
             }
 
         if faultCount > 0 then
-            let faultException = new FaultException(sprintf "Fault exception when running job '%s'." job.JobId)
+            let faultException = new FaultException(sprintf "Fault exception when running job '%s', faultCount '%d'" job.JobId faultCount)
             match job.FaultPolicy.Policy faultCount (faultException :> exn) with
             | None -> 
                 job.Econt ctx <| ExceptionDispatchInfo.Capture faultException
@@ -202,37 +202,37 @@ with
     /// <param name="wfs">Workflows</param>
     /// <param name="affinity">Optional job affinity.</param>
     member internal rt.EnqueueJobBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : (#Cloud<'T> * IWorkerRef option) [], distribType : DistributionType, parentJobId) : Async<unit> =
-        let jobs = Array.zeroCreate wfs.Length
-        for i = 0 to wfs.Length - 1 do
-            let jobId = guid()
-            let wf = fst wfs.[i]
-            let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
-            let startJob ctx =
-                let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
-                Cloud.StartWithContinuations(wf, cont, ctx)
-            let jobType aff  =
-                match distribType, aff with
-                | Parallel, Some a -> ParallelAffined(a, i, wfs.Length-1)
-                | Choice, Some a   -> ChoiceAffined(a, i, wfs.Length-1)
-                | Parallel, None   -> JobType.Parallel(i,wfs.Length-1)
-                | Choice, None     -> JobType.Choice(i,wfs.Length-1)
-
-            let job = 
-                { 
-                    Type = typeof<'T>
-                    ProcessInfo = psInfo
-                    JobId = jobId
-                    StartJob = startJob
-                    CancellationTokenSource = cts
-                    FaultPolicy = fp
-                    Econt = ec
-                    JobType = jobType affinity
-                    ParentJobId = parentJobId
-                }
-
-            let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
-            jobs.[i] <- { PickledJob = jobp; Dependencies = dependencies }, affinity
         async {
+            let jobs = Array.zeroCreate wfs.Length
+            for i = 0 to wfs.Length - 1 do
+                let jobId = guid()
+                let wf = fst wfs.[i]
+                let affinity = match snd wfs.[i] with Some wr -> Some wr.Id | None -> None
+                let startJob ctx =
+                    let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
+                    Cloud.StartWithContinuations(wf, cont, ctx)
+                let jobType aff  =
+                    match distribType, aff with
+                    | Parallel, Some a -> ParallelAffined(a, i, wfs.Length-1)
+                    | Choice, Some a   -> ChoiceAffined(a, i, wfs.Length-1)
+                    | Parallel, None   -> JobType.Parallel(i,wfs.Length-1)
+                    | Choice, None     -> JobType.Choice(i,wfs.Length-1)
+
+                let job = 
+                    { 
+                        Type = typeof<'T>
+                        ProcessInfo = psInfo
+                        JobId = jobId
+                        StartJob = startJob
+                        CancellationTokenSource = cts
+                        FaultPolicy = fp
+                        Econt = ec
+                        JobType = jobType affinity
+                        ParentJobId = parentJobId
+                    }
+
+                let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
+                jobs.[i] <- { PickledJob = jobp; Dependencies = dependencies }, affinity
             do! rt.JobQueue.EnqueueBatch<JobItem>(jobs, pid = psInfo.Id)
             do! rt.ProcessManager.IncreaseTotalJobs(psInfo.Id, jobs.Length)
         }
