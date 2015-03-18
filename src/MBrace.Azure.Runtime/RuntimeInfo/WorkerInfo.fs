@@ -2,41 +2,56 @@
 open MBrace
 open System
 
-/// IWorkerRef implementation for MBrace.Azure workers.
-type WorkerRef internal (id : string, hostname : string, pid : int, pname : string, joined : DateTimeOffset, heartbeat : DateTimeOffset, configurationHash, maxJobCount, processorCount) =    
-    /// Worker/Service Id.
-    member this.Id = id
-    /// Machine's name.
-    member this.Hostname = hostname 
-    /// Host process id.
-    member this.ProcessId = pid 
-    /// Host process name.
-    member this.ProcessName = pname 
-    /// First worker's heartbeat time.
-    member this.InitializationTime = joined 
-    /// Last worker's heartbeat time.
-    member this.HeartbeatTime = heartbeat
-    /// Hash of worker's activated ConfigurationId.
-    member this.ConfigurationHash = configurationHash
-    /// Worker's MaxConcurrentJobCount.
-    member this.MaxJobCount = maxJobCount
-    /// Workers' processor count.
-    member this.ProcessorCount = processorCount
-
-    override this.GetHashCode() = hash id
+/// Immutable IWorkerRef implementation for MBrace.Azure workers.
+[<CustomComparison; CustomEquality>]
+type WorkerRef = 
+    { /// Worker/Service Id.
+      Id : string
+      /// Machine's name.
+      Hostname : string
+      /// Host process id.
+      ProcessId : int 
+      /// Host process name.
+      ProcessName : string
+      /// First worker's heartbeat time.
+      InitializationTime : DateTimeOffset
+      /// Last worker's heartbeat time.
+      HeartbeatTime : DateTimeOffset
+      /// Hash of worker's activated ConfigurationId.
+      ConfigurationHash : int
+      /// Worker's MaxConcurrentJobCount.
+      MaxJobCount : int
+      /// Workers' processor count.
+      ProcessorCount : int
+      /// Current dequeued jobs.
+      ActiveJobs  : int
+      /// CPU usage.
+      CPU : double
+      /// Total memory.
+      TotalMemory : double
+      /// Memory used.
+      Memory : double
+      /// Network upload (kbps).
+      NetworkUp : double
+      /// Network download (kbps).
+      NetworkDown : double } 
+    
+    override this.GetHashCode() = hash this.Id
     override this.Equals(other:obj) =
         match other with
-        | :? WorkerRef as w -> id = w.Id
+        | :? WorkerRef as w -> this.Id = w.Id
         | _ -> false
 
-    interface IWorkerRef with
-        member x.CompareTo(obj: obj): int = 
+    interface IComparable with
+        member this.CompareTo(obj: obj): int = 
             match obj with
-            | :? WorkerRef as y -> compare id ((y :> IWorkerRef).Id) 
+            | :? WorkerRef as y -> compare this.Id ((y :> IWorkerRef).Id) 
             | _ -> invalidArg "obj" "Invalid IWorkerRef instance."
-        member this.Id = id
+        
+    interface IWorkerRef with
+        member this.Id = this.Id
         member this.Type = "MBrace.Azure.Worker"
-        member this.ProcessorCount = processorCount
+        member this.ProcessorCount = this.ProcessorCount
 
 namespace MBrace.Azure.Runtime.Info
 
@@ -72,17 +87,24 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
 
     new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>, nullableDefault)
 
-    member this.AsWorkerRef () = 
-        new WorkerRef(
-            this.Id,
-            this.Hostname, 
-            this.ProcessId.Value, 
-            this.ProcessName, 
-            this.InitializationTime, 
-            this.Timestamp, 
-            this.ConfigurationHash.Value,
-            this.MaxJobs.Value,
-            this.ProcessorCount)
+    member this.AsWorkerRef () : WorkerRef = 
+        {
+            Id = this.Id
+            Hostname = this.Hostname
+            ProcessId = this.ProcessId.Value
+            ProcessName = this.ProcessName
+            InitializationTime = this.InitializationTime
+            HeartbeatTime = this.Timestamp
+            ConfigurationHash = this.ConfigurationHash.Value
+            MaxJobCount = this.MaxJobs.Value
+            ProcessorCount = this.ProcessorCount
+            ActiveJobs = this.ActiveJobs.Value
+            CPU = this.CPU.Value
+            TotalMemory = this.TotalMemory.Value
+            Memory = this.Memory.Value
+            NetworkUp = this.NetworkUp.Value
+            NetworkDown = this.NetworkDown.Value
+        }
 
     member this.UpdateCounters(counters : NodePerformanceInfo) =
             this.CPU <- counters.CpuUsage
