@@ -167,15 +167,15 @@
         /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
         /// <param name="faultPolicy">Optional FaultPolicy. Defaults to NoRetry.</param>
         member this.CreateProcessAsync(workflow : Cloud<'T>, 
-                                     ?name : string, 
-                                     ?defaultDirectory : string,
-                                     ?fileStore : ICloudFileStore,
-                                     ?defaultAtomContainer : string,
-                                     ?atomProvider : ICloudAtomProvider,
-                                     ?defaultChannelContainer : string,
-                                     ?channelProvider : ICloudChannelProvider,
-                                     ?cancellationToken : ICloudCancellationToken, 
-                                     ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
+                                       ?name : string, 
+                                       ?defaultDirectory : string,
+                                       ?fileStore : ICloudFileStore,
+                                       ?defaultAtomContainer : string,
+                                       ?atomProvider : ICloudAtomProvider,
+                                       ?defaultChannelContainer : string,
+                                       ?channelProvider : ICloudChannelProvider,
+                                       ?cancellationToken : ICloudCancellationToken, 
+                                       ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
                 let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.NoRetry
                 let dependencies = MBrace.Runtime.Vagabond.VagabondRegistry.ComputeObjectDependencies workflow

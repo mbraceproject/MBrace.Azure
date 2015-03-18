@@ -56,8 +56,9 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
             if isForcedLocalParallelism then
                 return! ThreadPool.Parallel(mkNestedCts, computations |> Seq.map fst)
             else
+                // Temporary for EnqueueBatch ServiceBus limitations.
                 if Seq.length computations > 1024 then
-                    return! Cloud.Raise(ArgumentOutOfRangeException("Max 1024 parallel computations supported in this runtime. Consider using a Map-Reduce pattern instead."))
+                    return! Cloud.Raise(ArgumentOutOfRangeException("computations", "Limit reached."))
                 else
                     return! Combinators.Parallel state psInfo jobId dependencies faultPolicy computations
         }
@@ -67,7 +68,7 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
                 return! ThreadPool.Choice(mkNestedCts, (computations |> Seq.map fst))
             else
                 if Seq.length computations > 1024 then
-                    return! Cloud.Raise(ArgumentOutOfRangeException("Max 1024 parallel computations supported in this runtime. Consider using a Map-Reduce pattern instead."))
+                    return! Cloud.Raise(ArgumentOutOfRangeException("computations", "Limit reached."))
                 else
                 return! Combinators.Choice state psInfo jobId dependencies faultPolicy computations
         }
