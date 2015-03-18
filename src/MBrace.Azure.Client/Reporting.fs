@@ -6,6 +6,7 @@ open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Primitives
 open MBrace.Runtime.Utils.PrettyPrinters
 open System
+open Microsoft.FSharp.Linq.NullableOperators
 
 type internal ProcessReporter() = 
     static let template : Field<ProcessRecord> list = 
@@ -13,16 +14,16 @@ type internal ProcessReporter() =
           Field.create "Process Id" Right (fun p -> p.Id)
           Field.create "State" Right (fun p -> p.State)
           Field.create "Completed" Left (fun p -> p.Completed)
-          Field.create "Execution Time" Left (fun p -> if p.Completed then p.CompletionTime - p.InitializationTime  else DateTimeOffset.UtcNow - p.InitializationTime)
-          Field.create "Jobs" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveJobs p.FaultedJobs p.CompletedJobs p.TotalJobs)
+          Field.create "Execution Time" Left (fun p -> if p.Completed.GetValueOrDefault() then p.CompletionTime ?-? p.InitializationTime else DateTimeOffset.UtcNow -? p.InitializationTime)
+          Field.create "Jobs" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveJobs.Value p.FaultedJobs.Value p.CompletedJobs.Value p.TotalJobs.Value)
           Field.create "Result Type" Left (fun p -> p.TypeName) 
           Field.create "Start Time" Left (fun p -> p.InitializationTime)
-          Field.create "Completion Time" Left (fun p -> if p.Completed then string p.CompletionTime else "N/A")
+          Field.create "Completion Time" Left (fun p -> if p.Completed.GetValueOrDefault() then string p.CompletionTime else "N/A")
         ]
     
     static member Report(processes : ProcessRecord seq, title, borders) = 
         let ps = processes 
-                 |> Seq.sortBy (fun p -> p.InitializationTime)
+                 |> Seq.sortBy (fun p -> p.InitializationTime.Value)
                  |> Seq.toList
         sprintf "%s\nJobs : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)
 
@@ -43,17 +44,6 @@ type internal WorkerReporter() =
         ]
     
     static member Report(workers : WorkerRecord seq, title, borders) = 
-            // TODO : print summary
-//        let (cpu, memory, totalMemory, ul, dl, n) = 
-//            workers
-//            |> Seq.fold(fun (cpu, memory, totalMemory, ul, dl, n) w ->
-//                w.CPU ?+? cpu, 
-//                memory ?+? w.Memory ?*? w.TotalMemory, 
-//                totalMemory ?+? w.TotalMemory, 
-//                ul ?+? w.NetworkUp, 
-//                dl ?+? w.NetworkDown,
-//                n + 1) 
-//                (Nullable<_>(0.0), Nullable<_>(0.0), Nullable<_>(0.0), Nullable<_>(0.0), Nullable<_>(0.0), 0)
         let ws = workers
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList

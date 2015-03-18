@@ -46,20 +46,7 @@ runtime.ShowLogs()
 runtime.ClearAllProcesses()
 
 
-let ps = runtime.CreateProcess([1..1] |> Seq.map (fun i -> cloud { return i*i }) |> Cloud.Parallel)
-ps.ShowInfo()
-ps.AwaitResult()
-
-
-
-let ps =
-    cloud {
-        return! [1..30]
-                |> Seq.map (fun i -> cloud { return i * i })
-                |> Cloud.Parallel
-    }
-    |> runtime.CreateProcess
-
+let ps = runtime.CreateProcess([1..10] |> Seq.map (fun i -> cloud { return i*i }) |> Cloud.Parallel)
 ps.ShowInfo()
 ps.AwaitResult()
 ps.Kill()

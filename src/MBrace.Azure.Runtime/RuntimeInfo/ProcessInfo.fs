@@ -14,6 +14,7 @@ open Nessos.Vagabond
 open MBrace.Azure
 open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Utilities
+open Microsoft.FSharp.Linq.NullableOperators
 
 type ProcessState = 
     | Posted
@@ -29,23 +30,23 @@ type ProcessState =
         | KillRequested -> "Kill requested"
         | Completed -> "Completed"
 
-type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt, completed, resultUri, ty, typeName, deps) = 
+type ProcessRecord(pk, pid, pname, cancellationUri, state, resultUri, ty, typeName, deps) = 
     inherit TableEntity(pk, pid)
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
 
-    member val State : string = state with get, set
-    member val InitializationTime : DateTimeOffset = createdt with get, set
-    member val CompletionTime : DateTimeOffset = completedt with get, set
-    member val Completed : bool = completed with get, set
+    member val State : string     = state with get, set
+    member val InitializationTime = Nullable<DateTimeOffset>() with get, set
+    member val CompletionTime     = Nullable<DateTimeOffset>() with get, set
+    member val Completed          = Nullable<bool>() with get, set
     
     member val ResultUri : string = resultUri with get, set
     member val CancellationUri : string = cancellationUri with get, set
     
-    member val TotalJobs = 0 with get, set
-    member val ActiveJobs = 0 with get, set
-    member val CompletedJobs = 0 with get, set
-    member val FaultedJobs = 0 with get, set
+    member val TotalJobs     = Nullable<int>() with get, set
+    member val ActiveJobs    = Nullable<int>() with get, set
+    member val CompletedJobs = Nullable<int>() with get, set
+    member val FaultedJobs   = Nullable<int>() with get, set
 
     member val TypeName : string = typeName with get, set
     member val Type : byte [] = ty with get, set
@@ -53,7 +54,14 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, createdt, completedt,
     member __.UnpickleType () = Configuration.Pickler.UnPickle<Type> __.Type
     member __.UnpickleDependencies () = Configuration.Pickler.UnPickle<AssemblyId list> __.Dependencies
     
-    new () = new ProcessRecord(null, null, null, null, null, Unchecked.defaultof<_>, Unchecked.defaultof<_>, false, null, null, null, null)
+    new () = new ProcessRecord(null, null, null, null, null, null, null, null, null)
+
+    member this.CloneDefault() =
+        let p = new ProcessRecord()
+        p.PartitionKey <- this.PartitionKey
+        p.RowKey <- this.RowKey
+        p.ETag <- this.ETag
+        p
 
 type ProcessManager private (config : ConfigurationId) = 
     let pk = "ProcessInfo"
@@ -72,60 +80,87 @@ type ProcessManager private (config : ConfigurationId) =
                 match cts.RowKey with
                 | None -> raise <| new OperationCanceledException()
                 | Some rK -> rK
-            let e = new ProcessRecord(pk, pid, name, ctsKey, string ProcessState.Posted, now, now, false, resultUri, pickledTy, tyName, deps)
+            let e = new ProcessRecord(pk, pid, name, ctsKey, string ProcessState.Posted, resultUri, pickledTy, tyName, deps)
+            e.ActiveJobs <- nullable 0
+            e.FaultedJobs <- nullable 0
+            e.CompletedJobs <- nullable 0
+            e.TotalJobs <- nullable 0
+            e.Completed <- nullable false
+            e.InitializationTime <- nullable now
             return! Table.insert config config.RuntimeTable e
         }
 
-
-    // TODO : These methods cannot be used atomically
     member this.IncreaseTotalJobs(pid : string, ?count) = 
         let count = defaultArg count 1
-        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.TotalJobs <- pr.TotalJobs + count)
+        Table.transact2<ProcessRecord> config table pk pid 
+            (fun pr ->  
+                let p = pr.CloneDefault()
+                p.TotalJobs <- pr.TotalJobs ?+ count
+                p)
         |> Async.Ignore
 
     member this.AddActiveJob(pid : string) = 
-        Table.transact<ProcessRecord> config table pk pid (fun pr -> pr.ActiveJobs <- pr.ActiveJobs + 1)
+        Table.transact2<ProcessRecord> config table pk pid 
+            (fun pr -> 
+                let p = pr.CloneDefault()
+                p.ActiveJobs <- pr.ActiveJobs ?+ 1
+                p)
         |> Async.Ignore
 
     member this.AddFaultedJob(pid : string) = 
-        Table.transact<ProcessRecord> config table pk pid 
-            (fun pr -> pr.FaultedJobs <- pr.FaultedJobs + 1
-                       pr.TotalJobs <- pr.TotalJobs + 1)
+        Table.transact2<ProcessRecord> config table pk pid 
+            (fun pr -> 
+                let p = pr.CloneDefault()
+                p.FaultedJobs <- pr.FaultedJobs ?+ 1
+                p.TotalJobs <- pr.TotalJobs ?+ 1
+                p)
         |> Async.Ignore
 
     member this.AddCompletedJob(pid : string) = 
-        Table.transact<ProcessRecord> config table pk pid 
+        Table.transact2<ProcessRecord> config table pk pid 
             (fun pr -> 
-                pr.ActiveJobs <- if pr.ActiveJobs = 0 then 0 else pr.ActiveJobs - 1
-                pr.CompletedJobs <- pr.CompletedJobs + 1)
+                let p = pr.CloneDefault()
+                p.ActiveJobs <- pr.ActiveJobs ?- 1
+                p.CompletedJobs <- pr.CompletedJobs ?+ 1
+                p)
         |> Async.Ignore
 
     member this.SetRunning(pid : string) = 
-        Table.transact<ProcessRecord> config table pk pid 
+        Table.transact2<ProcessRecord> config table pk pid 
            (fun pr -> 
-               if pr.State = string ProcessState.Posted then
-                   pr.State <- string ProcessState.Running
-                   pr.InitializationTime <- DateTimeOffset.UtcNow)
+                let p = pr.CloneDefault()
+                if pr.State = string ProcessState.Posted then
+                    p.State <- string ProcessState.Running
+                    p.InitializationTime <- nullable DateTimeOffset.UtcNow
+                p)
         |> Async.Ignore
 
     member this.SetKilled(pid : string) = 
-        Table.transact<ProcessRecord> config table pk pid 
+        Table.transact2<ProcessRecord> config table pk pid 
           (fun pr -> 
-              pr.State <- string ProcessState.Killed
-              pr.CompletionTime <- DateTimeOffset.UtcNow
-              pr.Completed <- true)
+                let p = pr.CloneDefault()
+                p.State <- string ProcessState.Killed
+                p.CompletionTime <- nullable DateTimeOffset.UtcNow
+                p.Completed <- nullable true
+                p)
         |> Async.Ignore
 
     member this.SetKillRequested(pid : string) = 
-        Table.transact<ProcessRecord> config table pk pid 
-          (fun pr -> pr.State <- string ProcessState.KillRequested)
+        Table.transact2<ProcessRecord> config table pk pid 
+          (fun pr -> 
+                let p = pr.CloneDefault()
+                p.State <- string ProcessState.KillRequested
+                p)
         |> Async.Ignore
 
     member this.SetCompleted(pid : string) =
-        Table.transact<ProcessRecord> config table pk pid 
-          (fun pr ->  pr.State <- string ProcessState.Completed
-                      pr.CompletionTime <- DateTimeOffset.UtcNow
-                      pr.Completed <- true)
+        Table.transact2<ProcessRecord> config table pk pid 
+          (fun pr -> 
+                let p = pr.CloneDefault()
+                p.State <- string ProcessState.Completed
+                p.CompletionTime <- nullable DateTimeOffset.UtcNow
+                p.Completed <- nullable true
+                p)
         |> Async.Ignore
 
     member this.GetProcess(pid : string) = Table.read<ProcessRecord> config table pk pid
@@ -134,7 +169,7 @@ type ProcessManager private (config : ConfigurationId) =
     
     member this.ClearProcess (pid : string, full, force) = async {
         let! record = this.GetProcess(pid)
-        if force = false && not record.Completed then
+        if force = false && not record.Completed.Value then
             failwithf "Cannot clear process %s. Process not completed." pid 
         if record <> Unchecked.defaultof<_> then
             do! Table.delete<ProcessRecord> config table record

@@ -1,5 +1,7 @@
 ﻿namespace MBrace.Azure.Client
 
+#nowarn "52"
+
 open MBrace
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Info
@@ -26,7 +28,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
                     keepLast = true, interval = 500, 
                     stopf = 
                         function 
-                        | Choice1Of2 p when p.Completed -> true
+                        | Choice1Of2 p when p.Completed.HasValue -> p.Completed.GetValueOrDefault()
                         | _ -> false )
 
     let logger = new ProcessLogger(config, pid)
@@ -40,7 +42,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     /// are not batched.
     member internal this.AwaitCompletionAsync () = 
         let rec loop () = async {
-            if proc.Value.Completed then 
+            if proc.Value.Completed.GetValueOrDefault() then 
                 return () 
             else 
                 do! Async.Sleep 100 
@@ -66,14 +68,14 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     member this.Type = ty
 
     /// Returns the initialization time for this process.
-    member this.InitializationTime = let init = proc.Value.InitializationTime in init.ToLocalTime()
+    member this.InitializationTime = let init = proc.Value.InitializationTime.Value in init.ToLocalTime()
     
     /// Returns the execution time for this process.
     member this.ExecutionTime = 
         let s = 
-            if proc.Value.Completed then proc.Value.CompletionTime
+            if proc.Value.Completed.GetValueOrDefault() then proc.Value.CompletionTime.Value
             else DateTimeOffset.UtcNow
-        s - proc.Value.InitializationTime
+        s - proc.Value.InitializationTime.Value
     
     /// Returns iff the process is completed.
     member this.Completed = proc.Value.Completed
