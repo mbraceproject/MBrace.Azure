@@ -42,11 +42,12 @@ Runtime.SpawnLocal(config, 4, 16)
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
+runtime.GetWorkers() |> Seq.toArray
 
 runtime.ClearAllProcesses()
 
 
-let ps = runtime.CreateProcess([1..2000] |> Seq.map (fun i -> cloud { return i*i }) |> Cloud.Parallel)
+let ps = runtime.CreateProcess([1..1000] |> Seq.map (fun i -> cloud { return i*i }) |> Cloud.Parallel)
 ps.ShowInfo()
 ps.AwaitResult()
 

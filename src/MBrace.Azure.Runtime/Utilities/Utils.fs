@@ -8,6 +8,10 @@
     module Utils =
 
         let guid() = Guid.NewGuid().ToString("N")
+
+        let toGuid guid = Guid.Parse(guid)
+        let fromGuid(guid : Guid) = guid.ToString("N")
+
         let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
 
         let inline nullable< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > (value : 'T) = 

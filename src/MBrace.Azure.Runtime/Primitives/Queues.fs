@@ -33,12 +33,14 @@ module private Helpers =
 
     let partitionMessages(messages : BrokeredMessage seq) =
         let limit = 256L * 1024L // 256K batch limit
-        let minMessageSize = 512L // total size cannot be calculated by .Size; add a min size to hold properties
+        // total size cannot be calculated by .Size; add a min size to hold properties
+        // ~130 empty message size, 2 bytes offset, 64 bytes affinity
+        let minMessageSize = 256L (* 140L + 2L + 1L + 64L *)
         let results = new ResizeArray<ResizeArray<BrokeredMessage>>()
         let mutable currentSize = 0L
         let mutable currentBatch = new ResizeArray<BrokeredMessage>()
         for m in messages do
-            let messageSize = m.Size + minMessageSize
+            let messageSize = minMessageSize (* + m.Size *)
             if messageSize + currentSize >= limit then
                 results.Add(currentBatch)
                 currentBatch <- new ResizeArray<BrokeredMessage>()
@@ -79,7 +81,7 @@ type QueueMessage(config : ConfigurationId, affinity, deliveryCount, processId, 
             | false, _ -> None
         let affinity = tryGet AffinityPropertyName
         let deliveryCount = message.DeliveryCount
-        let processId = message.Properties.[ProcessIdPropertyName] :?> string
+        let processId = fromGuid(message.Properties.[ProcessIdPropertyName] :?> Guid)
         let streamPos = Option.fold (fun _ p -> p) 0L (tryGet StreamOffsetPropertyName) 
 
         let lockToken = message.LockToken
@@ -143,7 +145,7 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
             for x, affinity in xs do
                 Configuration.Pickler.Serialize(fileStream, x, leaveOpen = true)
                 let msg = new BrokeredMessage(blobName)
-                msg.Properties.Add(ProcessIdPropertyName, pid)
+                msg.Properties.Add(ProcessIdPropertyName, toGuid pid)
                 msg.Properties.Add(AffinityPropertyName, affinity)
                 msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
                 ys.Add(msg)
@@ -170,7 +172,7 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
             do! Blob.Create(config, pid, name, fun () -> t) |> Async.Ignore
             let msg = new BrokeredMessage(name)
             msg.Properties.Add(AffinityPropertyName, affinity)
-            msg.Properties.Add(ProcessIdPropertyName, pid)
+            msg.Properties.Add(ProcessIdPropertyName, toGuid pid)
             do! tc.SendAsync(msg)
         }
 
@@ -216,7 +218,7 @@ type internal Queue (config : ConfigurationId, logger : ICloudLogger) =
             for x in xs do
                 Configuration.Pickler.Serialize(fileStream, x, leaveOpen = true)
                 let msg = new BrokeredMessage(blobName)
-                msg.Properties.Add(ProcessIdPropertyName, pid)
+                msg.Properties.Add(ProcessIdPropertyName, toGuid pid)
                 msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
                 ys.Add(msg)
                 lastPosition := fileStream.Position
@@ -241,7 +243,7 @@ type internal Queue (config : ConfigurationId, logger : ICloudLogger) =
             let name = guid()
             do! Blob.Create(config, pid, name, fun () -> t) |> Async.Ignore
             let msg = new BrokeredMessage(name)
-            msg.Properties.Add(ProcessIdPropertyName, pid)
+            msg.Properties.Add(ProcessIdPropertyName, toGuid pid)
             do! queue.SendAsync(msg)
         }
     
