@@ -13,7 +13,7 @@ open System.IO
 [<AutoOpenAttribute>]
 module private Helpers = 
     let RenewLockInverval = 10000
-    let MaxLockDuration = TimeSpan.FromMilliseconds(3. * float RenewLockInverval)
+    let MaxLockDuration = TimeSpan.FromMinutes(5.)
     let MaxTTL = TimeSpan.MaxValue
     let ServerWaitTime = TimeSpan.FromMilliseconds(50.)
     let AffinityPropertyName = "Affinity"
@@ -24,8 +24,9 @@ module private Helpers =
     let rec renewLoop (message : BrokeredMessage) = async {
         try
             do! message.RenewLockAsync()
-        with :? MessageLockLostException ->
-            return ()
+        with
+        | :? MessageLockLostException -> return ()
+        | _ -> ()
         do! Async.Sleep RenewLockInverval
         return! renewLoop message
     }

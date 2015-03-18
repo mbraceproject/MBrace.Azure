@@ -153,7 +153,10 @@ type StoreClientProvider (config : Configuration) =
     let awaitTask (task : Task) = task.ContinueWith ignore |> Async.AwaitTask
 
     let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
-    member this.TableClient = acc.Value.CreateCloudTableClient()
+    member this.TableClient = 
+        let client = acc.Value.CreateCloudTableClient()
+        client.DefaultRequestOptions.RetryPolicy <- RetryPolicies.ExponentialRetry(TimeSpan.FromMilliseconds(500.), 10)
+        client
     member this.BlobClient = 
         let client = acc.Value.CreateCloudBlobClient()
         client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(4 * System.Environment.ProcessorCount)
