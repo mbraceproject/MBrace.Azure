@@ -81,13 +81,15 @@ type internal Worker () =
                             config.State.WorkerManager.SetJobCountLocal(jc)
                             config.Logger.Logf "Increase Dequeued Jobs %d" jc
                             let! _ = Async.StartChild <| async { 
-                                    try
-                                        let! _ = config.JobEvaluator.EvaluateAsync(config.JobEvaluatorConfiguration, message)
-                                        return ()
-                                    finally
-                                        let jc = Interlocked.Decrement &currentJobCount
-                                        config.State.WorkerManager.SetJobCountLocal(jc)
-                                        config.Logger.Logf "Decrease Dequeued Jobs %d" jc
+                                try
+                                    let! ch = config.JobEvaluator.EvaluateAsync(config.JobEvaluatorConfiguration, message)
+                                    match ch with
+                                    | Choice1Of2 () -> return ()
+                                    | Choice2Of2 e  -> config.Logger.Logf "Internal Error : unhandled exception %A" e
+                                finally
+                                    let jc = Interlocked.Decrement &currentJobCount
+                                    config.State.WorkerManager.SetJobCountLocal(jc)
+                                    config.Logger.Logf "Decrease Dequeued Jobs %d" jc
                             }
                             return! workerLoop state
                         | Choice2Of2 ex ->
