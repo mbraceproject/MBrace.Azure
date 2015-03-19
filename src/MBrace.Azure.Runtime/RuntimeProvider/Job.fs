@@ -323,8 +323,13 @@ with
         let econt ctx e = setResult ctx (Result.Exception e)
         let ccont ctx c = setResult ctx (Result.Cancelled c)
 
-        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root, String.Empty, logger = logger)
-        return resultCell
+        try
+            do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root, String.Empty, logger = logger)
+            return resultCell
+        with ex ->
+            logger.Logf "Failed to post process %s. Cleanup." psInfo.Id
+            do! rt.ProcessManager.ClearProcess(psInfo.Id, true, true)
+            return! Async.Raise ex
     }
 
     /// Attempt to dequeue a job from the runtime job queue.
