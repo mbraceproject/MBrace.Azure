@@ -95,6 +95,8 @@ type Job =
         Econt : ExecutionContext -> ExceptionDispatchInfo -> unit
         /// Distributed cancellation token source bound to job.
         CancellationTokenSource : DistributedCancellationTokenSource
+        /// Parent task result cell path
+        ResultCell : string * string
         /// Type of job.
         JobType : JobType
         /// JobId of parent Job.
@@ -147,9 +149,50 @@ with
     }
 
 /// JobQueue message type.
-type JobItem = 
-    { PickledJob : Pickle<Job>
-      Dependencies : AssemblyId list }
+type PickledJob = 
+    {
+        /// Process information record.
+        ProcessInfo : ProcessInfo
+        /// Job unique identifier.
+        JobId : string
+        /// Distributed cancellation token source bound to job.
+        CancellationTokenSource : DistributedCancellationTokenSource
+        /// Type of job.
+        JobType : JobType
+        /// JobId of parent Job.
+        ParentJobId : string
+        /// Dependency manifest.
+        Dependencies : AssemblyId list 
+        /// Parent task result cell path
+        ResultCell : string * string
+
+        /// Job ConfigurationId.
+        ConfigurationId : ConfigurationId
+
+        /// Return type of the defining cloud workflow.
+        PickledType : Pickle<Type>
+        /// Triggers job execution with worker-provided execution context.
+        PickledStartJob : Pickle<ExecutionContext -> unit>
+        /// Job fault policy.
+        PickledFaultPolicy : Pickle<FaultPolicy>
+        /// Exception Continuation.
+        PickledEcont : Pickle<ExecutionContext -> ExceptionDispatchInfo -> unit>
+    }
+    
+    member this.ToJob() : Job =
+        let unpickle pickle = VagabondRegistry.Instance.Pickler.UnPickleTyped(pickle)
+        {
+            ProcessInfo = this.ProcessInfo
+            Type = unpickle this.PickledType
+            JobId = this.JobId
+            StartJob = unpickle this.PickledStartJob
+            FaultPolicy = unpickle this.PickledFaultPolicy
+            Econt = unpickle this.PickledEcont
+            CancellationTokenSource = this.CancellationTokenSource
+            JobType = this.JobType
+            ParentJobId = this.ParentJobId
+            ResultCell = this.ResultCell
+        }
 
 [<AutoSerializable(false)>]
 /// Defines a handle to the state of a runtime instance.
@@ -169,6 +212,8 @@ type RuntimeState =
         WorkerManager : WorkerManager
         /// Runtime Logger.
         Logger : LoggerCombiner
+        /// ConfigurationId.
+        ConfigurationId : ConfigurationId
     }
 with
     /// Initialize a new runtime state in the local process
@@ -181,6 +226,7 @@ with
         let pman = ProcessManager.Create(configurationId)
         let wman = WorkerManager.Create(configurationId, logger)
         return { 
+            ConfigurationId = configurationId
             JobQueue = jobQueue
             AssemblyManager = assemblyManager 
             ResourceFactory = resourceFactory 
@@ -201,7 +247,7 @@ with
     /// <param name="cc">Cancellation continuation.</param>
     /// <param name="wfs">Workflows</param>
     /// <param name="affinity">Optional job affinity.</param>
-    member internal rt.EnqueueJobBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : (#Cloud<'T> * IWorkerRef option) [], distribType : DistributionType, parentJobId) : Async<unit> =
+    member internal rt.EnqueueJobBatch(psInfo, dependencies, cts, fp, scFactory, ec, cc, wfs : (#Cloud<'T> * IWorkerRef option) [], distribType : DistributionType, parentJobId, resultCell) : Async<unit> =
         async {
             let jobs = Array.zeroCreate wfs.Length
             for i = 0 to wfs.Length - 1 do
@@ -211,33 +257,36 @@ with
                 let startJob ctx =
                     let cont = { Success = scFactory i ; Exception = ec ; Cancellation = cc }
                     Cloud.StartWithContinuations(wf, cont, ctx)
-                let jobType aff  =
+                let jobType aff =
                     match distribType, aff with
                     | Parallel, Some a -> ParallelAffined(a, i, wfs.Length-1)
                     | Choice, Some a   -> ChoiceAffined(a, i, wfs.Length-1)
                     | Parallel, None   -> JobType.Parallel(i,wfs.Length-1)
                     | Choice, None     -> JobType.Choice(i,wfs.Length-1)
 
+                let pickle value = VagabondRegistry.Instance.Pickler.PickleTyped(value)
+
                 let job = 
                     { 
-                        Type = typeof<'T>
-                        ProcessInfo = psInfo
-                        JobId = jobId
-                        StartJob = startJob
+                        ConfigurationId         = rt.ConfigurationId
+                        PickledType             = pickle typeof<'T>
+                        ProcessInfo             = psInfo
+                        JobId                   = jobId
+                        PickledStartJob         = pickle startJob
                         CancellationTokenSource = cts
-                        FaultPolicy = fp
-                        Econt = ec
-                        JobType = jobType affinity
-                        ParentJobId = parentJobId
+                        PickledFaultPolicy      = pickle fp
+                        PickledEcont            = pickle ec
+                        JobType                 = jobType affinity
+                        ParentJobId             = parentJobId
+                        Dependencies            = dependencies
+                        ResultCell              = resultCell
                     }
-
-                let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
-                jobs.[i] <- { PickledJob = jobp; Dependencies = dependencies }, affinity
-            do! rt.JobQueue.EnqueueBatch<JobItem>(jobs, pid = psInfo.Id)
+                jobs.[i] <- job, affinity
+            do! rt.JobQueue.EnqueueBatch<PickledJob>(jobs, pid = psInfo.Id)
             do! rt.ProcessManager.IncreaseTotalJobs(psInfo.Id, jobs.Length)
         }
 
-    member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, jobType : JobType, parentJobId, ?logger : ICloudLogger) : Async<unit> =
+    member private rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, sc, ec, cc, wf : Cloud<'T>, jobType : JobType, parentJobId, resultCell, ?logger : ICloudLogger) : Async<unit> =
         async {
             let logger = defaultArg logger (NullLogger() :> _)
         
@@ -245,25 +294,26 @@ with
                 let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
                 Cloud.StartWithContinuations(wf, cont, ctx)
             let affinity = match jobType with Affined a -> Some a | _ -> None
+            let pickle value = VagabondRegistry.Instance.Pickler.PickleTyped(value)
+
             let job = 
                 { 
-                    Type = typeof<'T>
-                    ProcessInfo = psInfo
-                    JobId = jobId
-                    StartJob = startJob
+                    ConfigurationId         = rt.ConfigurationId
+                    PickledType             = pickle typeof<'T>
+                    ProcessInfo             = psInfo
+                    JobId                   = jobId
+                    PickledStartJob         = pickle startJob
                     CancellationTokenSource = cts
-                    FaultPolicy = fp
-                    Econt = ec
-                    JobType = jobType
-                    ParentJobId = parentJobId
+                    PickledFaultPolicy      = pickle fp
+                    PickledEcont            = pickle ec
+                    JobType                 = jobType 
+                    ParentJobId             = parentJobId
+                    Dependencies            = dependencies
+                    ResultCell              = resultCell
                 }
-        
-            logger.Logf "Pickle Job."
-            let jobp = VagabondRegistry.Instance.Pickler.PickleTyped job
-            logger.Logf "Pickled Job [%d bytes]." jobp.Bytes.Length
-            let jobItem = { PickledJob = jobp; Dependencies = dependencies }
+
             logger.Logf "Job Enqueue."
-            do! rt.JobQueue.Enqueue<JobItem>(jobItem, ?affinity = affinity, pid = psInfo.Id)
+            do! rt.JobQueue.Enqueue<PickledJob>(job, ?affinity = affinity, pid = psInfo.Id)
             logger.Logf "Job Enqueue completed."
             do! rt.ProcessManager.IncreaseTotalJobs(psInfo.Id)
         }
@@ -286,7 +336,7 @@ with
         let scont ctx t = setResult ctx (Result.Completed t)
         let econt ctx e = setResult ctx (Result.Exception e)
         let ccont ctx c = setResult ctx (Result.Cancelled c)
-        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, jobType, parentJobId)
+        do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, jobType, parentJobId, (resultCell.PartitionKey, resultCell.RowKey))
         return resultCell :> ICloudTask<'T>
     }
 
@@ -304,7 +354,7 @@ with
         let requests = rt.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
         let resultCell = requests.RequestResultCell<'T>(jobId)
         logger.Logf "Creating Process Record for %s" psInfo.Id
-        do! Async.Parallel [| rt.ProcessManager.CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies, cts, string resultCell.Path)
+        do! Async.Parallel [| rt.ProcessManager.CreateRecord(psInfo.Id, psInfo.Name, typeof<'T>, dependencies, cts, resultCell.RowKey)
                               requests.CommitAsync() |]
             |> Async.Ignore
 
@@ -324,7 +374,7 @@ with
         let ccont ctx c = setResult ctx (Result.Cancelled c)
 
         try
-            do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root, String.Empty, logger = logger)
+            do! rt.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, JobType.Root, String.Empty, (resultCell.PartitionKey, resultCell.RowKey), logger = logger)
             return resultCell
         with ex ->
             logger.Logf "Failed to post process %s. Cleanup." psInfo.Id

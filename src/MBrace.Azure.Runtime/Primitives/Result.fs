@@ -23,6 +23,16 @@ with
         | Exception edi -> ExceptionDispatchInfo.raise true edi
         | Cancelled c -> ExceptionDispatchInfo.raiseWithCurrentStackTrace true c
 
+/// Used to bypass typed Result<'T> in ResultCells in case of FaultExceptions (job deserialization etc).
+/// Patches Result<'T>.Exception value in ResultCell.TryGetResult
+/// Set by ResultCell.SetResultUnsafe
+type ExceptionResultUnsafe = 
+    | ExceptionResultUnsafe of exn
+
+    static member inline CastToResult(result : ExceptionResultUnsafe) = 
+        let (ExceptionResultUnsafe e) = result
+        Exception(ExceptionDispatchInfo.Capture(e))
+
 /// Azure store computation result container
 [<DataContract; Sealed>]
 type ResultCell<'T> internal (config : ConfigurationId, partitionKey : string, rowKey : string) = 
@@ -48,6 +58,9 @@ type ResultCell<'T> internal (config : ConfigurationId, partitionKey : string, r
             lc
 
     member this.Path = sprintf "%s/%s" partitionKey rowKey
+
+    member this.PartitionKey = partitionKey
+    member this.RowKey = rowKey
 
     interface ICloudTask<'T> with
         member c.Id = partitionKey
@@ -108,9 +121,21 @@ type ResultCell<'T> internal (config : ConfigurationId, partitionKey : string, r
                 if String.IsNullOrEmpty e.Uri then return None
                 else
                     let bc = Blob<Result<'T>>.FromPath(config, e.Uri)
-                    let! v = bc.GetValue()
-                    localResult <- Some v
-                    return localResult
+                    let! result = Async.Catch <| bc.GetValue()
+                    match result with
+                    | Choice1Of2 v ->
+                        localResult <- Some v
+                        return localResult
+                    | Choice2Of2 ex ->
+                        let cellUnsafe = Blob<ExceptionResultUnsafe>.FromPath(config, e.Uri)
+                        let! result = Async.Catch <| cellUnsafe.GetValue()
+                        match result with
+                        | Choice1Of2 result ->
+                            let r = ExceptionResultUnsafe.CastToResult(result)
+                            localResult <- Some r
+                            return localResult
+                        | Choice2Of2 _ ->
+                            return! Async.Raise ex
             | Some _ -> return localResult
         }
     
@@ -122,9 +147,17 @@ type ResultCell<'T> internal (config : ConfigurationId, partitionKey : string, r
             | Some r -> return r
         }
 
-    static member FromPath(config : ConfigurationId, path : string) = 
-        let pkrk = path.Split('/')
-        new ResultCell<'T>(config, pkrk.[0], pkrk.[1])
+    static member SetResultUnsafe(config : ConfigurationId, partitionKey, rowKey, e : exn) : Async<unit> =
+        async {
+            let! bc = Blob.Create(config, partitionKey, guid(), fun () -> ExceptionResultUnsafe(e))
+            let uri = bc.Path
+            let e = new BlobReferenceEntity(partitionKey, rowKey, uri.ToString(), ETag = "*")
+            let! _ = Table.merge config config.RuntimeTable e
+            return ()
+        }
+
+    static member FromPath(config : ConfigurationId, partitionKey : string, rowKey : string) = 
+        new ResultCell<'T>(config, partitionKey, rowKey)
 
     static member Create(config, id, pid) = 
         let e = new BlobReferenceEntity(pid, id, null, EntityType = "RESULT")

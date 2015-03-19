@@ -13,39 +13,40 @@ open System
 open MBrace.Runtime.InMemory
         
 /// Scheduling implementation provider
-type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism : bool) =
+type RuntimeProvider private (state : RuntimeState, job : Job, dependencies, isForcedLocalParallelism : bool) =
 
     let mkNestedCts (ct : ICloudCancellationToken) =
         let parentCts = ct :?> DistributedCancellationTokenSource
-        let dcts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = parentCts, elevate = false)
+        let dcts = state.ResourceFactory.RequestCancellationTokenSource(job.ProcessInfo.Id, parent = parentCts, elevate = false)
                    |> Async.RunSync
         dcts :> ICloudCancellationTokenSource
 
     /// Creates a runtime provider instance for a provided job
     static member FromJob state dependencies (job : Job) =
-        new RuntimeProvider(state, job.FaultPolicy, job.JobId, job.ProcessInfo, dependencies, false)
+        new RuntimeProvider(state, job, dependencies, false)
 
     interface IDistributionProvider with
         member __.CreateLinkedCancellationTokenSource(parents: ICloudCancellationToken []): Async<ICloudCancellationTokenSource> = 
             async {
                 match parents with
                 | [||] -> 
-                    let! cts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, elevate = false) 
+                    let! cts = state.ResourceFactory.RequestCancellationTokenSource(job.ProcessInfo.Id, elevate = false) 
                     return cts :> ICloudCancellationTokenSource
                 | [| ct |] -> return mkNestedCts ct
                 | _ -> return raise <| new System.NotSupportedException("Linking multiple cancellation tokens not supported in this runtime.")
             }
-        member __.ProcessId = psInfo.Id
+        member __.ProcessId = job.ProcessInfo.Id
 
-        member __.JobId = jobId
+        member __.JobId = job.JobId
 
-        member __.FaultPolicy = faultPolicy
+        member __.FaultPolicy = job.FaultPolicy
         member __.WithFaultPolicy newPolicy = 
-            new RuntimeProvider(state, newPolicy, jobId, psInfo, dependencies, isForcedLocalParallelism) :> IDistributionProvider
+            let job' = { job with FaultPolicy = newPolicy }
+            new RuntimeProvider(state, job', dependencies, isForcedLocalParallelism) :> IDistributionProvider
 
         member __.IsForcedLocalParallelismEnabled = isForcedLocalParallelism
         member __.WithForcedLocalParallelismSetting setting =
-            new RuntimeProvider(state, faultPolicy, jobId, psInfo, dependencies, setting) :> IDistributionProvider
+            new RuntimeProvider(state, job, dependencies, setting) :> IDistributionProvider
 
         member __.IsTargetedWorkerSupported = true
 
@@ -60,7 +61,7 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
                 if Seq.length computations > 1024 then
                     return! Cloud.Raise(ArgumentOutOfRangeException("computations", "Limit reached."))
                 else
-                    return! Combinators.Parallel state psInfo jobId dependencies faultPolicy computations
+                    return! Combinators.Parallel state job dependencies computations
         }
 
         member __.ScheduleChoice computations = cloud {
@@ -70,11 +71,11 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
                 if Seq.length computations > 1024 then
                     return! Cloud.Raise(ArgumentOutOfRangeException("computations", "Limit reached."))
                 else
-                return! Combinators.Choice state psInfo jobId dependencies faultPolicy computations
+                return! Combinators.Choice state job dependencies computations
         }
 
         member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
-           Combinators.StartAsCloudTask state psInfo jobId dependencies cancellationToken faultPolicy workflow target
+           Combinators.StartAsCloudTask state job.ProcessInfo job.JobId dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 
             let! ws = state.WorkerManager.GetWorkerRefs(showInactive = false)
@@ -82,4 +83,4 @@ type RuntimeProvider private (state : RuntimeState, faultPolicy, jobId, psInfo, 
                       |> Seq.toArray 
             }
         member __.CurrentWorker = state.WorkerManager.Current.AsWorkerRef() :> IWorkerRef
-        member __.Logger = state.ResourceFactory.RequestProcessLogger(psInfo.Id) 
+        member __.Logger = state.ResourceFactory.RequestProcessLogger(job.ProcessInfo.Id) 

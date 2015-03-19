@@ -42,7 +42,7 @@ type ProcessState =
         | Completed -> "Completed"
         | CompletedWithPending -> "Completed (Pending Jobs)"
 
-type ProcessRecord(pk, pid, pname, cancellationUri, state, resultUri, ty, typeName, deps) = 
+type ProcessRecord(pk, pid, pname, cancellationPK, cancellationRK, state, resultUri, ty, typeName, deps) = 
     inherit TableEntity(pk, pid)
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
@@ -52,8 +52,9 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, resultUri, ty, typeNa
     member val CompletionTime     = Nullable<DateTimeOffset>() with get, set
     member val Completed          = Nullable<bool>() with get, set
     
-    member val ResultUri : string = resultUri with get, set
-    member val CancellationUri : string = cancellationUri with get, set
+    member val ResultRowKey : string = resultUri with get, set
+    member val CancellationPartitionKey : string = cancellationPK with get, set
+    member val CancellationRowKey : string = cancellationRK with get, set
     
     member val TotalJobs     = Nullable<int>() with get, set
     member val ActiveJobs    = Nullable<int>() with get, set
@@ -66,7 +67,7 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, resultUri, ty, typeNa
     member __.UnpickleType () = Configuration.Pickler.UnPickle<Type> __.Type
     member __.UnpickleDependencies () = Configuration.Pickler.UnPickle<AssemblyId list> __.Dependencies
     
-    new () = new ProcessRecord(null, null, null, null, null, null, null, null, null)
+    new () = new ProcessRecord(null, null, null, null, null, null, null, null, null, null)
 
     member this.CloneDefault() =
         let p = new ProcessRecord()
@@ -81,18 +82,18 @@ type ProcessManager private (config : ConfigurationId) =
     
     static member Create(configId : ConfigurationId) = new ProcessManager(configId)
 
-    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, cts : DistributedCancellationTokenSource, resultUri) = 
+    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, cts : DistributedCancellationTokenSource, resultRowKey) = 
         async {
             let now = DateTimeOffset.UtcNow
             let pickledTy = Configuration.Pickler.Pickle(ty)
             let deps = Configuration.Pickler.Pickle(deps)
             let tyName = Runtime.Utils.PrettyPrinters.Type.prettyPrint ty
-            let ctsKey =
+            let ctsRK =
                 cts.ElevateCancellationToken() |> ignore
                 match cts.RowKey with
                 | None -> raise <| new OperationCanceledException()
                 | Some rK -> rK
-            let e = new ProcessRecord(pk, pid, name, ctsKey, string ProcessState.Posted, resultUri, pickledTy, tyName, deps)
+            let e = new ProcessRecord(pk, pid, name, cts.PartitionKey, ctsRK, string ProcessState.Posted, resultRowKey, pickledTy, tyName, deps)
             e.ActiveJobs <- nullable 0
             e.FaultedJobs <- nullable 0
             e.CompletedJobs <- nullable 0

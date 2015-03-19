@@ -20,7 +20,7 @@ let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : 
 let private asyncFromContinuations f =
     Cloud.FromContinuations(fun ctx cont -> JobExecutionMonitor.ProtectAsync ctx (f ctx cont))
         
-let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) dependencies fp (computations : seq<#Cloud<'T> * IWorkerRef option>) =
+let Parallel (state : RuntimeState) (parentJob : Job) dependencies (computations : seq<#Cloud<'T> * IWorkerRef option>) =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -36,9 +36,9 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depe
             // request runtime resources required for distribution coordination
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
             
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = currentCts, metadata = jobId, elevate = true)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(parentJob.ProcessInfo.Id, parent = currentCts, metadata = parentJob.JobId, elevate = true)
             
-            let requestBatch = state.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
+            let requestBatch = state.ResourceFactory.GetResourceBatchForProcess(parentJob.ProcessInfo.Id)
             let resultAggregator = requestBatch.RequestResultAggregator<'T>(computations.Length)
             let cancellationLatch = requestBatch.RequestCounter(0)
             do! requestBatch.CommitAsync()
@@ -76,13 +76,13 @@ let Parallel (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depe
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, onSuccess, onException, onCancellation, computations, Parallel, jobId)
+                do! state.EnqueueJobBatch(parentJob.ProcessInfo, dependencies, childCts, parentJob.FaultPolicy, onSuccess, onException, onCancellation, computations, Parallel, parentJob.JobId, parentJob.ResultCell)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
             JobExecutionMonitor.TriggerCompletion ctx })
 
-let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) dependencies fp (computations : seq<#Cloud<'T option> * IWorkerRef option>)  =
+let Choice (state : RuntimeState) (parentJob : Job) dependencies (computations : seq<#Cloud<'T option> * IWorkerRef option>)  =
     asyncFromContinuations(fun ctx cont -> async {
         match (try Seq.toArray computations |> Choice1Of2 with e -> Choice2Of2 e) with
         | Choice2Of2 e -> cont.Exception ctx (ExceptionDispatchInfo.Capture e)
@@ -97,9 +97,9 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depend
             // request runtime resources required for distribution coordination
             let n = computations.Length // avoid capturing computation array in cont closures
             let currentCts = ctx.CancellationToken :?> DistributedCancellationTokenSource
-            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(psInfo.Id, parent = currentCts, metadata = jobId, elevate = true)
+            let! childCts = state.ResourceFactory.RequestCancellationTokenSource(parentJob.JobId, parent = currentCts, metadata = parentJob.JobId, elevate = true)
             
-            let batchRequest = state.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
+            let batchRequest = state.ResourceFactory.GetResourceBatchForProcess(parentJob.ProcessInfo.Id)
             let completionLatch = batchRequest.RequestCounter(0)
             let cancellationLatch = batchRequest.RequestCounter(0)
             do! batchRequest.CommitAsync()
@@ -148,7 +148,7 @@ let Choice (state : RuntimeState) (psInfo : ProcessInfo) (jobId : string) depend
                 } |> JobExecutionMonitor.ProtectAsync ctx
 
             try
-                do! state.EnqueueJobBatch(psInfo, dependencies, childCts, fp, (fun _ -> onSuccess), onException, onCancellation, computations, Choice, jobId)
+                do! state.EnqueueJobBatch(parentJob.ProcessInfo, dependencies, childCts, parentJob.FaultPolicy, (fun _ -> onSuccess), onException, onCancellation, computations, Choice, parentJob.JobId, parentJob.ResultCell)
             with e ->
                 childCts.Cancel() ; return! Async.Raise e
                     
