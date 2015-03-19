@@ -315,7 +315,7 @@ with
                 match r with
                 | Result.Completed _ 
                 | Result.Exception _ -> do! pmon.SetCompleted(psInfo.Id)
-                | Result.Cancelled _ -> do! pmon.SetKilled(psInfo.Id)
+                | Result.Cancelled _ -> do! pmon.SetCancelled(psInfo.Id)
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
 
