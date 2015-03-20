@@ -82,8 +82,8 @@ and [<AutoSerializable(false)>]
                 logf "Cancel CancellationTokenSource %O" parentTaskCTS
                 parentTaskCTS.Cancel()
                 if jobItem.JobType = JobType.Root then
-                    logf "Setting process completed"
-                    do! staticConfiguration.State.ProcessManager.SetCompleted(jobItem.ProcessInfo.Id)
+                    logf "Setting process Faulted"
+                    do! staticConfiguration.State.ProcessManager.SetFaulted(jobItem.ProcessInfo.Id)
                 logf "Faulted message : Complete."
                 do! staticConfiguration.State.ProcessManager.AddFaultedJob(jobItem.ProcessInfo.Id)
                 do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
