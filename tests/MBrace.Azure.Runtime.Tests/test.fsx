@@ -51,6 +51,18 @@ ps.AwaitResult()
 ps.Kill()
 
 
+let wf = 
+    cloud {
+        let! ct = Cloud.CreateCancellationTokenSource()
+        let! t = Cloud.StartAsCloudTask(cloud { return 42 }, cancellationToken = ct.Token)
+        return! Cloud.Catch(t.AwaitResult())
+    }
+
+let ps = runtime.CreateProcess(wf)
+ps.AwaitResult()
+ps.ShowInfo()
+
+
 let ps () = 
  cloud { let tasks = new ResizeArray<_>()
          for i in [ 0 .. 200 ] do 

@@ -75,11 +75,11 @@ and [<AutoSerializable(false)>]
             match jobResult with
             | Choice2Of2 ex ->
                 logf "Failed to UnPickle Job :\n%A" ex
-                let parentTaskCTS = jobItem.CancellationTokenSource
-                logf "SetResult unsafe"
+                logf "SetResultUnsafe ResultCell %A" jobItem.ResultCell
                 let pk, rk = jobItem.ResultCell
                 do! ResultCell<obj>.SetResultUnsafe(jobItem.ConfigurationId, pk, rk, ex)
-                logf "Cancel CancellationTokenSource"
+                let parentTaskCTS = jobItem.CancellationTokenSource
+                logf "Cancel CancellationTokenSource %O" parentTaskCTS
                 parentTaskCTS.Cancel()
                 if jobItem.JobType = JobType.Root then
                     logf "Setting process completed"
@@ -105,7 +105,7 @@ and [<AutoSerializable(false)>]
                 | Choice2Of2 e -> 
                     do! staticConfiguration.State.JobQueue.AbandonAsync(msg)
                     do! staticConfiguration.State.ProcessManager.AddFaultedJob(job.ProcessInfo.Id)
-                    logf "Job fault %s with :\n%O" (string job) e
+                    logf "Job fault\n%s\nwith :\n%O" (string job) e
         }
 
     let pool = AppDomainEvaluatorPool.Create(

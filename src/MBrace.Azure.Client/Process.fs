@@ -92,7 +92,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     member this.Kill() = Async.RunSync(this.KillAsync())
     /// Asynchronously sends a kill signal for this process.
     member this.KillAsync() = async {
-            do! pmon.SetKillRequested(pid)
+            do! pmon.SetCancellationRequested(pid)
             do this.DistributedCancellationTokenSource.Cancel()
         }
 

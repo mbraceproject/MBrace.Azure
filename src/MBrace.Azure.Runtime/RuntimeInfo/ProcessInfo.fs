@@ -124,8 +124,8 @@ type ProcessManager private (config : ConfigurationId) =
         Table.transact2<ProcessRecord> config table pk pid 
             (fun pr -> 
                 let p = pr.CloneDefault()
+                p.ActiveJobs <- pr.ActiveJobs ?- 1
                 p.FaultedJobs <- pr.FaultedJobs ?+ 1
-                p.TotalJobs <- pr.TotalJobs ?+ 1
                 p)
         |> Async.Ignore
 
@@ -158,11 +158,13 @@ type ProcessManager private (config : ConfigurationId) =
                 p)
         |> Async.Ignore
 
-    member this.SetKillRequested(pid : string) = 
+    member this.SetCancellationRequested(pid : string) = 
         Table.transact2<ProcessRecord> config table pk pid 
           (fun pr -> 
                 let p = pr.CloneDefault()
-                p.State <- string ProcessState.CancellationRequested
+                if pr.State = string ProcessState.Posted || 
+                   pr.State = string ProcessState.Running then
+                    p.State <- string ProcessState.CancellationRequested
                 p)
         |> Async.Ignore
 
