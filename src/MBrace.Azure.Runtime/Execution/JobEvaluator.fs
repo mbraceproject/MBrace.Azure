@@ -13,6 +13,7 @@ open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
 open Nessos.Vagabond
+open MBrace
 
 /// Default job configuration for use by JobEvaluator.
 type internal JobEvaluatorConfiguration =
@@ -77,7 +78,7 @@ and [<AutoSerializable(false)>]
                 logf "Failed to UnPickle Job :\n%A" ex
                 logf "SetResultUnsafe ResultCell %A" jobItem.ResultCell
                 let pk, rk = jobItem.ResultCell
-                do! ResultCell<obj>.SetResultUnsafe(jobItem.ConfigurationId, pk, rk, ex)
+                do! ResultCell<obj>.SetResultUnsafe(jobItem.ConfigurationId, pk, rk, new FaultException(sprintf "Failed to unpickle Job '%s'" jobItem.JobId, ex))
                 let parentTaskCTS = jobItem.CancellationTokenSource
                 logf "Cancel CancellationTokenSource %O" parentTaskCTS
                 parentTaskCTS.Cancel()
