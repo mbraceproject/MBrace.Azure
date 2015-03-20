@@ -25,11 +25,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     
     let proc = 
         new Live<_>((fun () -> pmon.GetProcess(pid)), initial = Choice2Of2(exn ("Process not initialized")), 
-                    keepLast = true, interval = 500, 
-                    stopf = 
-                        function 
-                        | Choice1Of2 p when p.Completed.HasValue -> p.Completed.GetValueOrDefault()
-                        | _ -> false )
+                    keepLast = true, interval = 500)
 
     let logger = new ProcessLogger(config, pid)
     let dcts = lazy DistributedCancellationTokenSource.FromPath(config, proc.Value.CancellationPartitionKey, proc.Value.CancellationRowKey)

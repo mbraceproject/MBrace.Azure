@@ -38,7 +38,6 @@ runtime.AttachClientLogger(new ConsoleLogger())
 Runtime.SpawnLocal(config, 4, 16)
 // ----------------------------
 
-
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
