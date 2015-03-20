@@ -52,7 +52,7 @@ type ``Streams Standalone - Storage Emulator`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 4) 
+        Runtime.SpawnLocal(base.Configuration, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -68,7 +68,7 @@ type ``Streams Standalone`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 4) 
+        Runtime.SpawnLocal(base.Configuration, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
