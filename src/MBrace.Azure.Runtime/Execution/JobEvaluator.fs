@@ -115,9 +115,6 @@ and [<AutoSerializable(false)>]
                 minimumConcurrentDomains = 4,
                 maximumConcurrentDomains = 64)
 
-    member __.EvaluateAsync(config : JobEvaluatorConfiguration, message : QueueMessage) = async {
-        let! jobItem = message.GetPayloadAsync<PickledJob>()
-        // download assemblies locally from blob store
-        let! localAssemblies = staticConfiguration.State.AssemblyManager.DownloadDependencies jobItem.Dependencies
-        return! pool.EvaluateAsync(jobItem.Dependencies, Async.Catch(run config message localAssemblies jobItem))
+    member __.EvaluateAsync(config : JobEvaluatorConfiguration, dependencies : VagabondAssembly list, message : QueueMessage, job : PickledJob) = async {
+        return! pool.EvaluateAsync(job.Dependencies, Async.Catch(run config message dependencies job))
     }

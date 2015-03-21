@@ -23,7 +23,7 @@
         /// generates a human readable string for byte sizes
         /// including a KiB, MiB, GiB or TiB suffix depending on size
         let getHumanReadableByteSize (size : int64) =
-            if size <= 512L then sprintf "%d Bytes" size
+            if size <= 512L then sprintf "%d bytes" size
             elif size <= 512L * 1024L then sprintf "%.2f KiB" (decimal size / decimal 1024L)
             elif size <= 512L * 1024L * 1024L then sprintf "%.2f MiB" (decimal size / decimal (1024L * 1024L))
             elif size <= 512L * 1024L * 1024L * 1024L then sprintf "%.2f GiB" (decimal size / decimal (1024L * 1024L * 1024L))

@@ -77,12 +77,17 @@ type internal Worker () =
                         | Choice1Of2 None -> 
                             return! workerLoop state
                         | Choice1Of2(Some message) ->
+                            // download message payload
+                            let! pickledJob = message.GetPayloadAsync<PickledJob>()
+                            // download dependencies from store
+                            let! localAssemblies = config.State.AssemblyManager.DownloadDependencies pickledJob.Dependencies
+                            // run isolated job
                             let jc = Interlocked.Increment &currentJobCount
                             config.State.WorkerManager.SetJobCountLocal(jc)
                             config.Logger.Logf "Increase Dequeued Jobs %d" jc
                             let! _ = Async.StartChild <| async { 
                                 try
-                                    let! ch = config.JobEvaluator.EvaluateAsync(config.JobEvaluatorConfiguration, message)
+                                    let! ch = config.JobEvaluator.EvaluateAsync(config.JobEvaluatorConfiguration, localAssemblies, message, pickledJob)
                                     match ch with
                                     | Choice1Of2 () -> return ()
                                     | Choice2Of2 e  -> config.Logger.Logf "Internal Error : unhandled exception %A" e

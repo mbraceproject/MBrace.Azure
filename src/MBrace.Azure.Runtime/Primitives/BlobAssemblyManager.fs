@@ -52,7 +52,7 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
             | None -> ()
         }
 
-        logger.Logf "Uploading assembly '%s' [%s]" va.FullName <| String.concat "," uploadSizes
+        logger.Logf "Uploading assembly '%s' [%s]" va.FullName <| String.concat ", " uploadSizes
 
         if not assemblyExists then
             let! _ = Blob.UploadFromFile(config, prefix, assemblyName, va.Image)
@@ -132,7 +132,7 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
         logger.Logf "Uploading dependencies"
         let! errors = VagabondRegistry.Instance.SubmitAssemblies(uploader, ids)
         if errors.Length > 0 then
-            let errors = errors |> Seq.map (fun (f,_) -> f.ToString()) |> String.concat ","
+            let errors = errors |> Seq.map (fun (f,_) -> f.ToString()) |> String.concat ", "
             logger.Logf "Failed to upload bindings: %s" errors
     }
 
