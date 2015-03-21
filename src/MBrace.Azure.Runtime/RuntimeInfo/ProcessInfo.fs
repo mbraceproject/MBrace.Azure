@@ -16,21 +16,30 @@ open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Utilities
 open Microsoft.FSharp.Linq.NullableOperators
 
-type ProcessState = 
+/// Represents the current stage in the lifecycle of a Process.
+type ProcessStatus = 
+    /// Successfully posted to the Runtime Queue.
     | Posted
+    /// Process is running but has not yet completed.
     | Running
+    /// Process completed due to an unrecoverable FaultException.
+    | Faulted
+    /// Process completed execution successfully.
     | Completed
-    | KillRequested
-    | Killed
+    /// Acknowledged cancellation by throwing an OperationCanceledException.
+    | Canceled
+    /// Cancellation is requested for this process.
+    | CancellationRequested
     override this.ToString() = 
         match this with
         | Posted -> "Posted"
         | Running -> "Running"
-        | Killed -> "Killed"
-        | KillRequested -> "Kill requested"
+        | Canceled -> "Canceled"
+        | Faulted -> "Faulted"
+        | CancellationRequested -> "Cancellation requested"
         | Completed -> "Completed"
 
-type ProcessRecord(pk, pid, pname, cancellationUri, state, resultUri, ty, typeName, deps) = 
+type ProcessRecord(pk, pid, pname, cancellationPK, cancellationRK, state, resultUri, ty, typeName, deps) = 
     inherit TableEntity(pk, pid)
     member val Id  : string = pid with get, set
     member val Name : string = pname with get, set
@@ -40,8 +49,9 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, resultUri, ty, typeNa
     member val CompletionTime     = Nullable<DateTimeOffset>() with get, set
     member val Completed          = Nullable<bool>() with get, set
     
-    member val ResultUri : string = resultUri with get, set
-    member val CancellationUri : string = cancellationUri with get, set
+    member val ResultRowKey : string = resultUri with get, set
+    member val CancellationPartitionKey : string = cancellationPK with get, set
+    member val CancellationRowKey : string = cancellationRK with get, set
     
     member val TotalJobs     = Nullable<int>() with get, set
     member val ActiveJobs    = Nullable<int>() with get, set
@@ -54,7 +64,7 @@ type ProcessRecord(pk, pid, pname, cancellationUri, state, resultUri, ty, typeNa
     member __.UnpickleType () = Configuration.Pickler.UnPickle<Type> __.Type
     member __.UnpickleDependencies () = Configuration.Pickler.UnPickle<AssemblyId list> __.Dependencies
     
-    new () = new ProcessRecord(null, null, null, null, null, null, null, null, null)
+    new () = new ProcessRecord(null, null, null, null, null, null, null, null, null, null)
 
     member this.CloneDefault() =
         let p = new ProcessRecord()
@@ -69,18 +79,18 @@ type ProcessManager private (config : ConfigurationId) =
     
     static member Create(configId : ConfigurationId) = new ProcessManager(configId)
 
-    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, cts : DistributedCancellationTokenSource, resultUri) = 
+    member this.CreateRecord(pid : string, name, ty : Type, deps : AssemblyId list, cts : DistributedCancellationTokenSource, resultRowKey) = 
         async {
             let now = DateTimeOffset.UtcNow
             let pickledTy = Configuration.Pickler.Pickle(ty)
             let deps = Configuration.Pickler.Pickle(deps)
             let tyName = Runtime.Utils.PrettyPrinters.Type.prettyPrint ty
-            let ctsKey =
+            let ctsRK =
                 cts.ElevateCancellationToken() |> ignore
                 match cts.RowKey with
                 | None -> raise <| new OperationCanceledException()
                 | Some rK -> rK
-            let e = new ProcessRecord(pk, pid, name, ctsKey, string ProcessState.Posted, resultUri, pickledTy, tyName, deps)
+            let e = new ProcessRecord(pk, pid, name, cts.PartitionKey, ctsRK, string ProcessStatus.Posted, resultRowKey, pickledTy, tyName, deps)
             e.ActiveJobs <- nullable 0
             e.FaultedJobs <- nullable 0
             e.CompletedJobs <- nullable 0
@@ -111,8 +121,8 @@ type ProcessManager private (config : ConfigurationId) =
         Table.transact2<ProcessRecord> config table pk pid 
             (fun pr -> 
                 let p = pr.CloneDefault()
+                p.ActiveJobs <- pr.ActiveJobs ?- 1
                 p.FaultedJobs <- pr.FaultedJobs ?+ 1
-                p.TotalJobs <- pr.TotalJobs ?+ 1
                 p)
         |> Async.Ignore
 
@@ -129,27 +139,39 @@ type ProcessManager private (config : ConfigurationId) =
         Table.transact2<ProcessRecord> config table pk pid 
            (fun pr -> 
                 let p = pr.CloneDefault()
-                if pr.State = string ProcessState.Posted then
-                    p.State <- string ProcessState.Running
+                if pr.State = string ProcessStatus.Posted then
+                    p.State <- string ProcessStatus.Running
                     p.InitializationTime <- nullable DateTimeOffset.UtcNow
                 p)
         |> Async.Ignore
 
-    member this.SetKilled(pid : string) = 
+    member this.SetCancelled(pid : string) = 
         Table.transact2<ProcessRecord> config table pk pid 
           (fun pr -> 
                 let p = pr.CloneDefault()
-                p.State <- string ProcessState.Killed
+                p.State <- string ProcessStatus.Canceled
                 p.CompletionTime <- nullable DateTimeOffset.UtcNow
                 p.Completed <- nullable true
                 p)
         |> Async.Ignore
 
-    member this.SetKillRequested(pid : string) = 
+    member this.SetFaulted(pid : string) = 
         Table.transact2<ProcessRecord> config table pk pid 
           (fun pr -> 
                 let p = pr.CloneDefault()
-                p.State <- string ProcessState.KillRequested
+                p.State <- string ProcessStatus.Faulted
+                p.CompletionTime <- nullable DateTimeOffset.UtcNow
+                p.Completed <- nullable true
+                p)
+        |> Async.Ignore
+
+    member this.SetCancellationRequested(pid : string) = 
+        Table.transact2<ProcessRecord> config table pk pid 
+          (fun pr -> 
+                let p = pr.CloneDefault()
+                if pr.State = string ProcessStatus.Posted || 
+                   pr.State = string ProcessStatus.Running then
+                    p.State <- string ProcessStatus.CancellationRequested
                 p)
         |> Async.Ignore
 
@@ -157,7 +179,7 @@ type ProcessManager private (config : ConfigurationId) =
         Table.transact2<ProcessRecord> config table pk pid 
           (fun pr -> 
                 let p = pr.CloneDefault()
-                p.State <- string ProcessState.Completed
+                p.State <- string ProcessStatus.Completed
                 p.CompletionTime <- nullable DateTimeOffset.UtcNow
                 p.Completed <- nullable true
                 p)

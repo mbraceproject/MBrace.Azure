@@ -12,13 +12,13 @@ type internal ProcessReporter() =
     static let template : Field<ProcessRecord> list = 
         [ Field.create "Name" Left (fun p -> p.Name)
           Field.create "Process Id" Right (fun p -> p.Id)
-          Field.create "State" Right (fun p -> p.State)
+          Field.create "Status" Right (fun p -> p.State)
           Field.create "Completed" Left (fun p -> p.Completed)
           Field.create "Execution Time" Left (fun p -> if p.Completed.GetValueOrDefault() then p.CompletionTime ?-? p.InitializationTime else DateTimeOffset.UtcNow -? p.InitializationTime)
           Field.create "Jobs" Center (fun p -> sprintf "%3d / %3d / %3d / %3d"  p.ActiveJobs.Value p.FaultedJobs.Value p.CompletedJobs.Value p.TotalJobs.Value)
           Field.create "Result Type" Left (fun p -> p.TypeName) 
           Field.create "Start Time" Left (fun p -> p.InitializationTime)
-          Field.create "Completion Time" Left (fun p -> if p.Completed.GetValueOrDefault() then string p.CompletionTime else "N/A")
+          Field.create "Completion Time" Left (fun p -> p.CompletionTime )
         ]
     
     static member Report(processes : ProcessRecord seq, title, borders) = 

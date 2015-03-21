@@ -13,6 +13,7 @@ open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
 open Nessos.Vagabond
+open MBrace
 
 /// Default job configuration for use by JobEvaluator.
 type internal JobEvaluatorConfiguration =
@@ -61,45 +62,52 @@ and [<AutoSerializable(false)>]
         }
         Job.RunAsync provider resources faultCount job
 
-    static let run (config : JobEvaluatorConfiguration) (msg : QueueMessage) (jobItem : JobItem) = async {
-        let inline logf fmt = Printf.ksprintf (staticConfiguration.State.Logger :> ICloudLogger).Log fmt
-        try
-            do! staticConfiguration.State.AssemblyManager.LoadDependencies(jobItem.Dependencies)
-
-            logf "UnPickle Job [%d bytes]" jobItem.PickledJob.Bytes.Length
-            let job = VagabondRegistry.Instance.Pickler.UnPickleTyped(jobItem.PickledJob)
-
-            if job.JobType = JobType.Root then
-                logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
-                do! staticConfiguration.State.ProcessManager.SetRunning(job.ProcessInfo.Id)
-
+    static let run (config : JobEvaluatorConfiguration) (msg : QueueMessage) (jobItem : PickledJob) = 
+        async {
+            let inline logf fmt = Printf.ksprintf (staticConfiguration.State.Logger :> ICloudLogger).Log fmt
             if msg.DeliveryCount = 1 then
-                do! staticConfiguration.State.ProcessManager.AddActiveJob(job.ProcessInfo.Id)
-            
-            logf "Starting job\n%s" (string job)
-            let sw = Stopwatch.StartNew()
-            let! result = Async.Catch(runJob config job jobItem.Dependencies (msg.DeliveryCount-1))
-            sw.Stop()
+                do! staticConfiguration.State.ProcessManager.AddActiveJob(jobItem.ProcessInfo.Id)
 
-            match result with
-            | Choice1Of2 () -> 
-                do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
-                do! staticConfiguration.State.ProcessManager.AddCompletedJob(job.ProcessInfo.Id)
-                logf "Completed job\n%s\nTime : %O" (string job) sw.Elapsed
-            | Choice2Of2 e -> 
-                do! staticConfiguration.State.JobQueue.AbandonAsync(msg)
-                do! staticConfiguration.State.ProcessManager.AddFaultedJob(job.ProcessInfo.Id)
-                logf "Job fault %s with :\n%O" (string job) e
-        with ex ->
-            logf "Failed to UnPickle Job :\n%A" ex
-            if msg.DeliveryCount >= 1 then
-                // TODO : Set Process as Faulted.
+            let! jobResult = Async.Catch <| async {
+                do! staticConfiguration.State.AssemblyManager.LoadDependencies(jobItem.Dependencies)
+                return jobItem.ToJob()
+            }
+
+            match jobResult with
+            | Choice2Of2 ex ->
+                logf "Failed to UnPickle Job :\n%A" ex
+                logf "SetResultUnsafe ResultCell %A" jobItem.ResultCell
+                let pk, rk = jobItem.ResultCell
+                do! ResultCell<obj>.SetResultUnsafe(jobItem.ConfigurationId, pk, rk, new FaultException(sprintf "Failed to unpickle Job '%s'" jobItem.JobId, ex))
+                let parentTaskCTS = jobItem.CancellationTokenSource
+                logf "Cancel CancellationTokenSource %O" parentTaskCTS
+                parentTaskCTS.Cancel()
+                if jobItem.JobType = JobType.Root then
+                    logf "Setting process Faulted"
+                    do! staticConfiguration.State.ProcessManager.SetFaulted(jobItem.ProcessInfo.Id)
                 logf "Faulted message : Complete."
+                do! staticConfiguration.State.ProcessManager.AddFaultedJob(jobItem.ProcessInfo.Id)
                 do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
-            else
-                logf "Faulted message : Abandon."
-                do! staticConfiguration.State.JobQueue.AbandonAsync(msg)
-    }
+            | Choice1Of2 job ->
+                if job.JobType = JobType.Root then
+                    logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
+                    do! staticConfiguration.State.ProcessManager.SetRunning(job.ProcessInfo.Id)
+
+                logf "Starting job\n%s" (string job)
+                let sw = Stopwatch.StartNew()
+                let! result = Async.Catch(runJob config job jobItem.Dependencies (msg.DeliveryCount-1))
+                sw.Stop()
+
+                match result with
+                | Choice1Of2 () -> 
+                    do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
+                    do! staticConfiguration.State.ProcessManager.AddCompletedJob(job.ProcessInfo.Id)
+                    logf "Completed job\n%s\nTime : %O" (string job) sw.Elapsed
+                | Choice2Of2 e -> 
+                    do! staticConfiguration.State.JobQueue.AbandonAsync(msg)
+                    do! staticConfiguration.State.ProcessManager.AddFaultedJob(job.ProcessInfo.Id)
+                    logf "Job fault\n%s\nwith :\n%O" (string job) e
+        }
 
     let pool = AppDomainEvaluatorPool.Create(
                 mkAppDomainInitializer config serviceId customLogger, 
@@ -108,6 +116,6 @@ and [<AutoSerializable(false)>]
                 maximumConcurrentDomains = 64)
 
     member __.EvaluateAsync(config : JobEvaluatorConfiguration, message : QueueMessage) = async {
-        let! jobItem = message.GetPayloadAsync<JobItem>()
+        let! jobItem = message.GetPayloadAsync<PickledJob>()
         return! pool.EvaluateAsync(jobItem.Dependencies, Async.Catch(run config message jobItem))
     }

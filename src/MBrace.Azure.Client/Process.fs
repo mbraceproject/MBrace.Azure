@@ -25,14 +25,10 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     
     let proc = 
         new Live<_>((fun () -> pmon.GetProcess(pid)), initial = Choice2Of2(exn ("Process not initialized")), 
-                    keepLast = true, interval = 500, 
-                    stopf = 
-                        function 
-                        | Choice1Of2 p when p.Completed.HasValue -> p.Completed.GetValueOrDefault()
-                        | _ -> false )
+                    keepLast = true, interval = 500)
 
     let logger = new ProcessLogger(config, pid)
-    let dcts = lazy DistributedCancellationTokenSource.FromPath(config, proc.Value.Id, proc.Value.CancellationUri)
+    let dcts = lazy DistributedCancellationTokenSource.FromPath(config, proc.Value.CancellationPartitionKey, proc.Value.CancellationRowKey)
 
     member internal this.ProcessEntity = proc
     member internal this.DistributedCancellationTokenSource = dcts.Value
@@ -96,7 +92,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     member this.Kill() = Async.RunSync(this.KillAsync())
     /// Asynchronously sends a kill signal for this process.
     member this.KillAsync() = async {
-            do! pmon.SetKillRequested(pid)
+            do! pmon.SetCancellationRequested(pid)
             do this.DistributedCancellationTokenSource.Cancel()
         }
 
@@ -122,7 +118,7 @@ type Process<'T> internal (config, pid : string, pmon : ProcessManager) =
     override this.AwaitResultBoxed () : obj = this.AwaitResultBoxedAsync() |> Async.RunSync 
     override this.AwaitResultBoxedAsync () : Async<obj> =
         async {
-            let rc : ResultCell<'T> = ResultCell.FromPath(config, this.ProcessEntity.Value.ResultUri)
+            let rc : ResultCell<'T> = ResultCell.FromPath(config, this.ProcessEntity.Value.Id, this.ProcessEntity.Value.ResultRowKey)
             let! r = rc.AwaitResult()
             do! this.AwaitCompletionAsync()
             return r.Value :> obj
@@ -133,7 +129,7 @@ type Process<'T> internal (config, pid : string, pmon : ProcessManager) =
     /// Asynchronously waits for the process result.
     member this.AwaitResultAsync() : Async<'T> = 
         async {
-            let rc : ResultCell<'T> = ResultCell.FromPath(config, this.ProcessEntity.Value.ResultUri)
+            let rc : ResultCell<'T> = ResultCell.FromPath(config, this.ProcessEntity.Value.Id, this.ProcessEntity.Value.ResultRowKey)
             let! r = rc.AwaitResult()
             do! this.AwaitCompletionAsync()
             return r.Value

@@ -38,7 +38,6 @@ runtime.AttachClientLogger(new ConsoleLogger())
 Runtime.SpawnLocal(config, 4, 16)
 // ----------------------------
 
-
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
@@ -50,6 +49,18 @@ let ps = runtime.CreateProcess([1..10] |> Seq.map (fun i -> cloud { return i*i }
 ps.ShowInfo()
 ps.AwaitResult()
 ps.Kill()
+
+
+let wf = 
+    cloud {
+        let! ct = Cloud.CreateCancellationTokenSource()
+        let! t = Cloud.StartAsCloudTask(cloud { return 42 }, cancellationToken = ct.Token)
+        return! Cloud.Catch(t.AwaitResult())
+    }
+
+let ps = runtime.CreateProcess(wf)
+ps.AwaitResult()
+ps.ShowInfo()
 
 
 let ps () = 
