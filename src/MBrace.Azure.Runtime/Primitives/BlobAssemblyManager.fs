@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Text.RegularExpressions
 open System.Runtime.Serialization
 
 open Nessos.Vagabond
@@ -16,8 +17,18 @@ open MBrace.Azure.Runtime.Utilities
 [<AutoOpen>]
 module private Common =
 
+    /// blob prefix for stored assemblies
     let prefix = "vagabond"
-    let filename (id : AssemblyId) = sprintf "%s-%s" id.FullName (Convert.toBase32String id.ImageHash) 
+
+    /// generate a unique filename based on given AssemblyId
+    /// future versions of Vagabond (> 0.5.1) will have this as an extension method.
+    /// !! Note that the Vagabond extension method returns the name with a .dll extension attached,
+    /// so the functions below will need to be adapted accordingly.
+    let filename (id : AssemblyId) = 
+        let name = id.GetName().Name |> stripInvalidFileNameChars
+        let hash = Convert.toBase32String id.ImageHash
+        sprintf "%s-%s" name hash
+
     let assemblyName id = filename id + ".dll"
     let symbolsName id = filename id + ".pdb"
     let metadataName id = filename id + ".vmetadata"
