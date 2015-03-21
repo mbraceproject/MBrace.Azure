@@ -5,13 +5,13 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Azure;
 using Microsoft.WindowsAzure;
 using Microsoft.WindowsAzure.Diagnostics;
 using Microsoft.WindowsAzure.ServiceRuntime;
 using Microsoft.WindowsAzure.Storage;
-using MBrace.Azure.Runtime;
-using MBrace.Azure.Runtime.Info;
 using MBrace.Azure.Store;
+using MBrace.Azure.Runtime;
 
 namespace MBrace.Azure.CloudService.WorkerRole
 {
