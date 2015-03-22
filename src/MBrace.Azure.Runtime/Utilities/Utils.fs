@@ -22,12 +22,6 @@
         let inline nullableDefault< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > = 
             new Nullable<'T>()
 
-        /// strips characters invalid for file names
-        let stripInvalidFileNameChars =
-            let invalidChars = new String(Path.GetInvalidFileNameChars()) |> Regex.Escape
-            let regex = new Regex(sprintf "[%s]" invalidChars, RegexOptions.Compiled)
-            fun (fileName : string) -> regex.Replace(fileName, "")
-
         /// generates a human readable string for byte sizes
         /// including a KiB, MiB, GiB or TiB suffix depending on size
         let getHumanReadableByteSize (size : int64) =

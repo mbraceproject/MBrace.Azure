@@ -20,14 +20,8 @@ module private Common =
     /// blob prefix for stored assemblies
     let prefix = "vagabond"
 
-    /// generate a unique filename based on given AssemblyId
-    /// future versions of Vagabond (> 0.5.1) will have this as an extension method.
-    /// !! Note that the Vagabond extension method returns the name with a .dll extension attached,
-    /// so the functions below will need to be adapted accordingly.
-    let filename (id : AssemblyId) = 
-        let name = id.GetName().Name |> stripInvalidFileNameChars
-        let hash = Convert.toBase32String id.ImageHash
-        sprintf "%s-%s" name hash
+    /// Gets a unique blob filename for provided assembly
+    let filename (id : AssemblyId) = Vagabond.GetFileName id
 
     let assemblyName id = filename id + ".dll"
     let symbolsName id = filename id + ".pdb"

@@ -2,7 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
 VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "paket", "paket", "{8C962C9C-7DF5-430C-8CD4-7C2642F68409}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{8C962C9C-7DF5-430C-8CD4-7C2642F68409}"
 	ProjectSection(SolutionItems) = preProject
 		.paket\paket.bootstrapper.exe = .paket\paket.bootstrapper.exe
 		paket.dependencies = paket.dependencies
@@ -118,7 +118,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{8C962C9C-7DF5-430C-8CD4-7C2642F68409} = {BC64BD78-3886-4FC5-A6F9-2A71A99769B9}
 		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5} = {3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}
 		{09891260-7D4E-431B-B714-2A13C412FD78} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
