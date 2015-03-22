@@ -23,7 +23,7 @@
     /// Windows Azure Runtime client.
     /// </summary>
     [<AutoSerializable(false)>]
-    type Runtime private (clientId, config : Configuration) =
+    type Runtime private (clientId, config : Configuration, ignoreVersionCompatibility) =
         static let lockObj = obj()
         static let mutable localWorkerExecutable : string option = None
 
@@ -32,7 +32,7 @@
             Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
             Async.RunSync(Configuration.ActivateAsync(configuration))
 
-        let state = Async.RunSync(RuntimeState.FromConfiguration(configuration))
+        let state = Async.RunSync(RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility))
         let storageLogger = new StorageLogger(configuration.ConfigurationId, Client(id = clientId))
         let clientLogger = state.Logger
         do  clientLogger.Attach(storageLogger)
@@ -430,7 +430,7 @@
                     do! loop 0
 
                     cl.Logf "Initializing RuntimeState."
-                    let! _ = RuntimeState.FromConfiguration(configuration)
+                    let! _ = RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility)
 
                     storageLogger.Start()
 
@@ -440,12 +440,14 @@
         /// Gets a handle for a remote runtime.
         /// </summary>
         /// <param name="config">Runtime configuration.</param>
+        /// <param name="ignoreVersionCompatibility">Ignore version compatibility checks on client.</param>
         /// <param name="waitWorkerCount">Wait until the specified number of workers join the runtime.</param>
-        static member GetHandle(config : Configuration, ?waitWorkerCount : int) : Runtime = 
+        static member GetHandle(config : Configuration, ?ignoreVersionCompatibility, ?waitWorkerCount : int) : Runtime = 
             let waitWorkerCount = defaultArg waitWorkerCount 0
+            let ignoreVersionCompatibility = defaultArg ignoreVersionCompatibility false
             if waitWorkerCount < 0 then invalidArg "waitWorkerCount" "Must be greater than 0"
             let clientId = guid()
-            let runtime = new Runtime(clientId, config)
+            let runtime = new Runtime(clientId, config, ignoreVersionCompatibility)
             let rec loop () = async {
                 let! ws = runtime.GetWorkersAsync()
                 if Seq.length ws >= waitWorkerCount then return ()

@@ -42,10 +42,13 @@ type RuntimeState =
     }
 with
     /// Initialize a new runtime state in the local process
-    static member FromConfiguration (config : Configuration) = async {
+    static member FromConfiguration (config : Configuration, ignoreVersionCompatibility) = async {
         let configurationId = config.ConfigurationId
         let logger = new LoggerCombiner()
         let! jobQueue = JobQueue.Create(configurationId, logger)
+        if not ignoreVersionCompatibility then
+            jobQueue.Versions |> Seq.iter ReleaseInfo.compareWithVersion
+
         let assemblyManager = BlobAssemblyManager.Create(configurationId, logger) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
         let pman = ProcessManager.Create(configurationId)

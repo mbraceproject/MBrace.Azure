@@ -139,10 +139,6 @@ open MBrace.Azure
 open System.Net
 open System.Threading.Tasks
 
-/// Exception indicating invalid Configuration.
-type InvalidConfigurationException (msg : string, inner) =
-    inherit Exception(msg, inner)
-
 /// Provides Azure client instances for storage related entities
 [<AutoSerializable(false)>]
 type StoreClientProvider (config : Configuration) =
