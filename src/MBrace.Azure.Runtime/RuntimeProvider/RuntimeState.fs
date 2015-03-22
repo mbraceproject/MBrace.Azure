@@ -142,7 +142,7 @@ with
         }
 
     /// Schedules a cloud workflow as an ICloudTask.
-    member internal this.StartAsTask(psInfo : ProcessInfo, dependencies, cts, fp, wf : Cloud<'T>, jobType, parentJobId) : Async<ICloudTask<'T>> = async {
+    member internal this.StartAsTask(psInfo : ProcessInfo, dependencies, ct:ICloudCancellationToken option, fp, wf : Cloud<'T>, jobType, parentJobId) : Async<ICloudTask<'T>> = async {
         let jobId = guid()
         let! resultCell = async {
             let batch = this.ResourceFactory.GetResourceBatchForProcess(psInfo.Id)
@@ -150,16 +150,23 @@ with
             do! batch.CommitAsync()
             return rc
         }
+
+        // create a new cancellation token source if none specified, or a child cancellation token if supplied
+        // this will allow cancellation once task has been completed.
+        let parentCts = ct |> Option.map unbox<DistributedCancellationTokenSource>
+        let! childCts = this.ResourceFactory.RequestCancellationTokenSource(jobId, ?parent = parentCts, metadata = jobId, elevate = true)
+
         let setResult ctx r = 
             async {
                 do! resultCell.SetResult r
+                childCts.Cancel()
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
             
         let scont ctx t = setResult ctx (Result.Completed t)
         let econt ctx e = setResult ctx (Result.Exception e)
         let ccont ctx c = setResult ctx (Result.Cancelled c)
-        do! this.EnqueueJob(psInfo, jobId, dependencies, cts, fp, scont, econt, ccont, wf, jobType, parentJobId, (resultCell.PartitionKey, resultCell.RowKey))
+        do! this.EnqueueJob(psInfo, jobId, dependencies, childCts, fp, scont, econt, ccont, wf, jobType, parentJobId, (resultCell.PartitionKey, resultCell.RowKey))
         return resultCell :> ICloudTask<'T>
     }
 

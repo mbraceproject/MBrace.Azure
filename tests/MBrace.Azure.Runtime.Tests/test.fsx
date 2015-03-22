@@ -35,7 +35,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 // local only---
-Runtime.SpawnLocal(config, 4, 16)
+Runtime.SpawnLocal(config, 1, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -43,6 +43,13 @@ runtime.ShowWorkers()
 runtime.ShowLogs()
 
 runtime.ClearAllProcesses()
+
+
+// Standard Vagabond correctness test
+let c = ref 0
+for i in 1 .. 10 do
+    c := runtime.Run(cloud { return !c + 1 })
+// c should evaluate to 10
 
 
 let ps = runtime.CreateProcess([1..10] |> Seq.map (fun i -> cloud { return i*i }) |> Cloud.Parallel)

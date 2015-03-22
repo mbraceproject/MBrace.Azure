@@ -74,7 +74,7 @@ type RuntimeProvider private (state : RuntimeState, job : Job, dependencies, isF
                 return! Combinators.Choice state job dependencies computations
         }
 
-        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, cancellationToken, ?target:IWorkerRef) =
+        member __.ScheduleStartAsTask(workflow : Cloud<'T>, faultPolicy, ?cancellationToken, ?target:IWorkerRef) =
            Combinators.StartAsCloudTask state job.ProcessInfo job.JobId dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 

@@ -155,8 +155,7 @@ let Choice (state : RuntimeState) (parentJob : Job) dependencies (computations :
             JobExecutionMonitor.TriggerCompletion ctx })
 
 
-let StartAsCloudTask (state : RuntimeState) psInfo (jobId : string) dependencies (ct : ICloudCancellationToken) fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
-    let dcts = ct :?> DistributedCancellationTokenSource
+let StartAsCloudTask (state : RuntimeState) psInfo (jobId : string) dependencies ct fp (computation : Cloud<'T>) (affinity : IWorkerRef option) = cloud {
     let taskType = match affinity with None -> JobType.StartChild | Some wr -> JobType.Affined wr.Id
-    return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, dcts, fp, computation, taskType, jobId)
+    return! Cloud.OfAsync <| state.StartAsTask(psInfo, dependencies, ct, fp, computation, taskType, jobId)
 }

@@ -25,6 +25,23 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
             use! s = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename).OpenReadAsync()
             return Configuration.Pickler.Deserialize<'T>(s) 
         }
+
+    /// <summary>
+    ///  Try reading value, returning Some t if file exists, None if it doesn't exist.
+    /// </summary>
+    member __.TryGetValue() : Async<'T option> =
+        async {
+            let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let! _ = container.CreateIfNotExistsAsync()
+            let b = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+            let! exists = b.ExistsAsync()
+            if exists then
+                use! s = b.OpenReadAsync()
+                let value = Configuration.Pickler.Deserialize<'T>(s)
+                return Some value
+            else
+                return None
+        }
     
     member __.Path = sprintf "%s/%s" prefix filename
 
@@ -96,14 +113,14 @@ type Blob internal (config : ConfigurationId, prefix : string, filename : string
             return! b.ExistsAsync()
         }
 
-    static member UploadFromFile(config, prefix, filename, path) = 
+    static member UploadFromFile(config, prefix, filename, localPath) = 
         async { 
             let c = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             let! _ = c.CreateIfNotExistsAsync()
             let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
 
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-            do! b.UploadFromFileAsync(path, FileMode.Open, null, options, OperationContext(), Async.DefaultCancellationToken)
+            do! b.UploadFromFileAsync(localPath, FileMode.Open, null, options, OperationContext(), Async.DefaultCancellationToken)
 
             // For some reason large client uploads, fail to upload but do not throw exception...
             let! exists = b.ExistsAsync()

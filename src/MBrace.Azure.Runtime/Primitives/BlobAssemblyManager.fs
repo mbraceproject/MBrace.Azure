@@ -1,96 +1,160 @@
 ﻿namespace MBrace.Azure.Runtime.Primitives
 
-open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Utilities
-open Nessos.Vagabond
 open System
+open System.IO
+open System.Text.RegularExpressions
 open System.Runtime.Serialization
+
+open Nessos.Vagabond
+open Nessos.Vagabond.AssemblyProtocols
+
+open MBrace.Runtime
 open MBrace.Runtime.Vagabond
 open MBrace.Azure
-open MBrace.Runtime
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Utilities
 
-type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogger) = 
+[<AutoOpen>]
+module private Common =
 
-    // temporary fix; avoid multiple uploadings for dynamic assemblies
-    // this is still wrong; need IRemoteAssemblyReceiver implementation for uploading to blob store
-    let partialAssemblies = new System.Collections.Concurrent.ConcurrentDictionary<AssemblyId, bool> ()
-    let isPartialDynamicAssembly (pkg : AssemblyPackage) =
-        match pkg.StaticInitializer with
-        | None -> false
-        // is partially evaluated slice; record occurrence and return true
-        | Some init when init.IsPartial -> partialAssemblies.[pkg.Id] <- true ; true
+    /// blob prefix for stored assemblies
+    let prefix = "vagabond"
+
+    /// Gets a unique blob filename for provided assembly
+    let filename (id : AssemblyId) = Vagabond.GetFileName id
+
+    let assemblyName id = filename id + ".dll"
+    let symbolsName id = filename id + ".pdb"
+    let metadataName id = filename id + ".vmetadata"
+    let staticdataName gen id = sprintf "%s-%d.vdata" (filename id) gen
         
-        | Some _  ->
-            let ok, wasPartial = partialAssemblies.TryGetValue pkg.Id
-            // is fully evaluated slice for the first time; record occurrence and return true
-            if ok && wasPartial then
-                partialAssemblies.[pkg.Id] <- false ; true
-            // fully evaluated slice is already uploaded
-            else
-                false
-    
-    let filename id = sprintf "%s-%s" id.FullName (Convert.toBase32String id.ImageHash) 
-    let prefix = "assemblies"
-    let uploadPkg (pkg : AssemblyPackage) = 
-        async {
-            let file =  filename pkg.Id
-            let! exists = Blob<_>.Exists(config, prefix, file)
-            let isPartial = isPartialDynamicAssembly pkg
-            if not exists || isPartial then
-                let imgSize = 
-                    match pkg.Image, pkg.StaticInitializer with
-                    | Some img, Some init -> sprintf "[IL %d bytes, Data %d bytes]" img.Length init.Data.Length
-                    | Some img, None      -> sprintf "[IL %d bytes]" img.Length
-                    | None, Some init     -> sprintf "[Data %d bytes]" init.Data.Length
-                    | _                   -> String.Empty
-                logger.Logf "Uploading file %s %s" pkg.FullName imgSize
-                do! Blob.Create(config, prefix, file, fun () -> pkg) |> Async.Ignore
-                logger.Logf "File %s done." pkg.FullName
-            else
-                logger.Logf "File %s exists." pkg.FullName
-        }
-    
-    let downloadPkg (id : AssemblyId) : Async<AssemblyPackage> = 
-        async { 
-            let file = filename id
-            logger.Logf "Downloading file %s" id.FullName
-            let blob = Blob<AssemblyPackage>.FromPath(config, prefix, file)
-            let! value = blob.GetValue()
-            logger.Logf "File %s done" id.FullName
-            return value
-        }
-    
-    member __.UploadDependencies(ids : AssemblyId list) = 
-        async { 
-            let pkgs = VagabondRegistry.Instance.CreateAssemblyPackages(ids, includeAssemblyImage = true)
-            logger.Logf "Uploading dependencies"
-            do! pkgs
-                |> Seq.map uploadPkg
-                |> Async.Parallel
-                |> Async.Ignore
-        }
-    
-    member __.LoadDependencies(ids : AssemblyId list) = 
-        async { 
-            let publisher = 
-                { new IRemoteAssemblyPublisher with
-                      member __.GetRequiredAssemblyInfo() = async.Return ids
-                      member __.PullAssemblies ids = 
-                          async { 
-                              let! pkgs = ids
-                                          |> Seq.map downloadPkg
-                                          |> Async.Parallel
-                              return pkgs |> Seq.toList
-                          } }
-            logger.Log "Downloading dependencies."
-            do! VagabondRegistry.Instance.ReceiveDependencies publisher
-        }
-    
-    member __.ComputeDependencies(graph : 'T) = 
-        VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
-        |> List.map Utilities.ComputeAssemblyId
 
-    static member Create(config, logger) = 
-        new BlobAssemblyManager(config, logger)
+type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogger) =
 
+    let getAssemblyLoadInfo (id : AssemblyId) = async {
+        let! assemblyExists = Blob.Exists(config, prefix, assemblyName id)
+        if not assemblyExists then return NotLoaded id
+        else
+            let cell = Blob<VagabondMetadata>.FromPath(config, prefix, metadataName id)
+            let! metadata = cell.TryGetValue()
+            return Loaded(id, false, metadata)
+    }
+
+    let uploadAssembly (va : VagabondAssembly) = async {
+        let assemblyName = assemblyName va.Id
+        let! assemblyExists = Blob.Exists(config, prefix, assemblyName)
+
+        let uploadSizes = seq {
+            let size (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
+            if not assemblyExists then
+                yield sprintf "IL %s" (size va.Image)
+                match va.Symbols with
+                | Some s -> yield sprintf "PDB %s" (size s)
+                | None -> ()
+
+            match va.Metadata with
+            | Some (_,d) -> yield sprintf "Data %s" (size d)
+            | None -> ()
+        }
+
+        logger.Logf "Uploading assembly '%s' [%s]" va.FullName <| String.concat ", " uploadSizes
+
+        if not assemblyExists then
+            let! _ = Blob.UploadFromFile(config, prefix, assemblyName, va.Image)
+            return ()
+
+        match va.Symbols with
+        | None -> ()
+        | Some symbolsPath ->
+            let symbolsName = symbolsName va.Id
+            let! symbolsExist = Blob.Exists(config, prefix, symbolsName)
+            if not symbolsExist then
+                let! _ = Blob.UploadFromFile(config, prefix, symbolsName, symbolsPath)
+                return ()
+
+        match va.Metadata with
+        | None -> return Loaded(va.Id, false, None)
+        | Some (metadata, dataPath) ->
+            let dataName = staticdataName metadata.Generation va.Id
+            let! dataExists = Blob.Exists(config, prefix, dataName)
+            if not dataExists then
+                let! _ = Blob.UploadFromFile(config, prefix, dataName, dataPath)
+                return ()
+
+            let! _ = Blob<VagabondMetadata>.Create(config, prefix, metadataName va.Id, fun () -> metadata)
+            return Loaded(va.Id, false, Some metadata)
+    }
+
+    interface IRemoteAssemblyReceiver with
+        member x.GetLoadedAssemblyInfo(dependencies: AssemblyId list): Async<AssemblyLoadInfo list> = async {
+            let! loadInfo = dependencies |> Seq.map getAssemblyLoadInfo |> Async.Parallel
+            return Array.toList loadInfo
+        
+        }
+        
+        member x.PushAssemblies(assemblies: VagabondAssembly list): Async<AssemblyLoadInfo list> =  async {
+            let! loadInfo = assemblies |> Seq.map uploadAssembly |> Async.Parallel
+            return Array.toList loadInfo
+        }
+         
+
+type private BlobAssemblyDownloader(config : ConfigurationId, logger : ICloudLogger) =
     
+    interface IAssemblyImporter with
+        member x.GetImageReader(id: AssemblyId): Async<Stream> = async {
+            logger.Logf "Downloading assembly '%s'" id.FullName
+            let blob = Blob.FromPath(config, prefix, assemblyName id)
+            return! blob.OpenRead()
+        }
+        
+        member x.TryGetSymbolReader(id: AssemblyId): Async<Stream option> = async {
+            let! exists = Blob.Exists(config, prefix, symbolsName id)
+            if exists then
+                let blob = Blob.FromPath(config, prefix, symbolsName id)
+                let! stream = blob.OpenRead()
+                return Some stream
+            else
+                return None
+        }
+        
+        member x.TryReadMetadata(id: AssemblyId): Async<VagabondMetadata option> = async {
+            let cell = Blob<VagabondMetadata>.FromPath(config, prefix, metadataName id)
+            return! cell.TryGetValue()
+        }
+
+        member x.GetDataReader(id: AssemblyId, vmd : VagabondMetadata): Async<Stream> = async {
+            logger.Logf "Downloading vagabond data for assembly '%s'." id.FullName
+            let blob = Blob.FromPath(config, prefix, staticdataName vmd.Generation id)
+            return! blob.OpenRead()
+        }
+
+
+type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogger, includeUnmanagedDependencies : bool) = 
+    let uploader = new BlobAssemblyUploader(config, logger)
+    let downloader = new BlobAssemblyDownloader(config, logger)
+
+    member __.UploadDependencies(ids : seq<AssemblyId>) = async { 
+        logger.Logf "Uploading dependencies"
+        let! errors = VagabondRegistry.Instance.SubmitAssemblies(uploader, ids)
+        if errors.Length > 0 then
+            let errors = errors |> Seq.map (fun (f,_) -> f.ToString()) |> String.concat ", "
+            logger.Logf "Failed to upload bindings: %s" errors
+    }
+
+    member __.DownloadDependencies(ids : seq<AssemblyId>) = async {
+        return! VagabondRegistry.Instance.ImportAssemblies(downloader, ids)
+    }
+
+    member __.LoadAssemblies(assemblies : VagabondAssembly list) =
+        VagabondRegistry.Instance.LoadVagabondAssemblies(assemblies)
+
+    member __.ComputeDependencies(graph : 'T) =
+        let managedDependencies = VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
+        [
+            yield! managedDependencies |> VagabondRegistry.Instance.GetVagabondAssemblies
+            if includeUnmanagedDependencies then 
+                yield! VagabondRegistry.Instance.UnManagedDependencies
+        ] |> List.map (fun va -> va.Id)
+
+    static member Create(config, logger, ?includeUnmanagedAssemblies) = 
+        new BlobAssemblyManager(config, logger, defaultArg includeUnmanagedAssemblies true)
