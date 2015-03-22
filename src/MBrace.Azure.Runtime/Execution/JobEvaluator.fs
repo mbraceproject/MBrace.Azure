@@ -62,14 +62,14 @@ and [<AutoSerializable(false)>]
         }
         Job.RunAsync provider resources faultCount job
 
-    static let run (config : JobEvaluatorConfiguration) (msg : QueueMessage) (jobItem : PickledJob) = 
+    static let run (config : JobEvaluatorConfiguration) (msg : QueueMessage) (dependencies : VagabondAssembly list) (jobItem : PickledJob) = 
         async {
             let inline logf fmt = Printf.ksprintf (staticConfiguration.State.Logger :> ICloudLogger).Log fmt
             if msg.DeliveryCount = 1 then
                 do! staticConfiguration.State.ProcessManager.AddActiveJob(jobItem.ProcessInfo.Id)
 
             let! jobResult = Async.Catch <| async {
-                do! staticConfiguration.State.AssemblyManager.LoadDependencies(jobItem.Dependencies)
+                let _ = staticConfiguration.State.AssemblyManager.LoadAssemblies dependencies
                 return jobItem.ToJob()
             }
 
@@ -115,7 +115,6 @@ and [<AutoSerializable(false)>]
                 minimumConcurrentDomains = 4,
                 maximumConcurrentDomains = 64)
 
-    member __.EvaluateAsync(config : JobEvaluatorConfiguration, message : QueueMessage) = async {
-        let! jobItem = message.GetPayloadAsync<PickledJob>()
-        return! pool.EvaluateAsync(jobItem.Dependencies, Async.Catch(run config message jobItem))
+    member __.EvaluateAsync(config : JobEvaluatorConfiguration, dependencies : VagabondAssembly list, message : QueueMessage, job : PickledJob) = async {
+        return! pool.EvaluateAsync(job.Dependencies, Async.Catch(run config message dependencies job))
     }

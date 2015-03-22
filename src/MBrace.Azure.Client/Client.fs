@@ -178,7 +178,7 @@
                                        ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
                 let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.NoRetry
-                let dependencies = MBrace.Runtime.Vagabond.VagabondRegistry.ComputeObjectDependencies workflow
+                let dependencies = state.AssemblyManager.ComputeDependencies workflow
           
                 let pid = guid ()
                 let info = 
@@ -194,7 +194,7 @@
                     }
 
                 clientLogger.Logf "Creating process %s %s" info.Id info.Name
-                do! state.AssemblyManager.UploadDependencies(dependencies)
+                let! _ = state.AssemblyManager.UploadDependencies(dependencies)
                 clientLogger.Logf "Submit process %s." info.Id
                 let! _ = state.StartAsProcess(info, dependencies, faultPolicy, workflow, ?ct = cancellationToken)
                 clientLogger.Logf "Created process %s." info.Id
@@ -310,20 +310,7 @@
         member this.GetProcessesAsync() =
             async {
                 let! ps = pmon.GetProcesses()
-                let result = new ResizeArray<MBrace.Azure.Client.Process>()
-                for p in ps do
-                    let! proc = async {
-                        match ProcessCache.TryGet(p.Id) with
-                        | Some p -> return p
-                        | None -> 
-                            let deps = p.UnpickleDependencies()
-                            do! state.AssemblyManager.LoadDependencies(deps)
-                            let ps = Process.Create(configuration.ConfigurationId, p.Id, p.UnpickleType(), pmon)
-                            ProcessCache.Add(ps)
-                            return ps
-                    }
-                    result.Add(proc)
-                return result :> seq<_>
+                return! ps |> Seq.map (fun p -> this.GetProcessAsync p.Id) |> Async.Parallel
             }
 
         /// <summary>
@@ -342,7 +329,8 @@
                 | None ->
                     let! e = pmon.GetProcess(pid)
                     let deps = e.UnpickleDependencies()
-                    do! state.AssemblyManager.LoadDependencies(deps) // TODO : revise
+                    let! localAssemblies = state.AssemblyManager.DownloadDependencies deps
+                    let _ = state.AssemblyManager.LoadAssemblies localAssemblies
                     let ps = Process.Create(configuration.ConfigurationId, pid, e.UnpickleType(), pmon)
                     ProcessCache.Add(ps)
                     return ps

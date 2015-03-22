@@ -156,7 +156,7 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
             fileStream.Flush()
             fileStream.Dispose()
 
-            logger.Logf "Uploading job file [%d bytes]." lastPosition.Value
+            logger.Logf "Uploading job file [%s]." (getHumanReadableByteSize lastPosition.Value)
             do! Blob.UploadFromFile(config, pid, blobName, temp)
                 |> Async.Ignore
 
@@ -234,7 +234,7 @@ type internal Queue (config : ConfigurationId, logger : ICloudLogger) =
             fileStream.Flush()
             fileStream.Dispose()
 
-            logger.Logf "Uploading job file [%d bytes]." lastPosition.Value
+            logger.Logf "Uploading job file [%s]." (getHumanReadableByteSize lastPosition.Value)
             do! Blob.UploadFromFile(config, pid, blobName, temp)
                 |> Async.Ignore
 
