@@ -12,17 +12,6 @@ open MBrace.Continuation
 open MBrace.Store
 open System
 
-module private ReleaseInfo =
-    open System.Reflection
-
-    let prettyPrint () =
-        let asm = Assembly.GetExecutingAssembly()
-        let attributes = 
-            asm.GetCustomAttributes<AssemblyMetadataAttribute>()
-            |> Seq.map (fun ma -> ma.Key, ma.Value)
-            |> Map.ofSeq
-        attributes.["Release Signature"]
-
 /// Common initialization for Service and AppDomains.
 type Init =
     static member Initializer ( configuration : Configuration,
@@ -49,10 +38,10 @@ type Init =
             logger.Attach(storageLogger)
                 
             if isDefaultInitialization 
-            then logf "%s" <| ReleaseInfo.prettyPrint()
+            then logf "%s" <| ReleaseInfo.signatureString()
 
             logf "Initializing RuntimeState"
-            let! state = RuntimeState.FromConfiguration(config)
+            let! state = RuntimeState.FromConfiguration(config, ignoreVersionCompatibility = false)
             state.Logger.Attach(logger)
             
             if not isDefaultInitialization

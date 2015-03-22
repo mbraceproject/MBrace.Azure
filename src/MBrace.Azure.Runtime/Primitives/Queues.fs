@@ -132,6 +132,9 @@ type internal Subscription (config : ConfigurationId, logger : ICloudLogger, aff
 type internal Topic (config : ConfigurationId, logger : ICloudLogger) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let tc = cp.TopicClient(config.RuntimeTopic)
+    
+    member this.Metadata = cp.NamespaceClient.GetTopic(config.RuntimeTopic).UserMetadata
+    
     member this.GetSubscription(affinity) : Subscription = new Subscription(config, logger, affinity)
     
     member this.EnqueueBatch<'T>(xs : ('T * string) [], pid) = 
@@ -176,16 +179,20 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
             do! tc.SendAsync(msg)
         }
 
-    static member Create(config, logger) = 
+    static member Create(config, logger : ICloudLogger) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
-            let name = config.RuntimeTopic
-            if not <| ns.TopicExists(name) then 
-                let td = new TopicDescription(name)
-                td.EnableBatchedOperations <- true
-                td.EnablePartitioning <- true
-                td.DefaultMessageTimeToLive <- MaxTTL 
-                do! ns.CreateTopicAsync(td)
+            let! exists = ns.TopicExistsAsync(config.RuntimeTopic)
+            if not exists then 
+                logger.Logf "Creating Topic '%s'" config.RuntimeTopic
+                let qd = new TopicDescription(config.RuntimeTopic)
+                qd.EnableBatchedOperations <- true
+                qd.EnablePartitioning <- true
+                qd.DefaultMessageTimeToLive <- MaxTTL
+                qd.UserMetadata <- ReleaseInfo.localVersion
+                do! ns.CreateTopicAsync(qd)
+            else
+                logger.Logf "Topic '%s' exists." config.RuntimeTopic
             return new Topic(config, logger)
         }
 
@@ -196,6 +203,8 @@ type internal Queue (config : ConfigurationId, logger : ICloudLogger) =
     let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
     
     member this.Length = ns.GetQueue(config.RuntimeQueue).MessageCount
+
+    member this.Metadata = ns.GetQueue(config.RuntimeQueue).UserMetadata
 
     member this.CompleteAsync(message : QueueMessage) =
         async {
@@ -257,16 +266,21 @@ type internal Queue (config : ConfigurationId, logger : ICloudLogger) =
                 return Some(QueueMessage.FromBrokeredMessage(config, msg))
         }
     
-    static member Create(config : ConfigurationId, logger) = 
+    static member Create(config : ConfigurationId, logger : ICloudLogger) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
-            let qd = new QueueDescription(config.RuntimeQueue)
-            qd.EnableBatchedOperations <- true
-            qd.EnablePartitioning <- true
-            qd.DefaultMessageTimeToLive <- MaxTTL
-            qd.LockDuration <- MaxLockDuration
             let! exists = ns.QueueExistsAsync(config.RuntimeQueue)
-            if not exists then do! ns.CreateQueueAsync(qd)
+            if not exists then 
+                logger.Logf "Creating Queue '%s'" config.RuntimeQueue
+                let qd = new QueueDescription(config.RuntimeQueue)
+                qd.EnableBatchedOperations <- true
+                qd.EnablePartitioning <- true
+                qd.DefaultMessageTimeToLive <- MaxTTL
+                qd.LockDuration <- MaxLockDuration
+                qd.UserMetadata <- ReleaseInfo.localVersion
+                do! ns.CreateQueueAsync(qd)
+            else
+                logger.Logf "Queue '%s' exists." config.RuntimeQueue
             return new Queue(config, logger)
         }
 
@@ -346,10 +360,14 @@ type JobQueue internal (queue : Queue, topic : Topic, logger) =
                 |> Async.Ignore
         }
     
+    /// Get topic and queue versions.
+    member this.Versions : string seq = [ queue.Metadata; topic.Metadata ] :> _
+
     /// Yadda Yadda
     static member Create(config : ConfigurationId, logger) =
         async {
             let! queue = Queue.Create(config, logger)
             let! topic = Topic.Create(config, logger)
+
             return new JobQueue(queue, topic, logger)
         }
