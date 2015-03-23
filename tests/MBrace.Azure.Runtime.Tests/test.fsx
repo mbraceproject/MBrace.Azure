@@ -45,6 +45,8 @@ runtime.ShowLogs()
 runtime.ClearAllProcesses()
 
 
+let ps = runtime.CreateProcess(cloud { for i in [1..10] do printfn "FOOOO" })
+
 // Standard Vagabond correctness test
 let c = ref 0
 for i in 1 .. 10 do

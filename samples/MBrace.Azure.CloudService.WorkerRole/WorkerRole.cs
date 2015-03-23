@@ -40,8 +40,11 @@ namespace MBrace.Azure.CloudService.WorkerRole
             _config = Configuration.Default
                         .WithStorageConnectionString(CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString"))
                         .WithServiceBusConnectionString(CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"));
-            var serviceName = RoleEnvironment.CurrentRoleInstance.Id;
-            _svc = new Service(_config, serviceId : serviceName);
+            _svc = 
+                RoleEnvironment.IsEmulated ? 
+                new Service(_config) : // Avoid long service names when using emulator
+                new Service(_config, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
+            
             _svc.AttachLogger(new CustomLogger(s => Trace.WriteLine(String.Format("{0} : {1}", DateTime.UtcNow,s))));
             
             RoleEnvironment.Changed += RoleEnvironment_Changed;
