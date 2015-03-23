@@ -16,6 +16,7 @@ open MBrace.Store
 open MBrace.Runtime
 open System
 open System.Threading
+open MBrace
 
 type internal WorkerConfig = 
     { State                     : RuntimeState
@@ -83,15 +84,37 @@ type internal Worker () =
                             config.Logger.Logf "Increase Dequeued Jobs %d" jc
                             let! _ = Async.StartChild <| async { 
                                 try
-                                    // download message payload
-                                    let! pickledJob = message.GetPayloadAsync<PickledJob>()
-                                    // download dependencies from store
-                                    let! localAssemblies = config.State.AssemblyManager.DownloadDependencies pickledJob.Dependencies
-                                    // evaluate job in AppDomain isolation
-                                    let! ch = config.JobEvaluator.EvaluateAsync(config.JobEvaluatorConfiguration, localAssemblies, message, pickledJob)
-                                    match ch with
-                                    | Choice1Of2 () -> return ()
-                                    | Choice2Of2 e  -> config.Logger.Logf "Internal Error : unhandled exception %A" e
+                                    let! result = 
+                                        Async.Catch <| async {
+                                            config.Logger.Log "Downloading PickledJob"
+                                            let! pickledJob = message.GetPayloadAsync<PickledJob>()
+                                            config.Logger.Log "Downloading local assemblies"
+                                            let! localAssemblies = config.State.AssemblyManager.DownloadDependencies pickledJob.Dependencies
+                                            return pickledJob, localAssemblies
+                                        }
+                                    
+                                    match result with
+                                    | Choice1Of2(pickledJob, localAssemblies) ->                                    
+                                        // evaluate job in AppDomain isolation
+                                        let! ch = config.JobEvaluator.EvaluateAsync(config.JobEvaluatorConfiguration, localAssemblies, message, pickledJob)
+                                        match ch with
+                                        | Choice1Of2 () -> return ()
+                                        | Choice2Of2 e  -> config.Logger.Logf "Internal Error : unhandled exception %A" e
+                                    | Choice2Of2 ex ->
+                                        config.Logger.Logf "Failed to download PickledJob or dependencies:\n%A" ex
+//                                        config.Logger.Logf "SetResultUnsafe ResultCell %A" jobItem.ResultCell
+//                                        let pk, rk = jobItem.ResultCell
+//                                        do! ResultCell<obj>.SetResultUnsafe(jobItem.ConfigurationId, pk, rk, new FaultException(sprintf "Failed to unpickle Job '%s'" jobItem.JobId, ex))
+//                                        let parentTaskCTS = jobItem.CancellationTokenSource
+//                                        config.Logger.Logf "Cancel CancellationTokenSource %O" parentTaskCTS
+//                                        parentTaskCTS.Cancel()
+//                                        if jobItem.JobType = JobType.Root then
+//                                            logf "Setting process Faulted"
+//                                            do! staticConfiguration.State.ProcessManager.SetFaulted(jobItem.ProcessInfo.Id)
+//                                        logf "Faulted message : Complete."
+//                                        do! staticConfiguration.State.ProcessManager.AddFaultedJob(jobItem.ProcessInfo.Id)
+//                                        do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
+                                        
                                 finally
                                     let jc = Interlocked.Decrement &currentJobCount
                                     config.State.WorkerManager.SetJobCountLocal(jc)

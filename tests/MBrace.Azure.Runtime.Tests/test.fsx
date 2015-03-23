@@ -58,6 +58,16 @@ ps.AwaitResult()
 ps.Kill()
 
 
+let ps = runtime.CreateProcess(cloud { return 42 })
+
+runtime.ShowWorkers()
+runtime.ShowLogs()
+
+ps.ShowInfo()
+ps.AwaitResult()
+
+
+
 let wf = 
     cloud {
         let! ct = Cloud.CreateCancellationTokenSource()
