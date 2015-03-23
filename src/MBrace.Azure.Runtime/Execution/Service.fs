@@ -23,7 +23,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable atomProvider    = None
     let mutable cache           = None
     let mutable useCache        = false
-    let mutable resources       = ResourceRegistry.Empty
+    let mutable customResources = ResourceRegistry.Empty
     let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
     let customLogger            = new LoggerCombiner() 
@@ -73,7 +73,7 @@ type Service (config : Configuration, serviceId : string) =
         check () ; cache <- Some <| cacheStore
 
     /// Add a custom resource in workers ResourceRegistry.
-    member this.RegisterResource(resource : 'TResource) = check () ; resources <- resources.Register(resource)
+    member this.RegisterResource(resource : 'TResource) = check () ; customResources <- customResources.Register(resource)
     
     /// Start Service and worker loop as a Task.
     member this.StartAsTask() : Tasks.Task = Async.StartAsTask(this.StartAsync()) :> _
@@ -133,11 +133,12 @@ type Service (config : Configuration, serviceId : string) =
                     State                     = state
                     JobEvaluator              = jobEvaluator
                     MaxConcurrentJobs         = this.MaxConcurrentJobs
-                    Resources                 = resources // TODO : Pass resources to JobEvaluator
+                    Resources                 = resources
                     JobEvaluatorConfiguration =
                         { Store               = store
                           Channel             = channelProvider.Value
-                          Atom                = atomProvider.Value }
+                          Atom                = atomProvider.Value
+                          CustomResources     = customResources }
                     Logger                    = customLogger
                 }
                 let! handle = Async.StartChild <| async { do worker.Start(config) }

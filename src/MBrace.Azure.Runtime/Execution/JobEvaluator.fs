@@ -17,9 +17,10 @@ open MBrace
 
 /// Default job configuration for use by JobEvaluator.
 type internal JobEvaluatorConfiguration =
-    { Store   : ICloudFileStore
-      Channel : ICloudChannelProvider
-      Atom    : ICloudAtomProvider }
+    { Store           : ICloudFileStore
+      Channel         : ICloudChannelProvider
+      Atom            : ICloudAtomProvider
+      CustomResources : ResourceRegistry }
 
 /// Static configuration per AppDomain.
 type internal StaticConfiguration = 
@@ -56,6 +57,7 @@ and [<AutoSerializable(false)>]
         let serializer = staticConfiguration.Resources.Resolve<ISerializer>()
         let resources = resource { 
             yield! staticConfiguration.Resources
+            yield! config.CustomResources
             yield { FileStore = defaultArg info.FileStore config.Store ; DefaultDirectory = info.DefaultDirectory; Cache = Some staticConfiguration.Cache; Serializer = serializer }
             yield { AtomProvider = defaultArg info.AtomProvider config.Atom ; DefaultContainer = info.DefaultAtomContainer }
             yield { ChannelProvider = defaultArg info.ChannelProvider config.Channel; DefaultContainer = info.DefaultChannelContainer }
