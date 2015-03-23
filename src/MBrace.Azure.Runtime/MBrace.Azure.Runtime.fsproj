@@ -98,6 +98,7 @@
     <Compile Include="RuntimeProvider\Combinators.fs" />
     <Compile Include="RuntimeProvider\RuntimeProvider.fs" />
     <Compile Include="Execution\Init.fs" />
+    <Compile Include="Execution\FaultHandler.fs" />
     <Compile Include="Execution\JobEvaluator.fs" />
     <Compile Include="Execution\Worker.fs" />
     <Compile Include="Execution\Service.fs" />

@@ -70,26 +70,17 @@ and [<AutoSerializable(false)>]
             if msg.DeliveryCount = 1 then
                 do! staticConfiguration.State.ProcessManager.AddActiveJob(jobItem.ProcessInfo.Id)
 
+            logf "Loading assemblies"
             let! jobResult = Async.Catch <| async {
                 let _ = staticConfiguration.State.AssemblyManager.LoadAssemblies dependencies
+                logf "Unpickle Job"
                 return jobItem.ToJob()
             }
 
             match jobResult with
             | Choice2Of2 ex ->
                 logf "Failed to UnPickle Job :\n%A" ex
-                logf "SetResultUnsafe ResultCell %A" jobItem.ResultCell
-                let pk, rk = jobItem.ResultCell
-                do! ResultCell<obj>.SetResultUnsafe(jobItem.ConfigurationId, pk, rk, new FaultException(sprintf "Failed to unpickle Job '%s'" jobItem.JobId, ex))
-                let parentTaskCTS = jobItem.CancellationTokenSource
-                logf "Cancel CancellationTokenSource %O" parentTaskCTS
-                parentTaskCTS.Cancel()
-                if jobItem.JobType = JobType.Root then
-                    logf "Setting process Faulted"
-                    do! staticConfiguration.State.ProcessManager.SetFaulted(jobItem.ProcessInfo.Id)
-                logf "Faulted message : Complete."
-                do! staticConfiguration.State.ProcessManager.AddFaultedJob(jobItem.ProcessInfo.Id)
-                do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
+                return! FaultHandler.FaultPickledJobAsync(jobItem, msg, staticConfiguration.State, ex)
             | Choice1Of2 job ->
                 if job.JobType = JobType.Root then
                     logf "Starting Root job for Process Id : %s, Name : %s" job.ProcessInfo.Id job.ProcessInfo.Name
@@ -111,6 +102,7 @@ and [<AutoSerializable(false)>]
                     logf "Job fault\n%s\nwith :\n%O" (string job) e
         }
 
+    
     let pool = AppDomainEvaluatorPool.Create(
                 mkAppDomainInitializer config serviceId customLogger, 
                 threshold = TimeSpan.FromDays 2., 
