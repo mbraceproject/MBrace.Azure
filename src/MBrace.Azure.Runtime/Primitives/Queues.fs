@@ -159,6 +159,7 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
             logger.Logf "Uploading job file [%s]." (getHumanReadableByteSize lastPosition.Value)
             do! Blob.UploadFromFile(config, pid, blobName, temp)
                 |> Async.Ignore
+            File.Delete(temp)
 
             let parts = partitionMessages ys
             logger.Logf "Queue EnqueueBatch %d messages : [%s]" xs.Length (parts |> Seq.map (Seq.length >> string) |> String.concat ", ")
@@ -237,6 +238,7 @@ type internal Queue (config : ConfigurationId, logger : ICloudLogger) =
             logger.Logf "Uploading job file [%s]." (getHumanReadableByteSize lastPosition.Value)
             do! Blob.UploadFromFile(config, pid, blobName, temp)
                 |> Async.Ignore
+            File.Delete(temp)
 
             let parts = partitionMessages ys
             logger.Logf "Queue EnqueueBatch %d messages : %s" xs.Length (parts |> Seq.map (Seq.length >> string) |> String.concat ", ")
