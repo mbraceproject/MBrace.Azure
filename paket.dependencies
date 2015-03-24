@@ -9,7 +9,7 @@ nuget MBrace.Core 0.9.7-alpha
 nuget MBrace.Runtime.Core 0.9.7-alpha
 nuget NUnit 2.6.3
 nuget NUnit.Runners 2.6.3
-nuget Vagabond 0.5.3
+nuget Vagabond 0.5.4
 nuget WindowsAzure.ServiceBus 2.6.4
 nuget WindowsAzure.Storage 4.3.0
 nuget FAKE

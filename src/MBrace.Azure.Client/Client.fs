@@ -471,6 +471,7 @@
         ///     Registers a native assembly dependency to client state.
         /// </summary>
         /// <param name="assemblyPath">Path to native assembly.</param>
+        [<CompilerMessage("Native dependency support is an experimental feature", 1571)>]
         static member RegisterNativeDependency(assemblyPath : string) =
             ignore <| MBrace.Azure.Runtime.Primitives.BlobAssemblyManager.RegisterNativeDependency assemblyPath
 
