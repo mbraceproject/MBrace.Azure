@@ -366,7 +366,7 @@ type JobQueue internal (queue : Queue, topic : Topic, logger) =
     member this.Metadata =
         let queueMetadata = queue.Metadata |> Metadata.fromString
         let topicMetadata = topic.Metadata |> Metadata.fromString
-        if queue.Metadata <> topic.Metadata then
+        if queueMetadata <> topicMetadata then
             raise <| IncompatibleVersionException(sprintf "Incompatible metadata between Queue '%s' and Topic '%s'" (string queueMetadata) (string topicMetadata))
         else
             queueMetadata
