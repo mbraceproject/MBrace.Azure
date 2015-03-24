@@ -24,7 +24,6 @@ let selectEnv name =
 let store  = selectEnv "azurestorageconn"
 let sbus = selectEnv "azureservicebusconn" 
 
-
 let ns = NamespaceManager.CreateFromConnectionString(sbus)
 let qd = new QueueDescription("tmp")
 qd.LockDuration <- TimeSpan.FromMinutes(2.)
