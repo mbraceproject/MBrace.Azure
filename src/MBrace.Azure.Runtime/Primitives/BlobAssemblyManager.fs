@@ -29,6 +29,7 @@ module private Common =
     let staticdataName gen id = sprintf "%s-%d.vdata" (filename id) gen
         
 
+/// Assembly to blob store uploader implementation
 type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogger) =
 
     let getAssemblyLoadInfo (id : AssemblyId) = async {
@@ -40,10 +41,12 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
             return Loaded(id, false, metadata)
     }
 
+    /// upload assembly to blob store
     let uploadAssembly (va : VagabondAssembly) = async {
         let assemblyName = assemblyName va.Id
         let! assemblyExists = Blob.Exists(config, prefix, assemblyName)
 
+        /// print upload sizes for given assembly
         let uploadSizes = seq {
             let size (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
             if not assemblyExists then
@@ -89,15 +92,15 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
         member x.GetLoadedAssemblyInfo(dependencies: AssemblyId list): Async<AssemblyLoadInfo list> = async {
             let! loadInfo = dependencies |> Seq.map getAssemblyLoadInfo |> Async.Parallel
             return Array.toList loadInfo
-        
         }
         
         member x.PushAssemblies(assemblies: VagabondAssembly list): Async<AssemblyLoadInfo list> =  async {
             let! loadInfo = assemblies |> Seq.map uploadAssembly |> Async.Parallel
             return Array.toList loadInfo
         }
-         
 
+
+/// Blob store assembly downloader implementation
 type private BlobAssemblyDownloader(config : ConfigurationId, logger : ICloudLogger) =
     
     interface IAssemblyImporter with
@@ -128,11 +131,12 @@ type private BlobAssemblyDownloader(config : ConfigurationId, logger : ICloudLog
             return! blob.OpenRead()
         }
 
-
+/// Assembly manager instance
 type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogger, includeUnmanagedDependencies : bool) = 
     let uploader = new BlobAssemblyUploader(config, logger)
     let downloader = new BlobAssemblyDownloader(config, logger)
 
+    /// Upload provided dependencies to store
     member __.UploadDependencies(ids : seq<AssemblyId>) = async { 
         logger.Logf "Uploading dependencies"
         let! errors = VagabondRegistry.Instance.SubmitAssemblies(uploader, ids)
@@ -141,14 +145,17 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
             logger.Logf "Failed to upload bindings: %s" errors
     }
 
+    /// Download provided dependencies from store
     member __.DownloadDependencies(ids : seq<AssemblyId>) = async {
         return! VagabondRegistry.Instance.ImportAssemblies(downloader, ids)
     }
 
+    /// Load local assemblies to current AppDomain
     member __.LoadAssemblies(assemblies : VagabondAssembly list) =
         VagabondRegistry.Instance.LoadVagabondAssemblies(assemblies)
 
-    member __.ComputeDependencies(graph : 'T) =
+    /// Compute dependencies for provided object graph
+    member __.ComputeDependencies(graph : 'T) : AssemblyId list =
         let managedDependencies = VagabondRegistry.Instance.ComputeObjectDependencies(graph, permitCompilation = true) 
         [
             yield! managedDependencies |> VagabondRegistry.Instance.GetVagabondAssemblies
@@ -156,5 +163,17 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
                 yield! VagabondRegistry.Instance.UnManagedDependencies
         ] |> List.map (fun va -> va.Id)
 
-    static member Create(config, logger, ?includeUnmanagedAssemblies) = 
+    /// Creates a new AssemblyManager instance for given store configuration
+    static member Create(config : ConfigurationId, logger : ICloudLogger, ?includeUnmanagedAssemblies : bool) : BlobAssemblyManager = 
         new BlobAssemblyManager(config, logger, defaultArg includeUnmanagedAssemblies true)
+
+    /// <summary>
+    ///     Registers a native assembly dependency to client state.
+    /// </summary>
+    /// <param name="assemblyPath">Path to native assembly.</param>
+    static member RegisterNativeDependency(assemblyPath : string) : VagabondAssembly =
+        VagabondRegistry.Instance.IncludeUnmanagedAssembly assemblyPath
+
+    /// Gets all native dependencies registered in current instance
+    static member NativeDependencies =
+        VagabondRegistry.Instance.UnManagedDependencies |> List.map (fun m -> m.Image)
