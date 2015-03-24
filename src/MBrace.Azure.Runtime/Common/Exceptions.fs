@@ -18,12 +18,22 @@ type RuntimeException =
     new (x : SerializationInfo, y : StreamingContext) = { inherit Exception(x, y) }
 
 /// Exception indicating invalid Configuration.
-type InvalidConfigurationException(message : string, inner) =
-    inherit RuntimeException(message, inner)
+[<Serializable>]
+type InvalidConfigurationException =
+    inherit RuntimeException
+
+    new (message : string, inner) = { inherit RuntimeException(message, inner) }
+
+    new (message) = { inherit RuntimeException(message) }
 
 /// Exception indicating incompatible local and remote versions.
-type IncompatibleVersionException(localVersion, remoteVersion) =
-    inherit RuntimeException(sprintf "Local version '%s', incompatible with remote version '%s'" localVersion remoteVersion)
+[<Serializable>]
+type IncompatibleVersionException =
+    inherit RuntimeException
     
-    member val LocalVersion = localVersion
-    member val RemoteVersion = remoteVersion
+    new (local, remote) = 
+        { inherit RuntimeException(sprintf "Local metadata \n%s\nincompatible with remote metadata \n%s" local remote) }
+    new (message) = 
+        { inherit RuntimeException(message) }
+    new (message : string, inner) = 
+        { inherit RuntimeException(message, inner) }

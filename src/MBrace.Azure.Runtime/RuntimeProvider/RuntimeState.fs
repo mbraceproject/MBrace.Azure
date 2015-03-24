@@ -47,7 +47,7 @@ with
         let logger = new LoggerCombiner()
         let! jobQueue = JobQueue.Create(configurationId, logger)
         if not ignoreVersionCompatibility then
-            jobQueue.Versions |> Seq.iter ReleaseInfo.compareWithVersion
+            Metadata.compare { Version = ReleaseInfo.localVersion; ConfigurationId = configurationId } jobQueue.Metadata
 
         let assemblyManager = BlobAssemblyManager.Create(configurationId, logger) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
