@@ -267,6 +267,7 @@
         /// <param name="toDate">Get logs until this date.</param>
         member this.GetLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
             Async.RunSync <| this.GetLogsAsync(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
+
         /// <summary>
         /// Get runtime logs.
         /// </summary>
@@ -276,6 +277,7 @@
         member this.GetLogsAsync(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
             let loggerType = worker |> Option.map (fun w -> Worker w.Id)
             storageLogger.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
+
         /// <summary>
         /// Print runtime logs.
         /// </summary>
@@ -285,6 +287,7 @@
         member this.ShowLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
             let ls = this.GetLogs(?worker = worker, ?fromDate = fromDate, ?toDate = toDate)
             printf "%s" <| LogReporter.Report(ls, "Logs", false)
+
         /// <summary>
         /// Print runtime logs.
         /// </summary>
@@ -306,6 +309,7 @@
 
         /// Get handles for all processes.
         member this.GetProcesses() = Async.RunSync <| this.GetProcessesAsync()
+
         /// Get handles for all processes.
         member this.GetProcessesAsync() =
             async {
@@ -318,6 +322,7 @@
         /// </summary>
         /// <param name="pid">Process Id</param>
         member this.GetProcess(pid) = Async.RunSync <| this.GetProcessAsync(pid)
+
         /// <summary>
         /// Get a process handle for given process id.
         /// </summary>
@@ -335,6 +340,7 @@
                     ProcessCache.Add(ps)
                     return ps
             }
+
         /// <summary>
         /// Print process information for given process id.
         /// </summary>
@@ -355,6 +361,7 @@
         /// <param name="fullClear">Delete all records and blobs used by this process. Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
         member this.ClearProcess(pid, ?fullClear, ?force) = this.ClearProcessAsync(pid, ?fullClear = fullClear, ?force = force) |> Async.RunSync
+
         /// <summary>
         /// Delete runtime records for given process.
         /// </summary>
@@ -372,6 +379,7 @@
         /// <param name="fullClear">Delete all records and blobs used by this process.Defaults to true.</param>
         /// <param name="force">Force deletion on not completed processes.</param>
         member this.ClearAllProcesses(?fullClear, ?force) = this.ClearAllProcessesAsync(?fullClear = fullClear, ?force = force) |> Async.RunSync
+
         /// <summary>
         /// Delete runtime records for all processes.
         /// </summary>
