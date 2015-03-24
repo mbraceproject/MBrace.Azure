@@ -190,7 +190,7 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
                 qd.EnableBatchedOperations <- true
                 qd.EnablePartitioning <- true
                 qd.DefaultMessageTimeToLive <- MaxTTL
-                qd.UserMetadata <- ReleaseInfo.localVersion
+                qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
                 do! ns.CreateTopicAsync(qd)
             else
                 logger.Logf "Topic '%s' exists." config.RuntimeTopic
@@ -279,7 +279,7 @@ type internal Queue (config : ConfigurationId, logger : ICloudLogger) =
                 qd.EnablePartitioning <- true
                 qd.DefaultMessageTimeToLive <- MaxTTL
                 qd.LockDuration <- MaxLockDuration
-                qd.UserMetadata <- ReleaseInfo.localVersion
+                qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
                 do! ns.CreateQueueAsync(qd)
             else
                 logger.Logf "Queue '%s' exists." config.RuntimeQueue
@@ -363,13 +363,19 @@ type JobQueue internal (queue : Queue, topic : Topic, logger) =
         }
     
     /// Get topic and queue versions.
-    member this.Versions : string seq = [ queue.Metadata; topic.Metadata ] :> _
+    member this.Metadata =
+        let queueMetadata = queue.Metadata |> Metadata.fromString
+        let topicMetadata = topic.Metadata |> Metadata.fromString
+        if queue.Metadata <> topic.Metadata then
+            raise <| IncompatibleVersionException(sprintf "Incompatible metadata between Queue '%s' and Topic '%s'" (string queueMetadata) (string topicMetadata))
+        else
+            queueMetadata
 
     /// Yadda Yadda
     static member Create(config : ConfigurationId, logger) =
         async {
             let! queue = Queue.Create(config, logger)
             let! topic = Topic.Create(config, logger)
-
+            
             return new JobQueue(queue, topic, logger)
         }
