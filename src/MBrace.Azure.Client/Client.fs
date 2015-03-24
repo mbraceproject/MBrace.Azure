@@ -450,7 +450,7 @@
         /// <param name="config">Runtime configuration.</param>
         /// <param name="ignoreVersionCompatibility">Ignore version compatibility checks on client.</param>
         /// <param name="waitWorkerCount">Wait until the specified number of workers join the runtime.</param>
-        static member GetHandle(config : Configuration, ?ignoreVersionCompatibility, ?waitWorkerCount : int) : Runtime = 
+        static member GetHandle(config : Configuration, ?ignoreVersionCompatibility : bool, ?waitWorkerCount : int) : Runtime = 
             let waitWorkerCount = defaultArg waitWorkerCount 0
             let ignoreVersionCompatibility = defaultArg ignoreVersionCompatibility false
             if waitWorkerCount < 0 then invalidArg "waitWorkerCount" "Must be greater than 0"
@@ -466,3 +466,14 @@
 
             Async.RunSync(loop ())
             runtime
+
+        /// <summary>
+        ///     Registers a native assembly dependency to client state.
+        /// </summary>
+        /// <param name="assemblyPath">Path to native assembly.</param>
+        static member RegisterNativeDependency(assemblyPath : string) =
+            ignore <| MBrace.Azure.Runtime.Primitives.BlobAssemblyManager.RegisterNativeDependency assemblyPath
+
+        /// Gets native assembly dependencies registered to client state.
+        static member NativeDependencies =
+            MBrace.Azure.Runtime.Primitives.BlobAssemblyManager.NativeDependencies
