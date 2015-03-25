@@ -25,8 +25,8 @@ let selectEnv name =
 
 let config = 
     { Configuration.Default with
-        StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=eirikur;AccountKey=c7XDUvNP4LekVPeI3yWTCfpbuQD30+v+0/6kyQO1FDk0gm5eGiv3+drWUSXM+/d2P1kQcss1L+u4/sQcbrC2fg=="
-        ServiceBusConnectionString = "Endpoint=sb://eirikur.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=0Q0lWiSPUFU4HbL5c0jgcFtVXoUY7kZ0xswLBsTj3zw=" }
+        StorageConnectionString = selectEnv "azurestorageconn"
+        ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachClientLogger(new ConsoleLogger())
