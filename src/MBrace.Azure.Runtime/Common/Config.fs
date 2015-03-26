@@ -89,7 +89,7 @@ type Configuration =
             // TODO : Temporary fix to enable GetHandle from newer clients.
             // 0.6.5 clients do not use Version in folder names.
             // < 0.6.1 clients have complete different folder structure.
-            if version <= Version(0, 6, 1) then
+            if version <= Version(0, 6, 1, 0) then
                 raise(NotSupportedException("Connecting to runtimes with Version <= 0.6.1 not supported from newer clients. Use a client with the same version instead."))
             elif version < Version(0, 6, 5, 0) then
                 sprintf "%s%05d" s this.Id

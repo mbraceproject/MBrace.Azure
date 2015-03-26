@@ -34,7 +34,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 // local only---
-Runtime.SpawnLocal(config, 1, 16)
+Runtime.SpawnLocal(config, 4, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
