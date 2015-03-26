@@ -40,11 +40,11 @@ type ProcessInfo =
         Name : string
 
         /// Default file store container for process.
-        DefaultDirectory : string
+        DefaultDirectory : string option
         /// Default atom container for process.
-        DefaultAtomContainer : string
+        DefaultAtomContainer : string option
         /// Default channel container for process.
-        DefaultChannelContainer : string
+        DefaultChannelContainer : string option
 
         /// Optional filestore for this process.
         FileStore : ICloudFileStore option

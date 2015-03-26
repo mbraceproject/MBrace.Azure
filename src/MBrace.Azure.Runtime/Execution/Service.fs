@@ -21,6 +21,11 @@ type Service (config : Configuration, serviceId : string) =
     let mutable storeProvider   = None
     let mutable channelProvider = None
     let mutable atomProvider    = None
+    
+    let mutable storeDirectory   = None
+    let mutable channelDirectory = None
+    let mutable atomDirectory    = None
+
     let mutable cache           = None
     let mutable useCache        = false
     let mutable customResources = ResourceRegistry.Empty
@@ -60,6 +65,18 @@ type Service (config : Configuration, serviceId : string) =
     member this.RegisterStoreProvider(store : ICloudFileStore) =
         check () ; storeProvider <- Some store
     
+    /// Set default store directory used by Store APIs.
+    member this.SetDefaultStoreDirectory(path : string) =
+        check () ; storeDirectory <- Some path
+
+    /// Set default atom directory used by Store APIs.
+    member this.SetDefaultAtomDirectory(path : string) =
+        check () ; atomDirectory <- Some path
+
+    /// Set default channel directory used by Store APIs.
+    member this.SetDefaultChannelDirectory(path : string) =
+        check () ; channelDirectory <- Some path
+
     /// Register an ICloudAtomProvider instance. Defaults to table store implementation with configuration's storage connection string.
     member this.RegisterAtomProvider(atom : ICloudAtomProvider) = 
         check () ; atomProvider <- Some atom
@@ -136,8 +153,11 @@ type Service (config : Configuration, serviceId : string) =
                     Resources                 = resources
                     JobEvaluatorConfiguration =
                         { Store               = store
+                          StoreDirectory      = storeDirectory
                           Channel             = channelProvider.Value
+                          ChannelDirectory    = channelDirectory
                           Atom                = atomProvider.Value
+                          AtomDirectory       = atomDirectory
                           CustomResources     = customResources }
                     Logger                    = customLogger
                 }

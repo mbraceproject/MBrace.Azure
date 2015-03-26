@@ -18,8 +18,11 @@ open MBrace
 /// Default job configuration for use by JobEvaluator.
 type internal JobEvaluatorConfiguration =
     { Store           : ICloudFileStore
+      StoreDirectory  : string option
       Channel         : ICloudChannelProvider
+      ChannelDirectory: string option
       Atom            : ICloudAtomProvider
+      AtomDirectory   : string option
       CustomResources : ResourceRegistry }
 
 /// Static configuration per AppDomain.
@@ -55,12 +58,23 @@ and [<AutoSerializable(false)>]
         let provider = RuntimeProvider.FromJob staticConfiguration.State deps job
         let info = job.ProcessInfo
         let serializer = staticConfiguration.Resources.Resolve<ISerializer>()
+        let getDirectory (client : string option) (worker : string option) (configDefault : string) : string =
+            match client, worker, configDefault with
+            | Some c, _, _
+            | None, Some c, _
+            | None, None, c -> c
+
         let resources = resource { 
             yield! staticConfiguration.Resources
             yield! config.CustomResources
-            yield { FileStore = defaultArg info.FileStore config.Store ; DefaultDirectory = info.DefaultDirectory; Cache = Some staticConfiguration.Cache; Serializer = serializer }
-            yield { AtomProvider = defaultArg info.AtomProvider config.Atom ; DefaultContainer = info.DefaultAtomContainer }
-            yield { ChannelProvider = defaultArg info.ChannelProvider config.Channel; DefaultContainer = info.DefaultChannelContainer }
+            yield { FileStore = defaultArg info.FileStore config.Store
+                    DefaultDirectory = getDirectory info.DefaultDirectory config.StoreDirectory staticConfiguration.State.ConfigurationId.UserDataContainer
+                    Cache = Some staticConfiguration.Cache
+                    Serializer = serializer }
+            yield { AtomProvider = defaultArg info.AtomProvider config.Atom
+                    DefaultContainer = getDirectory info.DefaultAtomContainer config.AtomDirectory staticConfiguration.State.ConfigurationId.UserDataTable }
+            yield { ChannelProvider = defaultArg info.ChannelProvider config.Channel
+                    DefaultContainer = getDirectory info.DefaultChannelContainer config.ChannelDirectory staticConfiguration.State.ConfigurationId.UserDataTable }
         }
         Job.RunAsync provider resources faultCount job
 
@@ -73,7 +87,7 @@ and [<AutoSerializable(false)>]
             logf "Loading assemblies"
             let! jobResult = Async.Catch <| async {
                 let _ = staticConfiguration.State.AssemblyManager.LoadAssemblies dependencies
-                logf "Unpickle Job"
+                logf "UnPickle Job"
                 return jobItem.ToJob()
             }
 

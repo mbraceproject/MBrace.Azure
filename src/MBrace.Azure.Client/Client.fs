@@ -185,11 +185,11 @@
                     { 
                         Id = pid
                         Name = defaultArg name String.Empty
-                        DefaultDirectory = defaultArg defaultDirectory configuration.UserDataContainer
+                        DefaultDirectory = defaultDirectory 
                         FileStore = fileStore
-                        DefaultAtomContainer = defaultArg defaultAtomContainer configuration.UserDataTable
+                        DefaultAtomContainer = defaultAtomContainer 
                         AtomProvider = atomProvider
-                        DefaultChannelContainer = defaultArg defaultChannelContainer configuration.UserDataContainer
+                        DefaultChannelContainer = defaultChannelContainer
                         ChannelProvider = channelProvider 
                     }
 
