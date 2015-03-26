@@ -80,7 +80,7 @@ type Configuration =
     member this.WithAppendedId =
         let version, versionString = 
             match Version.TryParse(this.Version) with
-            | true, v  -> v, sprintf "%dX%dX%dX%d" v.Major v.Minor v.Build v.Revision
+            | true, v  -> v, sprintf "%dx%dx%dx%d" v.Major v.Minor v.Build v.Revision
             | false, _ -> failwith <| sprintf "Invalid Version string '%s'" this.Version
 
         let versionNormalized = version.ToString(4)
