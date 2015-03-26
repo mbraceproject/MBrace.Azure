@@ -34,7 +34,9 @@ type WorkerRef =
       /// Network upload (kbps).
       NetworkUp : double
       /// Network download (kbps).
-      NetworkDown : double } 
+      NetworkDown : double
+      /// Runtime Version
+      Version : string } 
     
     override this.GetHashCode() = hash this.Id
     override this.Equals(other:obj) =
@@ -84,6 +86,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val Memory             = Nullable<double>() with get, set
     member val NetworkUp          = Nullable<double>() with get, set
     member val NetworkDown        = Nullable<double>() with get, set
+    member val Version            = Unchecked.defaultof<string> with get, set
 
     new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>, nullableDefault)
 
@@ -104,6 +107,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
             Memory = this.Memory.Value
             NetworkUp = this.NetworkUp.Value
             NetworkDown = this.NetworkDown.Value
+            Version = this.Version
         }
 
     member this.UpdateCounters(counters : NodePerformanceInfo) =
@@ -167,6 +171,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 w.UpdateCounters(perfMon.Value.GetCounters())
                 w.ActiveJobs <- nullable 0
                 w.IsActive <- nullable true
+                w.Version <- ReleaseInfo.localVersion.ToString(4)
                 w.MaxJobs <- match maxJobs with None -> nullableDefault | Some mj -> nullable mj
                 do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
                 current := Some w
