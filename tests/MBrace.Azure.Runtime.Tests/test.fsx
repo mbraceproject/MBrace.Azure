@@ -34,7 +34,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 // local only---
-Runtime.SpawnLocal(config, 4, 16)
+Runtime.SpawnLocal(config, 1, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -42,6 +42,8 @@ runtime.ShowWorkers()
 runtime.ShowLogs()
 
 runtime.ClearAllProcesses()
+
+runtime.Run(cloud { return 42})
 
 
 let ps = runtime.CreateProcess(cloud { for i in [1..10] do printfn "FOOOO" })
@@ -233,3 +235,52 @@ let x = cloud { return 42 }
 
 
 runtime.Run x
+
+open System.IO
+
+System.IO.Directory.CreateDirectory( __SOURCE_DIRECTORY__ + "/script-packages")
+System.Environment.CurrentDirectory <- __SOURCE_DIRECTORY__ + "/script-packages"
+
+if not (File.Exists "paket.exe") then
+    let url = "https://github.com/fsprojects/Paket/releases/download/0.27.2/paket.exe" in use wc = new System.Net.WebClient() in let tmp = Path.GetTempFileName() in wc.DownloadFile(url, tmp); File.Move(tmp,"paket.exe");;
+
+//------------------------------------------
+// Step 1. Resolve and install the Math.NET Numerics packages. You 
+// can add any additional packages you like to this step.
+
+#r "script-packages/paket.exe"
+
+Paket.Dependencies.Install """
+    source https://nuget.org/api/v2
+    nuget MathNet.Numerics
+    nuget MathNet.Numerics.FSharp
+    nuget MathNet.Numerics.MKL.Win-x64
+""";;
+
+
+//------------------------------------------
+// Step 2. Reference and use the packages on the local machine
+
+#load @"script-packages/packages/MathNet.Numerics.FSharp/MathNet.Numerics.fsx"
+
+open MathNet.Numerics
+open MathNet.Numerics.LinearAlgebra
+
+// To upload DLLs, we simply read the local 64-bit version of the DLL
+
+let contentDir = __SOURCE_DIRECTORY__ + @"/script-packages/packages/MathNet.Numerics.MKL.Win-x64/content/"
+Runtime.RegisterNativeDependency <| contentDir + "libiomp5md.dll"
+Runtime.RegisterNativeDependency <| contentDir + "MathNet.Numerics.MKL.dll"
+Runtime.NativeDependencies
+
+let UseNative() = Control.UseNativeMKL()
+
+// This can take a while first time you run it, because 'bytes2' is 41MB and needs to be uploaded
+let firstMklJob = 
+   cloud { UseNative()
+           let m = Matrix<double>.Build.Random(200,200) 
+           return m.LU().Determinant }
+    |> runtime.CreateProcess
+
+firstMklJob.ShowInfo()
+firstMklJob.AwaitResult()

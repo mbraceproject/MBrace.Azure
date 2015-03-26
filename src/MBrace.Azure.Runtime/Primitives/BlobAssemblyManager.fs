@@ -14,6 +14,8 @@ open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 
+#nowarn "1571"
+
 [<AutoOpen>]
 module private Common =
 
@@ -160,7 +162,7 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
         [
             yield! managedDependencies |> VagabondRegistry.Instance.GetVagabondAssemblies
             if includeUnmanagedDependencies then 
-                yield! VagabondRegistry.Instance.UnManagedDependencies
+                yield! VagabondRegistry.Instance.NativeDependencies
         ] |> List.map (fun va -> va.Id)
 
     /// Creates a new AssemblyManager instance for given store configuration
@@ -172,8 +174,8 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
     /// </summary>
     /// <param name="assemblyPath">Path to native assembly.</param>
     static member RegisterNativeDependency(assemblyPath : string) : VagabondAssembly =
-        VagabondRegistry.Instance.IncludeUnmanagedAssembly assemblyPath
+        VagabondRegistry.Instance.RegisterNativeDependency assemblyPath
 
     /// Gets all native dependencies registered in current instance
     static member NativeDependencies =
-        VagabondRegistry.Instance.UnManagedDependencies |> List.map (fun m -> m.Image)
+        VagabondRegistry.Instance.NativeDependencies |> List.map (fun m -> m.Image)
