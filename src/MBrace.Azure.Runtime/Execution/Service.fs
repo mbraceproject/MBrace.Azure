@@ -28,6 +28,7 @@ type Service (config : Configuration, serviceId : string) =
 
     let mutable cache           = None
     let mutable useCache        = false
+    let mutable ignoreVersion   = false
     let mutable customResources = ResourceRegistry.Empty
     let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
@@ -55,6 +56,11 @@ type Service (config : Configuration, serviceId : string) =
     member this.UseLocalCache
         with get () = useCache
         and set c = check (); useCache <- c
+
+    /// Get or set iff version compatibility will be ignored.
+    member this.IgnoreVersionCompatibility
+        with get () = ignoreVersion
+        and set c = check (); ignoreVersion <- c
 
     /// Get or set the maximum number of jobs that this worker may execute concurrently.
     member this.MaxConcurrentJobs 
@@ -106,11 +112,12 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "Version Checks"
 
-                let configurationVersion = Version.Parse(config.Version)
-                if ReleaseInfo.localVersion <> configurationVersion then
-                    return! Async.Raise(IncompatibleVersionException(sprintf "Activating Service '%s' with Configuration.Version '%s' not allowed. Versions must be exact." (string ReleaseInfo.localVersion) config.Version))
+                if not ignoreVersion then
+                    let configurationVersion = Version.Parse(config.Version)
+                    if ReleaseInfo.localVersion <> configurationVersion then
+                        return! Async.Raise(IncompatibleVersionException(sprintf "Activating Service '%s' with Configuration.Version '%s' not allowed. Versions must be exact." (string ReleaseInfo.localVersion) config.Version))
 
-                let! state, resources = Init.Initializer(config, serviceId, true, customLogger, maxJobs = this.MaxConcurrentJobs)
+                let! state, resources = Init.Initializer(config, serviceId, true, customLogger, ignoreVersion, maxJobs = this.MaxConcurrentJobs)
 
                 storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
@@ -149,7 +156,7 @@ type Service (config : Configuration, serviceId : string) =
                 logf "MaxConcurrentJobs : %d" this.MaxConcurrentJobs
 
                 logf "Initializing JobEvaluator"
-                let jobEvaluator = new JobEvaluator(config, serviceId, customLogger)
+                let jobEvaluator = new JobEvaluator(config, serviceId, customLogger, ignoreVersion)
                 
                 logf "Starting worker loop"
                 let config = { 

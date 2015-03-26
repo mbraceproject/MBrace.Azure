@@ -18,6 +18,7 @@ type Init =
                                 serviceId : string, 
                                 isDefaultInitialization : bool, 
                                 customLogger : ICloudLogger,
+                                ignoreVersion : bool,
                                 ?maxJobs : int) =
         async {
             let logger = new LoggerCombiner(Seq.singleton customLogger, not isDefaultInitialization)
@@ -41,7 +42,7 @@ type Init =
             then logf "%s" <| ReleaseInfo.signatureString()
 
             logf "Initializing RuntimeState"
-            let! state = RuntimeState.FromConfiguration(config, ignoreVersionCompatibility = false)
+            let! state = RuntimeState.FromConfiguration(config, ignoreVersionCompatibility = ignoreVersion)
             state.Logger.Attach(logger)
             
             if not isDefaultInitialization
