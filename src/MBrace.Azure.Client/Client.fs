@@ -23,7 +23,7 @@
     /// Windows Azure Runtime client.
     /// </summary>
     [<AutoSerializable(false)>]
-    type Runtime private (clientId, config : Configuration, ignoreVersionCompatibility) =
+    type Runtime private (clientId, config : Configuration) =
         static let lockObj = obj()
         static let mutable localWorkerExecutable : string option = None
 
@@ -32,7 +32,11 @@
             Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
             Async.RunSync(Configuration.ActivateAsync(configuration))
 
-        let state = Async.RunSync(RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility))
+        let state = 
+            let ignoreVersion = 
+                Version.Parse(config.Version) <> typeof<Runtime>.Assembly.GetName().Version
+            RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility = ignoreVersion)
+            |> Async.RunSync
         let storageLogger = new StorageLogger(configuration.ConfigurationId, Client(id = clientId))
         let clientLogger = state.Logger
         do  clientLogger.Attach(storageLogger)
@@ -40,6 +44,16 @@
         let resources, defaultStoreClient = StoreClient.CreateDefault(configuration)
         let pmon = state.ProcessManager
         do clientLogger.Logf "Client %s created" clientId
+
+        let restrictVersion () =
+            let clientVersion = typeof<Runtime>.Assembly.GetName().Version
+            let configVersion = Version.Parse(config.Version)
+            if configVersion <> clientVersion then
+                raise(IncompatibleVersionException(
+                        "Only a restricted set of APIs is supported on older runtime versions." +
+                        "Consider using a client with the corresponding version." +
+                        sprintf "Client version '%O', Configuration version '%O'" clientVersion configVersion))
+
 
         /// Gets or sets the path for a local standalone worker executable.
         static member LocalWorkerExecutable
@@ -69,7 +83,7 @@
             Runtime.GetHandle(config)
 
         /// Provides common methods on store related primitives.
-        member this.StoreClient = defaultStoreClient
+        member this.StoreClient = restrictVersion(); defaultStoreClient
 
         /// Instance identifier.
         member this.ClientId = clientId
@@ -87,6 +101,7 @@
         /// Creates a fresh CloudCancellationTokenSource for this runtime.
         /// </summary>
         member this.CreateCancellationTokenSource () =
+            restrictVersion()
             state.ResourceFactory.RequestCancellationTokenSource(guid()) 
             |> Async.RunSync :> ICloudCancellationTokenSource
 
@@ -99,6 +114,7 @@
         /// <param name="faultPolicy">Optional fault policy.</param>
         member this.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
             async {
+                restrictVersion()
                 let runtimeProvider = ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
                 let rsc = resource { yield! resources; yield runtimeProvider :> IDistributionProvider }
                 let! ct = 
@@ -177,6 +193,7 @@
                                        ?cancellationToken : ICloudCancellationToken, 
                                        ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
+                restrictVersion()
                 let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.NoRetry
                 let dependencies = state.AssemblyManager.ComputeDependencies workflow
           
@@ -304,6 +321,7 @@
         /// <param name="workerCount">Local workers to be spawned. Defaults to 1.</param>
         /// <param name="maxTasks">Maximum tasks for worker. Defaults to local core count.</param>
         member this.AttachLocalWorker(?workerCount:int, ?maxTasks:int) : unit =
+            restrictVersion()
             let workerCount = defaultArg workerCount 1
             Runtime.SpawnLocal(config, workerCount, ?maxTasks = maxTasks)
 
@@ -313,6 +331,7 @@
         /// Get handles for all processes.
         member this.GetProcessesAsync() =
             async {
+                restrictVersion()
                 let! ps = pmon.GetProcesses()
                 return! ps |> Seq.map (fun p -> this.GetProcessAsync p.Id) |> Async.Parallel
             }
@@ -329,6 +348,7 @@
         /// <param name="pid">Process Id</param>
         member this.GetProcessAsync(pid) = 
             async {
+                restrictVersion()
                 match ProcessCache.TryGet(pid) with
                 | Some ps -> return ps
                 | None ->
@@ -438,7 +458,7 @@
                     do! loop 0
 
                     cl.Logf "Initializing RuntimeState."
-                    let! _ = RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility)
+                    let! _ = RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility = false)
 
                     storageLogger.Start()
 
@@ -448,14 +468,12 @@
         /// Gets a handle for a remote runtime.
         /// </summary>
         /// <param name="config">Runtime configuration.</param>
-        /// <param name="ignoreVersionCompatibility">Ignore version compatibility checks on client.</param>
         /// <param name="waitWorkerCount">Wait until the specified number of workers join the runtime.</param>
-        static member GetHandle(config : Configuration, ?ignoreVersionCompatibility : bool, ?waitWorkerCount : int) : Runtime = 
+        static member GetHandle(config : Configuration, ?waitWorkerCount : int) : Runtime = 
             let waitWorkerCount = defaultArg waitWorkerCount 0
-            let ignoreVersionCompatibility = defaultArg ignoreVersionCompatibility false
             if waitWorkerCount < 0 then invalidArg "waitWorkerCount" "Must be greater than 0"
             let clientId = guid()
-            let runtime = new Runtime(clientId, config, ignoreVersionCompatibility)
+            let runtime = new Runtime(clientId, config)
             let rec loop () = async {
                 let! ws = runtime.GetWorkersAsync()
                 if Seq.length ws >= waitWorkerCount then return ()

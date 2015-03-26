@@ -15,8 +15,8 @@ module internal ReleaseInfo =
             |> Map.ofSeq
         attributes.["Release Signature"]
 
-    /// Get version string
-    let localVersion = Assembly.GetExecutingAssembly().GetName().Version
+    /// Get version.
+    let localVersion = typeof<Configuration>.Assembly.GetName().Version
   
 type Metadata =
     { Version : Version

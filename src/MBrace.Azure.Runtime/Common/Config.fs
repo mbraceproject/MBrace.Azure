@@ -4,12 +4,15 @@ open Microsoft.ServiceBus
 open Microsoft.WindowsAzure.Storage
 open System.Security.Cryptography
 open System.Text
+open System
 
 /// Configuration identifier.
 type ConfigurationId = 
     private 
       { /// Runtime identifier.
         Id : uint16
+        /// Runtime version string
+        Version : string
         /// Azure storage connection string hash.
         StorageConnectionStringHash : byte []
         /// Service Bus connection string hash.
@@ -34,6 +37,8 @@ type ConfigurationId =
 type Configuration = 
     { /// Runtime identifier.
       Id : uint16
+      /// Runtime version string.
+      Version : string
       /// Azure storage connection string.
       StorageConnectionString : string
       /// Service Bus connection string.
@@ -57,6 +62,7 @@ type Configuration =
     /// Returns an Azure Configuration with the default values.
     static member Default = 
         { Id                         = 0us
+          Version                    = typeof<Configuration>.Assembly.GetName().Version.ToString(4)
           StorageConnectionString    = "your connection string"
           ServiceBusConnectionString = "your connection string"
           // See Azure/ServiceBus name limits
@@ -72,8 +78,25 @@ type Configuration =
     /// Append Configuration.Id on all values.
     /// Note : This property should not be used by clients.
     member this.WithAppendedId =
-        let withId s = sprintf "%s%05d" s this.Id
+        let version, versionString = 
+            match Version.TryParse(this.Version) with
+            | true, v  -> v, sprintf "%dX%dX%dX%d" v.Major v.Minor v.Build v.Revision
+            | false, _ -> failwith <| sprintf "Invalid Version string '%s'" this.Version
+
+        let versionNormalized = version.ToString(4)
+
+        let withId s = 
+            // TODO : Temporary fix to enable GetHandle from newer clients.
+            // 0.6.5 clients do not use Version in folder names.
+            // < 0.6.1 clients have complete different folder structure.
+            if version <= Version(0, 6, 1) then
+                raise(NotSupportedException("Connecting to runtimes with Version <= 0.6.1 not supported from newer clients. Use a client with the same version instead."))
+            elif version < Version(0, 6, 5, 0) then
+                sprintf "%s%05d" s this.Id
+            else
+                sprintf "%s%s%05d" s versionString this.Id
         { this with
+            Version = versionNormalized
             RuntimeQueue = withId this.RuntimeQueue
             RuntimeTopic = withId this.RuntimeTopic
             RuntimeContainer = withId this.RuntimeContainer
@@ -92,6 +115,7 @@ type Configuration =
         let sbus = NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
 
         { Id = this.Id 
+          Version = this.Version
           StorageConnectionStringHash = getHash store
           ServiceBusConnectionStringHash = getHash sbus
           RuntimeQueue = this.RuntimeQueue.ToLower()
@@ -103,9 +127,20 @@ type Configuration =
           UserDataTable = this.UserDataTable.ToLower()
         }
      
+    /// Return a new copiy with altered Version.
+    member this.WithVersion(version : string) =
+        { this with Version = version }
+    
     /// Return a new copy with altered Id.
     member this.WithId(id) =
         { this with Id = id }
+
+    
+    /// Return a new copy with altered the default user data folders.
+    member this.WithUserDataFolders(userDataContainer, userDataTable) =
+        { this with
+            UserDataContainer = userDataContainer
+            UserDataTable = userDataTable }
 
     /// Return a new copy with altered runtime Queues, Containers and Tables.
     member this.WithRuntimeFolders(runtimeQueue, runtimeTopic, runtimeContainer, runtimeTable, runtimeLogsTable, userDataContainer, userDataTable) =

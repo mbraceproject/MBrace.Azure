@@ -36,7 +36,7 @@ type Service (config : Configuration, serviceId : string) =
     
     let logf fmt = customLogger.Logf fmt
     let check () = if worker.IsActive then invalidOp "Cannot change Service while it is active."
-    
+
     /// MBrace Runtime Service.
     new(config : Configuration) = new Service (config, guid())
 
@@ -103,6 +103,12 @@ type Service (config : Configuration, serviceId : string) =
         async {
             try
                 let sw = new Stopwatch() in sw.Start()
+
+                logf "Version Checks"
+
+                let configurationVersion = Version.Parse(config.Version)
+                if ReleaseInfo.localVersion <> configurationVersion then
+                    return! Async.Raise(IncompatibleVersionException(sprintf "Activating Service '%s' with Configuration.Version '%s' not allowed. Versions must be exact." (string ReleaseInfo.localVersion) config.Version))
 
                 let! state, resources = Init.Initializer(config, serviceId, true, customLogger, maxJobs = this.MaxConcurrentJobs)
 
