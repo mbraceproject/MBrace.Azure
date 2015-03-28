@@ -25,21 +25,22 @@ module private Common =
     /// Gets a unique blob filename for provided assembly
     let filename (id : AssemblyId) = Vagabond.GetFileName id
 
-    let assemblyName id = filename id + ".dll"
+    let assemblyName id = filename id + id.Extension
     let symbolsName id = filename id + ".pdb"
-    let metadataName id = filename id + ".vmetadata"
-    let staticdataName gen id = sprintf "%s-%d.vdata" (filename id) gen
-        
+    let metadataName id = filename id + ".vgb"
+    let dataFile id (dd : DataDependencyInfo) = sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
 
 /// Assembly to blob store uploader implementation
 type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogger) =
+
+    let sizeOfFile (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
 
     let getAssemblyLoadInfo (id : AssemblyId) = async {
         let! assemblyExists = Blob.Exists(config, prefix, assemblyName id)
         if not assemblyExists then return NotLoaded id
         else
             let cell = Blob<VagabondMetadata>.FromPath(config, prefix, metadataName id)
-            let! metadata = cell.TryGetValue()
+            let! metadata = cell.GetValue()
             return Loaded(id, false, metadata)
     }
 
@@ -48,26 +49,22 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
         let assemblyName = assemblyName va.Id
         let! assemblyExists = Blob.Exists(config, prefix, assemblyName)
 
-        /// print upload sizes for given assembly
-        let uploadSizes = seq {
-            let size (path:string) = FileInfo(path).Length |> getHumanReadableByteSize
-            if not assemblyExists then
-                yield sprintf "IL %s" (size va.Image)
-                match va.Symbols with
-                | Some s -> yield sprintf "PDB %s" (size s)
-                | None -> ()
-
-            match va.Metadata with
-            | Some (_,d) -> yield sprintf "Data %s" (size d)
-            | None -> ()
-        }
-
-        logger.Logf "Uploading assembly '%s' [%s]" va.FullName <| String.concat ", " uploadSizes
-
+        // 1. Upload assembly image.
         if not assemblyExists then
+            /// print upload sizes for given assembly
+            let uploadSizes = 
+                seq {
+                    yield sprintf "DLL %s" (sizeOfFile va.Image)
+                    match va.Symbols with
+                    | Some s -> yield sprintf "PDB %s" (sizeOfFile s)
+                    | None -> ()
+                } |> String.concat ", "
+
+            logger.Logf "Uploading '%s' [%s]" va.FullName uploadSizes
             let! _ = Blob.UploadFromFile(config, prefix, assemblyName, va.Image)
             return ()
 
+        // 2. Upload symbols if applicable.
         match va.Symbols with
         | None -> ()
         | Some symbolsPath ->
@@ -77,17 +74,45 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
                 let! _ = Blob.UploadFromFile(config, prefix, symbolsName, symbolsPath)
                 return ()
 
-        match va.Metadata with
-        | None -> return Loaded(va.Id, false, None)
-        | Some (metadata, dataPath) ->
-            let dataName = staticdataName metadata.Generation va.Id
-            let! dataExists = Blob.Exists(config, prefix, dataName)
-            if not dataExists then
-                let! _ = Blob.UploadFromFile(config, prefix, dataName, dataPath)
-                return ()
+        // 3. Upload metadata
+        // check current metadata in store
+        let metadataName = metadataName va.Id
+        let metadataCell = Blob<VagabondMetadata>.FromPath(config, prefix, metadataName)
+        let! currentMetadata = metadataCell.TryGetValue()
 
-            let! _ = Blob<VagabondMetadata>.Create(config, prefix, metadataName va.Id, fun () -> metadata)
-            return Loaded(va.Id, false, Some metadata)
+        // detect if metadata in blob store is stale
+        let isRequiredUpdate =
+            match currentMetadata with
+            | None -> true
+            | Some md ->
+                // require a data dependency whose store generation is older than local
+                (md.DataDependencies, va.Metadata.DataDependencies)
+                ||> Array.exists2 (fun store local -> local.Generation > store.Generation)
+
+        if not isRequiredUpdate then return Loaded(va.Id, false, va.Metadata) else
+
+        // upload data dependencies
+        let files = va.PersistedDataDependencies |> Map.ofArray
+        let dataFiles = 
+            va.Metadata.DataDependencies 
+            |> Seq.filter (fun dd -> match dd.Data with Persisted _ -> true | _ -> false)
+            |> Seq.map (fun dd -> dd, files.[dd.Id])
+            |> Seq.toArray
+
+        let uploadDataFile (dd : DataDependencyInfo, localPath : string) = async {
+            let blobPath = dataFile va.Id dd
+            let! dataExists = Blob.Exists(config, prefix, blobPath)
+            if not dataExists then
+                logger.Logf "Uploading data dependency '%s' [%s]" dd.Name (sizeOfFile localPath)
+                let! _ = Blob.UploadFromFile(config, prefix, blobPath, localPath)
+                ()
+        }
+
+        do! dataFiles |> Seq.map uploadDataFile |> Async.Parallel |> Async.Ignore
+
+        // upload metadata record; TODO: use table store?
+        let! _ = Blob<VagabondMetadata>.Create(config, prefix, metadataName, fun () -> va.Metadata)
+        return Loaded(va.Id, false, va.Metadata)
     }
 
     interface IRemoteAssemblyReceiver with
@@ -107,7 +132,7 @@ type private BlobAssemblyDownloader(config : ConfigurationId, logger : ICloudLog
     
     interface IAssemblyImporter with
         member x.GetImageReader(id: AssemblyId): Async<Stream> = async {
-            logger.Logf "Downloading assembly '%s'" id.FullName
+            logger.Logf "Downloading '%s'" id.FullName
             let blob = Blob.FromPath(config, prefix, assemblyName id)
             return! blob.OpenRead()
         }
@@ -122,14 +147,14 @@ type private BlobAssemblyDownloader(config : ConfigurationId, logger : ICloudLog
                 return None
         }
         
-        member x.TryReadMetadata(id: AssemblyId): Async<VagabondMetadata option> = async {
+        member x.ReadMetadata(id: AssemblyId): Async<VagabondMetadata> = async {
             let cell = Blob<VagabondMetadata>.FromPath(config, prefix, metadataName id)
-            return! cell.TryGetValue()
+            return! cell.GetValue()
         }
 
-        member x.GetDataReader(id: AssemblyId, vmd : VagabondMetadata): Async<Stream> = async {
-            logger.Logf "Downloading vagabond data for assembly '%s'." id.FullName
-            let blob = Blob.FromPath(config, prefix, staticdataName vmd.Generation id)
+        member x.GetPersistedDataDependencyReader(id: AssemblyId, dd : DataDependencyInfo): Async<Stream> = async {
+            logger.Logf "Downloading data dependency '%s'." dd.Name
+            let blob = Blob.FromPath(config, prefix, dataFile id dd)
             return! blob.OpenRead()
         }
 
@@ -141,9 +166,9 @@ type BlobAssemblyManager private (config : ConfigurationId, logger : ICloudLogge
     /// Upload provided dependencies to store
     member __.UploadDependencies(ids : seq<AssemblyId>) = async { 
         logger.Logf "Uploading dependencies"
-        let! errors = VagabondRegistry.Instance.SubmitAssemblies(uploader, ids)
+        let! errors = VagabondRegistry.Instance.SubmitDependencies(uploader, ids)
         if errors.Length > 0 then
-            let errors = errors |> Seq.map (fun (f,_) -> f.ToString()) |> String.concat ", "
+            let errors = errors |> Seq.map (fun dd -> dd.Name) |> String.concat ", "
             logger.Logf "Failed to upload bindings: %s" errors
     }
 

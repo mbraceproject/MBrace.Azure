@@ -6,11 +6,11 @@ open MBrace.Continuation
 open MBrace.Azure
 open MBrace.Azure.Client
 open MBrace.Azure.Runtime
-open MBrace.Streams.Tests
+open MBrace.Flow.Tests
 
 [<AbstractClass; TestFixture>]
 type ``Azure Streams Tests`` (sbus, storage) as self =
-    inherit ``CloudStreams tests`` ()
+    inherit ``CloudFlow tests`` ()
 
     let config = 
         { Configuration.Default with
