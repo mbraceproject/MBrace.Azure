@@ -123,8 +123,8 @@
   <Choose>
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">
       <ItemGroup>
-        <Reference Include="MBrace.Runtime.Core">
-          <HintPath>..\..\packages\MBrace.Runtime.Core\lib\net45\MBrace.Runtime.Core.dll</HintPath>
+        <Reference Include="MBrace.Flow">
+          <HintPath>..\..\packages\MBrace.Flow\lib\net45\MBrace.Flow.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -134,8 +134,8 @@
   <Choose>
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">
       <ItemGroup>
-        <Reference Include="MBrace.Streams">
-          <HintPath>..\..\packages\MBrace.Streams\lib\net45\MBrace.Streams.dll</HintPath>
+        <Reference Include="MBrace.Runtime.Core">
+          <HintPath>..\..\packages\MBrace.Runtime.Core\lib\net45\MBrace.Runtime.Core.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
@@ -150,8 +150,8 @@
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
-        <Reference Include="MBrace.Streams.Tests">
-          <HintPath>..\..\packages\MBrace.Tests\lib\net45\MBrace.Streams.Tests.dll</HintPath>
+        <Reference Include="MBrace.Flow.Tests">
+          <HintPath>..\..\packages\MBrace.Tests\lib\net45\MBrace.Flow.Tests.dll</HintPath>
           <Private>True</Private>
           <Paket>True</Paket>
         </Reference>
