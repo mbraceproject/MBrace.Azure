@@ -21,8 +21,8 @@ let description = """ MBrace on Windows Azure. """
 
 let tags = "F# cloud mapreduce distributed azure windowsazure"
 
-let azureSummary = """ Contains a collection of MBrace implementations on top of Windows Azure."""
-let clientSummary = """ A collection of standalone Azure client libraries for consumption from F# interactive."""
+let azureSummary = """Contains the cluster/client implementation of MBrace on top of Azure PaaS."""
+let standaloneSummary = """Standalone bundle of MBrace.Azure and dependencies for consumption by F# interactive and other scripting environments."""
 
 // --------------------------------------------------------------------------------------
 // Read release notes & version info from RELEASE_NOTES.md
@@ -137,7 +137,7 @@ let addAssembly reqXml (target : string) assembly =
         yield! includeFile false <| assembly + ".config"
     }
 
-Target "NuGet.CoreAzure" (fun _ ->
+Target "NuGet.Azure" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
@@ -156,7 +156,6 @@ Target "NuGet.CoreAzure" (fun _ ->
                     "MBrace.Runtime.Core", RequireExactly MBraceCoreVersion
                     "WindowsAzure.Storage", "4.3.0"
                     "WindowsAzure.ServiceBus", "2.6.4"
-                    "Vagabond", "0.6.0"
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
@@ -169,13 +168,13 @@ Target "NuGet.CoreAzure" (fun _ ->
         ("nuget/MBrace.Azure.nuspec")
 )
 
-Target "NuGet.Client" (fun _ ->
+Target "NuGet.Standalone" (fun _ ->
     NuGet (fun p -> 
         { p with   
             Authors = authors
-            Project = "MBrace.Azure.Client"
-            Summary = clientSummary
-            Description = clientSummary
+            Project = "MBrace.Azure.Standalone"
+            Summary = standaloneSummary
+            Description = standaloneSummary
             Version = nugetVersion
             ReleaseNotes = String.concat " " release.Notes
             Tags = tags
@@ -184,12 +183,12 @@ Target "NuGet.Client" (fun _ ->
             Publish = hasBuildParam "nugetkey" 
             Files =
                 [
-                    yield addFile @"" @"bootstrap.fsx"
+                    yield addFile @"" @"MBrace.Azure.fsx"
                     yield! addAssembly false @"tools" @"..\bin\Newtonsoft.Json.dll"
                     yield! addAssembly false @"tools" @"..\bin\FsPickler.dll"
                     yield! addAssembly false @"tools" @"..\bin\System.Spatial.dll"
                     yield! addAssembly false @"tools" @"..\bin\Mono.Cecil.dll"
-                    yield! addAssembly false @"tools" @"..\bin\Vagabond.Cecil.dll"
+                    yield! addAssembly false @"tools" @"..\bin\Vagabond.AssemblyParser.dll"
                     yield! addAssembly false @"tools" @"..\bin\Vagabond.dll"
                     yield! addAssembly false @"tools" @"..\bin\Microsoft.Data.Edm.dll"
                     yield! addAssembly false @"tools" @"..\bin\Microsoft.Data.OData.dll"
@@ -200,8 +199,6 @@ Target "NuGet.Client" (fun _ ->
 
                     yield! addAssembly true @"tools" @"..\bin\MBrace.Core.dll"
                     yield! addAssembly true @"tools" @"..\bin\MBrace.Runtime.Core.dll"
-                    yield! addAssembly true @"tools" @"..\bin\Streams.Core.dll"
-                    yield! addAssembly true @"tools" @"..\bin\MBrace.Streams.dll"
                     yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Store.dll"
                     yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Runtime.dll"
                     yield! addAssembly true @"tools" @"..\bin\MBrace.Azure.Client.dll"
@@ -247,8 +244,8 @@ Target "Help" (fun _ -> PrintTargets() )
 
 "Build"
   ==> "PrepareRelease"
-  ==> "Nuget.CoreAzure"
-  ==> "Nuget.Client"
+  ==> "Nuget.Azure"
+  ==> "Nuget.Standalone"
 //  ==> "GenerateDocs"
 //  ==> "ReleaseDocs"
   ==> "Release"
