@@ -29,7 +29,7 @@ module internal Metadata =
 
     let compare (local : Metadata) (remote : Metadata) =
         if local <> remote then
-            raise <| IncompatibleVersionException(string local, string remote)
+            raise <| IncompatibleVersionException(sprintf "%A" local, sprintf "%A" remote)
 
     let toString (version : Version) (configurationId : ConfigurationId) =
         let metadata = { Version = version; ConfigurationId = configurationId }

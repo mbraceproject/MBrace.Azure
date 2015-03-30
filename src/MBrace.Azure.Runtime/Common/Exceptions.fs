@@ -32,7 +32,7 @@ type IncompatibleVersionException =
     inherit RuntimeException
     
     new (local, remote) = 
-        { inherit RuntimeException(sprintf "Local metadata \n%s\nincompatible with remote metadata \n%s" local remote) }
+        { inherit RuntimeException(sprintf "Local metadata %s incompatible with remote metadata %s" local remote) }
     new (message) = 
         { inherit RuntimeException(message) }
     new (message : string, inner) = 
