@@ -85,7 +85,7 @@ type Configuration =
 
         let versionNormalized = version.ToString(4)
 
-        let withId s = 
+        let withVersionAndId s = 
             // TODO : Temporary fix to enable GetHandle from newer clients.
             // 0.6.5 clients do not use Version in folder names.
             // < 0.6.1 clients have complete different folder structure.
@@ -95,13 +95,16 @@ type Configuration =
                 sprintf "%s%05d" s this.Id
             else
                 sprintf "%s%s%05d" s versionString this.Id
+        
+        let withId s =sprintf "%s%05d" s this.Id
+
         { this with
             Version = versionNormalized
-            RuntimeQueue = withId this.RuntimeQueue
-            RuntimeTopic = withId this.RuntimeTopic
-            RuntimeContainer = withId this.RuntimeContainer
-            RuntimeTable = withId this.RuntimeTable
-            RuntimeLogsTable = withId this.RuntimeLogsTable
+            RuntimeQueue = withVersionAndId this.RuntimeQueue
+            RuntimeTopic = withVersionAndId this.RuntimeTopic
+            RuntimeContainer = withVersionAndId this.RuntimeContainer
+            RuntimeTable = withVersionAndId this.RuntimeTable
+            RuntimeLogsTable = withVersionAndId this.RuntimeLogsTable
             UserDataContainer = withId this.UserDataContainer
             UserDataTable = withId this.UserDataTable
         }
