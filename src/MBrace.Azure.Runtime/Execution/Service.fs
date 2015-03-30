@@ -110,12 +110,11 @@ type Service (config : Configuration, serviceId : string) =
             try
                 let sw = new Stopwatch() in sw.Start()
 
-                logf "Version Checks"
-
-                if not ignoreVersion then
-                    let configurationVersion = Version.Parse(config.Version)
-                    if ReleaseInfo.localVersion <> configurationVersion then
-                        return! Async.Raise(IncompatibleVersionException(sprintf "Activating Service '%s' with Configuration.Version '%s' not allowed. Versions must be exact." (string ReleaseInfo.localVersion) config.Version))
+//                logf "Version Checks"
+//                if not ignoreVersion then
+//                    let configurationVersion = Version.Parse(config.Version)
+//                    if ReleaseInfo.localVersion <> configurationVersion then
+//                        return! Async.Raise(IncompatibleVersionException(sprintf "Activating Service '%s' with Configuration.Version '%s' not allowed. Versions must be exact." (string ReleaseInfo.localVersion) config.Version))
 
                 let! state, resources = Init.Initializer(config, serviceId, true, customLogger, ignoreVersion, maxJobs = this.MaxConcurrentJobs)
 

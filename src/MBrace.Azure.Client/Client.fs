@@ -33,8 +33,8 @@
             Async.RunSync(Configuration.ActivateAsync(configuration))
 
         let state = 
-            let ignoreVersion = 
-                Version.Parse(config.Version) <> typeof<Runtime>.Assembly.GetName().Version
+            let ignoreVersion = true
+                //Version.Parse(config.Version) <> typeof<Runtime>.Assembly.GetName().Version
             RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility = ignoreVersion)
             |> Async.RunSync
         let storageLogger = new StorageLogger(configuration.ConfigurationId, Client(id = clientId))
@@ -45,14 +45,14 @@
         let pmon = state.ProcessManager
         do clientLogger.Logf "Client %s created" clientId
 
-        let restrictVersion () =
-            let clientVersion = typeof<Runtime>.Assembly.GetName().Version
-            let configVersion = Version.Parse(config.Version)
-            if configVersion <> clientVersion then
-                raise(IncompatibleVersionException(
-                        "Only a restricted set of APIs is supported on older runtime versions." +
-                        "Consider using a client with the corresponding version." +
-                        sprintf "Client version '%O', Configuration version '%O'" clientVersion configVersion))
+        let restrictVersion () = ()
+//            let clientVersion = typeof<Runtime>.Assembly.GetName().Version
+//            let configVersion = Version.Parse(config.Version)
+//            if configVersion <> clientVersion then
+//                raise(IncompatibleVersionException(
+//                        "Only a restricted set of APIs is supported on older runtime versions." +
+//                        "Consider using a client with the corresponding version." +
+//                        sprintf "Client version '%O', Configuration version '%O'" clientVersion configVersion))
 
 
         /// Gets or sets the path for a local standalone worker executable.
