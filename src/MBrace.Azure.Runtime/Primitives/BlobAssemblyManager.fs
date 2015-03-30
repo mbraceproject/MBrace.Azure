@@ -30,9 +30,6 @@ module private Common =
     let metadataName id = filename id + ".vgb"
     let dataFile id (dd : DataDependencyInfo) = sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
 
-    type VagabondMetadata with
-        member vm.ContainsDataDependencies = vm.DataDependencies.Length > 0
-
 /// Assembly to blob store uploader implementation
 type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogger) =
 
