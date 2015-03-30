@@ -139,13 +139,15 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
         active <- true
         let worker = this.Current
         let rec loop () = async {
-            let counters = perfMon.Value.GetCounters()
-            worker.UpdateCounters(counters)
-            worker.IsActive <- nullable true
-            //worker.ActiveJobs <- nullableDefault
-            worker.ETag <- "*"
-            let! e = Table.merge<WorkerRecord> config table worker
-            current := Some e
+            try
+                let counters = perfMon.Value.GetCounters()
+                worker.UpdateCounters(counters)
+                worker.IsActive <- nullable true
+                //worker.ActiveJobs <- nullableDefault
+                worker.ETag <- "*"
+                let! e = Table.merge<WorkerRecord> config table worker
+                current := Some e
+            with _ -> () // TODO : update worker status, increase heartbeat interval
             do! Async.Sleep (int ts.TotalMilliseconds)
             if active then return! loop ()
         }
