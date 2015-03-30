@@ -40,8 +40,10 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
         if not assemblyExists then return NotLoaded id
         else
             let cell = Blob<VagabondMetadata>.FromPath(config, prefix, metadataName id)
-            let! metadata = cell.GetValue()
-            return Loaded(id, false, metadata)
+            let! metadata = cell.TryGetValue()
+            match metadata with
+            | None -> return NotLoaded(id)
+            | Some md -> return Loaded(id, false, md)
     }
 
     /// upload assembly to blob store
