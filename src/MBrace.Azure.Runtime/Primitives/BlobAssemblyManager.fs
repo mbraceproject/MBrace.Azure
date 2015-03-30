@@ -30,6 +30,9 @@ module private Common =
     let metadataName id = filename id + ".vgb"
     let dataFile id (dd : DataDependencyInfo) = sprintf "%s-%d-%d.dat" (filename id) dd.Id dd.Generation
 
+    type VagabondMetadata with
+        member vm.ContainsDataDependencies = vm.DataDependencies.Length > 0
+
 /// Assembly to blob store uploader implementation
 type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogger) =
 
@@ -54,7 +57,7 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
             /// print upload sizes for given assembly
             let uploadSizes = 
                 seq {
-                    yield sprintf "DLL %s" (sizeOfFile va.Image)
+                    yield sprintf "IMG %s" (sizeOfFile va.Image)
                     match va.Symbols with
                     | Some s -> yield sprintf "PDB %s" (sizeOfFile s)
                     | None -> ()
@@ -64,15 +67,15 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
             let! _ = Blob.UploadFromFile(config, prefix, assemblyName, va.Image)
             return ()
 
-        // 2. Upload symbols if applicable.
-        match va.Symbols with
-        | None -> ()
-        | Some symbolsPath ->
-            let symbolsName = symbolsName va.Id
-            let! symbolsExist = Blob.Exists(config, prefix, symbolsName)
-            if not symbolsExist then
-                let! _ = Blob.UploadFromFile(config, prefix, symbolsName, symbolsPath)
-                return ()
+            // 2. Upload symbols if applicable.
+            match va.Symbols with
+            | None -> ()
+            | Some symbolsPath ->
+                let symbolsName = symbolsName va.Id
+                let! symbolsExist = Blob.Exists(config, prefix, symbolsName)
+                if not symbolsExist then
+                    let! _ = Blob.UploadFromFile(config, prefix, symbolsName, symbolsPath)
+                    return ()
 
         // 3. Upload metadata
         // check current metadata in store
@@ -107,6 +110,9 @@ type private BlobAssemblyUploader(config : ConfigurationId, logger : ICloudLogge
                 let! _ = Blob.UploadFromFile(config, prefix, blobPath, localPath)
                 ()
         }
+
+        // only print metadata message if updating data dependencies
+        if assemblyExists then logger.Logf "Updating metadata for '%s'" va.FullName
 
         do! dataFiles |> Seq.map uploadDataFile |> Async.Parallel |> Async.Ignore
 
