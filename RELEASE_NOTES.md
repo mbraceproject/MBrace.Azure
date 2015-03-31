@@ -1,6 +1,7 @@
 #### 0.6.5-alpha
 * Update MBrace.Core libraries.
 * Remove transient dependencies from nuget package.
+* Use improved Vagabond implementation.
 * Isolate runtime folders by version.
 * Misc bugfixes.
 

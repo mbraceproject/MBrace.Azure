@@ -13,6 +13,7 @@ open System
 
 Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 
+
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
       Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
