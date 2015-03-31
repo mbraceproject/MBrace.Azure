@@ -155,7 +155,7 @@ Target "NuGet.Azure" (fun _ ->
                     "MBrace.Core", RequireExactly MBraceCoreVersion
                     "MBrace.Runtime.Core", RequireExactly MBraceCoreVersion
                     "WindowsAzure.Storage", "4.3.0"
-                    "WindowsAzure.ServiceBus", "2.6.4"
+                    "WindowsAzure.ServiceBus", "2.5.2"
                 ]
             Publish = hasBuildParam "nugetkey" 
             Files =
