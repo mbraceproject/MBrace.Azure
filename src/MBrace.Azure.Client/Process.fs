@@ -74,19 +74,19 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
         s - proc.Value.InitializationTime.Value
     
     /// Returns iff the process is completed.
-    member this.Completed = proc.Value.Completed
+    member this.Completed : bool = proc.Value.Completed.Value
 
     /// Returns the number of tasks created by this process and are currently executing.
-    member this.ActiveJobs = proc.Value.ActiveJobs
+    member this.ActiveJobs : int = proc.Value.ActiveJobs.Value
 
     /// Returns the number of tasks created by this process.
-    member this.TotalJobs = proc.Value.TotalJobs
+    member this.TotalJobs : int = proc.Value.TotalJobs.Value
 
     /// Returns the number of tasks completed by this process.
-    member this.CompletedJobs = proc.Value.CompletedJobs
+    member this.CompletedJobs : int = proc.Value.CompletedJobs.Value
 
     /// Returns the number of tasks failed to execute by this process.
-    member this.FaultedJobs = proc.Value.FaultedJobs
+    member this.FaultedJobs : int = proc.Value.FaultedJobs.Value
 
     /// Sends a kill signal for this process.
     member this.Kill() = Async.RunSync(this.KillAsync())
