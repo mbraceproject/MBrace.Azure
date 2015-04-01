@@ -272,7 +272,7 @@
         /// <param name="showInactive">Include inactive workers. Defaults to false.</param>
         /// <param name="showFaulted">Include faulted workers. Defaults to true.</param>
         member this.GetWorkersAsync(?timespan : TimeSpan, ?showStarting : bool, ?showInactive : bool, ?showFaulted : bool) = 
-            let timespan = defaultArg timespan (TimeSpan.FromMinutes(10.)) // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
+            let timespan = defaultArg timespan WorkerManager.MaxHeartbeatTimeSpan
             let showInactive = defaultArg showInactive false
             let showStarting = defaultArg showStarting true
             let showFaulted = defaultArg showFaulted true

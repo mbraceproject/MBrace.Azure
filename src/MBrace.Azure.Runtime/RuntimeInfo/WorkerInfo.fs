@@ -144,12 +144,15 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
 [<AutoSerializable(false)>]
 type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
     static let pk = "WorkerRef"
+    
     let table = config.RuntimeTable
 
     let perfMon = lazy new PerformanceMonitor()
     let mutable current = None : WorkerRecord option
     let mutable sendHeartBeats = true
     let runningPickle = WorkerStatus.Running.Pickle()
+
+    static member MaxHeartbeatTimeSpan = TimeSpan.FromMinutes(10.) // // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
 
     member this.Current : WorkerRecord = 
         match current with
@@ -163,11 +166,10 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
         current.Value.Status <- runningPickle
 
     member this.HeartbeatLoop(timespan : TimeSpan) : Async<unit> = async {
-        let maxTimespan = TimeSpan.FromMinutes(10.) // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
-        if timespan > maxTimespan then raise(ArgumentOutOfRangeException("timespan", "Max TimeSpan of 10 minutes allowed."))
+        if timespan > WorkerManager.MaxHeartbeatTimeSpan then raise(ArgumentOutOfRangeException("timespan", "Max TimeSpan of 10 minutes allowed."))
         
         let rec loop fault (currentTimespan : TimeSpan) = async {
-            let! fault, currentTimespan = async {
+            let! fault, newTimespan = async {
                 try
                     let counters = perfMon.Value.GetCounters()
                     current.Value.UpdateCounters(counters)
@@ -182,13 +184,16 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                         return false, currentTimespan
                 with ex ->
                     logger.Logf "Failed to give heartbeat %A" ex
-                    let newTimeSpan = min (TimeSpan.FromTicks(timespan.Ticks * 2L)) maxTimespan
+                    let newTimeSpan = min (TimeSpan.FromTicks(timespan.Ticks * 2L)) WorkerManager.MaxHeartbeatTimeSpan
                     logger.Logf "Increasing timespan to %A" newTimeSpan
                     return true, newTimeSpan
 
                 }
-            do! Async.Sleep (int currentTimespan.TotalMilliseconds)
-            if sendHeartBeats then return! loop fault currentTimespan
+            do! Async.Sleep (int newTimespan.TotalMilliseconds)
+            if sendHeartBeats then 
+                return! loop fault newTimespan
+            else
+                logger.Logf "Stopped heartbeats"
         }
         logger.Logf "Starting heartbeat loop with interval %A" timespan
         return! loop false timespan
