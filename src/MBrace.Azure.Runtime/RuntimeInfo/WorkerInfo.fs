@@ -2,41 +2,61 @@
 open MBrace
 open System
 
+/// Represents current worker status.
+type WorkerStatus = 
+    /// Worker initialization.
+    |Starting
+    /// Worker successfully started.
+    | Started
+    /// Worker stopped.
+    | Stopped
+    /// Unexpected worker exception.
+    | Fault of exn
+
+    override this.ToString() =
+        match this with
+        | Starting  -> "Starting"
+        | Started   -> "Started"
+        | Stopped   -> "Stopped"
+        | Fault _ -> "Fault"
+
 /// Immutable IWorkerRef implementation for MBrace.Azure workers.
 [<CustomComparison; CustomEquality>]
 type WorkerRef = 
     { /// Worker/Service Id.
-      Id : string
+      Id                 : string
+      ///Current worker status.
+      Status             : WorkerStatus
       /// Machine's name.
-      Hostname : string
+      Hostname           : string
       /// Host process id.
-      ProcessId : int 
+      ProcessId          : int 
       /// Host process name.
-      ProcessName : string
+      ProcessName        : string
       /// First worker's heartbeat time.
       InitializationTime : DateTimeOffset
       /// Last worker's heartbeat time.
-      HeartbeatTime : DateTimeOffset
+      HeartbeatTime      : DateTimeOffset
       /// Hash of worker's activated ConfigurationId.
-      ConfigurationHash : int
+      ConfigurationHash  : int
       /// Worker's MaxConcurrentJobCount.
-      MaxJobCount : int
+      MaxJobCount        : int
       /// Workers' processor count.
-      ProcessorCount : int
+      ProcessorCount     : int
       /// Current dequeued jobs.
-      ActiveJobs  : int
+      ActiveJobs         : int
       /// CPU usage.
-      CPU : double
+      CPU                : double
       /// Total memory.
-      TotalMemory : double
+      TotalMemory        : double
       /// Memory used.
-      Memory : double
+      Memory             : double
       /// Network upload (kbps).
-      NetworkUp : double
+      NetworkUp          : double
       /// Network download (kbps).
-      NetworkDown : double
+      NetworkDown        : double
       /// Runtime Version
-      Version : string } 
+      Version            : string } 
     
     override this.GetHashCode() = hash this.Id
     override this.Equals(other:obj) =
@@ -77,7 +97,6 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val ProcessName        = pname             with get, set
     member val InitializationTime = joined            with get, set
     member val ConfigurationHash  = configurationHash with get, set
-    member val IsActive           = Nullable<bool>()  with get, set
     member val MaxJobs            = Nullable<int>()   with get, set
     member val ActiveJobs         = Nullable<int>()   with get, set
     member val ProcessorCount     = Environment.ProcessorCount with get, set
@@ -87,27 +106,28 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val NetworkUp          = Nullable<double>() with get, set
     member val NetworkDown        = Nullable<double>() with get, set
     member val Version            = Unchecked.defaultof<string> with get, set
-
+    member val Status             = Unchecked.defaultof<byte []> with get, set
     new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>, nullableDefault)
 
     member this.AsWorkerRef () : WorkerRef = 
         {
-            Id = this.Id
-            Hostname = this.Hostname
-            ProcessId = this.ProcessId.Value
-            ProcessName = this.ProcessName
+            Id                 = this.Id
+            Status             = Configuration.Pickler.UnPickle this.Status
+            Hostname           = this.Hostname
+            ProcessId          = this.ProcessId.GetValueOrDefault(-1)
+            ProcessName        = this.ProcessName
             InitializationTime = this.InitializationTime
-            HeartbeatTime = this.Timestamp
-            ConfigurationHash = this.ConfigurationHash.Value
-            MaxJobCount = this.MaxJobs.Value
-            ProcessorCount = this.ProcessorCount
-            ActiveJobs = this.ActiveJobs.Value
-            CPU = this.CPU.Value
-            TotalMemory = this.TotalMemory.Value
-            Memory = this.Memory.Value
-            NetworkUp = this.NetworkUp.Value
-            NetworkDown = this.NetworkDown.Value
-            Version = this.Version
+            HeartbeatTime      = this.Timestamp
+            ConfigurationHash  = this.ConfigurationHash.GetValueOrDefault(0)
+            MaxJobCount        = this.MaxJobs.GetValueOrDefault(-1)
+            ProcessorCount     = this.ProcessorCount
+            ActiveJobs         = this.ActiveJobs.GetValueOrDefault(-1)
+            CPU                = this.CPU.GetValueOrDefault(-1.)
+            TotalMemory        = this.TotalMemory.GetValueOrDefault(-1.)
+            Memory             = this.Memory.GetValueOrDefault(-1.)
+            NetworkUp          = this.NetworkUp.GetValueOrDefault(-1.)
+            NetworkDown        = this.NetworkDown.GetValueOrDefault(-1.)
+            Version            = this.Version
         }
 
     member this.UpdateCounters(counters : NodePerformanceInfo) =
@@ -119,50 +139,62 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
 
 [<AutoSerializable(false)>]
 type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
-    let pk = "WorkerRef"
+    static let pk = "WorkerRef"
     let table = config.RuntimeTable
 
     let perfMon = lazy new PerformanceMonitor()
-    let mutable active = false
-    let current = ref None
+    let mutable current = None : WorkerRecord option
+    let mutable sendHeartBeats = true
 
     member this.Current : WorkerRecord = 
-        match current.Value with
+        match current with
         | Some c -> c
         | None -> failwith "No worker registered."
     
     member this.SetJobCountLocal(jobCount) =
-        current.Value.Value.ActiveJobs <- nullable jobCount
+        current.Value.ActiveJobs <- nullable jobCount
 
-    member this.HeartbeatLoop(?timespan : TimeSpan) : Async<unit> = async {
-        let ts = defaultArg timespan <| TimeSpan.FromSeconds(1.)
-        active <- true
-        let worker = this.Current
-        let rec loop () = async {
-            try
-                let counters = perfMon.Value.GetCounters()
-                worker.UpdateCounters(counters)
-                worker.IsActive <- nullable true
-                //worker.ActiveJobs <- nullableDefault
-                worker.ETag <- "*"
-                let! e = Table.merge<WorkerRecord> config table worker
-                current := Some e
-            with _ -> () // TODO : update worker status, increase heartbeat interval
-            do! Async.Sleep (int ts.TotalMilliseconds)
-            if active then return! loop ()
+    member this.HeartbeatLoop(timespan : TimeSpan) : Async<unit> = async {
+        let maxTimespan = TimeSpan.FromMinutes(10.) // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
+        if timespan > maxTimespan then raise(ArgumentOutOfRangeException("timespan", "Max TimeSpan of 10 minutes allowed."))
+        
+        let rec loop fault (currentTimespan : TimeSpan) = async {
+            let! fault, currentTimespan = async {
+                try
+                    let counters = perfMon.Value.GetCounters()
+                    current.Value.UpdateCounters(counters)
+                    current.Value.ETag <- "*"
+                    let! e = Table.merge<WorkerRecord> config table current.Value
+                    current <- Some e
+                    if fault then
+                        let newTimeSpan = TimeSpan.FromTicks(timespan.Ticks / 2L)
+                        logger.Logf "Decreasing timespan to %A" newTimeSpan
+                        return false, newTimeSpan
+                    else
+                        return false, currentTimespan
+                with ex ->
+                    logger.Logf "Failed to give heartbeat %A" ex
+                    let newTimeSpan = min (TimeSpan.FromTicks(timespan.Ticks * 2L)) maxTimespan
+                    logger.Logf "Increasing timespan to %A" newTimeSpan
+                    return true, newTimeSpan
+
+                }
+            do! Async.Sleep (int currentTimespan.TotalMilliseconds)
+            if sendHeartBeats then return! loop fault currentTimespan
         }
-        return! loop ()
+        logger.Logf "Starting heartbeat loop with interval %A" timespan
+        return! loop false timespan
     }
 
     member this.RegisterLocal(workerId) =
         async {
             let! record = Table.read<WorkerRecord> config table pk workerId
-            current := Some record
+            current <- Some record
         }
 
     member this.RegisterCurrent(workerId : string, ?maxJobs) : Async<unit> = 
         async {
-            match current.Value with 
+            match current with 
             | Some w -> 
                 return failwithf "Worker %A is active" w
             | None ->
@@ -172,27 +204,30 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), nullable ps.Id, ps.ProcessName, joined, nullable(hash config))
                 w.UpdateCounters(perfMon.Value.GetCounters())
                 w.ActiveJobs <- nullable 0
-                w.IsActive <- nullable true
+                w.Status <- Configuration.Pickler.Pickle WorkerStatus.Starting
                 w.Version <- ReleaseInfo.localVersion.ToString(4)
                 w.MaxJobs <- match maxJobs with None -> nullableDefault | Some mj -> nullable mj
                 do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
-                current := Some w
+                current <- Some w
         }
 
     member this.UnregisterCurrent () : Async<unit> = 
         async {
-            active <- false
             (perfMon.Value :> IDisposable).Dispose()
             do! this.SetInactiveWorker(this.Current)
         }
 
     member this.SetInactiveWorker(worker : WorkerRecord) : Async<unit> =
         async {
-            worker.IsActive <- nullable false
+            sendHeartBeats <- false
+            worker.Status <- Configuration.Pickler.Pickle WorkerStatus.Stopped
             let! _ = Table.replace config table worker
             return ()
         }
 
+    member this.SetCurrentAsFaulted(ex : Exception) =
+        current.Value.Status <- Configuration.Pickler.Pickle(WorkerStatus.Fault ex)
+        
     member this.DeleteWorkerRecord(workerId : string) : Async<unit> =
         async {
             let! record = this.GetWorker(workerId)
@@ -204,19 +239,34 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             return! Table.read<WorkerRecord> config table pk workerId
         }
 
-    member this.GetWorkers(?timespan : TimeSpan, ?showInactive : bool) : Async<WorkerRecord seq> = async {
-        let timespan = defaultArg timespan <| TimeSpan.FromMinutes 5.
-        let showInactive = defaultArg showInactive false
-        // TODO : Make showInactive part of the Table query
+    member this.GetWorkers(timespan : TimeSpan, showStarting : bool, showInactive : bool, showFaulted : bool) : Async<WorkerRecord seq> = async {
         let! ws = Table.queryPK<WorkerRecord> config table pk
+        // TODO : Make timespan part of the query?
         return ws |> Seq.filter (fun w -> DateTimeOffset.UtcNow - w.Timestamp < timespan)
-                  |> Seq.filter (fun w -> showInactive || (w.IsActive.HasValue && w.IsActive.Value))
+                  |> Seq.filter (fun w ->
+                        match Configuration.Pickler.UnPickle<WorkerStatus> w.Status with
+                        | Started -> true
+                        | Starting -> showStarting
+                        | Stopped -> showInactive
+                        | Fault _ -> showFaulted )
     }
 
-    member this.GetWorkerRefs(?timespan : TimeSpan, ?showInactive : bool) : Async<WorkerRef seq> =
+    member this.GetWorkerRefs(timespan : TimeSpan, showStarting : bool, showInactive : bool, showFaulted : bool) : Async<WorkerRef seq> =
         async {
-            let! wr = this.GetWorkers(?timespan = timespan, ?showInactive = showInactive)
+            let! wr = this.GetWorkers(timespan, showStarting, showInactive, showFaulted)
             return wr |> Seq.map (fun w -> w.AsWorkerRef())
         }
 
     static member Create(config : ConfigurationId, logger : ICloudLogger) = new WorkerManager(config, logger)
+
+    /// Unrecoverable worker faults.
+    static member SetFaulted (config : ConfigurationId, workerId : string, ex : exn) : Async<unit> =
+        async {
+            let ps = Diagnostics.Process.GetCurrentProcess()
+            let joined = DateTimeOffset.UtcNow
+            let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), nullable ps.Id, ps.ProcessName, joined, nullable(hash config))
+            w.Status <- Configuration.Pickler.Pickle(Fault ex)
+            w.ETag <- "*"
+            do! Table.insertOrReplace config config.RuntimeTable w
+                |> Async.Ignore
+        }

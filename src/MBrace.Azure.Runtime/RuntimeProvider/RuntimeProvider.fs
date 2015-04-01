@@ -78,7 +78,12 @@ type RuntimeProvider private (state : RuntimeState, job : Job, dependencies, isF
            Combinators.StartAsCloudTask state job.ProcessInfo job.JobId dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 
-            let! ws = state.WorkerManager.GetWorkerRefs(showInactive = false)
+            // Follow 10min heartbeat : http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
+            let! ws = state.WorkerManager.GetWorkerRefs(
+                        TimeSpan.FromMinutes(10.), 
+                        showStarting = false, 
+                        showInactive = false, 
+                        showFaulted = false)
             return ws |> Seq.map (fun w -> w :> IWorkerRef)
                       |> Seq.toArray 
             }

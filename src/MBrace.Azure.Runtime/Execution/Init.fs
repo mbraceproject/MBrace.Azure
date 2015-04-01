@@ -57,7 +57,7 @@ type Init =
                 do! state.WorkerManager.RegisterCurrent(serviceId, ?maxJobs = maxJobs)
                 let record = state.WorkerManager.Current
                 logf "Declared worker : %s \nPID : %d \nServiceId : %s" record.Hostname record.ProcessId.Value record.Id
-                Async.Start(state.WorkerManager.HeartbeatLoop())
+                Async.Start(state.WorkerManager.HeartbeatLoop(TimeSpan.FromSeconds(2.)))
                 logf "Started heartbeat loop" 
             else
                 do! state.WorkerManager.RegisterLocal(serviceId)

@@ -257,23 +257,37 @@
         /// Get runtime workers.
         /// </summary>
         /// <param name="timespan">Optional timespan. Include workers that failed to give heartbeats in this timespan.</param>
-        /// <param name="showInactive">Optionally include inactive workers.</param>
-        member this.GetWorkers(?timespan : TimeSpan, ?showInactive : bool) = 
-            Async.RunSync <| this.GetWorkersAsync(?timespan = timespan, ?showInactive = showInactive)
+        /// <param name="timespan">Optional timespan. Include workers that failed to give heartbeats in this timespan.</param>
+        /// <param name="showStarting">Include uninitialized workers. Defaults to true.</param>
+        /// <param name="showInactive">Include inactive workers. Defaults to false.</param>
+        /// <param name="showFaulted">Include faulted workers. Defaults to true.</param>
+        member this.GetWorkers(?timespan : TimeSpan, ?showStarting : bool, ?showInactive : bool, ?showFaulted : bool) = 
+            Async.RunSync <| this.GetWorkersAsync(?timespan = timespan, ?showInactive = showInactive, ?showStarting = showStarting, ?showFaulted = showFaulted)
+        
         /// <summary>
         /// Get runtime workers.
         /// </summary>
         /// <param name="timespan">Optional timespan. Include workers that failed to give heartbeats in this timespan.</param>
-        /// <param name="showInactive">Optionally include inactive workers.</param>
-        member this.GetWorkersAsync(?timespan : TimeSpan, ?showInactive : bool) = 
-            wmon.GetWorkerRefs(?timespan = timespan, ?showInactive = showInactive)
+        /// <param name="showStarting">Include uninitialized workers. Defaults to true.</param>
+        /// <param name="showInactive">Include inactive workers. Defaults to false.</param>
+        /// <param name="showFaulted">Include faulted workers. Defaults to true.</param>
+        member this.GetWorkersAsync(?timespan : TimeSpan, ?showStarting : bool, ?showInactive : bool, ?showFaulted : bool) = 
+            let timespan = defaultArg timespan (TimeSpan.FromMinutes(10.)) // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
+            let showInactive = defaultArg showInactive false
+            let showStarting = defaultArg showStarting true
+            let showFaulted = defaultArg showFaulted true
+            wmon.GetWorkerRefs(timespan, showStarting, showInactive, showFaulted)
+
         /// <summary>
         /// Print runtime workers.
         /// </summary>
         /// <param name="timespan">Optional timespan. Include workers that failed to give heartbeats in this timespan.</param>
-        /// <param name="showInactive">Optionally include inactive workers.</param>
-        member this.ShowWorkers (?timespan : TimeSpan, ?showInactive : bool) = 
-            let ws = wmon.GetWorkers(?timespan = timespan, ?showInactive = showInactive) |> Async.RunSync
+        /// <param name="timespan">Optional timespan. Include workers that failed to give heartbeats in this timespan.</param>
+        /// <param name="showStarting">Include uninitialized workers. Defaults to true.</param>
+        /// <param name="showInactive">Include inactive workers. Defaults to false.</param>
+        /// <param name="showFaulted">Include faulted workers. Defaults to true.</param>
+        member this.ShowWorkers (?timespan : TimeSpan,  ?showStarting : bool, ?showInactive : bool, ?showFaulted : bool) = 
+            let ws = this.GetWorkers(?timespan = timespan, ?showInactive = showInactive, ?showStarting = showStarting, ?showFaulted = showFaulted)
             printf "%s" <| WorkerReporter.Report(ws, "Workers", false)
 
         /// <summary>
