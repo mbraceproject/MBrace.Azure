@@ -42,9 +42,6 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
-runtime.GetWorkers()
-|> Seq.filter(fun w -> match w.Status with Faulted _ -> true | _ -> false)
-
 
 
 runtime.ClearAllProcesses()

@@ -176,7 +176,6 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                     current.Value.ETag <- "*"
                     let! e = Table.merge<WorkerRecord> config table current.Value
                     current <- Some e
-                    current.Value.Status <- Unchecked.defaultof<_>
                     if fault then
                         let newTimeSpan = TimeSpan.FromTicks(timespan.Ticks / 2L)
                         logger.Logf "Decreasing timespan to %A" newTimeSpan
@@ -190,8 +189,8 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                     return true, newTimeSpan
 
                 }
-            do! Async.Sleep (int newTimespan.TotalMilliseconds)
             if sendHeartBeats then 
+                do! Async.Sleep (int newTimespan.TotalMilliseconds)
                 return! loop fault newTimespan
             else
                 logger.Logf "Stopped heartbeats"
