@@ -178,6 +178,7 @@ type Service (config : Configuration, serviceId : string) =
                 let! handle = Async.StartChild <| async { do worker.Start(config) }
                 logf "Worker loop started"
                 
+                state.WorkerManager.SetCurrentAsRunning()
                 sw.Stop()
                 logf "Service %s started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
                 return! handle

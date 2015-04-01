@@ -30,7 +30,7 @@ type internal ProcessReporter() =
 
 type internal WorkerReporter() = 
     static let template : Field<WorkerRef> list = 
-        let double_printer (value : double) = sprintf "%.0f" value
+        let double_printer (value : double) = sprintf "%.1f" value
         [ Field.create "Id" Left (fun p -> p.Id)
           Field.create "Hostname" Left (fun p -> p.Hostname)
           Field.create "Status" Left (fun p -> string p.Status)
