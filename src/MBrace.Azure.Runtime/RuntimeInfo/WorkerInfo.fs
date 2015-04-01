@@ -37,8 +37,8 @@ type WorkerRef =
       InitializationTime : DateTimeOffset
       /// Last worker's heartbeat time.
       HeartbeatTime      : DateTimeOffset
-      /// Hash of worker's activated ConfigurationId.
-      ConfigurationHash  : int
+      /// Worker activated ConfigurationId.
+      ConfigurationId    : ConfigurationId
       /// Worker's MaxConcurrentJobCount.
       MaxJobCount        : int
       /// Workers' processor count.
@@ -96,7 +96,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val ProcessId          = pid               with get, set
     member val ProcessName        = pname             with get, set
     member val InitializationTime = joined            with get, set
-    member val ConfigurationHash  = configurationHash with get, set
+    member val ConfigurationId    = Unchecked.defaultof<byte []> with get, set
     member val MaxJobs            = Nullable<int>()   with get, set
     member val ActiveJobs         = Nullable<int>()   with get, set
     member val ProcessorCount     = Environment.ProcessorCount with get, set
@@ -118,7 +118,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
             ProcessName        = this.ProcessName
             InitializationTime = this.InitializationTime
             HeartbeatTime      = this.Timestamp
-            ConfigurationHash  = this.ConfigurationHash.GetValueOrDefault(0)
+            ConfigurationId    = Configuration.Pickler.UnPickle this.ConfigurationId
             MaxJobCount        = this.MaxJobs.GetValueOrDefault(-1)
             ProcessorCount     = this.ProcessorCount
             ActiveJobs         = this.ActiveJobs.GetValueOrDefault(-1)
@@ -207,6 +207,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 w.Status <- Configuration.Pickler.Pickle WorkerStatus.Starting
                 w.Version <- ReleaseInfo.localVersion.ToString(4)
                 w.MaxJobs <- match maxJobs with None -> nullableDefault | Some mj -> nullable mj
+                w.ConfigurationId <- Configuration.Pickler.Pickle config
                 do! Table.insertOrReplace<WorkerRecord> config table w //Worker might restart but keep id.
                 current <- Some w
         }
