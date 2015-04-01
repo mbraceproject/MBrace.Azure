@@ -56,7 +56,7 @@ type internal Worker () =
             do! wait ()
             config.Logger.Log "No active jobs."
             config.Logger.Log "Unregister current worker."
-            do! config.State.WorkerManager.UnregisterCurrent()
+            do! config.State.WorkerManager.SetCurrentAsStopped()
             config.Logger.Log "Worker stopped."
         }
 

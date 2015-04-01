@@ -211,15 +211,15 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 current <- Some w
         }
 
-    member this.UnregisterCurrent () : Async<unit> = 
+    member this.SetCurrentAsStopped () : Async<unit> = 
         async {
             (perfMon.Value :> IDisposable).Dispose()
-            do! this.SetInactiveWorker(this.Current)
+            sendHeartBeats <- false
+            do! this.SetWorkerStopped(this.Current)
         }
 
-    member this.SetInactiveWorker(worker : WorkerRecord) : Async<unit> =
+    member this.SetWorkerStopped(worker : WorkerRecord) : Async<unit> =
         async {
-            sendHeartBeats <- false
             worker.Status <- Configuration.Pickler.Pickle WorkerStatus.Stopped
             let! _ = Table.replace config table worker
             return ()
