@@ -61,7 +61,9 @@ type internal Worker () =
         }
 
         new MailboxProcessor<WorkerMessage>(fun inbox ->
-            let rec workerLoop (state : WorkerState) = async {
+            // queueFault indicated if last dequeue action resulted in exception
+
+            let rec workerLoop queueFault (state : WorkerState) = async {
                 let! message = async {
                     if inbox.CurrentQueueLength > 0 then 
                         return! inbox.TryReceive()
@@ -71,15 +73,17 @@ type internal Worker () =
                 | None, Running(config, _) ->
                     if currentJobCount >= config.MaxConcurrentJobs then
                         do! Async.Sleep receiveTimeout
-                        return! workerLoop state
+                        return! workerLoop false state
                     else
                         let! job = Async.Catch <| config.State.TryDequeue()
                         match job with
                         | Choice1Of2 None -> 
-                            return! workerLoop state
+                            if queueFault then config.State.WorkerManager.SetCurrentAsRunning()
+                            return! workerLoop false state
                         | Choice1Of2(Some message) ->
                             // run isolated job
                             let jc = Interlocked.Increment &currentJobCount
+                            if queueFault then config.State.WorkerManager.SetCurrentAsRunning()
                             config.State.WorkerManager.SetJobCountLocal(jc)
                             config.Logger.Logf "Increase Dequeued Jobs %d" jc
                             let! _ = Async.StartChild <| async { 
@@ -108,36 +112,37 @@ type internal Worker () =
                                     config.State.WorkerManager.SetJobCountLocal(jc)
                                     config.Logger.Logf "Decrease Dequeued Jobs %d" jc
                             }
-                            return! workerLoop state
+                            return! workerLoop false state
                         | Choice2Of2 ex ->
                             config.Logger.Logf "Worker JobQueue fault\n%A" ex
+                            config.State.WorkerManager.SetCurrentAsFaulted(ex)
                             do! Async.Sleep onErrorWaitTime
-                            return! workerLoop state
+                            return! workerLoop true state
                 | None, Idle -> 
                     do! Async.Sleep receiveTimeout
-                    return! workerLoop state
+                    return! workerLoop false state
                 | Some(Start(config, handle)), Idle ->
-                    return! workerLoop(Running(config, handle))
+                    return! workerLoop false (Running(config, handle))
                 | Some(Stop ch), Running(config, handle) ->
                     do! waitForPendingJobs config
                     ch.Reply ()
                     handle.Reply()
-                    return! workerLoop Idle
+                    return! workerLoop false Idle
                 | Some(Update(config,ch)), Running _ ->
                     config.Logger.Log "Updating worker configuration."
-                    return! workerLoop(Running(config, ch))
+                    return! workerLoop false (Running(config, ch))
                 | Some(IsActive ch), Idle ->
                     ch.Reply(false)
-                    return! workerLoop state
+                    return! workerLoop false state
                 | Some(IsActive ch), Running _ ->
                     ch.Reply(true)
-                    return! workerLoop state
+                    return! workerLoop false state
                 | Some(Start _), _  ->
                     return invalidOp "Called Start, but worker is not Idle."
                 | _, Idle ->
                     return invalidOp "Worker is Idle."
             }
-            workerLoop Idle
+            workerLoop false Idle
         )
 
     do workerLoopAgent.Start()
