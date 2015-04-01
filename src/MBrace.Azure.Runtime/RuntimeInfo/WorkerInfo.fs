@@ -92,7 +92,7 @@ open Microsoft.FSharp.Linq.NullableOperators
 open MBrace.Runtime
 open MBrace.Azure.Runtime.Utilities
 
-type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string, joined : DateTimeOffset, configurationHash : Nullable<int>) =
+type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string, joined : DateTimeOffset) =
     inherit TableEntity(pk, id)
     
     member val Hostname           = hostname          with get, set
@@ -111,7 +111,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val NetworkDown        = Nullable<double>() with get, set
     member val Version            = Unchecked.defaultof<string> with get, set
     member val Status             = Unchecked.defaultof<byte []> with get, set
-    new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>, nullableDefault)
+    new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>)
 
     member this.AsWorkerRef () : WorkerRef = 
         {
@@ -176,6 +176,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                     current.Value.ETag <- "*"
                     let! e = Table.merge<WorkerRecord> config table current.Value
                     current <- Some e
+                    current.Value.Status <- Unchecked.defaultof<_>
                     if fault then
                         let newTimeSpan = TimeSpan.FromTicks(timespan.Ticks / 2L)
                         logger.Logf "Decreasing timespan to %A" newTimeSpan
@@ -214,7 +215,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 perfMon.Value.Start()
                 let ps = Diagnostics.Process.GetCurrentProcess()
                 let joined = DateTimeOffset.UtcNow
-                let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), nullable ps.Id, ps.ProcessName, joined, nullable(hash config))
+                let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), nullable ps.Id, ps.ProcessName, joined)
                 w.UpdateCounters(perfMon.Value.GetCounters())
                 w.ActiveJobs <- nullable 0
                 w.Status <- WorkerStatus.Initializing.Pickle()
@@ -278,7 +279,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
         async {
             let ps = Diagnostics.Process.GetCurrentProcess()
             let joined = DateTimeOffset.UtcNow
-            let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), nullable ps.Id, ps.ProcessName, joined, nullable(hash config))
+            let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), nullable ps.Id, ps.ProcessName, joined)
             w.Status <- (Faulted ex).Pickle()
             w.ETag <- "*"
             do! Table.insertOrReplace config config.RuntimeTable w

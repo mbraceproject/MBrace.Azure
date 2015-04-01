@@ -183,8 +183,12 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Service %s started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
                 return! handle
             with ex ->
-                do! WorkerManager.SetFaulted(config.WithAppendedId.ConfigurationId, serviceId, ex)
                 logf "Service Start for %s failed with %A" this.Id ex
+                match workerManager with
+                | None -> 
+                    do! WorkerManager.SetFaulted(config.WithAppendedId.ConfigurationId, serviceId, ex)
+                | Some wman -> 
+                    wman.SetCurrentAsFaulted(ex)
                 return! Async.Raise ex
         }
 
