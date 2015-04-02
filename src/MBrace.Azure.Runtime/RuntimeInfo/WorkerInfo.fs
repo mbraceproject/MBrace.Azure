@@ -141,6 +141,28 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
             this.NetworkUp <- counters.NetworkUsageUp
             this.NetworkDown <- counters.NetworkUsageDown
 
+    member this.CloneDefault() =
+        let p = new WorkerRecord()
+        p.PartitionKey <- this.PartitionKey
+        p.RowKey <- this.RowKey
+        p.ETag <- this.ETag
+        p
+
+type private WorkerManagerMessage =
+    | Start       of WorkerRecord * TimeSpan
+    | Stop        of AsyncReplyChannel<unit>
+    | SetFaulted  of Exception * AsyncReplyChannel<unit>
+    | SetRunning
+    | SetJobCount of jobCount : int
+    
+type private WorkerManagerState =
+    {
+        Worker : WorkerRecord
+        LastHeartBeatFault : bool
+        InitialTimeSpan : TimeSpan
+        CurrentTimeSpan : TimeSpan
+    }
+
 [<AutoSerializable(false)>]
 type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
     static let pk = "WorkerRef"
@@ -149,55 +171,91 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
 
     let perfMon = lazy new PerformanceMonitor()
     let mutable current = None : WorkerRecord option
-    let mutable sendHeartBeats = true
     let runningPickle = WorkerStatus.Running.Pickle()
 
-    static member MaxHeartbeatTimeSpan = TimeSpan.FromMinutes(10.) // // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
+    let heartbeatAgent = 
+        new MailboxProcessor<WorkerManagerMessage>(fun inbox ->
+            let rec loop (state : WorkerManagerState option) = async {
+                let! message = async {
+                    if inbox.CurrentQueueLength > 0 then 
+                        let! msg = inbox.Receive()
+                        return Some msg
+                    else return None
+                }
+                
+                match message, state with
+                | None, None ->
+                    do! Async.Sleep 100
+                    return! loop state
+                | None, (Some { Worker = worker; LastHeartBeatFault = fault; InitialTimeSpan = initialTs; CurrentTimeSpan = currentTs } as state) ->
+                    let! fault', currentTs' = async {
+                        try
+                            let counters = perfMon.Value.GetCounters()
+                            worker.UpdateCounters(counters)
+                            worker.ETag <- "*"
+                            let! e = Table.merge<WorkerRecord> config table worker
+                            current <- Some e
+                            if fault then
+                                let newTs = max (TimeSpan.FromTicks(currentTs.Ticks / 2L)) initialTs
+                                logger.Logf "Decreasing timespan to %A" newTs
+                                return false, newTs
+                            elif currentTs > initialTs then
+                                let newTs = max (TimeSpan.FromTicks(currentTs.Ticks / 2L)) initialTs
+                                logger.Logf "Decreasing timespan to %A" newTs
+                                return true, newTs
+                            else
+                                return false, currentTs
+                        with ex ->
+                            logger.Logf "Failed to give heartbeat %A" ex
+                            let newTimeSpan = min (TimeSpan.FromTicks(currentTs.Ticks * 2L)) WorkerManager.MaxHeartbeatTimeSpan
+                            logger.Logf "Increasing timespan to %A" newTimeSpan
+                            return true, newTimeSpan
+                        }
+                    do! Async.Sleep (int currentTs'.TotalMilliseconds)
+                        
+                    if fault' = fault && currentTs' = currentTs then
+                        return! loop state
+                    else
+                        return! loop (Some { Worker = worker; LastHeartBeatFault = fault'; InitialTimeSpan = initialTs; CurrentTimeSpan = currentTs' })
+                | Some(Start(worker, ts)), None ->
+                    logger.Logf "Starting heartbeat loop with interval %A" ts
+                    worker.Status <- runningPickle
+                    return! loop (Some { Worker = worker; LastHeartBeatFault = false; InitialTimeSpan = ts; CurrentTimeSpan = ts })
+                | Some(SetJobCount(jc)), Some state ->
+                    state.Worker.ActiveJobs <- nullable jc
+                    return! loop (Some state)
+                | Some(SetRunning), Some state ->
+                    state.Worker.Status <- runningPickle
+                    return! loop (Some state)
+                | Some(SetFaulted(ex, ch)), Some state ->
+                    state.Worker.Status <- (Faulted ex).Pickle()
+                    let! _ = Table.replace config table state.Worker
+                    ch.Reply()
+                    return! loop None
+                | Some(Stop(ch)), Some state ->
+                    state.Worker.Status <- WorkerStatus.Stopped.Pickle()
+                    let! _ = Table.replace config table state.Worker
+                    ch.Reply()
+                    return! loop None
+                | other ->
+                    failwithf "Invalid state %A" other
+            }
+            loop None
+        )
 
     member this.Current : WorkerRecord = 
         match current with
         | Some c -> c
         | None -> failwith "No worker registered."
     
-    member this.SetJobCountLocal(jobCount) =
-        current.Value.ActiveJobs <- nullable jobCount
+    member this.SetJobCountLocal(jc) = heartbeatAgent.Post(SetJobCount jc)
 
-    member this.SetCurrentAsRunning() =
-        current.Value.Status <- runningPickle
+    member this.SetCurrentAsRunning() = heartbeatAgent.Post(SetRunning)
 
-    member this.HeartbeatLoop(timespan : TimeSpan) : Async<unit> = async {
+    member this.StartHeartbeatLoop(timespan : TimeSpan) =
         if timespan > WorkerManager.MaxHeartbeatTimeSpan then raise(ArgumentOutOfRangeException("timespan", "Max TimeSpan of 10 minutes allowed."))
-        
-        let rec loop fault (currentTimespan : TimeSpan) = async {
-            let! fault, newTimespan = async {
-                try
-                    let counters = perfMon.Value.GetCounters()
-                    current.Value.UpdateCounters(counters)
-                    current.Value.ETag <- "*"
-                    let! e = Table.merge<WorkerRecord> config table current.Value
-                    current <- Some e
-                    if fault then
-                        let newTimeSpan = TimeSpan.FromTicks(timespan.Ticks / 2L)
-                        logger.Logf "Decreasing timespan to %A" newTimeSpan
-                        return false, newTimeSpan
-                    else
-                        return false, currentTimespan
-                with ex ->
-                    logger.Logf "Failed to give heartbeat %A" ex
-                    let newTimeSpan = min (TimeSpan.FromTicks(timespan.Ticks * 2L)) WorkerManager.MaxHeartbeatTimeSpan
-                    logger.Logf "Increasing timespan to %A" newTimeSpan
-                    return true, newTimeSpan
-
-                }
-            if sendHeartBeats then 
-                do! Async.Sleep (int newTimespan.TotalMilliseconds)
-                return! loop fault newTimespan
-            else
-                logger.Logf "Stopped heartbeats"
-        }
-        logger.Logf "Starting heartbeat loop with interval %A" timespan
-        return! loop false timespan
-    }
+        heartbeatAgent.Start()
+        heartbeatAgent.Post(Start(this.Current, timespan))
 
     member this.RegisterLocal(workerId) =
         async {
@@ -227,10 +285,14 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
 
     member this.SetCurrentAsStopped () : Async<unit> = 
         async {
-            (perfMon.Value :> IDisposable).Dispose()
-            sendHeartBeats <- false
-            do! this.SetWorkerStopped(this.Current)
+            (perfMon.Value :> IDisposable).Dispose() 
+            return! heartbeatAgent.PostAndAsyncReply(fun ch -> Stop(ch))
         }
+
+    member this.SetCurrentAsFaulted(ex : Exception) =
+        heartbeatAgent.PostAndReply(fun ch -> SetFaulted(ex, ch))
+        
+
 
     member this.SetWorkerStopped(worker : WorkerRecord) : Async<unit> =
         async {
@@ -239,9 +301,6 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             return ()
         }
 
-    member this.SetCurrentAsFaulted(ex : Exception) =
-        current.Value.Status <- (WorkerStatus.Faulted ex).Pickle()
-        
     member this.DeleteWorkerRecord(workerId : string) : Async<unit> =
         async {
             let! record = this.GetWorker(workerId)
@@ -271,6 +330,9 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             return wr |> Seq.map (fun w -> w.AsWorkerRef())
         }
 
+    
+    static member MaxHeartbeatTimeSpan = TimeSpan.FromMinutes(10.) // // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
+    
     static member Create(config : ConfigurationId, logger : ICloudLogger) = new WorkerManager(config, logger)
 
     /// Unrecoverable worker faults.
