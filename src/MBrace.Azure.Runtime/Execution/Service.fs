@@ -32,6 +32,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable customResources = ResourceRegistry.Empty
     let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
+    let mutable workerManager   = None
     let customLogger            = new LoggerCombiner() 
     let worker                  = new Worker()
     
@@ -117,6 +118,7 @@ type Service (config : Configuration, serviceId : string) =
                         return! Async.Raise(IncompatibleVersionException(sprintf "Activating Service '%s' with Configuration.Version '%s' not allowed. Versions must be exact." (string ReleaseInfo.localVersion) config.Version))
 
                 let! state, resources = Init.Initializer(config, serviceId, true, customLogger, ignoreVersion, maxJobs = this.MaxConcurrentJobs)
+                workerManager <- Some state.WorkerManager
 
                 storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
@@ -176,11 +178,17 @@ type Service (config : Configuration, serviceId : string) =
                 let! handle = Async.StartChild <| async { do worker.Start(config) }
                 logf "Worker loop started"
                 
+                state.WorkerManager.SetCurrentAsRunning()
                 sw.Stop()
                 logf "Service %s started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
                 return! handle
             with ex ->
-                logf "Service Start for %s failed with %A" this.Id  ex
+                logf "Service Start for %s failed with %A" this.Id ex
+                match workerManager with
+                | None -> 
+                    do! WorkerManager.SetFaulted(config.WithAppendedId.ConfigurationId, serviceId, ex)
+                | Some wman -> 
+                    wman.SetCurrentAsFaulted(ex)
                 return! Async.Raise ex
         }
 
@@ -194,8 +202,10 @@ type Service (config : Configuration, serviceId : string) =
                 logf "Stopping Service %s." serviceId
                 //TODO : Add other finalizations.
                 worker.Stop()
+                do! workerManager.Value.SetCurrentAsStopped()
                 logf "Service %s stopped." serviceId
             with ex ->
+                do! WorkerManager.SetFaulted(config.WithAppendedId.ConfigurationId, serviceId, ex)
                 logf "Service Stop for %s failed with %A" this.Id  ex
                 return! Async.Raise ex
         }

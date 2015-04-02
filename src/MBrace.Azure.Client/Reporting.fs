@@ -7,6 +7,7 @@ open MBrace.Azure.Runtime.Primitives
 open MBrace.Runtime.Utils.PrettyPrinters
 open System
 open Microsoft.FSharp.Linq.NullableOperators
+open MBrace.Azure
 
 type internal ProcessReporter() = 
     static let template : Field<ProcessRecord> list = 
@@ -28,22 +29,21 @@ type internal ProcessReporter() =
         sprintf "%s\nJobs : Active / Faulted / Completed / Total\n" <| Record.PrettyPrint(template, ps, title, borders)
 
 type internal WorkerReporter() = 
-    static let template : Field<WorkerRecord> list = 
-        let double_printer (value : Nullable<double>)   =
-            if value.HasValue then sprintf "%.2f" value.Value else "N/A"
+    static let template : Field<WorkerRef> list = 
+        let double_printer (value : double) = sprintf "%.1f" value
         [ Field.create "Id" Left (fun p -> p.Id)
           Field.create "Hostname" Left (fun p -> p.Hostname)
+          Field.create "Status" Left (fun p -> string p.Status)
           Field.create "% CPU / Cores" Center (fun p -> sprintf "%s / %d" (double_printer p.CPU) p.ProcessorCount)
           Field.create "% Memory / Total(MB)" Center (fun p -> sprintf "%s / %s" <| double_printer p.Memory <| double_printer p.TotalMemory)
           Field.create "Network(ul/dl : kbps)" Center (fun n -> sprintf "%s / %s" <| double_printer n.NetworkUp <| double_printer n.NetworkDown)
-          Field.create "Jobs" Center (fun p -> sprintf "%d / %d" p.ActiveJobs.Value p.MaxJobs.Value)
+          Field.create "Jobs" Center (fun p -> sprintf "%d / %d" p.ActiveJobs p.MaxJobCount)
           Field.create "Process Id" Right (fun p -> p.ProcessId)
+          Field.create "Heartbeat" Left (fun p -> p.HeartbeatTime)
           Field.create "Initialization Time" Left (fun p -> p.InitializationTime) 
-          Field.create "Heartbeat" Left (fun p -> p.Timestamp)
-          Field.create "Is active" Left (fun p -> p.IsActive.Value)
         ]
     
-    static member Report(workers : WorkerRecord seq, title, borders) = 
+    static member Report(workers : WorkerRef seq, title, borders) = 
         let ws = workers
                  |> Seq.sortBy (fun w -> w.InitializationTime)
                  |> Seq.toList

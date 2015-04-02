@@ -78,7 +78,11 @@ type RuntimeProvider private (state : RuntimeState, job : Job, dependencies, isF
            Combinators.StartAsCloudTask state job.ProcessInfo job.JobId dependencies cancellationToken faultPolicy workflow target
 
         member __.GetAvailableWorkers () = async { 
-            let! ws = state.WorkerManager.GetWorkerRefs(showInactive = false)
+            let! ws = state.WorkerManager.GetWorkerRefs(
+                        WorkerManager.MaxHeartbeatTimeSpan, 
+                        showStarting = false, 
+                        showInactive = false, 
+                        showFaulted = false)
             return ws |> Seq.map (fun w -> w :> IWorkerRef)
                       |> Seq.toArray 
             }

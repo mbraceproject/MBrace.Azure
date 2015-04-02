@@ -94,7 +94,7 @@
     <Compile Include="RuntimeInfo\ProcessInfo.fs" />
     <Compile Include="RuntimeProvider\ResourceFactory.fs" />
     <Compile Include="RuntimeProvider\Job.fs" />
-    <Compile Include="RuntimeProvider\RuntimeState.fs" />
+    <Compile Include="RuntimeProvider\State.fs" />
     <Compile Include="RuntimeProvider\Combinators.fs" />
     <Compile Include="RuntimeProvider\RuntimeProvider.fs" />
     <Compile Include="Execution\Init.fs" />
