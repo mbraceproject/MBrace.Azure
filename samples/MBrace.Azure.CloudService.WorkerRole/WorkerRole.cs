@@ -43,7 +43,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
             _svc = 
                 RoleEnvironment.IsEmulated ? 
                 new Service(_config) : // Avoid long service names when using emulator
-                new Service(_config, serviceId : RoleEnvironment.CurrentRoleInstance.Id);
+                new Service(_config, serviceId: RoleEnvironment.CurrentRoleInstance.Id.Split('.').Last());
             
             _svc.AttachLogger(new CustomLogger(s => Trace.WriteLine(String.Format("{0} : {1}", DateTime.UtcNow,s))));
             
