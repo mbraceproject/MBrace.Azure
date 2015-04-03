@@ -13,7 +13,7 @@ open System.IO
 [<AutoOpenAttribute>]
 module private Helpers = 
     let RenewLockInverval = 10000
-    let MaxLockDuration = TimeSpan.FromMinutes(5.)
+    let MaxLockDuration = TimeSpan.FromMinutes(10.)
     let MaxTTL = TimeSpan.MaxValue
     let ServerWaitTime = TimeSpan.FromMilliseconds(50.)
     let AffinityPropertyName = "Affinity"
