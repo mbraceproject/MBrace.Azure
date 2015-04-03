@@ -46,7 +46,7 @@ runtime.ShowLogs()
 
 runtime.ClearAllProcesses()
 
-runtime.Run(cloud { return 42 })
+runtime.Run(cloud { return Environment.MachineName })
 
 
 let ps = runtime.CreateProcess(cloud { for i in [1..10] do printfn "FOOOO" })

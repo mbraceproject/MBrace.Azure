@@ -194,14 +194,19 @@
                                        ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
             async {
                 restrictVersion()
+                
+                let pid = guid ()
+                let name = defaultArg name String.Empty
+                
+                clientLogger.Logf "Creating process %s %s" pid name
                 let faultPolicy = match faultPolicy with Some fp -> fp | None -> FaultPolicy.NoRetry
+                clientLogger.Logf "Computing dependencies"
                 let dependencies = state.AssemblyManager.ComputeDependencies workflow
           
-                let pid = guid ()
                 let info = 
                     { 
                         Id = pid
-                        Name = defaultArg name String.Empty
+                        Name = name
                         DefaultDirectory = defaultDirectory 
                         FileStore = fileStore
                         DefaultAtomContainer = defaultAtomContainer 
@@ -210,7 +215,6 @@
                         ChannelProvider = channelProvider 
                     }
 
-                clientLogger.Logf "Creating process %s %s" info.Id info.Name
                 let! _ = state.AssemblyManager.UploadDependencies(dependencies)
                 clientLogger.Logf "Submit process %s." info.Id
                 let! _ = state.StartAsProcess(info, dependencies, faultPolicy, workflow, ?ct = cancellationToken)
