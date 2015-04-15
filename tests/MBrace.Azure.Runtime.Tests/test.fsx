@@ -46,6 +46,19 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
+#r "Streams.Core.dll"
+#r "MBrace.Flow.dll"
+
+open MBrace.Flow
+
+let wf = 
+    [|1..10|]
+    |> CloudFlow.OfArray
+    |> CloudFlow.map (fun i -> i * i)
+    |> CloudFlow.toArray
+    |> runtime.Run
+
+
 
 
 runtime.ClearAllProcesses()

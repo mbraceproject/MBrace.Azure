@@ -37,8 +37,8 @@ type ``Azure Streams Tests`` (sbus, storage) as self =
 
     override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
 
-    override __.FsCheckMaxNumberOfTests = 10
-    override __.FsCheckMaxNumberOfIOBoundTests = 10
+    override __.FsCheckMaxNumberOfTests = 3
+    override __.FsCheckMaxNumberOfIOBoundTests = 3
 
 type ``Streams Compute - Storage Emulator`` () =
     inherit ``Azure Streams Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
