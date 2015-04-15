@@ -36,8 +36,10 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(reactivate = false)
 //runtime.Reset()
 
+runtime.ShowWorkers()
+
 // local only---
-runtime.AttachLocalWorker(1, 16)
+runtime.AttachLocalWorker(4, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
