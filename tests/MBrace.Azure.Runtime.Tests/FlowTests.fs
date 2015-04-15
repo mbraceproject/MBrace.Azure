@@ -37,10 +37,10 @@ type ``Azure Flow Tests`` (sbus, storage) as self =
 
     override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
 
-    override __.FsCheckMaxNumberOfTests = 10
-    override __.FsCheckMaxNumberOfIOBoundTests = 10
+    override __.FsCheckMaxNumberOfTests = 3
+    override __.FsCheckMaxNumberOfIOBoundTests = 3
 
-type ``Streams Compute - Storage Emulator`` () =
+type ``Flows Compute - Storage Emulator`` () =
     inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
     
     [<TestFixtureSetUpAttribute>]
@@ -48,13 +48,13 @@ type ``Streams Compute - Storage Emulator`` () =
         // TODO : Check if emulator is up?
         base.Init()    
 
-type ``Streams Standalone - Storage Emulator`` () =
+type ``Flows Standalone - Storage Emulator`` () =
     inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
 
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 4) 
+        Runtime.SpawnLocal(base.Configuration, 4, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -64,13 +64,13 @@ type ``Streams Standalone - Storage Emulator`` () =
         base.Fini()
 
 
-type ``Streams Standalone`` () =
+type ``Flow Standalone`` () =
     inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 4) 
+        Runtime.SpawnLocal(base.Configuration, 4, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
