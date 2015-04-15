@@ -3,7 +3,7 @@
 // Contains types used a table storage entities, service bus messages and blog objects.
 open System
 open System.Runtime.Serialization
-open MBrace.Continuation
+open MBrace.Core.Internals
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure

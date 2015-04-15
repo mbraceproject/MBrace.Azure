@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Azure.Runtime.Utilities
 
-open MBrace.Runtime
+open MBrace.Core.Internals
 
 [<AutoOpen>]
 module LoggerExtensions =

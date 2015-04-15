@@ -2,22 +2,20 @@
 
 #nowarn "52"
 
-open MBrace
-open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Info
-open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure.Runtime.Primitives
-open MBrace.Runtime
-open MBrace.Continuation
-open MBrace.Runtime.Compiler
-open MBrace.Runtime.Utils.PrettyPrinters
 open System
 open System.IO
 open System.Threading
 open System.Reflection
-open MBrace.Azure
 open System.Collections.Concurrent
 
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Runtime.Utils.PrettyPrinters
+open MBrace.Azure
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Info
+open MBrace.Azure.Runtime.Utilities
+open MBrace.Azure.Runtime.Primitives
 
 [<AutoSerializable(false); AbstractClass>]
 /// Represents a cloud process.

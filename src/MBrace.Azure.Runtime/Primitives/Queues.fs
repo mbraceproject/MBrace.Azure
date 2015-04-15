@@ -6,7 +6,7 @@ open Microsoft.ServiceBus.Messaging
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure
-open MBrace.Runtime
+open MBrace.Core.Internals
 open System.Threading.Tasks
 open System.IO
 

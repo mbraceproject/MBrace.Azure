@@ -2,22 +2,25 @@
 
 #nowarn "0444" // MBrace.Core warnings
 
-open MBrace
+open System
+open System.Text
+open System.Threading.Tasks
+
+open Microsoft.FSharp.Core.Printf
+
+open Nessos.FsPickler
+open Nessos.Vagabond
+
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
+open MBrace.Runtime
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Vagabond
 open MBrace.Azure
 open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Continuation
-open MBrace.Runtime
-open MBrace.Runtime.Utils
-open MBrace.Runtime.Vagabond
-open MBrace.Store
-open Microsoft.FSharp.Core.Printf
-open Nessos.FsPickler
-open Nessos.Vagabond
-open System
-open System.Text
-open System.Threading.Tasks
 
 [<AutoSerializable(false)>]
 /// Defines a handle to the state of a runtime instance.

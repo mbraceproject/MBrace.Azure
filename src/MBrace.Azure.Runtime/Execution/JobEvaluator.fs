@@ -1,19 +1,21 @@
 ﻿namespace MBrace.Azure.Runtime
 
-open MBrace.Azure
-open Nessos.FsPickler
-open Nessos.Vagabond.AppDomainPool
 open System
-open MBrace.Azure.Runtime.Primitives
 open System.Diagnostics
-open MBrace.Continuation
+
+open Nessos.FsPickler
+open Nessos.Vagabond
+open Nessos.Vagabond.AppDomainPool
+
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
-open MBrace.Runtime
-open MBrace.Azure.Runtime.Utilities
+open MBrace.Store.Internals
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
-open Nessos.Vagabond
-open MBrace
+open MBrace.Azure
+open MBrace.Azure.Runtime.Primitives
+open MBrace.Azure.Runtime.Utilities
 
 /// Default job configuration for use by JobEvaluator.
 type internal JobEvaluatorConfiguration =
@@ -67,10 +69,10 @@ and [<AutoSerializable(false)>]
         let resources = resource { 
             yield! staticConfiguration.Resources
             yield! config.CustomResources
+            yield staticConfiguration.Cache
+            yield serializer
             yield { FileStore = defaultArg info.FileStore config.Store
-                    DefaultDirectory = getDirectory info.DefaultDirectory config.StoreDirectory staticConfiguration.State.ConfigurationId.UserDataContainer
-                    Cache = Some staticConfiguration.Cache
-                    Serializer = serializer }
+                    DefaultDirectory = getDirectory info.DefaultDirectory config.StoreDirectory staticConfiguration.State.ConfigurationId.UserDataContainer }
             yield { AtomProvider = defaultArg info.AtomProvider config.Atom
                     DefaultContainer = getDirectory info.DefaultAtomContainer config.AtomDirectory staticConfiguration.State.ConfigurationId.UserDataTable }
             yield { ChannelProvider = defaultArg info.ChannelProvider config.Channel

@@ -1,15 +1,17 @@
 ﻿namespace MBrace.Azure.Runtime.Primitives
 
-open MBrace.Runtime.Utils
-open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Utilities
 open System
 open System.Runtime.Serialization
-open MBrace.Continuation
-open MBrace
 open System.Threading
-open MBrace.Azure
+
 open Microsoft.WindowsAzure.Storage.Table
+
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Runtime.Utils
+open MBrace.Azure
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Utilities
 
 /// Cloud computation result
 type Result<'T> =

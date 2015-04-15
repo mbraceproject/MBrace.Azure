@@ -1,11 +1,11 @@
 ﻿namespace MBrace.Azure.Runtime.Info
 
 open System
-open Microsoft.WindowsAzure.Storage.Table
-open MBrace.Azure
-open MBrace.Continuation
 open System.Collections.Concurrent
-open MBrace.Runtime
+open Microsoft.WindowsAzure.Storage.Table
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 
 type LoggerType =
@@ -150,7 +150,7 @@ type ProcessLogger(config : ConfigurationId, pid : string) =
 namespace MBrace.Azure
 
 open System
-open MBrace.Runtime
+open MBrace.Core.Internals
 
 type NullLogger () =
     interface ICloudLogger with

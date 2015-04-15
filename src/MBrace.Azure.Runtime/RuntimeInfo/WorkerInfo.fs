@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Azure
-open MBrace
 open System
+open MBrace.Core
+open MBrace.Core.Internals
 
 /// Represents current worker status.
 type WorkerStatus = 
@@ -82,15 +83,19 @@ type WorkerRef =
 namespace MBrace.Azure.Runtime.Info
 
 open System
-open Microsoft.WindowsAzure.Storage.Table
-open MBrace.Azure.Runtime
 open System.Net
 open System.Threading
-open MBrace
-open MBrace.Azure
+
+open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.FSharp.Linq.NullableOperators
+
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Azure
+open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
+
 
 type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string, joined : DateTimeOffset) =
     inherit TableEntity(pk, id)

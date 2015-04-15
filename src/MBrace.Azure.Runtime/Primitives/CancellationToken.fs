@@ -1,15 +1,17 @@
 ﻿namespace MBrace.Azure.Runtime.Primitives
 
 open System
+open System.Collections.Generic
 open System.Threading
 open System.Runtime.Serialization
-open MBrace.Azure.Runtime
-open MBrace.Continuation
-open MBrace.Azure.Runtime.Utilities
+
 open Microsoft.WindowsAzure.Storage.Table
-open MBrace
-open System.Collections.Generic
+
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Azure
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Utilities
 
 [<AutoOpen>]
 module private CancellationTokenSourceUtils =

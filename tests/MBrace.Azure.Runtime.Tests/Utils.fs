@@ -5,7 +5,8 @@ open System.Threading
 open NUnit.Framework
 open FsUnit
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Azure.Runtime
 open MBrace.Azure.Client

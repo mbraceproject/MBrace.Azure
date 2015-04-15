@@ -7,8 +7,9 @@ open System.IO
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
-open MBrace
+open MBrace.Core
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime.Vagabond
 
 open MBrace.Azure.Store.TableEntities

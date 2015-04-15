@@ -8,22 +8,25 @@
 
 #nowarn "0444" // MBrace.Core warnings
 
-open MBrace
+open System
+open System.Text
+open System.Threading.Tasks
+
+open Microsoft.FSharp.Core.Printf
+
+open Nessos.FsPickler
+open Nessos.Vagabond
+
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
+open MBrace.Store.Internals
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Vagabond
 open MBrace.Azure
 open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Continuation
-open MBrace.Runtime
-open MBrace.Runtime.Utils
-open MBrace.Runtime.Vagabond
-open MBrace.Store
-open Microsoft.FSharp.Core.Printf
-open Nessos.FsPickler
-open Nessos.Vagabond
-open System
-open System.Text
-open System.Threading.Tasks
 
 // Jobs are cloud workflows that have been attached to continuations.
 // In that sense they are 'closed' multi-threaded computations that
@@ -105,7 +108,7 @@ with
         bprintf sb "Job : %s\n" this.JobId
         bprintf sb "ParentJob : %s\n" (if String.IsNullOrEmpty this.ParentJobId then "<empty>" else this.ParentJobId)
         bprintf sb "ProcessId : %s\n" this.ProcessInfo.Id
-        bprintf sb "ReturnType : %s\n" (Runtime.Utils.PrettyPrinters.Type.prettyPrint this.Type)
+        bprintf sb "ReturnType : %s\n" (PrettyPrinters.Type.prettyPrint this.Type)
         bprintf sb "JobType : %A" this.JobType
         sb.ToString()
 

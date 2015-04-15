@@ -2,15 +2,14 @@
 
 #nowarn "444"
 
-open MBrace
-open MBrace.Continuation
-open MBrace.Runtime
+open System
 
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Core.Internals.InMemoryRuntime
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Primitives
-open System
-open MBrace.Runtime.InMemory
         
 /// Scheduling implementation provider
 type RuntimeProvider private (state : RuntimeState, job : Job, dependencies, isForcedLocalParallelism : bool) =

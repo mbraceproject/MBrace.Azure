@@ -5,7 +5,8 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
-open MBrace.Store
+open MBrace.Store.Internals
+
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Blob
 

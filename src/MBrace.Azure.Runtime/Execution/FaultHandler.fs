@@ -1,7 +1,7 @@
 ﻿namespace MBrace.Azure.Runtime
 
 open System
-open MBrace
+open MBrace.Core
 open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Utilities
 

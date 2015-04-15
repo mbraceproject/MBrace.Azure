@@ -8,6 +8,7 @@ open System.Runtime.Serialization
 open Nessos.Vagabond
 open Nessos.Vagabond.AssemblyProtocols
 
+open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Vagabond
 open MBrace.Azure

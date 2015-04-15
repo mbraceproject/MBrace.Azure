@@ -55,7 +55,7 @@
                 __.ReturnFrom(Async.AwaitTask f)
 
 
-    open MBrace.Continuation
+    open MBrace.Core.Internals
 
     type Live<'T>(provider : unit -> Async<'T>, initial : Choice<'T,exn>, ?keepLast : bool, ?interval : int, ?stopf : Choice<'T, exn> -> bool) =
         let interval = defaultArg interval 500

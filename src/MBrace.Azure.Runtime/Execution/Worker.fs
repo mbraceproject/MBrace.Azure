@@ -1,22 +1,21 @@
 ﻿namespace MBrace.Azure.Runtime
 
+open System
 open System.Diagnostics
+open System.Threading
 
 open Nessos.FsPickler
 open Nessos.Vagabond
 open Nessos.Vagabond.AppDomainPool
 
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
+open MBrace.Runtime.Vagabond
 open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure.Runtime.Primitives
-open MBrace.Continuation
-open MBrace.Runtime.Vagabond
-open MBrace.Store
-open MBrace.Runtime
-open System
-open System.Threading
-open MBrace
 
 type internal WorkerConfig = 
     { State                     : RuntimeState

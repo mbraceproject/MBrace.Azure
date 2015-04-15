@@ -1,7 +1,9 @@
 ﻿namespace MBrace.Azure.Store.Tests
 
-open MBrace.Tests
 open NUnit.Framework
+
+open MBrace.Core.Tests
+open MBrace.Store.Internals
 open MBrace.Client
 
 [<AutoOpen>]
@@ -20,11 +22,11 @@ module private Config =
 
     let remoteBlobStoreConfig = 
         lazy let store = BlobStore.Create(remoteConn.Value)
-             CloudFileStoreConfiguration.Create(store, serializer)
+             CloudFileStoreConfiguration.Create(store)
 
     let emulatorBlobStoreConfig = 
         lazy let store = BlobStore.Create(emulatorConn)
-             CloudFileStoreConfiguration.Create(store, serializer)
+             CloudFileStoreConfiguration.Create(store)
 
     let remoteAtomStoreConfig =
         lazy 
@@ -44,16 +46,11 @@ module private Config =
 
 [<TestFixture>]
 type ``Remote - BlobStore Tests`` () =
-    inherit  ``Local FileStore Tests``({ remoteBlobStoreConfig.Value with Cache = None })
-    override __.IsCachingStore = false
+    inherit  ``Local FileStore Tests``(remoteBlobStoreConfig.Value, serializer)
 
 [<TestFixture>]
 type ``Emulator - BlobStore Tests`` () =
-    inherit  ``Local FileStore Tests``({ emulatorBlobStoreConfig.Value with Cache = None })
-    override __.IsCachingStore = false
-
-
-
+    inherit  ``Local FileStore Tests``(emulatorBlobStoreConfig.Value, serializer)
 
 [<TestFixture>]
 type ``Remote - Atom Tests`` () =
@@ -62,7 +59,7 @@ type ``Remote - Atom Tests`` () =
     let imem = LocalRuntime.Create(atomConfig = remoteAtomStoreConfig.Value)
 
     override __.Run wf = imem.Run wf
-    override __.RunLocal wf = imem.Run wf
+    override __.RunLocally wf = imem.Run wf
     override __.AtomClient = imem.StoreClient.Atom
     override __.Repeats = 1
 
@@ -73,7 +70,7 @@ type ``Emulator - Atom Tests`` () =
     let imem = LocalRuntime.Create(atomConfig = emulatorAtomStoreConfig.Value)
 
     override __.Run wf = imem.Run wf
-    override __.RunLocal wf = imem.Run wf
+    override __.RunLocally wf = imem.Run wf
     override __.AtomClient = imem.StoreClient.Atom
     override __.Repeats = 3
 
@@ -86,6 +83,6 @@ type ``Remote - Channel Tests`` () =
     let imem = LocalRuntime.Create(channelConfig = remoteChannelStoreConfig.Value)
 
     override __.Run wf = imem.Run wf
-    override __.RunLocal wf = imem.Run wf
+    override __.RunLocally wf = imem.Run wf
     override __.ChannelClient = imem.StoreClient.Channel
 

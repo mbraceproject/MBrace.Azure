@@ -1,16 +1,17 @@
 ﻿namespace MBrace.Azure.Client
 
-open MBrace.Azure.Runtime
-open MBrace.Continuation
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
 open MBrace.Runtime.Store
-open MBrace.Azure.Store
 open MBrace.Azure
+open MBrace.Azure.Runtime
+open MBrace.Azure.Store
 
 [<Sealed>]
 type internal StoreClient private () =
     
-    static member CreateDefault(config : Configuration) : ResourceRegistry * MBrace.Client.StoreClient =
+    static member CreateDefault(config : Configuration) : ResourceRegistry * MBrace.Client.CloudStoreClient =
         let storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
         let atomProvider = AtomProvider.Create(config.StorageConnectionString) :> ICloudAtomProvider
         let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString) :> ICloudChannelProvider
@@ -21,15 +22,13 @@ type internal StoreClient private () =
 
         let resources = 
             resource { 
-                yield { FileStore = storeProvider
-                        DefaultDirectory = defaultStoreContainer
-                        Cache = None
-                        Serializer = Configuration.Serializer }
+                yield Configuration.Serializer
+                yield CloudFileStoreConfiguration.Create(storeProvider, defaultStoreContainer)
                 yield { AtomProvider = atomProvider
                         DefaultContainer = defaultAtomContainer }
                 yield { ChannelProvider = channelProvider
                         DefaultContainer = defaultChannelContainer } 
             }
 
-        let sc = MBrace.Client.StoreClient.CreateFromResources(resources)
+        let sc = MBrace.Client.CloudStoreClient.CreateFromResources(resources)
         resources, sc

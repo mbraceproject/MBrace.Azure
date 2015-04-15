@@ -1,12 +1,13 @@
 ﻿namespace MBrace.Azure.Runtime.Tests
 
 open NUnit.Framework
-open MBrace
-open MBrace.Continuation
+
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Core.Tests
 open MBrace.Azure
 open MBrace.Azure.Client
 open MBrace.Azure.Runtime
-open MBrace.Tests
 
 #nowarn "445" // 'Reset'
 
@@ -49,7 +50,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
             return! Async.Catch <| ps.AwaitResultAsync()
         } |> Async.RunSync
 
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
 
     override __.Logs = failwith "Not implemented"
     override __.FsCheckMaxTests = 4

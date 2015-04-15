@@ -4,10 +4,11 @@ open System
 open System.IO
 open System.Runtime.Serialization
 
-open MBrace
-open MBrace.Runtime.Vagabond
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Store
+open MBrace.Store.Internals
+open MBrace.Runtime.Vagabond
 
 open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging

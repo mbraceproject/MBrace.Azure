@@ -1,3 +1,6 @@
+#### 0.6.6-alpha
+* Update MBrace.Core libraries.
+
 #### 0.6.5-alpha
 * Update MBrace.Core libraries.
 * Remove transient dependencies from nuget package.

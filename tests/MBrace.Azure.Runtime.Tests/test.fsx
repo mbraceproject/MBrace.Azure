@@ -6,7 +6,8 @@
 #r "MBrace.Azure.Client.dll"
 #time "on"
 
-open MBrace
+open MBrace.Core
+open MBrace.Azure
 open MBrace.Azure
 open MBrace.Azure.Client
 open System
@@ -30,12 +31,13 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 let runtime = Runtime.GetHandle(config)
+runtime.Reset(true, true, true, true, true)
 runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(reactivate = false)
 //runtime.Reset()
 
 // local only---
-runtime.AttachLocalWorker(4, 16)
+runtime.AttachLocalWorker(1, 16)
 // ----------------------------
 
 runtime.ShowProcesses()

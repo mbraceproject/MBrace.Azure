@@ -268,7 +268,7 @@ module Configuration =
     open MBrace.Runtime.Vagabond
     open System.Collections.Generic
     open MBrace.Runtime.Serialization
-    open MBrace.Store
+    open MBrace.Store.Internals
 
     let private ignoredAssemblies = new HashSet<Assembly>()
 

@@ -1,12 +1,13 @@
 ﻿namespace MBrace.Azure.Runtime.Tests
 
-open NUnit.Framework
-open MBrace
-open MBrace.Continuation
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Flow.Tests
 open MBrace.Azure
 open MBrace.Azure.Client
 open MBrace.Azure.Runtime
-open MBrace.Flow.Tests
+
+open NUnit.Framework
 
 [<AbstractClass; TestFixture>]
 type ``Azure Streams Tests`` (sbus, storage) as self =
@@ -34,9 +35,10 @@ type ``Azure Streams Tests`` (sbus, storage) as self =
     override __.Run (workflow : Cloud<'T>) = 
         session.Runtime.Run(workflow)
 
-    override __.RunLocal(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
 
     override __.FsCheckMaxNumberOfTests = 10
+    override __.FsCheckMaxNumberOfIOBoundTests = 10
 
 type ``Streams Compute - Storage Emulator`` () =
     inherit ``Azure Streams Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")

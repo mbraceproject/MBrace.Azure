@@ -1,16 +1,18 @@
 ﻿namespace MBrace.Azure.Runtime
-open MBrace
-open MBrace.Azure
-open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Primitives
-open MBrace.Azure.Store
-open MBrace.Continuation
-open MBrace.Runtime
-open MBrace.Runtime.Store
-open MBrace.Store
+
 open System
 open System.Diagnostics
 open System.Threading
+
+open MBrace.Core
+open MBrace.Core.Internals
+open MBrace.Store
+open MBrace.Store.Internals
+open MBrace.Runtime.Store
+open MBrace.Azure
+open MBrace.Azure.Store
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Utilities
 

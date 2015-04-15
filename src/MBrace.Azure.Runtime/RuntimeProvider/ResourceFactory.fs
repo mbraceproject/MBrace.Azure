@@ -1,9 +1,11 @@
 ﻿namespace MBrace.Azure.Runtime.Primitives
 
+open Microsoft.WindowsAzure.Storage.Table
+
+open MBrace.Core.Internals
+open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure
-open Microsoft.WindowsAzure.Storage.Table
 open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Info
 
@@ -39,7 +41,7 @@ type ResourceFactory private (configId : ConfigurationId) =
     member __.RequestCancellationTokenSource(pid, ?metadata, ?parent, ?elevate) = 
         DistributedCancellationTokenSource.Create(configId, pid, ?metadata = metadata, ?parent = parent, ?elevate = elevate)
 
-    member this.RequestProcessLogger(pid) : MBrace.Runtime.ICloudLogger = 
+    member this.RequestProcessLogger(pid) : ICloudLogger = 
         let pl = new ProcessLogger(configId, pid) 
         let lc = new LoggerCombiner()
         lc.Attach(new ConsoleLogger())

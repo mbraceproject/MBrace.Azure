@@ -4,15 +4,14 @@
 //  Provides distributed implementations for Cloud.Parallel, Cloud.Choice and Cloud.StartChild
 //
 
-open MBrace
+open MBrace.Core
+open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Primitives
 
 #nowarn "444"
-
-open MBrace.Azure.Runtime.Primitives
-open MBrace.Continuation
 
 let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =
     { ctx with Resources = ctx.Resources.Register(cts) ; CancellationToken = cts }
