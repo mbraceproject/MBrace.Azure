@@ -10,7 +10,7 @@ open MBrace.Azure.Runtime
 open NUnit.Framework
 
 [<AbstractClass; TestFixture>]
-type ``Azure Streams Tests`` (sbus, storage) as self =
+type ``Azure Flow Tests`` (sbus, storage) as self =
     inherit ``CloudFlow tests`` ()
 
     let config = 
@@ -41,7 +41,7 @@ type ``Azure Streams Tests`` (sbus, storage) as self =
     override __.FsCheckMaxNumberOfIOBoundTests = 10
 
 type ``Streams Compute - Storage Emulator`` () =
-    inherit ``Azure Streams Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
+    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
@@ -49,12 +49,12 @@ type ``Streams Compute - Storage Emulator`` () =
         base.Init()    
 
 type ``Streams Standalone - Storage Emulator`` () =
-    inherit ``Azure Streams Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
+    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
 
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 16) 
+        Runtime.SpawnLocal(base.Configuration, 4) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -65,12 +65,12 @@ type ``Streams Standalone - Storage Emulator`` () =
 
 
 type ``Streams Standalone`` () =
-    inherit ``Azure Streams Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
+    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 16) 
+        Runtime.SpawnLocal(base.Configuration, 4) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]

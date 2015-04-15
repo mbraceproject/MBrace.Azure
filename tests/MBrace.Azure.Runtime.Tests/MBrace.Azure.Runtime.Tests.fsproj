@@ -71,7 +71,7 @@
   <ItemGroup>
     <Compile Include="Utils.fs" />
     <Compile Include="Tests.fs" />
-    <Compile Include="StreamsTests.fs" />
+    <Compile Include="FlowTests.fs" />
     <None Include="test.fsx" />
     <None Include="resources.fsx" />
     <None Include="azure.fsx" />
