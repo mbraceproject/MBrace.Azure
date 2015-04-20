@@ -10,7 +10,7 @@ open MBrace.Azure.Runtime
 open NUnit.Framework
 
 [<AbstractClass; TestFixture>]
-type ``Azure Streams Tests`` (sbus, storage) as self =
+type ``Azure Flow Tests`` (sbus, storage) as self =
     inherit ``CloudFlow tests`` ()
 
     let config = 
@@ -40,16 +40,16 @@ type ``Azure Streams Tests`` (sbus, storage) as self =
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3
 
-type ``Streams Compute - Storage Emulator`` () =
-    inherit ``Azure Streams Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
+type ``Flows Compute - Storage Emulator`` () =
+    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         // TODO : Check if emulator is up?
         base.Init()    
 
-type ``Streams Standalone - Storage Emulator`` () =
-    inherit ``Azure Streams Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
+type ``Flows Standalone - Storage Emulator`` () =
+    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
 
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
@@ -64,8 +64,8 @@ type ``Streams Standalone - Storage Emulator`` () =
         base.Fini()
 
 
-type ``Streams Standalone`` () =
-    inherit ``Azure Streams Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
+type ``Flow Standalone`` () =
+    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
