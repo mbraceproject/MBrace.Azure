@@ -21,7 +21,7 @@ type WorkerStatus =
         | Stopped   -> "Stopped"
         | Faulted _ -> "Faulted"
 
-    member this.Pickle () = MBrace.Azure.Runtime.Configuration.Pickler.Pickle(this)
+    static member Pickle (status : WorkerStatus) = MBrace.Azure.Runtime.Configuration.Pickler.Pickle(status)
 
     static member UnPickle (bytes) = MBrace.Azure.Runtime.Configuration.Pickler.UnPickle<WorkerStatus>(bytes)
 
@@ -176,7 +176,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
 
     let perfMon = lazy new PerformanceMonitor()
     let mutable current = None : WorkerRecord option
-    let runningPickle = WorkerStatus.Running.Pickle()
+    let runningPickle = WorkerStatus.Pickle Running
 
     let heartbeatAgent = 
         new MailboxProcessor<WorkerManagerMessage>(fun inbox ->
@@ -233,12 +233,12 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                     state.Worker.Status <- runningPickle
                     return! loop (Some state)
                 | Some(SetFaulted(ex, ch)), Some state ->
-                    state.Worker.Status <- (Faulted ex).Pickle()
+                    state.Worker.Status <- WorkerStatus.Pickle (Faulted ex)
                     let! _ = Table.replace config table state.Worker
                     ch.Reply()
                     return! loop None
                 | Some(Stop(ch)), Some state ->
-                    state.Worker.Status <- WorkerStatus.Stopped.Pickle()
+                    state.Worker.Status <- WorkerStatus.Pickle WorkerStatus.Stopped
                     let! _ = Table.replace config table state.Worker
                     ch.Reply()
                     return! loop None
@@ -280,7 +280,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), nullable ps.Id, ps.ProcessName, joined)
                 w.UpdateCounters(perfMon.Value.GetCounters())
                 w.ActiveJobs <- nullable 0
-                w.Status <- WorkerStatus.Initializing.Pickle()
+                w.Status <-  WorkerStatus.Pickle Initializing
                 w.Version <- ReleaseInfo.localVersion.ToString(4)
                 w.MaxJobs <- match maxJobs with None -> nullableDefault | Some mj -> nullable mj
                 w.ConfigurationId <- Configuration.Pickler.Pickle config
@@ -301,7 +301,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
 
     member this.SetWorkerStopped(worker : WorkerRecord) : Async<unit> =
         async {
-            worker.Status <- WorkerStatus.Stopped.Pickle()
+            worker.Status <- WorkerStatus.Pickle Stopped
             let! _ = Table.replace config table worker
             return ()
         }
@@ -346,7 +346,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             let ps = Diagnostics.Process.GetCurrentProcess()
             let joined = DateTimeOffset.UtcNow
             let w = new WorkerRecord(pk, workerId, Dns.GetHostName(), nullable ps.Id, ps.ProcessName, joined)
-            w.Status <- (Faulted ex).Pickle()
+            w.Status <- WorkerStatus.Pickle (Faulted ex)
             w.ETag <- "*"
             do! Table.insertOrReplace config config.RuntimeTable w
                 |> Async.Ignore

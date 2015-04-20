@@ -58,6 +58,12 @@ let wf =
     |> CloudFlow.toArray
     |> runtime.Run
 
+let files = runtime.StoreClient.File.Enumerate "wiki" 
+let paths = files |> Array.map (fun file -> file.Path)
+
+CloudFlow.OfTextFilesByLine paths
+|> CloudFlow.length
+|> runtime.CreateProcess
 
 
 
