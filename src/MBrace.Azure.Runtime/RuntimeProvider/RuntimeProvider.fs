@@ -85,5 +85,7 @@ type RuntimeProvider private (state : RuntimeState, job : Job, dependencies, isF
             return ws |> Seq.map (fun w -> w :> IWorkerRef)
                       |> Seq.toArray 
             }
-        member __.CurrentWorker = state.WorkerManager.Current.AsWorkerRef() :> IWorkerRef
+        member __.CurrentWorker =
+            let w = state.WorkerManager.Current
+            new MBrace.Azure.WorkerRef(Configuration.Pickler.UnPickle(w.ConfigurationId) ,w.PartitionKey, w.RowKey) :> IWorkerRef
         member __.Logger = state.ResourceFactory.RequestProcessLogger(job.ProcessInfo.Id) 

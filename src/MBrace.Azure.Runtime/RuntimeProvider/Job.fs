@@ -122,18 +122,7 @@ with
                            (resources : ResourceRegistry)
                            (faultCount : int)
                            (job : Job) = async {
-        let jem = new JobExecutionMonitor()
-        let ctx =
-            {
-                Resources = resource { 
-                                yield runtimeProvider
-                                yield! resources
-                                yield jem
-                                yield job.CancellationTokenSource
-                            }
-                CancellationToken = job.CancellationTokenSource :> ICloudCancellationToken
-            }
-
+        let ctx, jem = Job.CreateExecutionContext runtimeProvider resources job
         if faultCount > 0 then
             let faultException = new FaultException(sprintf "Fault exception when running job '%s', faultCount '%d'" job.JobId faultCount)
             match job.FaultPolicy.Policy faultCount (faultException :> exn) with
@@ -147,6 +136,22 @@ with
 
         return! JobExecutionMonitor.AwaitCompletion jem
     }
+
+    static member CreateExecutionContext (runtimeProvider : IDistributionProvider) (resources : ResourceRegistry) (job : Job) =
+        let jem = new JobExecutionMonitor()
+        let ctx =
+            {
+                Resources = resource { 
+                                yield runtimeProvider
+                                yield! resources
+                                yield jem
+                                yield job.CancellationTokenSource
+                            }
+                CancellationToken = job.CancellationTokenSource :> ICloudCancellationToken
+            }
+        ctx, jem
+
+
 
 /// JobQueue message type.
 type PickledJob = 

@@ -61,6 +61,7 @@
         let interval = defaultArg interval 500
         let keepLast = defaultArg keepLast false
         let stopf = defaultArg stopf (fun _ -> false)
+        let mutable stop = false
         let mutable value = initial
 
         let runOnce () = async {
@@ -74,7 +75,7 @@
 
         let rec update () = async {
             let! choice = runOnce()
-            if stopf choice then 
+            if stopf choice || stop then 
                 return ()
             else
                 do! Async.Sleep interval
@@ -93,6 +94,9 @@
             match value with
             | Choice1Of2 v -> v
             | Choice2Of2 e -> raise e
+
+        member __.Stop () = stop <- true
+            
 
 
     [<RequireQualifiedAccess>]

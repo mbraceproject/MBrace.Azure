@@ -83,6 +83,7 @@ and [<AutoSerializable(false)>]
     static let run (config : JobEvaluatorConfiguration) (msg : QueueMessage) (dependencies : VagabondAssembly list) (jobItem : PickledJob) = 
         async {
             let inline logf fmt = Printf.ksprintf (staticConfiguration.State.Logger :> ICloudLogger).Log fmt
+
             if msg.DeliveryCount = 1 then
                 do! staticConfiguration.State.ProcessManager.AddActiveJob(jobItem.ProcessInfo.Id)
 
@@ -103,6 +104,7 @@ and [<AutoSerializable(false)>]
                     do! staticConfiguration.State.ProcessManager.SetRunning(job.ProcessInfo.Id)
 
                 logf "Starting job\n%s" (string job)
+                logf "Delivery count : %d" msg.DeliveryCount
                 let sw = Stopwatch.StartNew()
                 let! result = Async.Catch(runJob config job jobItem.Dependencies (msg.DeliveryCount-1))
                 sw.Stop()
