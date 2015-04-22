@@ -113,7 +113,7 @@ type Runtime private (clientId, config : Configuration) =
     /// <param name="logger">Optional logger to use.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     /// <param name="faultPolicy">Optional fault policy.</param>
-    member this.RunLocalAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
+    member this.RunLocallyAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
         async {
             restrictVersion()
             let runtimeProvider = ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
@@ -132,8 +132,8 @@ type Runtime private (clientId, config : Configuration) =
     /// <param name="logger">Optional logger to use.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
     /// <param name="faultPolicy">Optional fault policy.</param>
-    member this.RunLocal(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
-        this.RunLocalAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
+    member this.RunLocally(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
+        this.RunLocallyAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
         |> Async.RunSync
 
     /// <summary>

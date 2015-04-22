@@ -50,7 +50,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
             return! Async.Catch <| ps.AwaitResultAsync()
         } |> Async.RunSync
 
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
 
     override __.Logs = failwith "Not implemented"
     override __.FsCheckMaxTests = 4

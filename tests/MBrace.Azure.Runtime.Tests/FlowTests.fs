@@ -35,7 +35,7 @@ type ``Azure Flow Tests`` (sbus, storage) as self =
     override __.Run (workflow : Cloud<'T>) = 
         session.Runtime.Run(workflow)
 
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocal(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
 
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3
