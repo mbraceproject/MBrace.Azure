@@ -8,8 +8,17 @@ open MBrace.Azure.Runtime.Utilities
 [<Sealed>]
 type internal FaultHandler () =
 
+    /// Fault job : used for  job execution errors.
+    /// Just apply fault exception.
+    static member FaultJobAsync(job : Job, message, state : RuntimeState, fault : Exception) =
+        async {
+            
+            state.Logger.Logf "Faulted message : Complete."
+            do! state.ProcessManager.AddFaultedJob(job.ProcessInfo.Id)
+            do! state.JobQueue.CompleteAsync(message)
+        }
 
-    /// Fault job used for deserialization/assembly load errors.
+    /// Fault job : used for deserialization/assembly load errors.
     /// Set ResultCell of parent CloudTask and call CTS.
     static member FaultPickledJobAsync(job : PickledJob, message, state : RuntimeState, fault : Exception) =
         async {
@@ -31,7 +40,7 @@ type internal FaultHandler () =
             do! state.JobQueue.CompleteAsync(message)
         }
 
-    /// Fault job used when even getting PickledJob is not possible.
+    /// Fault job : used when even getting PickledJob is not possible.
     /// Set ResultCell of process and call CTS.
     /// Set process as faulted.
     static member FaultMessageAsync(message : QueueMessage, state : RuntimeState, fault : Exception) =

@@ -31,12 +31,10 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 let runtime = Runtime.GetHandle(config)
-runtime.Reset(true, true, true, true, true)
 runtime.AttachClientLogger(new ConsoleLogger())
+//runtime.Reset(true, true, true, true, false)
 //runtime.Reset(reactivate = false)
 //runtime.Reset()
-
-runtime.ShowWorkers()
 
 // local only---
 runtime.AttachLocalWorker(4, 16)
@@ -45,6 +43,15 @@ runtime.AttachLocalWorker(4, 16)
 runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
+
+let ps =
+    cloud {
+        let client = new System.Net.WebClient()
+        return! Cloud.Parallel [| cloud { return client } |]
+    } |> runtime.CreateProcess
+
+
+
 
 #r "Streams.Core.dll"
 #r "MBrace.Flow.dll"

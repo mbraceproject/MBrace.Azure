@@ -1,4 +1,5 @@
 ﻿namespace MBrace.Azure
+
 open System
 open MBrace.Core
 open MBrace.Core.Internals
@@ -25,60 +26,6 @@ type WorkerStatus =
 
     static member UnPickle (bytes) = MBrace.Azure.Runtime.Configuration.Pickler.UnPickle<WorkerStatus>(bytes)
 
-/// Immutable IWorkerRef implementation for MBrace.Azure workers.
-[<CustomComparison; CustomEquality>]
-type WorkerRef = 
-    { /// Worker/Service Id.
-      Id                 : string
-      ///Current worker status.
-      Status             : WorkerStatus
-      /// Machine's name.
-      Hostname           : string
-      /// Host process id.
-      ProcessId          : int 
-      /// Host process name.
-      ProcessName        : string
-      /// First worker's heartbeat time.
-      InitializationTime : DateTimeOffset
-      /// Last worker's heartbeat time.
-      HeartbeatTime      : DateTimeOffset
-      /// Worker activated ConfigurationId.
-      ConfigurationId    : ConfigurationId
-      /// Worker's MaxConcurrentJobCount.
-      MaxJobCount        : int
-      /// Workers' processor count.
-      ProcessorCount     : int
-      /// Current dequeued jobs.
-      ActiveJobs         : int
-      /// CPU usage.
-      CPU                : double
-      /// Total memory.
-      TotalMemory        : double
-      /// Memory used.
-      Memory             : double
-      /// Network upload (kbps).
-      NetworkUp          : double
-      /// Network download (kbps).
-      NetworkDown        : double
-      /// Runtime Version
-      Version            : string } 
-    
-    override this.GetHashCode() = hash this.Id
-    override this.Equals(other:obj) =
-        match other with
-        | :? WorkerRef as w -> this.Id = w.Id
-        | _ -> false
-
-    interface IComparable with
-        member this.CompareTo(obj: obj): int = 
-            match obj with
-            | :? WorkerRef as y -> compare this.Id ((y :> IWorkerRef).Id) 
-            | _ -> invalidArg "obj" "Invalid IWorkerRef instance."
-        
-    interface IWorkerRef with
-        member this.Id = this.Id
-        member this.Type = "MBrace.Azure.Worker"
-        member this.ProcessorCount = this.ProcessorCount
 
 namespace MBrace.Azure.Runtime.Info
 
@@ -118,27 +65,6 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val Status             = Unchecked.defaultof<byte []> with get, set
     new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>)
 
-    member this.AsWorkerRef () : WorkerRef = 
-        {
-            Id                 = this.Id
-            Status             = Configuration.Pickler.UnPickle this.Status
-            Hostname           = this.Hostname
-            ProcessId          = this.ProcessId.GetValueOrDefault(-1)
-            ProcessName        = this.ProcessName
-            InitializationTime = this.InitializationTime
-            HeartbeatTime      = this.Timestamp
-            ConfigurationId    = Configuration.Pickler.UnPickle this.ConfigurationId
-            MaxJobCount        = this.MaxJobs.GetValueOrDefault(-1)
-            ProcessorCount     = this.ProcessorCount
-            ActiveJobs         = this.ActiveJobs.GetValueOrDefault(-1)
-            CPU                = this.CPU.GetValueOrDefault(-1.)
-            TotalMemory        = this.TotalMemory.GetValueOrDefault(-1.)
-            Memory             = this.Memory.GetValueOrDefault(-1.)
-            NetworkUp          = this.NetworkUp.GetValueOrDefault(-1.)
-            NetworkDown        = this.NetworkDown.GetValueOrDefault(-1.)
-            Version            = this.Version
-        }
-
     member this.UpdateCounters(counters : NodePerformanceInfo) =
             this.CPU <- counters.CpuUsage
             this.TotalMemory <- counters.TotalMemory
@@ -167,6 +93,133 @@ type private WorkerManagerState =
         InitialTimeSpan : TimeSpan
         CurrentTimeSpan : TimeSpan
     }
+
+
+namespace MBrace.Azure
+
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Info
+open MBrace.Azure.Runtime.Utilities
+open System
+open MBrace.Core
+open System.Runtime.Serialization
+
+/// IWorkerRef implementation for MBrace.Azure workers.
+[<Sealed; Serializable>]
+type WorkerRef internal (config : ConfigurationId, partitionKey, rowKey) =
+    let mutable enableUpdates = false
+    let mutable record = Table.read config config.RuntimeTable partitionKey rowKey
+                         |> Async.RunSynchronously
+    let mutable live = Unchecked.defaultof<Live<WorkerRecord>>
+    let getLive() = 
+        Live<WorkerRecord>(
+            (fun () -> Table.read config config.RuntimeTable partitionKey rowKey),
+            Choice1Of2(record),
+            keepLast = false,
+            interval = 500,
+            stopf = fun _ -> not enableUpdates)
+      
+    let getRecord() =
+        if enableUpdates then 
+            record <- live.Value
+        record
+    
+    /// Enable automatic updates of WorkerRef properties. Defaults to false.        
+    member this.AutoUpdate
+        with get () = enableUpdates
+        and  set e = 
+            enableUpdates <- e
+            if not enableUpdates then live.Stop()
+            else live <- getLive()
+
+    interface ISerializable with
+        member x.GetObjectData(info: SerializationInfo, _ : StreamingContext): unit = 
+            info.AddValue("config", config, typeof<ConfigurationId>)
+            info.AddValue("partitionKey", partitionKey, typeof<string>)
+            info.AddValue("rowKey", rowKey, typeof<string>)
+        
+    new (info: SerializationInfo, _ : StreamingContext) =
+        let config = info.GetValue("config", typeof<ConfigurationId>) :?> ConfigurationId
+        let partitionKey = info.GetValue("partitionKey", typeof<string>) :?> string
+        let rowKey = info.GetValue("rowKey", typeof<string>) :?> string
+        new WorkerRef(config, partitionKey, rowKey)
+
+    /// Worker/Service Id.
+    member this.Id : string = getRecord().Id
+    
+    ///Current worker status.
+    member this.Status : WorkerStatus = WorkerStatus.UnPickle(getRecord().Status)
+    
+    /// Machine's name.
+    member this.Hostname : string = getRecord().Hostname
+    
+    /// Host process id.
+    member this.ProcessId : int = getRecord().ProcessId.GetValueOrDefault(-1)
+    
+    /// Host process name.
+    member this.ProcessName : string = getRecord().ProcessName
+    
+    /// First worker's heartbeat time.
+    member this.InitializationTime : DateTimeOffset = getRecord().InitializationTime
+    
+    /// Last worker's heartbeat time.
+    member this.HeartbeatTime : DateTimeOffset = getRecord().Timestamp
+    
+    /// Worker activated ConfigurationId.
+    member this.ConfigurationId : ConfigurationId = config
+    
+    /// Worker's MaxConcurrentJobCount.
+    member this.MaxJobCount : int = getRecord().MaxJobs.GetValueOrDefault(-1)
+    
+    /// Workers' processor count.
+    member this.ProcessorCount : int = getRecord().ProcessorCount
+    
+    /// Current dequeued jobs.
+    member this.ActiveJobs : int = getRecord().ActiveJobs.GetValueOrDefault(-1)
+    
+    /// CPU usage.
+    member this.CPU : double = getRecord().CPU.GetValueOrDefault(-1.)
+    
+    /// Total memory.
+    member this.TotalMemory : double = getRecord().TotalMemory.GetValueOrDefault(-1.)
+    
+    /// Memory used.
+    member this.Memory : double = getRecord().Memory.GetValueOrDefault(-1.)
+    
+    /// Network upload (kbps).
+    member this.NetworkUp : double = getRecord().NetworkUp.GetValueOrDefault(-1.)
+    
+    /// Network download (kbps).
+    member this.NetworkDown : double = getRecord().NetworkDown.GetValueOrDefault(-1.)
+    
+    /// Runtime Version
+    member this.Version : string = getRecord().Version
+    
+    override this.GetHashCode() = hash this.Id
+    override this.Equals(other:obj) =
+        match other with
+        | :? WorkerRef as w -> this.Id = w.Id
+        | _ -> false
+
+    interface IComparable with
+        member this.CompareTo(obj: obj): int = 
+            match obj with
+            | :? WorkerRef as y -> compare this.Id ((y :> IWorkerRef).Id) 
+            | _ -> invalidArg "obj" "Invalid IWorkerRef instance."
+        
+    interface IWorkerRef with
+        member this.Id = this.Id
+        member this.Type = "MBrace.Azure.Worker"
+        member this.ProcessorCount = this.ProcessorCount
+
+namespace MBrace.Azure.Runtime.Info
+
+open System
+open System.Net
+open MBrace.Azure
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Utilities
+open MBrace.Core.Internals
 
 [<AutoSerializable(false)>]
 type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
@@ -332,11 +385,11 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
     member this.GetWorkerRefs(timespan : TimeSpan, showStarting : bool, showInactive : bool, showFaulted : bool) : Async<WorkerRef seq> =
         async {
             let! wr = this.GetWorkers(timespan, showStarting, showInactive, showFaulted)
-            return wr |> Seq.map (fun w -> w.AsWorkerRef())
+            return wr |> Seq.map (fun w -> new WorkerRef(Configuration.Pickler.UnPickle(w.ConfigurationId) ,w.PartitionKey, w.RowKey))
         }
 
     
-    static member MaxHeartbeatTimeSpan = TimeSpan.FromMinutes(10.) // // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
+    static member MaxHeartbeatTimeSpan = TimeSpan.FromMinutes(10.) // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
     
     static member Create(config : ConfigurationId, logger : ICloudLogger) = new WorkerManager(config, logger)
 
