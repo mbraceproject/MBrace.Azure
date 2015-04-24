@@ -44,26 +44,12 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
+
 let ps =
     cloud {
         let client = new System.Net.WebClient()
         return! Cloud.Parallel [| cloud { return client } |]
     } |> runtime.CreateProcess
-
-
-
-
-#r "Streams.Core.dll"
-#r "MBrace.Flow.dll"
-
-open MBrace.Flow
-
-let wf = 
-    [|1..10|]
-    |> CloudFlow.OfArray
-    |> CloudFlow.map (fun i -> i * i)
-    |> CloudFlow.toArray
-    |> runtime.Run
 
 let files = runtime.StoreClient.File.Enumerate "wiki" 
 let paths = files |> Array.map (fun file -> file.Path)

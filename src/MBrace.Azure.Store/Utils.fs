@@ -50,7 +50,7 @@ module internal Utils =
     let getBlobClient (account : CloudStorageAccount) =
         let client = account.CreateCloudBlobClient()
         client.DefaultRequestOptions.ServerTimeout <- Nullable(TimeSpan.FromMinutes(40.))
-        client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(4 * System.Environment.ProcessorCount)
+        client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(min 64 <| 4 * System.Environment.ProcessorCount)
         client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(4L * 1024L * 1024L) // possible ranges: 1..64MB, default 32MB
         
         client
@@ -69,8 +69,11 @@ module internal Utils =
     /// </summary>
     /// <param name="account">Cloud storage account.</param>
     /// <param name="path">Path to blob.</param>
-    let getBlobRef account path = async {
-        let container, blob = Path.GetDirectoryName path, Path.GetFileName path
+    let getBlobRef account (path : string) = async {
+        let container, blob = 
+            match path.Split([|'/'; '\\'|], 2) with
+            | [|c; b |] -> c, b
+            | _ -> failwithf "Invalid path %s" path
         let container = getContainer account container
         let! _ = container.CreateIfNotExistsAsync()
         return container.GetBlockBlobReference(blob)
