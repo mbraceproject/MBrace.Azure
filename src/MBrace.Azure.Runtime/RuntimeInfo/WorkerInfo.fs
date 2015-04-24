@@ -116,7 +116,7 @@ type WorkerRef internal (config : ConfigurationId, partitionKey, rowKey) =
             (fun () -> Table.read config config.RuntimeTable partitionKey rowKey),
             Choice1Of2(record),
             keepLast = false,
-            interval = 500,
+            interval = 1000,
             stopf = fun _ -> not enableUpdates)
       
     let getRecord() =
