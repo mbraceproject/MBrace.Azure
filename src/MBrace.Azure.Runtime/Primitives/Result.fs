@@ -115,6 +115,11 @@ type ResultCell<'T> internal (config : ConfigurationId, partitionKey : string, r
             return ()
         }
 
+    // See static SetResultUnsafe, and ExceptionResultUnsafe
+    member __.SetResultUnsafe(ex : Exception) : Async<unit> = async {
+        return! ResultCell<'T>.SetResultUnsafe(config, partitionKey, rowKey, ex)
+    }
+
     member __.TryGetResult() : Async<Result<'T> option> = 
         async {
             match localResult with

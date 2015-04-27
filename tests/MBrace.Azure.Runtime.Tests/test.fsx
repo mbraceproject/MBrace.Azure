@@ -8,7 +8,6 @@
 
 open MBrace.Core
 open MBrace.Azure
-open MBrace.Azure
 open MBrace.Azure.Client
 open System
 
@@ -37,7 +36,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 // local only---
-runtime.AttachLocalWorker(4, 16)
+runtime.AttachLocalWorker(1, 16)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -48,8 +47,39 @@ runtime.ShowLogs()
 let ps =
     cloud {
         let client = new System.Net.WebClient()
-        return! Cloud.Parallel [| cloud { return client } |]
+        return client 
     } |> runtime.CreateProcess
+
+let ps =
+    cloud {
+        let client = new System.Net.WebClient()
+        return! Cloud.Parallel [| cloud { return client };  cloud { return client } |] 
+    } |> runtime.CreateProcess
+
+
+let ps =
+    cloud {
+        return! 
+            Cloud.Catch <|
+            Cloud.Parallel [| 
+                cloud { 
+                    let client = new System.Net.WebClient()
+                    let! hl = Cloud.StartChild(cloud { return client.GetHashCode()  })
+                    return! hl };  
+                cloud { return 2 }
+            |] 
+    } |> runtime.CreateProcess
+
+
+let ps =
+    cloud {
+        let client = new System.Net.WebClient()
+        let! h = Cloud.StartChild(cloud { return client.GetHashCode() })
+        return! h
+    } |> runtime.CreateProcess
+
+ps.ShowInfo()
+ps.AwaitResult()
 
 let files = runtime.StoreClient.File.Enumerate "wiki" 
 let paths = files |> Array.map (fun file -> file.Path)

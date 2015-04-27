@@ -8,14 +8,13 @@ open MBrace.Azure.Runtime.Utilities
 [<Sealed>]
 type internal FaultHandler () =
 
-    /// Fault job : used for  job execution errors.
-    /// Just apply fault exception.
+    /// Fault job : used for job execution errors.
     static member FaultJobAsync(job : Job, message, state : RuntimeState, fault : Exception) =
         async {
-            
-            state.Logger.Logf "Faulted message : Complete."
+            state.Logger.Logf "Failed to execute Job '%s'\n%A" job.JobId fault
+            state.Logger.Logf "Faulted message : Abandon."
             do! state.ProcessManager.AddFaultedJob(job.ProcessInfo.Id)
-            do! state.JobQueue.CompleteAsync(message)
+            do! state.JobQueue.AbandonAsync(message)
         }
 
     /// Fault job : used for deserialization/assembly load errors.

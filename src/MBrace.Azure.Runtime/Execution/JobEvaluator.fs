@@ -110,14 +110,16 @@ and [<AutoSerializable(false)>]
                 sw.Stop()
 
                 match result with
-                | Choice1Of2 () -> 
+                | Choice1Of2 true -> 
                     do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
                     do! staticConfiguration.State.ProcessManager.AddCompletedJob(job.ProcessInfo.Id)
                     logf "Completed job\n%s\nTime : %O" (string job) sw.Elapsed
-                | Choice2Of2 e -> 
-                    do! staticConfiguration.State.JobQueue.AbandonAsync(msg)
+                | Choice1Of2 false -> 
+                    do! staticConfiguration.State.JobQueue.CompleteAsync(msg)
                     do! staticConfiguration.State.ProcessManager.AddFaultedJob(job.ProcessInfo.Id)
-                    logf "Job fault\n%s\nwith :\n%O" (string job) e
+                    logf "Faulted job\n%s\nTime : %O" (string job) sw.Elapsed
+                | Choice2Of2 e -> 
+                    do! FaultHandler.FaultJobAsync(job, msg, staticConfiguration.State, e)
         }
 
     
