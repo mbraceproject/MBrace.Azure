@@ -133,8 +133,19 @@ with
                 do job.StartJob ctx
         else
             do job.StartJob ctx
-
-        return! JobExecutionMonitor.AwaitCompletion jem
+        
+        let! result =  Async.Catch <| JobExecutionMonitor.AwaitCompletion jem
+        match result with
+        | Choice1Of2 () -> 
+            return true
+        | Choice2Of2 ex ->
+            let fault = new FaultException(sprintf "Failed to execute job '%s'" job.JobId, ex)
+            match job.FaultPolicy.Policy (faultCount + 1) (fault :> exn) with
+            | None ->
+                job.Econt ctx <| ExceptionDispatchInfo.Capture fault
+                return false
+            | _ ->
+                return! Async.Raise ex
     }
 
     static member CreateExecutionContext (runtimeProvider : IDistributionProvider) (resources : ResourceRegistry) (job : Job) =

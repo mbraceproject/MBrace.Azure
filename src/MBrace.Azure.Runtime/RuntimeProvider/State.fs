@@ -164,7 +164,13 @@ with
 
         let setResult ctx r = 
             async {
-                do! resultCell.SetResult r
+                let! result = Async.Catch <| resultCell.SetResult r
+                match result with
+                | Choice1Of2 () -> ()
+                | Choice2Of2 ex when (ex :? Nessos.FsPickler.NonSerializableTypeException) ->
+                    let ex = new FaultException(sprintf "Failed to execute job '%s'" jobId ,ex)
+                    do! resultCell.SetResultUnsafe(ex)
+                | _ -> ()
                 childCts.Cancel()
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
@@ -196,12 +202,19 @@ with
 
         let setResult ctx r = 
             async {
-                do! resultCell.SetResult r
+                let! result = Async.Catch <| resultCell.SetResult r
                 let pmon = ctx.Resources.Resolve<ProcessManager>()
-                match r with
-                | Result.Completed _ 
-                | Result.Exception _ -> do! pmon.SetCompleted(psInfo.Id)
-                | Result.Cancelled _ -> do! pmon.SetCancelled(psInfo.Id)
+                match result with
+                | Choice1Of2 () ->
+                    match r with
+                    | Result.Completed _ 
+                    | Result.Exception _ -> do! pmon.SetCompleted(psInfo.Id)
+                    | Result.Cancelled _ -> do! pmon.SetCancelled(psInfo.Id)
+                | Choice2Of2 ex when (ex :? Nessos.FsPickler.NonSerializableTypeException) ->
+                    let ex = new FaultException(sprintf "Failed to execute job '%s'" jobId ,ex)
+                    do! resultCell.SetResultUnsafe(ex)
+                    do! pmon.SetFaulted(psInfo.Id)
+                | _ -> ()
                 JobExecutionMonitor.TriggerCompletion ctx
             } |> JobExecutionMonitor.ProtectAsync ctx
 
