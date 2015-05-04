@@ -15,7 +15,8 @@ type internal StoreClient private () =
         let storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
         let atomProvider = AtomProvider.Create(config.StorageConnectionString) :> ICloudAtomProvider
         let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString) :> ICloudChannelProvider
-    
+        let dictionaryProvider = CloudDictionaryProvider.Create(config.StorageConnectionString) :> ICloudDictionaryProvider
+        
         let defaultStoreContainer = config.UserDataContainer
         let defaultAtomContainer = config.UserDataTable
         let defaultChannelContainer = ""
@@ -28,6 +29,7 @@ type internal StoreClient private () =
                         DefaultContainer = defaultAtomContainer }
                 yield { ChannelProvider = channelProvider
                         DefaultContainer = defaultChannelContainer } 
+                yield dictionaryProvider
             }
 
         let sc = MBrace.Client.CloudStoreClient.CreateFromResources(resources)

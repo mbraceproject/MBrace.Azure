@@ -23,7 +23,8 @@ type Service (config : Configuration, serviceId : string) =
     let mutable storeProvider   = None
     let mutable channelProvider = None
     let mutable atomProvider    = None
-    
+    let mutable dictionaryProvider = None
+
     let mutable storeDirectory   = None
     let mutable channelDirectory = None
     let mutable atomDirectory    = None
@@ -93,6 +94,10 @@ type Service (config : Configuration, serviceId : string) =
     /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
     member this.RegisterChannelProvider(channel : ICloudChannelProvider) = 
         check () ; channelProvider <- Some channel
+
+    /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
+    member this.RegisterDictionaryProvider(dictionary : ICloudDictionaryProvider) = 
+        check () ; dictionaryProvider <- Some dictionary
     
     /// Register a local filesystem cache implementation. Defaults to FileSystemStore in local TEMP folder.
     member this.RegisterCache(cacheStore : ICloudFileStore) =
@@ -156,6 +161,14 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "ChannelProvider : %s" channelProvider.Value.Id
 
+                dictionaryProvider <-
+                    Some <|
+                        match dictionaryProvider with
+                        | Some dp -> dp
+                        | None -> CloudDictionaryProvider.Create(config.StorageConnectionString) :> _
+
+                logf "DictionaryProvider : %A" dictionaryProvider
+
                 logf "MaxConcurrentJobs : %d" this.MaxConcurrentJobs
 
                 logf "Initializing JobEvaluator"
@@ -174,6 +187,7 @@ type Service (config : Configuration, serviceId : string) =
                           ChannelDirectory    = channelDirectory
                           Atom                = atomProvider.Value
                           AtomDirectory       = atomDirectory
+                          Dictionary          = dictionaryProvider.Value
                           CustomResources     = customResources }
                     Logger                    = customLogger
                 }
