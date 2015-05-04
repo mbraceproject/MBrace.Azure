@@ -24,6 +24,46 @@ let selectEnv name =
 let store  = selectEnv "azurestorageconn"
 let sbus = selectEnv "azureservicebusconn" 
 
+
+let getRandomName () =
+    // See http://blogs.msdn.com/b/jmstall/archive/2014/06/12/azure-storage-naming-rules.aspx
+    let alpha = [|'a'..'z'|]
+    let alphaNumeric = Array.append alpha [|'0'..'9'|]
+    let maxLen = 63
+    let randOf =
+        let rand = new Random(int DateTime.Now.Ticks)
+        fun (x : char []) -> x.[rand.Next(0, x.Length)]
+
+    let name = 
+        [| yield randOf alpha
+           for _i = 1 to maxLen-1 do yield randOf alphaNumeric |]
+    new String(name)
+
+open Microsoft.WindowsAzure.Storage.Table
+
+let acc = CloudStorageAccount.Parse(store)
+let client = acc.CreateCloudTableClient()
+let name = getRandomName()
+let table = client.GetTableReference(new String('m', 64))
+(table.CreateIfNotExistsAsync()).ContinueWith(fun _ -> ())
+|> Async.AwaitTask
+|> Async.RunSynchronously
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 let ns = NamespaceManager.CreateFromConnectionString(sbus)
 let qd = new QueueDescription("tmp")
 qd.LockDuration <- TimeSpan.FromMinutes(2.)
@@ -80,6 +120,18 @@ let container = client.GetContainerReference("temp")
 container.CreateIfNotExists()
 
 
+let b = container.GetBlockBlobReference("foo.txt")
+
+
+b.Properties
+b.DownloadToStream()
+let s = b.OpenWrite()
+s.Write([|1uy..10uy|],0, 10)
+s.Dispose()
+
+b.UploadText("Hello world")
+
+
 
 [ 1..10 ]
 |> List.map (fun i -> container.GetBlockBlobReference("foo.txt"))
@@ -87,6 +139,8 @@ container.CreateIfNotExists()
 |> Async.Parallel
 |> Async.Ignore
 |> Async.RunSynchronously
+
+
 
 blob1.DownloadText()
 blob2.DownloadText()

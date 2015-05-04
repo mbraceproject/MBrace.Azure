@@ -25,6 +25,7 @@ type internal JobEvaluatorConfiguration =
       ChannelDirectory: string option
       Atom            : ICloudAtomProvider
       AtomDirectory   : string option
+      Dictionary      : ICloudDictionaryProvider
       CustomResources : ResourceRegistry }
 
 /// Static configuration per AppDomain.

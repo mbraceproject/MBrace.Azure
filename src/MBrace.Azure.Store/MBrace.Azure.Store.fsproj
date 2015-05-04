@@ -79,6 +79,7 @@
     <Compile Include="BlobStore.fs" />
     <Compile Include="Atom.fs" />
     <Compile Include="Channel.fs" />
+    <Compile Include="Dictionary.fs" />
     <None Include="script.fsx" />
     <Content Include="paket.references" />
     <Content Include="app.config" />

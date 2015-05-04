@@ -43,6 +43,11 @@ module private Config =
             let store = ChannelProvider.Create(Tests.Utils.selectEnv "azureservicebusconn") :> ICloudChannelProvider
             in CloudChannelConfiguration.Create(store)
 
+    let emulatorDictionaryProvider =
+        lazy (CloudDictionaryProvider.Create(emulatorConn) :> ICloudDictionaryProvider)
+
+    let remoteDictionaryProvider =
+        lazy (CloudDictionaryProvider.Create(remoteConn.Value) :> ICloudDictionaryProvider)
 
 [<TestFixture>]
 type ``Remote - BlobStore Tests`` () =
@@ -86,3 +91,26 @@ type ``Remote - Channel Tests`` () =
     override __.RunLocally wf = imem.Run wf
     override __.ChannelClient = imem.StoreClient.Channel
 
+
+[<TestFixture>]
+type ``Emulator - Dictionary Tests`` () =
+    inherit ``CloudDictionary Tests``(5)
+
+    let imem = LocalRuntime.Create(dictionaryProvider = emulatorDictionaryProvider.Value)
+
+    override __.Run wf = imem.Run wf
+    override __.RunLocally wf = imem.Run wf
+    override __.DictionaryClient = imem.StoreClient.Dictionary
+    override __.IsInMemoryFixture = false
+
+
+[<TestFixture>]
+type ``Remote - Dictionary Tests`` () =
+    inherit ``CloudDictionary Tests``(5) 
+    
+    let imem = LocalRuntime.Create(dictionaryProvider = remoteDictionaryProvider.Value)
+
+    override __.Run wf = imem.Run wf
+    override __.RunLocally wf = imem.Run wf
+    override __.DictionaryClient = imem.StoreClient.Dictionary
+    override __.IsInMemoryFixture = false

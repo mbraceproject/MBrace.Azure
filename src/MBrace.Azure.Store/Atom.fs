@@ -119,7 +119,7 @@ type AtomProvider private (connectionString : string) =
         member this.IsSupportedValue(value: 'T) : bool = 
             VagabondRegistry.Instance.Pickler.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
         
-        member this.CreateUniqueContainerName() = (guid()).Substring(0,5) // TODO : Change
+        member this.CreateUniqueContainerName() = Table.getRandomName()
 
         member this.CreateAtom(path, initial: 'T) = 
                 async {
