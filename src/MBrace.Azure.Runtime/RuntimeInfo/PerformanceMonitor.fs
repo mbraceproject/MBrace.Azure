@@ -39,13 +39,16 @@
             else None
     
         let totalMemory = 
-            use searcher = new ManagementObjectSearcher("root\\CIMV2", "SELECT TotalPhysicalMemory FROM Win32_ComputerSystem")
-            use qObj = searcher.Get() 
-                        |> Seq.cast<ManagementBaseObject> 
-                        |> Seq.exactlyOne
-            let totalBytes = qObj.["TotalPhysicalMemory"] :?> uint64
-            let mb = totalBytes / uint64 (1 <<< 20) |> single // size in MB
-            Some(fun () -> mb)
+            try
+                use searcher = new ManagementObjectSearcher("root\\CIMV2", "SELECT TotalPhysicalMemory FROM Win32_ComputerSystem")
+                use qObj = searcher.Get() 
+                            |> Seq.cast<ManagementBaseObject> 
+                            |> Seq.exactlyOne
+                let totalBytes = qObj.["TotalPhysicalMemory"] :?> uint64
+                let mb = totalBytes / uint64 (1 <<< 20) |> single // size in MB
+                Some(fun () -> mb)
+            with _ ->
+                None
     
         let memoryUsage = 
             if PerformanceCounterCategory.Exists("Memory") 
