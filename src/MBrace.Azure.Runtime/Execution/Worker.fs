@@ -77,7 +77,9 @@ type internal Worker () =
                         let! job = Async.Catch <| config.State.TryDequeue()
                         match job with
                         | Choice1Of2 None -> 
-                            if queueFault then config.State.WorkerManager.SetCurrentAsRunning()
+                            if queueFault then 
+                                config.Logger.Log "Revert state to running"
+                                config.State.WorkerManager.SetCurrentAsRunning()
                             return! workerLoop false state
                         | Choice1Of2(Some message) ->
                             // run isolated job
@@ -114,7 +116,10 @@ type internal Worker () =
                             return! workerLoop false state
                         | Choice2Of2 ex ->
                             config.Logger.Logf "Worker JobQueue fault\n%A" ex
-                            config.State.WorkerManager.SetCurrentAsFaulted(ex)
+                            try
+                                config.State.WorkerManager.SetCurrentAsFaulted(ex)
+                            finally
+                                ()
                             do! Async.Sleep onErrorWaitTime
                             return! workerLoop true state
                 | None, Idle -> 

@@ -305,6 +305,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                         ch.Reply()
                     return! loop None
                 | other ->
+                    logger.Logf "Heartbeat Loop : Invalid state : %A" other
                     failwithf "Invalid state %A" other
             }
             loop None
