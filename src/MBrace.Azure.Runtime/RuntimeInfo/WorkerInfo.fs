@@ -24,7 +24,8 @@ type WorkerStatus =
 
     static member Pickle (status : WorkerStatus) = MBrace.Azure.Runtime.Configuration.Pickler.Pickle(status)
 
-    static member UnPickle (bytes) = MBrace.Azure.Runtime.Configuration.Pickler.UnPickle<WorkerStatus>(bytes)
+    static member UnPickle (bytes) =
+        if bytes = null then Unchecked.defaultof<_> else MBrace.Azure.Runtime.Configuration.Pickler.UnPickle<WorkerStatus>(bytes)
 
 
 namespace MBrace.Azure.Runtime.Info
