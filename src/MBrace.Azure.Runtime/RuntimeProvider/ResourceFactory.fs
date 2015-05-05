@@ -43,7 +43,7 @@ type ResourceFactory private (configId : ConfigurationId) =
 
     member this.RequestProcessLogger(pid) : ICloudLogger = 
         let pl = new ProcessLogger(configId, pid) 
-        let lc = new LoggerCombiner()
+        let lc = new RuntimeLogger()
         lc.Attach(new ConsoleLogger())
         lc.Attach(pl)
         lc :> _

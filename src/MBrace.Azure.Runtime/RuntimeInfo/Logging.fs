@@ -26,7 +26,7 @@ type LogRecord(pk, rk, message, time) =
     member val Time : DateTimeOffset = time with get, set
     new () = new LogRecord(null, null, null, Unchecked.defaultof<_>)
 
-type LoggerCombiner (loggers, showAppDomain) =
+type RuntimeLogger (loggers, showAppDomain) =
     let attached = new ConcurrentBag<ICloudLogger>(loggers)
     let appDomain = AppDomain.CurrentDomain.FriendlyName
 
@@ -37,10 +37,12 @@ type LoggerCombiner (loggers, showAppDomain) =
         member this.Log entry =
             let entry = if this.ShowAppDomainAsPrefix then sprintf "AppDomain %s\n%s" appDomain entry else entry
             for l in attached do
-                l.Log(entry)
+                try
+                    l.Log(entry)
+                with _ -> () // TODO : somehow aggregate and log the errors.
 
-    new () = LoggerCombiner(Seq.empty, false)
-    new (showAppDomain) = LoggerCombiner(Seq.empty, showAppDomain)
+    new () = RuntimeLogger(Seq.empty, false)
+    new (showAppDomain) = RuntimeLogger(Seq.empty, showAppDomain)
     
   
 

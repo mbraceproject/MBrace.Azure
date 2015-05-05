@@ -39,7 +39,7 @@ type RuntimeState =
         /// Worker management.
         WorkerManager : WorkerManager
         /// Runtime Logger.
-        Logger : LoggerCombiner
+        Logger : RuntimeLogger
         /// ConfigurationId.
         ConfigurationId : ConfigurationId
     }
@@ -47,7 +47,7 @@ with
     /// Initialize a new runtime state in the local process
     static member FromConfiguration (config : Configuration, ignoreVersionCompatibility) = async {
         let configurationId = config.ConfigurationId
-        let logger = new LoggerCombiner()
+        let logger = new RuntimeLogger()
         let! jobQueue = JobQueue.Create(configurationId, logger)
         if not ignoreVersionCompatibility then
             Metadata.compare { Version = ReleaseInfo.localVersion; ConfigurationId = configurationId } jobQueue.Metadata

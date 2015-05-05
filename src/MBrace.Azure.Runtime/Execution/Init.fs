@@ -20,7 +20,7 @@ type Init =
                                 ignoreVersion : bool,
                                 ?maxJobs : int) =
         async {
-            let logger = new LoggerCombiner(Seq.singleton customLogger, not isDefaultInitialization)
+            let logger = new RuntimeLogger(Seq.singleton customLogger, not isDefaultInitialization)
             let inline logf fmt = logger.Logf fmt
 
             if isDefaultInitialization 

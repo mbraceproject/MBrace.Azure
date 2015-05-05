@@ -36,7 +36,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable configuration   = config
     let mutable maxJobs         = Environment.ProcessorCount
     let mutable workerManager   = None
-    let customLogger            = new LoggerCombiner() 
+    let customLogger            = new RuntimeLogger() 
     let worker                  = new Worker()
     
     let logf fmt = customLogger.Logf fmt
