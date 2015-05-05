@@ -53,13 +53,9 @@
         let memoryUsage = 
             if PerformanceCounterCategory.Exists("Memory") 
             then 
-                match totalMemory with
-                | None -> None
-                | Some(getNext) ->
-                    let pc = new PerfCounter("Memory", "Available Mbytes",true)
-                    perfCounters.Add(pc)
-                    let totalMemory = getNext()
-                    Some <| (fun () -> 100.f - 100.f * pc.NextValue() / totalMemory)
+                let pc = new PerfCounter("Memory", "Available Mbytes",true)
+                perfCounters.Add(pc)
+                Some <| (fun () -> pc.NextValue())
             else None
     
         let networkSentUsage =
@@ -68,7 +64,7 @@
                 let pc = 
                     inst |> Array.map (fun nic -> new PerfCounter("Network Interface", "Bytes Sent/sec", nic))
                 Seq.iter perfCounters.Add pc
-                Some(fun () -> pc |> Array.fold (fun sAcc s -> sAcc + 8.f * s.NextValue () / 1024.f) 0.f) // kbps
+                Some(fun () -> pc |> Array.fold (fun sAcc s -> sAcc + s.NextValue () / 1024.f) 0.f) // KB/s
             else None
     
         let networkReceivedUsage =
@@ -77,7 +73,7 @@
                 let pc = 
                     inst |> Array.map (fun nic -> new PerfCounter("Network Interface", "Bytes Received/sec",nic))
                 Seq.iter perfCounters.Add pc
-                Some(fun () -> pc |> Array.fold (fun rAcc r -> rAcc + 8.f * r.NextValue () / 1024.f ) 0.f) // kbps
+                Some(fun () -> pc |> Array.fold (fun rAcc r -> rAcc + r.NextValue () / 1024.f ) 0.f) // KB/s
             else None
     
         let getPerfValue : (unit -> single) option -> Nullable<double> = function
@@ -127,7 +123,7 @@
             let l = new List<string>()
             if cpuUsage.IsSome then l.Add("%Cpu")
             if totalMemory.IsSome then l.Add("Total Memory")
-            if memoryUsage.IsSome then l.Add("%Memory")
+            if memoryUsage.IsSome then l.Add("Memory Used")
             if networkSentUsage.IsSome then l.Add("Network (sent)")
             if networkReceivedUsage.IsSome then l.Add("Network (received)")
             l

@@ -180,16 +180,16 @@ type WorkerRef internal (config : ConfigurationId, partitionKey, rowKey) =
     /// CPU usage.
     member this.CPU : double = getRecord().CPU.GetValueOrDefault(-1.)
     
-    /// Total memory.
+    /// Total memory (MB).
     member this.TotalMemory : double = getRecord().TotalMemory.GetValueOrDefault(-1.)
     
-    /// Memory used.
+    /// Memory used (MB).
     member this.Memory : double = getRecord().Memory.GetValueOrDefault(-1.)
     
-    /// Network upload (kbps).
+    /// Network upload (KB/s).
     member this.NetworkUp : double = getRecord().NetworkUp.GetValueOrDefault(-1.)
     
-    /// Network download (kbps).
+    /// Network download (KB/s).
     member this.NetworkDown : double = getRecord().NetworkDown.GetValueOrDefault(-1.)
     
     /// Runtime Version

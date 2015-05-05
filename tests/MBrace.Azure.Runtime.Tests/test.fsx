@@ -47,7 +47,6 @@ runtime.ClearAllProcesses()
 
 runtime.Run(cloud { return Environment.MachineName })
 
-
 #r "MBrace.Azure.Store"
 
 open MBrace.Store.Internals
