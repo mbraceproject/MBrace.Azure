@@ -36,7 +36,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 // local only---
-runtime.AttachLocalWorker(4, 16)
+runtime.AttachLocalWorker(1, 4)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -46,6 +46,18 @@ runtime.ShowLogs()
 runtime.ClearAllProcesses()
 
 runtime.Run(cloud { return Environment.MachineName })
+
+let xs = 
+    [ 1..8 ]
+    |> List.map (fun _ -> cloud { return 42 })
+    |> Cloud.Parallel
+    |> runtime.CreateProcess
+
+runtime.ShowWorkers()
+
+let w = runtime.GetWorkers() |> Seq.head
+w.Memory
+
 
 #r "MBrace.Azure.Store"
 

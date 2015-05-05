@@ -51,11 +51,11 @@
                 None
     
         let memoryUsage = 
-            if PerformanceCounterCategory.Exists("Memory") 
+            if PerformanceCounterCategory.Exists("Memory") && totalMemory.IsSome
             then 
                 let pc = new PerfCounter("Memory", "Available Mbytes",true)
                 perfCounters.Add(pc)
-                Some <| (fun () -> pc.NextValue())
+                Some <| (fun () -> totalMemory.Value() - pc.NextValue())
             else None
     
         let networkSentUsage =
