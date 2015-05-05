@@ -167,7 +167,7 @@ type Service (config : Configuration, serviceId : string) =
                         | Some dp -> dp
                         | None -> CloudDictionaryProvider.Create(config.StorageConnectionString) :> _
 
-                logf "DictionaryProvider : %A" dictionaryProvider
+                logf "DictionaryProvider : %A" dictionaryProvider.Value
 
                 logf "MaxConcurrentJobs : %d" this.MaxConcurrentJobs
 
