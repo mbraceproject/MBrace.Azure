@@ -232,6 +232,8 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
     let runningPickle = WorkerStatus.Pickle Running
 
     let heartbeatAgent = 
+        let maxHeartbeatInterval = TimeSpan.FromMinutes(1.)
+
         new MailboxProcessor<WorkerManagerMessage>(fun inbox ->
             let rec loop (state : WorkerManagerState option) = async {
                 let! message = async {
@@ -265,7 +267,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                                 return false, currentTs
                         with ex ->
                             logger.Logf "Failed to give heartbeat %A" ex
-                            let newTimeSpan = min (TimeSpan.FromTicks(currentTs.Ticks * 2L)) WorkerManager.MaxHeartbeatTimeSpan
+                            let newTimeSpan = min (TimeSpan.FromTicks(currentTs.Ticks * 2L)) maxHeartbeatInterval
                             logger.Logf "Increasing timespan to %A" newTimeSpan
                             return true, newTimeSpan
                         }
@@ -286,14 +288,20 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                     state.Worker.Status <- runningPickle
                     return! loop (Some state)
                 | Some(SetFaulted(ex, ch)), Some state ->
-                    state.Worker.Status <- WorkerStatus.Pickle (Faulted ex)
-                    let! _ = Table.replace config table state.Worker
-                    ch.Reply()
+                    try
+                        state.Worker.Status <- WorkerStatus.Pickle (Faulted ex)
+                        let! _ = Table.replace config table state.Worker
+                        ()
+                    finally
+                        ch.Reply()
                     return! loop None
                 | Some(Stop(ch)), Some state ->
-                    state.Worker.Status <- WorkerStatus.Pickle WorkerStatus.Stopped
-                    let! _ = Table.replace config table state.Worker
-                    ch.Reply()
+                    try
+                        state.Worker.Status <- WorkerStatus.Pickle WorkerStatus.Stopped
+                        let! _ = Table.replace config table state.Worker
+                        ()
+                    finally
+                        ch.Reply()
                     return! loop None
                 | other ->
                     failwithf "Invalid state %A" other
@@ -388,7 +396,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             return wr |> Seq.map (fun w -> new WorkerRef(Configuration.Pickler.UnPickle(w.ConfigurationId) ,w.PartitionKey, w.RowKey))
         }
 
-    
+    /// Max timespan used to determine if a worker is alive.
     static member MaxHeartbeatTimeSpan = TimeSpan.FromMinutes(10.) // http://blogs.msdn.com/b/kwill/archive/2011/05/05/windows-azure-role-architecture.aspx
     
     static member Create(config : ConfigurationId, logger : ICloudLogger) = new WorkerManager(config, logger)
