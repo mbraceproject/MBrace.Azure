@@ -501,7 +501,8 @@ type Runtime private (clientId, config : Configuration) =
                 return! loop ()
         }
 
-        Async.RunSync(loop ())
+        if waitWorkerCount > 0 then
+            Async.RunSync(loop ())
         runtime
 
     /// <summary>
