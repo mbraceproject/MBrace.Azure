@@ -295,7 +295,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                         ()
                     finally
                         ch.Reply()
-                    return! loop None
+                    return! loop (Some state)
                 | Some(Stop(ch)), Some state ->
                     try
                         state.Worker.Status <- WorkerStatus.Pickle WorkerStatus.Stopped

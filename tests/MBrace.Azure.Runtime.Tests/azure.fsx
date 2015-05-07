@@ -44,7 +44,10 @@ open Microsoft.WindowsAzure.Storage.Table
 let acc = CloudStorageAccount.Parse(store)
 let client = acc.CreateCloudTableClient()
 let name = getRandomName()
-let table = client.GetTableReference(new String('m', 64))
+let table = client.GetTableReference(name)
+table.CreateIfNotExists()
+
+
 (table.CreateIfNotExistsAsync()).ContinueWith(fun _ -> ())
 |> Async.AwaitTask
 |> Async.RunSynchronously
@@ -52,8 +55,8 @@ let table = client.GetTableReference(new String('m', 64))
 
 
 
-
-
+let p = new System.Net.NetworkInformation.Ping()
+p.Send("google.com")
 
 
 
