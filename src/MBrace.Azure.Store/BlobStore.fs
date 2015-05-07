@@ -31,6 +31,35 @@ type BlobStore private (connectionString : string) =
     static member Create(connectionString : string) = new BlobStore(connectionString)
 
     interface ICloudFileStore with
+        member this.BeginWrite(path: string): Async<Stream> = 
+            async {
+                let! blob = getBlobRef acc path
+                let! stream = Async.AwaitTask(blob.OpenWriteAsync())
+                return stream :> Stream
+            }
+        
+        member this.ReadETag(path: string, etag: ETag): Async<Stream option> = 
+            async {
+                let! blob = getBlobRef acc path
+                let! stream = Async.AwaitTask(blob.OpenReadAsync(AccessCondition.GenerateIfMatchCondition(etag), BlobRequestOptions(), null))
+                              |> Async.Catch
+                match stream with
+                | Choice1Of2 s -> 
+                    return Some s
+                | Choice2Of2 _e -> // TODO : filter exception
+                    return None
+            }
+
+        member x.TryGetETag(path: string): Async<ETag option> = 
+            async {
+                let! blob = getBlobRef acc path
+                do! blob.FetchAttributesAsync()
+                if String.IsNullOrEmpty blob.Properties.ETag then 
+                    return None
+                else
+                    return Some blob.Properties.ETag
+            }
+        
         member this.Name = "MBrace.Azure.Store.BlobStore"
         member this.Id : string = acc.BlobStorageUri.PrimaryUri.ToString()
 
@@ -118,13 +147,14 @@ type BlobStore private (connectionString : string) =
                        |> Seq.toArray
             }
 
-        member this.Write(path: string, writer : Stream -> Async<'R>) : Async<'R> = 
+        member this.WriteETag(path: string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = 
             async {
                 let! blob = getBlobRef acc path
                 // http://msdn.microsoft.com/en-us/library/azure/dd179431.aspx
                 let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
                 use! stream = blob.OpenWriteAsync(null, options, OperationContext())
-                return! writer(stream)
+                let! result = writer(stream)
+                return blob.Properties.ETag, result
             } 
         
         member this.BeginRead(path: string) : Async<Stream> = 
@@ -133,14 +163,14 @@ type BlobStore private (connectionString : string) =
                 return! Async.AwaitTask(blob.OpenReadAsync())
             }
 
-        member this.OfStream(source: Stream, target: string) : Async<unit> = 
+        member this.CopyOfStream(source: Stream, target: string) : Async<unit> = 
             async {
                 let! blob = getBlobRef acc target
                 let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
                 do! blob.UploadFromStreamAsync(source, null, options, OperationContext()).ContinueWith ignore
             }
         
-        member this.ToStream(sourceFile: string, target: Stream) : Async<unit> = 
+        member this.CopyToStream(sourceFile: string, target: Stream) : Async<unit> = 
             async {
                 let! blob = getBlobRef acc sourceFile
                 do! blob.DownloadToStreamAsync(target).ContinueWith ignore

@@ -209,6 +209,7 @@ type WorkerRef internal (config : ConfigurationId, partitionKey, rowKey) =
             | _ -> invalidArg "obj" "Invalid IWorkerRef instance."
         
     interface IWorkerRef with
+        member this.Hostname: string = this.Hostname
         member this.Id = this.Id
         member this.Type = "MBrace.Azure.Worker"
         member this.ProcessorCount = this.ProcessorCount
@@ -295,7 +296,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                         ()
                     finally
                         ch.Reply()
-                    return! loop None
+                    return! loop (Some state)
                 | Some(Stop(ch)), Some state ->
                     try
                         state.Worker.Status <- WorkerStatus.Pickle WorkerStatus.Stopped

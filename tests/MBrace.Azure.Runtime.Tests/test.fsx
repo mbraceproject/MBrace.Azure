@@ -10,6 +10,7 @@ open MBrace.Core
 open MBrace.Azure
 open MBrace.Azure.Client
 open System
+open MBrace.Store
 
 Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 
@@ -36,7 +37,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 // local only---
-runtime.AttachLocalWorker(4, 4)
+runtime.AttachLocalWorker(1, 4)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -47,11 +48,6 @@ runtime.ClearAllProcesses()
 
 runtime.Run(cloud { return Environment.MachineName })
 
-let xs = 
-    [ 1..8 ]
-    |> List.map (fun _ -> cloud { return 42 })
-    |> Cloud.Parallel
-    |> runtime.CreateProcess
 
 runtime.ShowWorkers()
 

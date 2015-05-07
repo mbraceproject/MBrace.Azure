@@ -77,7 +77,6 @@
     <Compile Include="Utils.fs" />
     <Compile Include="Reporting.fs" />
     <Compile Include="Process.fs" />
-    <Compile Include="StoreClient.fs" />
     <Compile Include="Client.fs" />
     <Content Include="app.config" />
     <Content Include="paket.references" />

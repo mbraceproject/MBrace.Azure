@@ -30,7 +30,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable atomDirectory    = None
 
     let mutable cache           = None
-    let mutable useCache        = false
+    //let mutable useCache        = false
     let mutable ignoreVersion   = true
     let mutable customResources = ResourceRegistry.Empty
     let mutable configuration   = config
@@ -57,9 +57,9 @@ type Service (config : Configuration, serviceId : string) =
         and set c = check (); configuration <- c
     
     /// Determines if the registered local cache will be used.
-    member this.UseLocalCache
-        with get () = useCache
-        and set c = check (); useCache <- c
+//    member this.UseLocalCache
+//        with get () = useCache
+//        and set c = check (); useCache <- c
 
     /// Get or set iff version compatibility will be ignored.
     member this.IgnoreVersionCompatibility
@@ -130,20 +130,19 @@ type Service (config : Configuration, serviceId : string) =
                 storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
-                let store = 
-                    if this.UseLocalCache then
-                        cache <- 
-                            Some <|
-                                match cache with
-                                | Some cs -> cs
-                                | None -> FileSystemStore.CreateSharedLocal() :> ICloudFileStore
-
-                        logf "Local Cache Store %s" cache.Value.Id
-                        let store = FileStoreCache.Create(storeProvider.Value, cache.Value) :> ICloudFileStore
-                        logf "CachedStore %s created" store.Id
-                        store
-                    else
-                        storeProvider.Value
+                let store = storeProvider.Value
+//                    if this.UseLocalCache then
+//                        cache <- 
+//                            Some <|
+//                                match cache with
+//                                | Some cs -> cs
+//                                | None -> FileSystemStore.CreateSharedLocal() :> ICloudFileStore
+//
+//                        logf "Local Cache Store %s" cache.Value.Id
+//                        let store = FileStoreCache.Create(storeProvider.Value, cache.Value) //:> ICloudFileStore
+//                        logf "CachedStore %s created" store.Id
+//                        store
+//                    else
 
                 atomProvider <- 
                     Some <|
