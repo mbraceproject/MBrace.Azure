@@ -14,10 +14,12 @@ open MBrace.Core.Internals.InMemoryRuntime
 open MBrace.Store
 open MBrace.Store.Internals
 open MBrace.Azure
+open MBrace.Azure.Store
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure.Runtime.Arguments
+open MBrace.Client
 
 
 /// <summary>
@@ -42,7 +44,25 @@ type Runtime private (clientId, config : Configuration) =
     let clientLogger = state.Logger
     do  clientLogger.Attach(storageLogger)
     let wmon = WorkerManager.Create(configuration.ConfigurationId, state.Logger)
-    let resources, defaultStoreClient = StoreClient.CreateDefault(configuration)
+    let inmem =
+        let storeProvider = BlobStore.Create(config.StorageConnectionString) :> ICloudFileStore
+        let atomProvider = AtomProvider.Create(config.StorageConnectionString) :> ICloudAtomProvider
+        let channelProvider = ChannelProvider.Create(config.ServiceBusConnectionString) :> ICloudChannelProvider
+        let dictionaryProvider = CloudDictionaryProvider.Create(config.StorageConnectionString) :> ICloudDictionaryProvider
+        
+        let defaultStoreContainer = config.UserDataContainer
+        let defaultAtomContainer = config.UserDataTable
+        let defaultChannelContainer = ""
+
+        let serializer = Configuration.Serializer
+        let fileConfig = CloudFileStoreConfiguration.Create(storeProvider, defaultStoreContainer)
+        let atomConfig = { AtomProvider = atomProvider
+                           DefaultContainer = defaultAtomContainer }
+        let channelConfig = { ChannelProvider = channelProvider
+                              DefaultContainer = defaultChannelContainer }
+
+        LocalRuntime.Create(new ConsoleLogger(), fileConfig, serializer, atomConfig = atomConfig, channelConfig = channelConfig, dictionaryProvider = dictionaryProvider)
+
     let pmon = state.ProcessManager
     do clientLogger.Logf "Client %s created" clientId
 
@@ -84,7 +104,7 @@ type Runtime private (clientId, config : Configuration) =
         Runtime.GetHandle(config)
 
     /// Provides common methods on store related primitives.
-    member this.StoreClient = restrictVersion(); defaultStoreClient
+    member this.StoreClient = restrictVersion(); inmem.StoreClient
 
     /// Instance identifier.
     member this.ClientId = clientId
@@ -110,30 +130,20 @@ type Runtime private (clientId, config : Configuration) =
     /// Execute given workflow locally using thread parallelism and await for its result.
     /// </summary>
     /// <param name="workflow">The workflow to execute.</param>
-    /// <param name="logger">Optional logger to use.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
-    /// <param name="faultPolicy">Optional fault policy.</param>
-    member this.RunLocallyAsync(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : Async<'T> =
+    member this.RunLocallyAsync(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken) : Async<'T> =
         async {
             restrictVersion()
-            let runtimeProvider = ThreadPoolRuntime.Create(?logger = logger, ?faultPolicy = faultPolicy)
-            let rsc = resource { yield! resources; yield runtimeProvider :> IDistributionProvider }
-            let! ct = 
-                match cancellationToken with
-                | Some ct -> async { return ct }
-                | None -> Async.CancellationToken
-            return! Cloud.ToAsync(workflow, rsc, new InMemoryCancellationToken(ct))
+            return inmem.Run(workflow, ?cancellationToken = cancellationToken)
         }
 
     /// <summary>
     /// Execute given workflow locally using thread parallelism and await for its result.
     /// </summary>
     /// <param name="workflow">The workflow to execute.</param>
-    /// <param name="logger">Optional logger to use.</param>
     /// <param name="cancellationToken">Optional cancellation token.</param>
-    /// <param name="faultPolicy">Optional fault policy.</param>
-    member this.RunLocally(workflow : Cloud<'T>, ?logger : ICloudLogger, ?cancellationToken : CancellationToken, ?faultPolicy : FaultPolicy) : 'T =
-        this.RunLocallyAsync(workflow, ?logger = logger, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy)
+    member this.RunLocally(workflow : Cloud<'T>, ?cancellationToken : ICloudCancellationToken) : 'T =
+        this.RunLocallyAsync(workflow, ?cancellationToken = cancellationToken)
         |> Async.RunSync
 
     /// <summary>

@@ -10,6 +10,7 @@ open MBrace.Core
 open MBrace.Azure
 open MBrace.Azure.Client
 open System
+open MBrace.Store
 
 Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 
@@ -47,11 +48,9 @@ runtime.ClearAllProcesses()
 
 runtime.Run(cloud { return Environment.MachineName })
 
-let xs = 
-    [ 1..8 ]
-    |> List.map (fun _ -> cloud { return 42 })
-    |> Cloud.Parallel
-    |> runtime.CreateProcess
+
+runtime.StoreClient.File.Upload([@"c:\workspace\krontogiannis\MBrace.Azure\build.cmd"; @"c:\workspace\krontogiannis\MBrace.Azure\build.cmd"])
+
 
 runtime.ShowWorkers()
 
