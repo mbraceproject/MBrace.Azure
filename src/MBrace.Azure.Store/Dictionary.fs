@@ -32,6 +32,10 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
         client <- Table.getClient(CloudStorageAccount.Parse connectionString)
         
     interface ICloudDictionary<'T> with
+        member x.IsKnownCount: bool = true
+        
+        member x.IsKnownSize: bool = true
+        
         member this.Add(key: string, value : 'T): Local<unit> = 
             async {
                 let binary = VagabondRegistry.Instance.Pickler.Pickle value

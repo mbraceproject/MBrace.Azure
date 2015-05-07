@@ -43,9 +43,6 @@ runtime.ShowProcesses()
 runtime.ShowWorkers()
 runtime.ShowLogs()
 
-
-w.Status
-
 runtime.ClearAllProcesses()
 
 runtime.Run(cloud { return Environment.MachineName })
