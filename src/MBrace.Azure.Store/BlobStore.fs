@@ -54,16 +54,16 @@ type BlobStore private (connectionString : string) =
 
         member this.TryGetETag(path: string): Async<ETag option> = 
             async {
-                
                 let! blob = getBlobRef acc path
-                if not <| blob.Exists() then
-                    return None
-                else
+                try
                     do! blob.FetchAttributesAsync()
                     if String.IsNullOrEmpty blob.Properties.ETag then 
                         return None
                     else
                         return Some blob.Properties.ETag
+                with
+                | ex when NotFound ex -> return None
+                | ex -> return raise ex
             }
         
         member this.Name = "MBrace.Azure.Store.BlobStore"

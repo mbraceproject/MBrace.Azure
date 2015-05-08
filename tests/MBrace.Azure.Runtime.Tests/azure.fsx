@@ -122,9 +122,44 @@ let client = acc.CreateCloudBlobClient()
 let container = client.GetContainerReference("temp")
 container.CreateIfNotExists()
 
+let container = client.GetContainerReference("temp")
+let b = container.GetBlockBlobReference("foollll.txt")
 
-let b = container.GetBlockBlobReference("foo.txt")
+b.Exists()
+b.FetchAttributes()
 
+open System.Diagnostics
+let time f msg =
+    let sw = Stopwatch.StartNew()
+    f()
+    sw.Stop()
+    printfn "%s : %A" msg sw.Elapsed
+
+let niter = 100
+for i = 0 to niter do //25 sec
+    let client = acc.CreateCloudBlobClient()
+    let container = client.GetContainerReference("temp")
+    let b = container.GetBlockBlobReference("foo.txt")
+    b.UploadText("Hello world")
+
+for i = 0 to niter do // 35
+    let client = acc.CreateCloudBlobClient()
+    let container = client.GetContainerReference("temp")
+    let b = container.GetBlockBlobReference("foo.txt")
+    b.UploadText("Hello world")
+    
+    let client = acc.CreateCloudBlobClient()
+    let container = client.GetContainerReference("temp")
+    let b = container.GetBlockBlobReference("foo.txt")
+    b.FetchAttributes()
+
+
+for i = 0 to niter do // 34
+    let client = acc.CreateCloudBlobClient()
+    let container = client.GetContainerReference("temp")
+    let b = container.GetBlockBlobReference("foo.txt")
+    b.UploadText("Hello world")
+    b.FetchAttributes()
 
 b.Properties
 b.DownloadToStream()
