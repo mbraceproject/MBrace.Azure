@@ -9,6 +9,7 @@ open MBrace.Store.Internals
 
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Blob
+open MBrace.Azure.Store.TableEntities.Table
 
 ///  MBrace File Store implementation that uses Azure Blob Storage as backend.
 [<Sealed; DataContract>]
@@ -46,8 +47,9 @@ type BlobStore private (connectionString : string) =
                 match stream with
                 | Choice1Of2 s -> 
                     return Some s
-                | Choice2Of2 _e -> // TODO : filter exception
+                | Choice2Of2 e when PreconditionFailed e -> 
                     return None
+                | Choice2Of2 e -> return raise e
             }
 
         member x.TryGetETag(path: string): Async<ETag option> = 

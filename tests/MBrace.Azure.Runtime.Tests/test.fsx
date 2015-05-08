@@ -11,6 +11,7 @@ open MBrace.Azure
 open MBrace.Azure.Client
 open System
 open MBrace.Store
+open MBrace.Store.Internals
 
 Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 
@@ -29,6 +30,18 @@ let config =
     { Configuration.Default with
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
+
+
+
+
+let store = MBrace.Azure.Store.BlobStore.Create(config.StorageConnectionString)
+let store = store :> ICloudFileStore
+open System.IO
+let writer (text : string) (stream : Stream) =
+    async {
+        use sw = new StreamWriter(stream)
+        sw.WriteLine(text) 
+    }
 
 let runtime = Runtime.GetHandle(config)
 runtime.AttachClientLogger(new ConsoleLogger())
