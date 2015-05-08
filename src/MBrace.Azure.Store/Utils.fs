@@ -88,7 +88,8 @@ module internal Utils =
         let container, blob = 
             match path.Split([|'/'; '\\'|], 2) with
             | [|c; b |] -> c, b
-            | _ -> failwithf "Invalid path %s" path
+            | [|_|] -> failwithf "Invalid path '%s'. Top level files not allowed." path
+            | _ -> failwithf "Invalid path '%s'." path
         let container = getContainer account container
         let! _ = container.CreateIfNotExistsAsync()
         return container.GetBlockBlobReference(blob)

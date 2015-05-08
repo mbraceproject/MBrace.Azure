@@ -31,18 +31,6 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-
-
-
-let store = MBrace.Azure.Store.BlobStore.Create(config.StorageConnectionString)
-let store = store :> ICloudFileStore
-open System.IO
-let writer (text : string) (stream : Stream) =
-    async {
-        use sw = new StreamWriter(stream)
-        sw.WriteLine(text) 
-    }
-
 let runtime = Runtime.GetHandle(config)
 runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(true, true, true, true, false)
@@ -50,7 +38,7 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 // local only---
-runtime.AttachLocalWorker(1, 4)
+runtime.AttachLocalWorker(4, 4)
 // ----------------------------
 
 runtime.ShowProcesses()
@@ -60,9 +48,6 @@ runtime.ShowLogs()
 runtime.ClearAllProcesses()
 
 runtime.Run(cloud { return Environment.MachineName })
-
-
-runtime.StoreClient.File.Upload(@"c:\workspace\krontogiannis\MBrace.Azure\build.cmd", "inputfolder")
 
 runtime.ShowWorkers()
 
