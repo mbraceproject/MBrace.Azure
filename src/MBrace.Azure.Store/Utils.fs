@@ -37,14 +37,28 @@ module internal Utils =
         static member AwaitTask(task : Task) = Async.AwaitTask(task.ContinueWith ignore)
 
     type AsyncBuilder with
-        member __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
+        member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
             __.Bind(Async.AwaitTask f, g)
-        member __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
+        member inline __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
             __.Bind(Async.AwaitTask(f.ContinueWith ignore), g)
-        member __.ReturnFrom(f : Task<'T>) : Async<'T> =
+        member inline __.ReturnFrom(f : Task<'T>) : Async<'T> =
             __.ReturnFrom(Async.AwaitTask f)
-        member __.ReturnFrom(f : Task) : Async<unit> =
+        member inline __.ReturnFrom(f : Task) : Async<unit> =
             __.ReturnFrom(Async.AwaitTask f)
+
+    let validateContainerName =
+        //https://msdn.microsoft.com/en-us/library/azure/dd135715.aspx
+        let letters = set {'a'..'z'}
+        let nums = set { '0'..'9' }
+        let valid = letters + nums + Set.singleton '-'
+        fun (container : string) ->
+            let isValid =
+                container.Length >= 3 
+                && container.Length <= 63
+                && container |> Seq.forall valid.Contains
+                && container |> Seq.head <> '-'
+            if not isValid then failwithf "Invalid container '%s'" container
+            
 
     /// Creates a Microsoft.WindowsAzure.Storage.BlobClient instance given a cloud storage account
     let getBlobClient (account : CloudStorageAccount) =
@@ -61,6 +75,7 @@ module internal Utils =
     /// <param name="account">Storage account instance.</param>
     /// <param name="container">Container name</param>
     let getContainer (account : CloudStorageAccount) (container : string) = 
+        validateContainerName container
         let client = getBlobClient account
         client.GetContainerReference container
 

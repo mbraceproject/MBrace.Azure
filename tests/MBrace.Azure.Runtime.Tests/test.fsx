@@ -49,6 +49,8 @@ runtime.ClearAllProcesses()
 runtime.Run(cloud { return Environment.MachineName })
 
 
+runtime.StoreClient.File.Upload(@"c:\workspace\krontogiannis\MBrace.Azure\build.cmd", "inputfolder")
+
 runtime.ShowWorkers()
 
 let w = runtime.GetWorkers() |> Seq.head
