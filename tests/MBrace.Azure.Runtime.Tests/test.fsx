@@ -55,39 +55,6 @@ let w = runtime.GetWorkers() |> Seq.head
 w.Memory
 
 
-#r "MBrace.Azure.Store"
-
-open MBrace.Store.Internals
-open MBrace.Azure.Store
-
-let dict = CloudDictionaryProvider.Create(config.StorageConnectionString) :> ICloudDictionaryProvider
-
-let d = dict.Create<int>() |> Async.RunSynchronously
-d.Id
-let e = try d.Add("foo", 43) |> runtime.RunLocally; null with e -> e
-
-e.InnerException 
-
-
-d.TryFind("foo") |> runtime.RunLocally
-d.ContainsKey("foo") |> runtime.RunLocally
-
-d.Add("foo", 42) |> runtime.RunLocally
-d.TryFind("foo") |> runtime.RunLocally
-d.Remove("foo") |> runtime.RunLocally
-d.TryAdd("foo", 42) |> runtime.RunLocally
-
-for i = 1051 to 2000 do
-    d.Add(sprintf "%010d" i, i) |> runtime.RunLocally
-
-d.TryFind("0000001050") |> runtime.RunLocally
-
-let a = d.ToEnumerable() |> runtime.RunLocally |> Seq.toArray
-d.Count |> runtime.RunLocally
-
-d.Dispose() |> runtime.RunLocally
-
-
 let ps = runtime.CreateProcess(cloud { for i in [1..10] do printfn "FOOOO" })
 
 // Standard Vagabond correctness test

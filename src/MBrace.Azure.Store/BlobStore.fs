@@ -52,14 +52,18 @@ type BlobStore private (connectionString : string) =
                 | Choice2Of2 e -> return raise e
             }
 
-        member x.TryGetETag(path: string): Async<ETag option> = 
+        member this.TryGetETag(path: string): Async<ETag option> = 
             async {
+                
                 let! blob = getBlobRef acc path
-                do! blob.FetchAttributesAsync()
-                if String.IsNullOrEmpty blob.Properties.ETag then 
+                if not <| blob.Exists() then
                     return None
                 else
-                    return Some blob.Properties.ETag
+                    do! blob.FetchAttributesAsync()
+                    if String.IsNullOrEmpty blob.Properties.ETag then 
+                        return None
+                    else
+                        return Some blob.Properties.ETag
             }
         
         member this.Name = "MBrace.Azure.Store.BlobStore"
@@ -153,9 +157,11 @@ type BlobStore private (connectionString : string) =
             async {
                 let! blob = getBlobRef acc path
                 // http://msdn.microsoft.com/en-us/library/azure/dd179431.aspx
-                let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-                use! stream = blob.OpenWriteAsync(null, options, OperationContext())
-                let! result = writer(stream)
+                let! result = async {
+                    let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
+                    use! stream = blob.OpenWriteAsync(null, options, OperationContext())
+                    return! writer(stream)
+                }
                 return blob.Properties.ETag, result
             } 
         
