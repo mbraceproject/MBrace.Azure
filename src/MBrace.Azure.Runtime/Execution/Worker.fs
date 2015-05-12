@@ -42,8 +42,8 @@ type internal Worker () =
     let workerLoopAgent =
         /// Timeout for the Mailbox loop.
         let receiveTimeout = 100
-        /// Sleep time for runtime errors.
-        let onErrorWaitTime = 5000
+        /// TryDequeue errors sleep interval.
+        let onErrorWaitTime = 1000
 
         let waitForPendingJobs (config : WorkerConfig) = async {
             config.Logger.Log "Stop requested. Waiting for pending jobs."
@@ -78,13 +78,17 @@ type internal Worker () =
                         match job with
                         | Choice1Of2 None -> 
                             if queueFault then 
-                                config.Logger.Log "Revert state to running"
-                                config.State.WorkerManager.SetCurrentAsRunning()
+                                config.Logger.Log "Reverting state to Running"
+                                do! config.State.WorkerManager.SetCurrentAsRunning()
+                                config.Logger.Log "Done"
                             return! workerLoop false state
                         | Choice1Of2(Some message) ->
                             // run isolated job
                             let jc = Interlocked.Increment &currentJobCount
-                            if queueFault then config.State.WorkerManager.SetCurrentAsRunning()
+                            if queueFault then 
+                                config.Logger.Log "Reverting state to Running"
+                                do! config.State.WorkerManager.SetCurrentAsRunning()
+                                config.Logger.Logf "Done"
                             config.State.WorkerManager.SetJobCountLocal(jc)
                             config.Logger.Logf "Increase Dequeued Jobs %d" jc
                             let! _ = Async.StartChild <| async { 
@@ -116,10 +120,7 @@ type internal Worker () =
                             return! workerLoop false state
                         | Choice2Of2 ex ->
                             config.Logger.Logf "Worker JobQueue fault\n%A" ex
-                            try
-                                config.State.WorkerManager.SetCurrentAsFaulted(ex)
-                            finally
-                                ()
+                            config.State.WorkerManager.SetCurrentAsFaulted(ex)
                             do! Async.Sleep onErrorWaitTime
                             return! workerLoop true state
                 | None, Idle -> 
