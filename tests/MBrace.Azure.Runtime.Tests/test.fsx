@@ -38,21 +38,23 @@ runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset()
 
 // local only---
-runtime.AttachLocalWorker(4, 4)
-// ----------------------------
+runtime.AttachLocalWorker(4, 16)
+//---
 
-runtime.ShowProcesses()
 runtime.ShowWorkers()
+runtime.ShowProcesses()
 runtime.ShowLogs()
 
-runtime.ClearAllProcesses()
 
-runtime.Run(cloud { return Environment.MachineName })
+runtime.Run <| cloud { return 42 }
 
+let wf = [1..20] 
+         |> List.map (fun i -> cloud { return i }) 
+         |> Cloud.Parallel
+         |> runtime.CreateProcess
+
+wf.ShowInfo()
 runtime.ShowWorkers()
-
-let w = runtime.GetWorkers() |> Seq.head
-w.Memory
 
 
 let ps = runtime.CreateProcess(cloud { for i in [1..10] do printfn "FOOOO" })

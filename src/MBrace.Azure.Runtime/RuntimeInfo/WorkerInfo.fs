@@ -83,16 +83,16 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
 type private WorkerManagerMessage =
     | Start       of WorkerRecord * TimeSpan
     | Stop        of AsyncReplyChannel<unit>
-    | SetFaulted  of Exception * AsyncReplyChannel<unit>
-    | SetRunning
+    | SetFaulted  of Exception
+    | SetRunning  of AsyncReplyChannel<unit>
     | SetJobCount of jobCount : int
     
 type private WorkerManagerState =
     {
-        Worker : WorkerRecord
+        Worker             : WorkerRecord
         LastHeartBeatFault : bool
-        InitialTimeSpan : TimeSpan
-        CurrentTimeSpan : TimeSpan
+        InitialTimeSpan    : TimeSpan
+        CurrentTimeSpan    : TimeSpan
     }
 
 
@@ -234,7 +234,7 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
     let runningPickle = WorkerStatus.Pickle Running
 
     let heartbeatAgent = 
-        let maxHeartbeatInterval = TimeSpan.FromMinutes(1.)
+        let maxHeartbeatInterval = TimeSpan.FromSeconds(32.)
 
         new MailboxProcessor<WorkerManagerMessage>(fun inbox ->
             let rec loop (state : WorkerManagerState option) = async {
@@ -286,24 +286,28 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                 | Some(SetJobCount(jc)), Some state ->
                     state.Worker.ActiveJobs <- nullable jc
                     return! loop (Some state)
-                | Some(SetRunning), Some state ->
-                    state.Worker.Status <- runningPickle
-                    return! loop (Some state)
-                | Some(SetFaulted(ex, ch)), Some state ->
+                | Some(SetRunning(ch)), Some state ->
+                    try
+                        state.Worker.Status <- runningPickle
+                        let! c = Table.replace config table state.Worker
+                        current <- Some c
+                    with _ -> ()
+                    ch.Reply()
+                    return! loop (Some {state with LastHeartBeatFault = false })
+                | Some(SetFaulted(ex)), Some state ->
                     try
                         state.Worker.Status <- WorkerStatus.Pickle (Faulted ex)
-                        let! _ = Table.replace config table state.Worker
-                        ()
-                    finally
-                        ch.Reply()
+                        let! c = Table.replace config table state.Worker
+                        current <- Some c
+                    with _ -> ()
                     return! loop (Some state)
                 | Some(Stop(ch)), Some state ->
                     try
                         state.Worker.Status <- WorkerStatus.Pickle WorkerStatus.Stopped
-                        let! _ = Table.replace config table state.Worker
-                        ()
-                    finally
-                        ch.Reply()
+                        let! c = Table.replace config table state.Worker
+                        current <- Some c
+                    with _ -> ()
+                    ch.Reply()
                     return! loop None
                 | other ->
                     logger.Logf "Heartbeat Loop : Invalid state : %A" other
@@ -312,6 +316,8 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             loop None
         )
 
+    do heartbeatAgent.Error.Add(fun ex -> logger.Logf "Heartbeat Loop error %A" ex)
+
     member this.Current : WorkerRecord = 
         match current with
         | Some c -> c
@@ -319,7 +325,10 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
     
     member this.SetJobCountLocal(jc) = heartbeatAgent.Post(SetJobCount jc)
 
-    member this.SetCurrentAsRunning() = heartbeatAgent.Post(SetRunning)
+    member this.SetCurrentAsRunning() = heartbeatAgent.PostAndAsyncReply(SetRunning)
+
+    member this.SetCurrentAsFaulted(ex : Exception) =
+        heartbeatAgent.Post(SetFaulted(ex))
 
     member this.StartHeartbeatLoop(timespan : TimeSpan) =
         if timespan > WorkerManager.MaxHeartbeatTimeSpan then raise(ArgumentOutOfRangeException("timespan", "Max TimeSpan of 10 minutes allowed."))
@@ -357,11 +366,6 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
             (perfMon.Value :> IDisposable).Dispose() 
             return! heartbeatAgent.PostAndAsyncReply(fun ch -> Stop(ch))
         }
-
-    member this.SetCurrentAsFaulted(ex : Exception) =
-        heartbeatAgent.PostAndReply(fun ch -> SetFaulted(ex, ch))
-        
-
 
     member this.SetWorkerStopped(worker : WorkerRecord) : Async<unit> =
         async {
