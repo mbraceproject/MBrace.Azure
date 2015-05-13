@@ -16,7 +16,6 @@ open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Utilities
 
-
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
     // TODO : Add locks
@@ -29,8 +28,6 @@ type Service (config : Configuration, serviceId : string) =
     let mutable channelDirectory = None
     let mutable atomDirectory    = None
 
-    let mutable cache           = None
-    //let mutable useCache        = false
     let mutable ignoreVersion   = true
     let mutable customResources = ResourceRegistry.Empty
     let mutable configuration   = config
@@ -55,11 +52,6 @@ type Service (config : Configuration, serviceId : string) =
     member this.Configuration  
         with get () = configuration
         and set c = check (); configuration <- c
-    
-    /// Determines if the registered local cache will be used.
-//    member this.UseLocalCache
-//        with get () = useCache
-//        and set c = check (); useCache <- c
 
     /// Get or set iff version compatibility will be ignored.
     member this.IgnoreVersionCompatibility
@@ -98,10 +90,6 @@ type Service (config : Configuration, serviceId : string) =
     /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
     member this.RegisterDictionaryProvider(dictionary : ICloudDictionaryProvider) = 
         check () ; dictionaryProvider <- Some dictionary
-    
-    /// Register a local filesystem cache implementation. Defaults to FileSystemStore in local TEMP folder.
-    member this.RegisterCache(cacheStore : ICloudFileStore) =
-        check () ; cache <- Some <| cacheStore
 
     /// Add a custom resource in workers ResourceRegistry.
     member this.RegisterResource(resource : 'TResource) = check () ; customResources <- customResources.Register(resource)
@@ -131,18 +119,6 @@ type Service (config : Configuration, serviceId : string) =
                 logf "CloudFileStore : %s" storeProvider.Value.Id
 
                 let store = storeProvider.Value
-//                    if this.UseLocalCache then
-//                        cache <- 
-//                            Some <|
-//                                match cache with
-//                                | Some cs -> cs
-//                                | None -> FileSystemStore.CreateSharedLocal() :> ICloudFileStore
-//
-//                        logf "Local Cache Store %s" cache.Value.Id
-//                        let store = FileStoreCache.Create(storeProvider.Value, cache.Value) //:> ICloudFileStore
-//                        logf "CachedStore %s created" store.Id
-//                        store
-//                    else
 
                 atomProvider <- 
                     Some <|
@@ -193,7 +169,7 @@ type Service (config : Configuration, serviceId : string) =
                 let! handle = Async.StartChild <| async { do worker.Start(config) }
                 logf "Worker loop started"
                 
-                state.WorkerManager.SetCurrentAsRunning()
+                do! state.WorkerManager.SetCurrentAsRunning()
                 sw.Stop()
                 logf "Service %s started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
                 return! handle
