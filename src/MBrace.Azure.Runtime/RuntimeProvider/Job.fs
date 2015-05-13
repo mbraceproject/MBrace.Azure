@@ -55,6 +55,8 @@ type ProcessInfo =
         AtomProvider : ICloudAtomProvider option
         /// Optional channel provider for this process.
         ChannelProvider : ICloudChannelProvider option
+        /// Optional dictionary provider for this process.
+        DictionaryProvider : ICloudDictionaryProvider option
     }
 
 /// Job kind.

@@ -157,10 +157,25 @@ type Runtime private (clientId, config : Configuration) =
     /// <param name="atomProvider">Optional CloudAtomProvider.</param>
     /// <param name="defaultChannelContainer">Optional default container for CloudChannel operations.</param>
     /// <param name="channelProvider">Optional CloudChannelProvider.</param>
+    /// <param name="dictionaryProvider">Optional DictionaryProvider.</param>
     /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
     /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
-    member this.CreateProcessAsTask(workflow : Cloud<'T>, ?name : string, ?defaultDirectory : string,?fileStore : ICloudFileStore,?defaultAtomContainer : string,?atomProvider : ICloudAtomProvider,?defaultChannelContainer : string,?channelProvider : ICloudChannelProvider,?cancellationToken : ICloudCancellationToken, ?faultPolicy : FaultPolicy) =
-        this.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
+    member this.CreateProcessAsTask(workflow : Cloud<'T>, 
+                                    ?name : string, 
+                                    ?defaultDirectory : string,
+                                    ?fileStore : ICloudFileStore,
+                                    ?defaultAtomContainer : string,
+                                    ?atomProvider : ICloudAtomProvider,
+                                    ?defaultChannelContainer : string,
+                                    ?channelProvider : ICloudChannelProvider, 
+                                    ?dictionaryProvider : ICloudDictionaryProvider, 
+                                    ?cancellationToken : ICloudCancellationToken, 
+                                    ?faultPolicy : FaultPolicy) =
+        this.CreateProcessAsync
+            (workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, 
+             ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, 
+             ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, 
+             ?dictionaryProvider = dictionaryProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) 
         |> Async.StartAsTask
 
     /// <summary>
@@ -174,10 +189,25 @@ type Runtime private (clientId, config : Configuration) =
     /// <param name="atomProvider">Optional CloudAtomProvider.</param>
     /// <param name="defaultChannelContainer">Optional default container for CloudChannel operations.</param>
     /// <param name="channelProvider">Optional CloudChannelProvider.</param>
+    /// <param name="dictionaryProvider">Optional DictionaryProvider.</param>
     /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
     /// <param name="faultPolicy">Optional FaultPolicy. Defaults to InfiniteRetry.</param>
-    member this.CreateProcess(workflow : Cloud<'T>,  ?name : string,  ?defaultDirectory : string, ?fileStore : ICloudFileStore, ?defaultAtomContainer : string, ?atomProvider : ICloudAtomProvider, ?defaultChannelContainer : string, ?channelProvider : ICloudChannelProvider, ?cancellationToken : ICloudCancellationToken,  ?faultPolicy : FaultPolicy) : Process<'T> =
-        this.CreateProcessAsync(workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy )
+    member this.CreateProcess(workflow : Cloud<'T>,
+                              ?name : string, 
+                              ?defaultDirectory : string,
+                              ?fileStore : ICloudFileStore,
+                              ?defaultAtomContainer : string,
+                              ?atomProvider : ICloudAtomProvider,
+                              ?defaultChannelContainer : string,
+                              ?channelProvider : ICloudChannelProvider, 
+                              ?dictionaryProvider : ICloudDictionaryProvider, 
+                              ?cancellationToken : ICloudCancellationToken, 
+                              ?faultPolicy : FaultPolicy) : Process<'T> =
+        this.CreateProcessAsync
+            (workflow, ?name = name, ?defaultDirectory = defaultDirectory, ?fileStore = fileStore, 
+             ?defaultAtomContainer = defaultAtomContainer, ?atomProvider = atomProvider, 
+             ?defaultChannelContainer = defaultChannelContainer, ?channelProvider = channelProvider, 
+             ?dictionaryProvider = dictionaryProvider, ?cancellationToken = cancellationToken, ?faultPolicy = faultPolicy) 
         |> Async.RunSync
 
     /// <summary>
@@ -191,18 +221,20 @@ type Runtime private (clientId, config : Configuration) =
     /// <param name="atomProvider">Optional CloudAtomProvider.</param>
     /// <param name="defaultChannelContainer">Optional default container for CloudChannel operations.</param>
     /// <param name="channelProvider">Optional CloudChannelProvider.</param>
+    /// <param name="dictionaryProvider">Optional DictionaryProvider.</param>
     /// <param name="cancellationToken">Optional CloudCancellationToken.</param>
     /// <param name="faultPolicy">Optional FaultPolicy. Defaults to NoRetry.</param>
     member this.CreateProcessAsync(workflow : Cloud<'T>, 
-                                    ?name : string, 
-                                    ?defaultDirectory : string,
-                                    ?fileStore : ICloudFileStore,
-                                    ?defaultAtomContainer : string,
-                                    ?atomProvider : ICloudAtomProvider,
-                                    ?defaultChannelContainer : string,
-                                    ?channelProvider : ICloudChannelProvider,
-                                    ?cancellationToken : ICloudCancellationToken, 
-                                    ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
+                                   ?name : string, 
+                                   ?defaultDirectory : string,
+                                   ?fileStore : ICloudFileStore,
+                                   ?defaultAtomContainer : string,
+                                   ?atomProvider : ICloudAtomProvider,
+                                   ?defaultChannelContainer : string,
+                                   ?channelProvider : ICloudChannelProvider,
+                                   ?dictionaryProvider : ICloudDictionaryProvider,
+                                   ?cancellationToken : ICloudCancellationToken, 
+                                   ?faultPolicy : FaultPolicy) : Async<Process<'T>> =
         async {
             restrictVersion()
                 
@@ -224,6 +256,7 @@ type Runtime private (clientId, config : Configuration) =
                     AtomProvider = atomProvider
                     DefaultChannelContainer = defaultChannelContainer
                     ChannelProvider = channelProvider 
+                    DictionaryProvider = dictionaryProvider
                 }
 
             let! _ = state.AssemblyManager.UploadDependencies(dependencies)

@@ -78,6 +78,7 @@ and [<AutoSerializable(false)>]
                     DefaultContainer = getDirectory info.DefaultAtomContainer config.AtomDirectory staticConfiguration.State.ConfigurationId.UserDataTable }
             yield { ChannelProvider = defaultArg info.ChannelProvider config.Channel
                     DefaultContainer = getDirectory info.DefaultChannelContainer config.ChannelDirectory staticConfiguration.State.ConfigurationId.UserDataTable }
+            yield defaultArg info.DictionaryProvider config.Dictionary
         }
         Job.RunAsync provider resources faultCount job
 
