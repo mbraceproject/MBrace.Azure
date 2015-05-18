@@ -7,3 +7,4 @@ Newtonsoft.Json
 System.Spatial
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
+Microsoft.WindowsAzure.Caching
