@@ -26,9 +26,11 @@ let selectEnv name =
        | _, _, s when not <| String.IsNullOrEmpty(s) -> s
        | _ -> failwith "Variable not found"
 
+//old 3Tyipb15TTsnBb9ypXvS9c8jfBzcyV63MQk/7oG89sKdWcpqs2dzMa50Y1240mmSpXHFIdaD0EyHXHG8yGZVRw==
+//new gSfaZS6A9HLkr9dpcECpbkxt4gDeAkEDZ61TKuExco2dWBFLvVbzDHA+Ff97Ca0z2mBw/7WTxWCjDkLFusQXog==
 let config = 
     { Configuration.Default with
-        StorageConnectionString = selectEnv "azurestorageconn"
+        StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=kostastemp;AccountKey=3Tyipb15TTsnBb9ypXvS9c8jfBzcyV63MQk/7oG89sKdWcpqs2dzMa50Y1240mmSpXHFIdaD0EyHXHG8yGZVRw==" //selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 let runtime = Runtime.GetHandle(config)

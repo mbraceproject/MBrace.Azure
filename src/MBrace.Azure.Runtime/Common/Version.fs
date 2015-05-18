@@ -27,6 +27,10 @@ module internal Metadata =
     open Nessos.FsPickler
     open System.IO
 
+    let compareConfigurations (local : Metadata) (remote : Metadata) =
+        if local.ConfigurationId <> remote.ConfigurationId then
+            failwithf "Configuration mismatch. Given configuration %+A does not match remote configuration %+A" local.ConfigurationId remote.ConfigurationId
+
     let compare (local : Metadata) (remote : Metadata) =
         if local <> remote then
             raise <| IncompatibleVersionException(sprintf "%A" local, sprintf "%A" remote)

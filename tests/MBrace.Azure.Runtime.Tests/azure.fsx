@@ -116,9 +116,29 @@ queue.Complete(bm.LockToken)
 //    member this.ProposedId = proposed
 //    member this.LeaseId = leaseId
 
-
-let acc = CloudStorageAccount.Parse(store)
+let acc = CloudStorageAccount.Parse("")
 let client = acc.CreateCloudBlobClient()
+let cont = client.GetContainerReference("foo")
+cont.CreateIfNotExists()
+cont.ListBlobs()
+
+
+Async.Parallel [ acc.CreateCloudTableClient().GetTableReference("bar").CreateIfNotExistsAsync()
+                 |> Async.AwaitTask ]
+|> Async.RunSynchronously
+
+client.ListContainers()
+let container = client.GetRootContainerReference()
+
+container.ListBlobs()
+
+let br = container.GetBlockBlobReference("foo/bar.txt")
+br.UploadText("Hello world")
+
+
+container.Name
+container.ListBlobs()
+
 let container = client.GetContainerReference("temp")
 container.CreateIfNotExists()
 

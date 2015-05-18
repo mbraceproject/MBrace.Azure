@@ -49,8 +49,12 @@ with
         let configurationId = config.ConfigurationId
         let logger = new RuntimeLogger()
         let! jobQueue = JobQueue.Create(configurationId, logger)
-        if not ignoreVersionCompatibility then
-            Metadata.compare { Version = ReleaseInfo.localVersion; ConfigurationId = configurationId } jobQueue.Metadata
+        let localMetadata = { Version = ReleaseInfo.localVersion; ConfigurationId = configurationId }
+        
+        if ignoreVersionCompatibility then
+            Metadata.compareConfigurations localMetadata jobQueue.Metadata
+        else
+            Metadata.compare localMetadata jobQueue.Metadata
 
         let assemblyManager = BlobAssemblyManager.Create(configurationId, logger) 
         let resourceFactory = ResourceFactory.Create(configurationId) 
