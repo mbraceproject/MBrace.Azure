@@ -52,7 +52,8 @@ with
         let localMetadata = { Version = ReleaseInfo.localVersion; ConfigurationId = configurationId }
         
         if ignoreVersionCompatibility then
-            Metadata.compareConfigurations localMetadata jobQueue.Metadata
+            //Metadata.compareConfigurations localMetadata jobQueue.Metadata
+            ()
         else
             Metadata.compare localMetadata jobQueue.Metadata
 
