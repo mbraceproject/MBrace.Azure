@@ -19,10 +19,11 @@ open MBrace.Azure.Runtime.Utilities
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
     // TODO : Add locks
-    let mutable storeProvider   = None
-    let mutable channelProvider = None
-    let mutable atomProvider    = None
+    let mutable storeProvider      = None
+    let mutable channelProvider    = None
+    let mutable atomProvider       = None
     let mutable dictionaryProvider = None
+    let mutable objectCache        = None
 
     let mutable storeDirectory   = None
     let mutable channelDirectory = None
@@ -91,8 +92,13 @@ type Service (config : Configuration, serviceId : string) =
     member this.RegisterDictionaryProvider(dictionary : ICloudDictionaryProvider) = 
         check () ; dictionaryProvider <- Some dictionary
 
+    /// Register an IObjectCache instance. Defaults to System.Runtime.Caching.MemoryCache implementation.
+    member this.RegisterObjectCache(cache : IObjectCache) =
+        check () ; objectCache <- Some cache
+
     /// Add a custom resource in workers ResourceRegistry.
-    member this.RegisterResource(resource : 'TResource) = check () ; customResources <- customResources.Register(resource)
+    member this.RegisterResource(resource : 'TResource) = 
+        check () ; customResources <- customResources.Register(resource)
     
     /// Start Service and worker loop as a Task.
     member this.StartAsTask() : Tasks.Task = Async.StartAsTask(this.StartAsync()) :> _
@@ -144,10 +150,18 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "DictionaryProvider : %A" dictionaryProvider.Value
 
+                objectCache <-
+                    Some <|
+                        match objectCache with
+                        | Some oc -> oc
+                        | None -> InMemoryCache.Create() :> _
+
+                logf "ObjectCache : %A" objectCache.Value
+
                 logf "MaxConcurrentJobs : %d" this.MaxConcurrentJobs
 
                 logf "Initializing JobEvaluator"
-                let jobEvaluator = new JobEvaluator(config, serviceId, customLogger, ignoreVersion)
+                let jobEvaluator = new JobEvaluator(config, serviceId, customLogger, objectCache.Value, ignoreVersion)
                 
                 logf "Starting worker loop"
                 let config = { 

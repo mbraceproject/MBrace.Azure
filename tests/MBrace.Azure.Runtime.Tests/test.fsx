@@ -28,7 +28,7 @@ let selectEnv name =
 
 let config = 
     { Configuration.Default with
-        StorageConnectionString = "DefaultEndpointsProtocol=https;AccountName=kostastemp;AccountKey=3Tyipb15TTsnBb9ypXvS9c8jfBzcyV63MQk/7oG89sKdWcpqs2dzMa50Y1240mmSpXHFIdaD0EyHXHG8yGZVRw==" //selectEnv "azurestorageconn"
+        StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 let runtime = Runtime.GetHandle(config)
