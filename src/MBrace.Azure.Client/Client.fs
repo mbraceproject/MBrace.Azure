@@ -2,6 +2,7 @@
 
 #nowarn "40"
 #nowarn "444"
+#nowarn "445"
 
 open System
 open System.Diagnostics
@@ -487,11 +488,36 @@ type Runtime private (clientId, config : Configuration) =
             let deleteState = defaultArg deleteState true
             let deleteQueue = defaultArg deleteQueue true
             let deleteUserData = defaultArg deleteUserData true
-            let deleteRuntimeLogs = defaultArg deleteLogs true
+            let deleteLogs = defaultArg deleteLogs true
             let reactivate = defaultArg reactivate true
 
             clientLogger.Logf "Calling Reset."
             storageLogger.Stop()
+            Runtime.Reset(configuration, deleteQueue = deleteQueue, deleteState = deleteState, deleteLogs = deleteLogs, deleteUserData = deleteUserData, reactivate = reactivate)
+            if reactivate then
+                storageLogger.Start()
+
+        } |> Async.RunSync
+
+    /// <summary>
+    /// Delete and re-activate runtime state.
+    /// Using 'Reset' may cause unexpected behavior in clients and workers.
+    /// Workers should be restarted manually.</summary>
+    /// <param name="Configuration">Runtime configuration.</param>
+    /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
+    /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
+    /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
+    /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
+    /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
+    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
+    static member Reset(configuration, ?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
+        async {
+            let deleteState = defaultArg deleteState true
+            let deleteQueue = defaultArg deleteQueue true
+            let deleteUserData = defaultArg deleteUserData true
+            let deleteRuntimeLogs = defaultArg deleteLogs true
+            let reactivate = defaultArg reactivate true
+
             let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
                 
             cl.Logf "Deleting Queues."
@@ -521,9 +547,7 @@ type Runtime private (clientId, config : Configuration) =
 
                 cl.Logf "Initializing RuntimeState."
                 let! _ = RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility = false)
-
-                storageLogger.Start()
-
+                return ()
         } |> Async.RunSync
 
     /// <summary>
