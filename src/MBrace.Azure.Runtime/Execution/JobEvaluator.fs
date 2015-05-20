@@ -35,11 +35,11 @@ type internal StaticConfiguration =
       Cache          : IObjectCache }
 
 and [<AutoSerializable(false)>] 
-    internal JobEvaluator(config : Configuration, serviceId : string, customLogger, objectCache : IObjectCache, ignoreVersion : bool) =
+    internal JobEvaluator(config : Configuration, serviceId : string, customLogger, objectCacheFactory : Func<IObjectCache>, ignoreVersion : bool) =
 
     static let mutable staticConfiguration = Unchecked.defaultof<StaticConfiguration>
 
-    static let mkAppDomainInitializer (config : Configuration) (serviceId : string) (customLogger : ICloudLogger) (objectCache : IObjectCache) (ignoreVersion : bool) =
+    static let mkAppDomainInitializer (config : Configuration) (serviceId : string) (customLogger : ICloudLogger) (objectCacheFactory : Func<IObjectCache>) (ignoreVersion : bool) =
         fun () -> 
             async {
                 
@@ -48,7 +48,7 @@ and [<AutoSerializable(false)>]
                 staticConfiguration <-
                     { State          = state
                       Resources      = resources
-                      Cache          = objectCache }
+                      Cache          = objectCacheFactory.Invoke() }
 
                 state.Logger.Logf "AppDomain Initialized"
             }
@@ -124,7 +124,7 @@ and [<AutoSerializable(false)>]
 
     
     let pool = AppDomainEvaluatorPool.Create(
-                mkAppDomainInitializer config serviceId customLogger objectCache ignoreVersion, 
+                mkAppDomainInitializer config serviceId customLogger objectCacheFactory ignoreVersion, 
                 threshold = TimeSpan.FromDays 2., 
                 minimumConcurrentDomains = 4,
                 maximumConcurrentDomains = 64)

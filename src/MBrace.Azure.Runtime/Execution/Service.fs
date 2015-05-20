@@ -23,7 +23,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable channelProvider    = None
     let mutable atomProvider       = None
     let mutable dictionaryProvider = None
-    let mutable objectCache        = None
+    let mutable objectCacheFactory = None
 
     let mutable storeDirectory   = None
     let mutable channelDirectory = None
@@ -93,8 +93,8 @@ type Service (config : Configuration, serviceId : string) =
         check () ; dictionaryProvider <- Some dictionary
 
     /// Register an IObjectCache instance. Defaults to System.Runtime.Caching.MemoryCache implementation.
-    member this.RegisterObjectCache(cache : IObjectCache) =
-        check () ; objectCache <- Some cache
+    member this.RegisterObjectCache(cacheFactory : Func<IObjectCache>) =
+        check () ; objectCacheFactory <- Some cacheFactory
 
     /// Add a custom resource in workers ResourceRegistry.
     member this.RegisterResource(resource : 'TResource) = 
@@ -150,18 +150,20 @@ type Service (config : Configuration, serviceId : string) =
 
                 logf "DictionaryProvider : %A" dictionaryProvider.Value
 
-                objectCache <-
+                objectCacheFactory <-
                     Some <|
-                        match objectCache with
-                        | Some oc -> oc
-                        | None -> InMemoryCache.Create() :> _
-
-                logf "ObjectCache : %A" objectCache.Value
+                        match objectCacheFactory with
+                        | Some oc -> 
+                            logf "Using custom IObjectCache"
+                            oc
+                        | None -> 
+                            logf "Using InMemoryCache"
+                            new Func<_>(fun () -> InMemoryCache.Create() :> _)
 
                 logf "MaxConcurrentJobs : %d" this.MaxConcurrentJobs
 
                 logf "Initializing JobEvaluator"
-                let jobEvaluator = new JobEvaluator(config, serviceId, customLogger, objectCache.Value, ignoreVersion)
+                let jobEvaluator = new JobEvaluator(config, serviceId, customLogger, objectCacheFactory.Value, ignoreVersion)
                 
                 logf "Starting worker loop"
                 let config = { 

@@ -47,6 +47,10 @@ runtime.ShowLogs()
 
 runtime.Run <| cloud { return 42 }
 
+let cr = runtime.Run <| CloudValue.New(42)
+
+runtime.Run <| cr.Value
+
 let wf = [1..20] 
          |> List.map (fun i -> cloud { return i }) 
          |> Cloud.Parallel
