@@ -34,9 +34,9 @@ let config =
 let runtime = Runtime.GetHandle(config)
 runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(true, true, true, true, false)
-//runtime.Reset(reactivate = false)
+//Runtime.Reset(reactivate = false)
 //runtime.Reset()
-
+//Runtime.Reset(config, reactivate = false)
 // local only---
 runtime.AttachLocalWorker(4, 16)
 //---
@@ -44,7 +44,6 @@ runtime.AttachLocalWorker(4, 16)
 runtime.ShowWorkers()
 runtime.ShowProcesses()
 runtime.ShowLogs()
-
 
 runtime.Run <| cloud { return 42 }
 
@@ -78,7 +77,6 @@ let ps = runtime.CreateProcess([1..10] |> Seq.map (fun i -> cloud { return i*i }
 ps.ShowInfo()
 ps.AwaitResult()
 ps.Kill()
-
 
 let ps = runtime.CreateProcess(cloud { return 42 })
 

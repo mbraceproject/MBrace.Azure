@@ -493,7 +493,7 @@ type Runtime private (clientId, config : Configuration) =
 
             clientLogger.Logf "Calling Reset."
             storageLogger.Stop()
-            Runtime.Reset(configuration, deleteQueue = deleteQueue, deleteState = deleteState, deleteLogs = deleteLogs, deleteUserData = deleteUserData, reactivate = reactivate)
+            Runtime.Reset(config, deleteQueue = deleteQueue, deleteState = deleteState, deleteLogs = deleteLogs, deleteUserData = deleteUserData, reactivate = reactivate)
             if reactivate then
                 storageLogger.Start()
 
@@ -519,6 +519,11 @@ type Runtime private (clientId, config : Configuration) =
             let reactivate = defaultArg reactivate true
 
             let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
+            cl.Logf "Activating configuration"
+            let configuration = configuration.WithAppendedId
+            Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
+            Async.RunSync(Configuration.ActivateAsync(configuration))
+
                 
             cl.Logf "Deleting Queues."
             if deleteQueue then do! Configuration.DeleteRuntimeQueues(configuration)
