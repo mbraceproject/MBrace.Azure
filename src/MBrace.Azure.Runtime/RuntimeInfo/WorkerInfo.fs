@@ -41,6 +41,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Azure
+open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 
@@ -219,6 +220,7 @@ namespace MBrace.Azure.Runtime.Info
 open System
 open System.Net
 open MBrace.Azure
+open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Core.Internals

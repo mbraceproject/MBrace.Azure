@@ -14,6 +14,7 @@ open MBrace.Runtime.Vagabond
 open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
+open MBrace.Runtime.Utils
 
 #nowarn "1571"
 

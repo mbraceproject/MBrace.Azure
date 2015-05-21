@@ -6,6 +6,7 @@ open System.Diagnostics
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Azure
+open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Utilities

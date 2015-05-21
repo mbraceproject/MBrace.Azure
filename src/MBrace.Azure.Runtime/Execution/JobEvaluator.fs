@@ -13,6 +13,7 @@ open MBrace.Store
 open MBrace.Store.Internals
 open MBrace.Runtime.Vagabond
 open MBrace.Runtime.Store
+open MBrace.Runtime.Utils
 open MBrace.Azure
 open MBrace.Azure.Runtime.Primitives
 open MBrace.Azure.Runtime.Utilities

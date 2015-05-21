@@ -21,7 +21,7 @@ open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure.Runtime.Arguments
 open MBrace.Client
-
+open MBrace.Runtime.Utils
 
 /// <summary>
 /// Windows Azure Runtime client.

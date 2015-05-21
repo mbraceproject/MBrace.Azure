@@ -16,6 +16,7 @@ open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure.Runtime.Primitives
+open MBrace.Runtime.Utils
 
 type internal WorkerConfig = 
     { State                     : RuntimeState

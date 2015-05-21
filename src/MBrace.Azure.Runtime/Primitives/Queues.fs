@@ -9,6 +9,7 @@ open MBrace.Azure
 open MBrace.Core.Internals
 open System.Threading.Tasks
 open System.IO
+open MBrace.Runtime.Utils
 
 [<AutoOpenAttribute>]
 module private Helpers = 

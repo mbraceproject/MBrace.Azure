@@ -9,6 +9,7 @@ open MBrace.Core.Internals
 open MBrace.Store
 open MBrace.Store.Internals
 open MBrace.Runtime.Store
+open MBrace.Runtime.Utils
 open MBrace.Azure
 open MBrace.Azure.Store
 open MBrace.Azure.Runtime

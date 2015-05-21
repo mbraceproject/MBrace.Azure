@@ -3,7 +3,7 @@
 open System
 open MBrace.Core
 open MBrace.Azure.Runtime.Primitives
-open MBrace.Azure.Runtime.Utilities
+open MBrace.Runtime.Utils
 
 [<Sealed>]
 type internal FaultHandler () =

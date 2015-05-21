@@ -16,6 +16,7 @@ nuget NUnit 2.6.3
 nuget NUnit.Runners 2.6.3
 nuget System.Spatial
 nuget Vagabond 0.6.6
+nuget Mono.Cecil 0.9.5.4
 nuget WindowsAzure.ServiceBus 2.5.2
 nuget WindowsAzure.Storage 4.3.0
 nuget FAKE
