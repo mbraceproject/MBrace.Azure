@@ -51,21 +51,6 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="app.config.Transform">
-      <Paket>True</Paket>
-    </Content>
-    <Content Include="web.config.Transform">
-      <Paket>True</Paket>
-    </Content>
-    <Content Include="Microsoft.WindowsAzure.Caching\ClientPerfCountersInstaller.exe">
-      <Paket>True</Paket>
-    </Content>
-    <Content Include="Microsoft.WindowsAzure.Caching\ClientPerfCountersInstaller.exe.config">
-      <Paket>True</Paket>
-    </Content>
-    <Content Include="Microsoft.WindowsAzure.Caching\PerformanceCounters.xml">
-      <Paket>True</Paket>
-    </Content>
     <Reference Include="FSharp.Core, Version=4.3.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <Private>True</Private>
     </Reference>
@@ -87,7 +72,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RoleCache.cs" />
     <Compile Include="WorkerRole.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -282,45 +266,7 @@
         </Reference>
       </ItemGroup>
     </When>
-    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">
-      <ItemGroup>
-        <Reference Include="Microsoft.ApplicationServer.Caching.AzureClientHelper">
-          <HintPath>..\..\packages\Microsoft.WindowsAzure.Caching\lib\net40-full\Microsoft.ApplicationServer.Caching.AzureClientHelper.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="Microsoft.ApplicationServer.Caching.AzureCommon">
-          <HintPath>..\..\packages\Microsoft.WindowsAzure.Caching\lib\net40-full\Microsoft.ApplicationServer.Caching.AzureCommon.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="Microsoft.ApplicationServer.Caching.Client">
-          <HintPath>..\..\packages\Microsoft.WindowsAzure.Caching\lib\net40-full\Microsoft.ApplicationServer.Caching.Client.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="Microsoft.ApplicationServer.Caching.Core">
-          <HintPath>..\..\packages\Microsoft.WindowsAzure.Caching\lib\net40-full\Microsoft.ApplicationServer.Caching.Core.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="Microsoft.Web.DistributedCache">
-          <HintPath>..\..\packages\Microsoft.WindowsAzure.Caching\lib\net40-full\Microsoft.Web.DistributedCache.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="Microsoft.WindowsFabric.Common">
-          <HintPath>..\..\packages\Microsoft.WindowsAzure.Caching\lib\net40-full\Microsoft.WindowsFabric.Common.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-        <Reference Include="Microsoft.WindowsFabric.Data.Common">
-          <HintPath>..\..\packages\Microsoft.WindowsAzure.Caching\lib\net40-full\Microsoft.WindowsFabric.Data.Common.dll</HintPath>
-          <Private>True</Private>
-          <Paket>True</Paket>
-        </Reference>
-      </ItemGroup>
-    </When>
+    <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')" />
   </Choose>
   <Choose>
     <When Condition="($(TargetFrameworkIdentifier) == '.NETFramework' And ($(TargetFrameworkVersion) == 'v4.0' Or $(TargetFrameworkVersion) == 'v4.5' Or $(TargetFrameworkVersion) == 'v4.5.1' Or $(TargetFrameworkVersion) == 'v4.5.2' Or $(TargetFrameworkVersion) == 'v4.5.3' Or $(TargetFrameworkVersion) == 'v4.6')) Or ($(TargetFrameworkIdentifier) == 'MonoAndroid') Or ($(TargetFrameworkIdentifier) == 'MonoTouch')">

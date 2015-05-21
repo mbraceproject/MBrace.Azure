@@ -28,7 +28,7 @@ let selectEnv name =
 
 let config = 
     { Configuration.Default with
-        StorageConnectionString = "UseDevelopmentStorage=true" //selectEnv "azurestorageconn"
+        StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 let runtime = Runtime.GetHandle(config)

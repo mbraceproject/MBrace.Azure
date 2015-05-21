@@ -4,7 +4,6 @@ nuget MBrace.Tests 0.9.10-alpha
 nuget Microsoft.Data.Edm
 nuget Microsoft.Data.OData
 nuget Microsoft.Data.Services.Client
-nuget Microsoft.WindowsAzure.Caching 2.5.0
 nuget Microsoft.WindowsAzure.ConfigurationManager
 nuget Newtonsoft.Json
 nuget Nuget.CommandLine 2.8.3
