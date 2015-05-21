@@ -1,3 +1,7 @@
+#### 0.6.7-alpha
+* Update MBrace.Core libraries.
+* Misc bugfixes.
+
 #### 0.6.6-alpha
 * Update MBrace.Core libraries.
 * Improved status reporting for workers and bugfixes.
