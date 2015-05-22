@@ -286,7 +286,11 @@ type WorkerManager private (config : ConfigurationId, logger : ICloudLogger) =
                     worker.Status <- runningPickle
                     return! loop (Some { Worker = worker; LastHeartBeatFault = false; InitialTimeSpan = ts; CurrentTimeSpan = ts })
                 | Some(SetJobCount(jc)), Some state ->
-                    state.Worker.ActiveJobs <- nullable jc
+                    try
+                        state.Worker.ActiveJobs <- nullable jc
+                        let! c = Table.replace config table state.Worker
+                        current <- Some c
+                    with _ -> ()
                     return! loop (Some state)
                 | Some(SetRunning(ch)), Some state ->
                     try

@@ -47,6 +47,10 @@ runtime.ShowLogs()
 
 runtime.Run <| cloud { return 42 }
 
+System.AppDomain.CurrentDomain.GetAssemblies()
+|> Array.map (fun a -> a.FullName)
+
+
 let cr = runtime.Run <| CloudValue.New(42)
 
 runtime.Run <| cr.Value
