@@ -1,3 +1,6 @@
+### 0.6.8-alpha
+* Fix NuGet dependencies.
+
 #### 0.6.7-alpha
 * Update MBrace.Core libraries.
 * Misc bugfixes.
