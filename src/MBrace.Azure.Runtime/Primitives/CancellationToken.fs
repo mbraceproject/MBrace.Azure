@@ -17,7 +17,7 @@ open MBrace.Azure.Runtime.Utilities
 module private CancellationTokenSourceUtils =
 
     /// cancels a distributed token entity and all its children
-    let rec cancelTokenEntity (config : ConfigurationId) (partitionKey : string) (rowKey : string) = async {
+    let cancelTokenEntity (config : ConfigurationId) (partitionKey : string) (rowKey : string) = async {
         // Gather all Uris to update
         let visited = new HashSet<string * string>()
         let rec walk ((partitionKey, rowKey) as u) = async {
