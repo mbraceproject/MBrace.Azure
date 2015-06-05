@@ -32,9 +32,9 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
         client <- Table.getClient(CloudStorageAccount.Parse connectionString)
         
     interface ICloudDictionary<'T> with
-        member x.IsKnownCount: bool = true
+        member x.IsKnownCount: bool = false
         
-        member x.IsKnownSize: bool = true
+        member x.IsKnownSize: bool = false
         
         member this.Add(key: string, value : 'T): Local<unit> = 
             async {
@@ -84,16 +84,9 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
                 return e <> null
             } |> Cloud.OfAsync
         
-        member this.Count: Local<int64> = 
-            local {
-                let! entities = (this :> ICloudDictionary<'T>).ToEnumerable()
-                let count = ref 0L
-                for _e in entities do
-                    count := count.Value + 1L
-                return count.Value
-            }
+        member this.Count: Local<int64> = Cloud.Raise(new NotSupportedException("Count property not supported."))
         
-        member this.Size: Local<int64> = (this :> ICloudDictionary<'T>).Count
+        member this.Size: Local<int64> = Cloud.Raise(new NotSupportedException("Size property not supported."))
 
         member this.Dispose(): Local<unit> = 
             async {
