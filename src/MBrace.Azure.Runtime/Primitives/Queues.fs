@@ -141,7 +141,7 @@ type internal Topic (config : ConfigurationId, logger : ICloudLogger) =
     member this.EnqueueBatch<'T>(xs : ('T * string) [], pid) = 
         async { 
             logger.Logf "Creating common job file."
-            let temp = Path.GetRandomFileName()
+            let temp = Path.GetTempFileName() // Need to ensure that any temp file are saved in %TMP%, that has increased quota in Azure workers.
             let fileStream = File.OpenWrite(temp)
             let blobName = guid()
             let lastPosition = ref 0L
@@ -221,7 +221,7 @@ type internal Queue (config : ConfigurationId, logger : ICloudLogger) =
     member this.EnqueueBatch<'T>(xs : 'T [], pid) = 
         async { 
             logger.Logf "Creating common job file."
-            let temp = Path.GetRandomFileName()
+            let temp = Path.GetTempFileName()
             let fileStream = File.OpenWrite(temp)
             let blobName = guid()
             let lastPosition = ref 0L
