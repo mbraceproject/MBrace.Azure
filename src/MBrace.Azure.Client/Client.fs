@@ -388,6 +388,36 @@ type Runtime private (clientId, config : Configuration) =
         let workerCount = defaultArg workerCount 1
         Runtime.SpawnLocal(config, workerCount, ?maxTasks = maxTasks)
 
+    /// <summary>
+    /// Kill all local worker processes.
+    /// </summary>
+    member this.KillLocalWorker() =
+        let workers = this.GetWorkers()
+        let exists id name =
+            let ps = try Some <| Process.GetProcessById(id) with :? ArgumentException -> None
+            match ps with
+            | Some p when p.ProcessName = name -> true | _ -> false
+        workers |> Seq.filter (fun w -> exists w.ProcessId w.ProcessName)    
+                |> Seq.iter this.KillLocalWorker
+
+    /// <summary>
+    /// Kill local worker process.
+    /// </summary>
+    /// <param name="worker">Local worker to kill.</param>
+    member this.KillLocalWorker(worker : WorkerRef) =
+        let hostname = System.Net.Dns.GetHostName()
+        if worker.Hostname <> hostname then
+            failwith "WorkerRef hostname %A does not match local hostname %A" worker.Hostname hostname
+        else
+            let ps = try Some <| Process.GetProcessById(worker.ProcessId) with :? ArgumentException -> None
+            match ps with
+            | Some p when p.ProcessName = worker.ProcessName ->
+                let r = wmon.GetWorker(worker.Id) |> Async.RunSync
+                p.Kill()
+                wmon.SetWorkerStopped(r) |> Async.RunSync
+            | _ ->
+                failwithf "No local process with Id = %d, Name = %A found." worker.ProcessId worker.ProcessName
+
     /// Get handles for all processes.
     member this.GetProcesses() = Async.RunSync <| this.GetProcessesAsync()
 
