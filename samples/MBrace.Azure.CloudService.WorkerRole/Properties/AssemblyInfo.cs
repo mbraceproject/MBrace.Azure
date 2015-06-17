@@ -6,11 +6,11 @@ using System.Reflection;
 [assembly: AssemblyCompanyAttribute("Nessos Information Technologies")]
 [assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")]
 [assembly: AssemblyTrademarkAttribute("MBrace")]
-[assembly: AssemblyMetadataAttribute("Release Signature","Version 0.6.8, Git Hash 66a883, Build Date 22052015 16:24 +03:00")]
-[assembly: AssemblyVersionAttribute("0.6.8")]
-[assembly: AssemblyFileVersionAttribute("0.6.8")]
+[assembly: AssemblyMetadataAttribute("Release Signature","Version 0.6.9, Git Hash 2e0200, Build Date 17062015 15:19 +03:00")]
+[assembly: AssemblyVersionAttribute("0.6.9")]
+[assembly: AssemblyFileVersionAttribute("0.6.9")]
 namespace System {
     internal static class AssemblyVersionInformation {
-        internal const string Version = "0.6.8";
+        internal const string Version = "0.6.9";
     }
 }

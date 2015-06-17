@@ -1,3 +1,8 @@
+### 0.6.9-alpha
+* Fix location of temporary files used by the runtime.
+* Add KillLocalWorkers.
+* Table based CloudDictionary no longer supports Count/Size properties.
+
 ### 0.6.8-alpha
 * Fix NuGet dependencies.
 
