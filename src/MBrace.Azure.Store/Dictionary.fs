@@ -38,7 +38,7 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
         
         member this.Add(key: string, value : 'T): Local<unit> = 
             async {
-                let binary = VagabondRegistry.Instance.Pickler.Pickle value
+                let binary = VagabondRegistry.Instance.Serializer.Pickle value
                 let e = new FatEntity(key, String.Empty, binary)
                 do! Table.insert<FatEntity> client tableName e
             } |> Cloud.OfAsync
@@ -50,10 +50,10 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
                         let value = 
                             match e with
                             | null -> None
-                            | e -> Some(VagabondRegistry.Instance.Pickler.UnPickle<'T>(e.GetPayload()))
+                            | e -> Some(VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload()))
                         
                         let newValue = updater value
-                        let binary = VagabondRegistry.Instance.Pickler.Pickle newValue
+                        let binary = VagabondRegistry.Instance.Serializer.Pickle newValue
                         let e' = new FatEntity(key, String.Empty, binary)
                         match value with
                         | None ->
@@ -110,7 +110,7 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
             async {
                 let! entities = Table.readAll<FatEntity> client tableName
                 return entities
-                       |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, VagabondRegistry.Instance.Pickler.UnPickle<'T>(entity.GetPayload())))
+                       |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, VagabondRegistry.Instance.Serializer.UnPickle<'T>(entity.GetPayload())))
             } |> Cloud.OfAsync
         
         member this.TryAdd(key: string, value: 'T): Local<bool> = 
@@ -128,7 +128,7 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
                 match e with
                 | null -> return None
                 | e ->
-                    let value = VagabondRegistry.Instance.Pickler.UnPickle<'T>(e.GetPayload())
+                    let value = VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload())
                     return Some value
             } |> Cloud.OfAsync
 
@@ -161,5 +161,5 @@ type CloudDictionaryProvider private (connectionString : string) =
             }
 
         member x.IsSupportedValue(value: 'T): bool = 
-            VagabondRegistry.Instance.Pickler.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
+            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
         

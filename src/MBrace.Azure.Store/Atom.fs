@@ -48,9 +48,9 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
                         return raise <| exn("Maximum number of retries exceeded.")
                     else
                         let! e = Table.read<FatEntity> client table pk rk
-                        let oldValue = VagabondRegistry.Instance.Pickler.UnPickle<'T> (e.GetPayload()) 
+                        let oldValue = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload()) 
                         let newValue = updater oldValue
-                        let newBinary = VagabondRegistry.Instance.Pickler.Pickle newValue
+                        let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
                         let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = e.ETag)
                         let! result = Async.Catch <| Table.merge client table e
                         match result with
@@ -73,7 +73,7 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
         member this.Force(newValue: 'T): Local<unit> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
-                let newBinary = VagabondRegistry.Instance.Pickler.Pickle newValue
+                let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
                 let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge client table e
                 return ()
@@ -82,7 +82,7 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
         member this.Value : Local<'T> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
-                let value = VagabondRegistry.Instance.Pickler.UnPickle<'T> (e.GetPayload())
+                let value = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload())
                 return value
             } |> Cloud.OfAsync
 
@@ -117,13 +117,13 @@ type AtomProvider private (connectionString : string) =
         member this.Name = "Azure Table Storage Atom Provider" 
 
         member this.IsSupportedValue(value: 'T) : bool = 
-            VagabondRegistry.Instance.Pickler.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
+            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
         
         member this.CreateUniqueContainerName() = Table.getRandomName()
 
         member this.CreateAtom(path, initial: 'T) = 
                 async {
-                    let binary = VagabondRegistry.Instance.Pickler.Pickle initial
+                    let binary = VagabondRegistry.Instance.Serializer.Pickle initial
                     let e = new FatEntity(guid(), String.Empty, binary)
                     do! Table.insert<FatEntity> client path e
                     return new Atom<'T>(path, e.PartitionKey, e.RowKey, connectionString) :> ICloudAtom<'T>

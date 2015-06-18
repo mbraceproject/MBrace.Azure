@@ -1,22 +1,12 @@
 source https://www.nuget.org/api/v2
 
-nuget MBrace.Tests 0.9.11-alpha
-nuget Microsoft.Data.Edm
-nuget Microsoft.Data.OData
-nuget Microsoft.Data.Services.Client
-nuget Microsoft.WindowsAzure.ConfigurationManager
-nuget Newtonsoft.Json
+nuget FAKE
+nuget MBrace.Core 0.9.12-alpha
+nuget MBrace.Runtime.Core 0.9.12-alpha
+nuget MBrace.Tests 0.9.12-alpha
 nuget Nuget.CommandLine 2.8.3
-nuget FsCheck 1.0.4
-nuget FsPickler 1.0.18
 nuget FsUnit 1.3.0.1
-nuget MBrace.Core 0.9.11-alpha
-nuget MBrace.Runtime.Core 0.9.11-alpha
-nuget NUnit 2.6.3
-nuget NUnit.Runners 2.6.3
-nuget System.Spatial
-nuget Vagabond 0.6.6
-nuget Mono.Cecil 0.9.5.4
+nuget NUnit 2.6.4
+nuget NUnit.Runners 2.6.4
 nuget WindowsAzure.ServiceBus 2.5.2
 nuget WindowsAzure.Storage 4.3.0
-nuget FAKE

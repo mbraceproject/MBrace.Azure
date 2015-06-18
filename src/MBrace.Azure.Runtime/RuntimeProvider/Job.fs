@@ -198,7 +198,7 @@ type PickledJob =
     }
     
     member this.ToJob() : Job =
-        let unpickle pickle = VagabondRegistry.Instance.Pickler.UnPickleTyped(pickle)
+        let unpickle pickle = VagabondRegistry.Instance.Serializer.UnPickleTyped(pickle)
         {
             ProcessInfo = this.ProcessInfo
             Type = unpickle this.PickledType

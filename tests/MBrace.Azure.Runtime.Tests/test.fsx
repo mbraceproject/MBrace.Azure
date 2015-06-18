@@ -12,6 +12,7 @@ open MBrace.Azure.Client
 open System
 open MBrace.Store
 open MBrace.Store.Internals
+open System.IO
 
 Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 
@@ -61,7 +62,6 @@ let wf = [1..20]
 
 wf.ShowInfo()
 runtime.ShowWorkers()
-
 
 let ps = runtime.CreateProcess(cloud { for i in [1..10] do printfn "FOOOO" })
 

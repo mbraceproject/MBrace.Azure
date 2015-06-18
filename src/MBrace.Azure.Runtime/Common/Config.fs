@@ -281,7 +281,7 @@ module Configuration =
             VagabondRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
             
     /// Default Pickler.
-    let Pickler = init () ; VagabondRegistry.Instance.Pickler
+    let Pickler = init () ; VagabondRegistry.Instance.Serializer
 
     /// Default ISerializer
     let Serializer = init (); new FsPicklerBinaryStoreSerializer() :> ISerializer

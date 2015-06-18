@@ -13,6 +13,8 @@ open MBrace.Azure.Runtime.Primitives
 
 #nowarn "444"
 
+open Nessos.FsPickler
+
 let inline private withCancellationToken (cts : ICloudCancellationToken) (ctx : ExecutionContext) =
     { ctx with Resources = ctx.Resources.Register(cts) ; CancellationToken = cts }
 
@@ -27,7 +29,7 @@ let Parallel (state : RuntimeState) (parentJob : Job) dependencies (computations
         // schedule single-child parallel workflows in current job
         // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] ->
-            let (comp, cont) = Configuration.Pickler.Clone (comp, cont)
+            let (comp, cont) = FsPickler.Clone <| (comp, cont)
             let cont' = Continuation.map (fun t -> [| t |]) cont
             Cloud.StartWithContinuations(comp, cont', ctx)
 
@@ -89,7 +91,7 @@ let Choice (state : RuntimeState) (parentJob : Job) dependencies (computations :
         // schedule single-child parallel workflows in current job
         // force copy semantics by cloning the workflow
         | Choice1Of2 [| (comp, None) |] ->
-            let (comp, cont) = Configuration.Pickler.Clone (comp, cont)
+            let (comp, cont) = FsPickler.Clone <| (comp, cont)
             Cloud.StartWithContinuations(comp, cont, ctx)
 
         | Choice1Of2 computations ->

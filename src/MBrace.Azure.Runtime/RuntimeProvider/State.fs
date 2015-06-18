@@ -100,7 +100,7 @@ with
                     | Parallel, None   -> JobType.Parallel(i,wfs.Length-1)
                     | Choice, None     -> JobType.Choice(i,wfs.Length-1)
 
-                let pickle value = VagabondRegistry.Instance.Pickler.PickleTyped(value)
+                let pickle value = VagabondRegistry.Instance.Serializer.PickleTyped(value)
 
                 let job = 
                     { 
@@ -128,7 +128,7 @@ with
                 let cont = { Success = sc ; Exception = ec ; Cancellation = cc }
                 Cloud.StartWithContinuations(wf, cont, ctx)
             let affinity = match jobType with Affined a -> Some a | _ -> None
-            let pickle value = VagabondRegistry.Instance.Pickler.PickleTyped(value)
+            let pickle value = VagabondRegistry.Instance.Serializer.PickleTyped(value)
 
             let job = 
                 { 

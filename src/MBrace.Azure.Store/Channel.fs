@@ -35,7 +35,7 @@ type SendPort<'T> internal (queuePath, connectionString) =
         
         member __.Send(message : 'T) : Local<unit> = 
             async {
-                let bin = VagabondRegistry.Instance.Pickler.Pickle message
+                let bin = VagabondRegistry.Instance.Serializer.Pickle message
                 use ms = new MemoryStream(bin) in ms.Position <- 0L
                 let msg = new BrokeredMessage(ms)
                 do! client.SendAsync(msg)
@@ -86,7 +86,7 @@ type ReceivePort<'T> internal (queuePath, connectionString) =
                         aux ()
 
                 use stream = msg.GetBody<Stream>()
-                return VagabondRegistry.Instance.Pickler.Deserialize<'T>(stream)
+                return VagabondRegistry.Instance.Serializer.Deserialize<'T>(stream)
             } |> Cloud.OfAsync
 
 

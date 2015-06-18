@@ -35,7 +35,7 @@ let nugetVersion = release.NugetVersion
 let gitHome = "https://github.com/mbraceproject"
 let gitName = "MBrace.Azure"
 
-let MBraceCoreVersion = "0.9.11-alpha"
+let MBraceCoreVersion = "0.9.12-alpha"
 
 // Generate assembly info files with the right version & up-to-date information
 Target "AssemblyInfo" (fun _ ->
@@ -151,8 +151,6 @@ Target "NuGet.Azure" (fun _ ->
             AccessKey = getBuildParamOrDefault "nugetkey" ""
             Dependencies = 
                 [
-                    "FsPickler", RequireExactly "1.0.18"
-                    "Vagabond", RequireExactly "0.6.6"
                     "MBrace.Core", RequireExactly MBraceCoreVersion
                     "MBrace.Runtime.Core", RequireExactly MBraceCoreVersion
                     "WindowsAzure.Storage", "4.3.0"
