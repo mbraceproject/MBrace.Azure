@@ -38,14 +38,14 @@ module internal Metadata =
     let toString (version : Version) (configurationId : ConfigurationId) =
         let metadata = { Version = version; ConfigurationId = configurationId }
         use sw = new StringWriter()
-        let xml = FsPickler.CreateXml()
-        xml.Serialize(sw, metadata)
+        let json = Nessos.FsPickler.Json.JsonSerializer()
+        json.Serialize(sw, metadata)
         sw.ToString()
 
     let fromString (metadata : string) =
-        let xml = FsPickler.CreateXml()
+        let json = Nessos.FsPickler.Json.JsonSerializer()
         use sr = new StringReader(metadata)
         try
-           xml.Deserialize<Metadata>(sr)
-        with ex ->
+            json.Deserialize<Metadata>(sr)
+         with ex ->
             raise <| IncompatibleVersionException(sprintf "Failed to deserialize metadata %s" metadata, ex)

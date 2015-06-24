@@ -10,3 +10,4 @@ System.Spatial
 Vagabond
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
+FsPickler.Json
