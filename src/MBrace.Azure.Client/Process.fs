@@ -86,10 +86,10 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
     /// Returns the number of tasks failed to execute by this process.
     member this.FaultedJobs : int = proc.Value.FaultedJobs.Value
 
-    /// Sends a kill signal for this process.
-    member this.Kill() = Async.RunSync(this.KillAsync())
-    /// Asynchronously sends a kill signal for this process.
-    member this.KillAsync() = async {
+    /// Sends a cancellation request for this process.
+    member this.Cancel() = Async.RunSync(this.CancelAsync())
+    /// Asynchronously sends a cancellation request for this process.
+    member this.CancelAsync() = async {
             do! pmon.SetCancellationRequested(pid)
             do this.DistributedCancellationTokenSource.Cancel()
         }
