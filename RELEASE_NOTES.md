@@ -1,3 +1,9 @@
+### 0.9.10-alpha
+* Update MBrace.Core libraries.
+* Process.Kill renamed to Cancel for clarity.
+* Fixed active job count bug for long running jobs.
+* Fixed an issue when serializing Configuration in queue metadata.
+
 ### 0.6.9-alpha
 * Fix location of temporary files used by the runtime.
 * Add KillLocalWorkers.
