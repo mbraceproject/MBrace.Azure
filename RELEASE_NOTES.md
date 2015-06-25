@@ -1,4 +1,4 @@
-### 0.9.10-alpha
+### 0.6.10-alpha
 * Update MBrace.Core libraries.
 * Process.Kill renamed to Cancel for clarity.
 * Fixed active job count bug for long running jobs.
