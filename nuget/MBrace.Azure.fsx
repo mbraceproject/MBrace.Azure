@@ -1,5 +1,6 @@
 ﻿#I __SOURCE_DIRECTORY__
 #r @"tools\Newtonsoft.Json.dll"
+#r @"tools\FsPickler.Json.dll"
 #r @"tools\FsPickler.dll"
 #r @"tools\System.Spatial.dll"
 #r @"tools\Mono.Cecil.dll"

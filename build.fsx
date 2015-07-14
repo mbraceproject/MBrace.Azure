@@ -184,6 +184,7 @@ Target "NuGet.Standalone" (fun _ ->
                 [
                     yield addFile @"" @"MBrace.Azure.fsx"
                     yield! addAssembly false @"tools" @"..\bin\Newtonsoft.Json.dll"
+                    yield! addAssembly false @"tools" @"..\bin\FsPickler.Json.dll"
                     yield! addAssembly false @"tools" @"..\bin\FsPickler.dll"
                     yield! addAssembly false @"tools" @"..\bin\System.Spatial.dll"
                     yield! addAssembly false @"tools" @"..\bin\Mono.Cecil.dll"
