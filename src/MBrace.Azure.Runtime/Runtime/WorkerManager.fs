@@ -7,14 +7,14 @@ open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
 
-type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string, joined : DateTimeOffset) =
+type WorkerRecord(pk, id) =
     inherit TableEntity(pk, id)
     
-    member val Hostname           = hostname          with get, set
-    member val Id                 = id                with get, set
-    member val ProcessId          = pid               with get, set
-    member val ProcessName        = pname             with get, set
-    member val InitializationTime = joined            with get, set
+    member val Id                 = id with get, set
+    member val Hostname           = Unchecked.defaultof<string> with get, set
+    member val ProcessId          = Nullable<int>() with get, set
+    member val ProcessName        = Unchecked.defaultof<string> with get, set
+    member val InitializationTime = Unchecked.defaultof<DateTimeOffset> with get, set
     member val ConfigurationId    = Unchecked.defaultof<byte []> with get, set
     member val MaxJobs            = Nullable<int>()   with get, set
     member val ActiveJobs         = Nullable<int>()   with get, set
@@ -28,8 +28,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val Version            = Unchecked.defaultof<string> with get, set
     member val Status             = Unchecked.defaultof<byte []> with get, set
     
-    new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>)
-    new (pk, id) = new WorkerRecord(pk, id, null, nullableDefault, null, Unchecked.defaultof<_>)
+    new () = new WorkerRecord(null, null)
 
     member this.GetCounters () : Utils.PerformanceMonitor.PerformanceInfo =
         { 
@@ -151,9 +150,11 @@ type WorkerManager private (config : ConfigurationId) =
         
         member this.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = 
             async {
-                let ps = Diagnostics.Process.GetCurrentProcess()
                 let joined = DateTimeOffset.UtcNow
-                let record = new WorkerRecord(partitionKey, id.Id, info.Hostname, nullable ps.Id, ps.ProcessName, joined)
+                let record = new WorkerRecord(partitionKey, id.Id)
+                record.Hostname <- info.Hostname
+                record.ProcessName <- Diagnostics.Process.GetCurrentProcess().ProcessName
+                record.InitializationTime <- joined
                 record.ActiveJobs <- nullable 0
                 record.Status <- pickle WorkerJobExecutionStatus.Running
                 record.Version <- ReleaseInfo.localVersion.ToString(4)
