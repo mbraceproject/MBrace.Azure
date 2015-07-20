@@ -267,7 +267,6 @@ type ConfigurationRegistry private () =
 module Configuration =
     open MBrace.Runtime.Vagabond
     open System.Collections.Generic
-    open MBrace.Runtime.Serialization
     open MBrace.Store.Internals
 
     let private ignoredAssemblies = new HashSet<Assembly>()
@@ -278,7 +277,9 @@ module Configuration =
         runOnce(fun () ->
             let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
             ignoredAssemblies.Add(Assembly.GetExecutingAssembly()) |> ignore
-            VagabondRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
+            
+            let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
+            VagabondRegistry.Initialize(fun () -> Vagabond.Initialize(ignoredAssemblies, lookupPolicy = policy)))
             
     /// Default Pickler.
     let Pickler = init () ; VagabondRegistry.Instance.Serializer
