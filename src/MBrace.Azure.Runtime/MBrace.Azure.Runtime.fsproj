@@ -87,6 +87,7 @@
     <Compile Include="Primitives\CancellationToken.fs" />
     <Compile Include="Primitives\Result.fs" />
     <Compile Include="Primitives\BlobAssemblyManager.fs" />
+    <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="RuntimeInfo\PerformanceMonitor.fs" />
     <Compile Include="RuntimeInfo\WorkerInfo.fs" />
     <Compile Include="RuntimeInfo\Logging.fs" />
