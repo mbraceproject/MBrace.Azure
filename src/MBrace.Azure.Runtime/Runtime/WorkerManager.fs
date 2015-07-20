@@ -18,7 +18,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val ConfigurationId    = Unchecked.defaultof<byte []> with get, set
     member val MaxJobs            = Nullable<int>()   with get, set
     member val ActiveJobs         = Nullable<int>()   with get, set
-    member val ProcessorCount     = Environment.ProcessorCount with get, set
+    member val ProcessorCount     = Nullable<int>()   with get, set
     member val MaxClockSpeed      = Nullable<double>() with get, set
     member val CPU                = Nullable<double>() with get, set
     member val TotalMemory        = Nullable<double>() with get, set
@@ -27,13 +27,14 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
     member val NetworkDown        = Nullable<double>() with get, set
     member val Version            = Unchecked.defaultof<string> with get, set
     member val Status             = Unchecked.defaultof<byte []> with get, set
+    
     new () = new WorkerRecord(null, null, null, nullableDefault, null, Unchecked.defaultof<_>)
     new (pk, id) = new WorkerRecord(pk, id, null, nullableDefault, null, Unchecked.defaultof<_>)
 
     member this.GetCounters () : Utils.PerformanceMonitor.PerformanceInfo =
         { 
             CpuUsage = this.CPU
-            MaxClockSpeed = this.MaxClockSpeed // TODO
+            MaxClockSpeed = this.MaxClockSpeed 
             TotalMemory = this.TotalMemory
             MemoryUsage = this.Memory
             NetworkUsageUp = this.NetworkUp
@@ -57,8 +58,7 @@ type WorkerRecord(pk, id, hostname : string, pid : Nullable<int>, pname : string
 
 
 [<AutoSerializable(true)>]
-type WorkerId internal (workerId) =
-    
+type WorkerId internal (workerId) = 
     member this.Id = workerId
 
     interface IWorkerId with
@@ -77,16 +77,10 @@ type WorkerId internal (workerId) =
 
     override this.GetHashCode() = hash workerId
 
-        
-
 type internal HeartbeatMonitor(config : ConfigurationId, id : WorkerId) =
-    
-
-
     interface IDisposable with
         member this.Dispose(): unit = 
             failwith "Not implemented yet"
-        
 
 [<AutoSerializable(true)>]
 type WorkerManager private (config : ConfigurationId) =
@@ -97,23 +91,24 @@ type WorkerManager private (config : ConfigurationId) =
     let pickle (value : 'T) = Configuration.Pickler.Pickle(value)
     let unpickle (value : byte []) = Configuration.Pickler.UnPickle<'T>(value)
 
+    let mkWorkerState (record : WorkerRecord) = 
+        { Id = new WorkerId(record.Id)
+          CurrentJobCount = record.ActiveJobs.GetValueOrDefault(-1)
+          LastHeartbeat = record.Timestamp.DateTime
+          HeartbeatRate = TimeSpan.FromDays(1.) // TODO
+          InitializationTime = record.InitializationTime.DateTime
+          ExecutionStatus = unpickle record.Status
+          PerformanceMetrics = record.GetCounters()
+          Info = 
+              { Hostname = record.Hostname
+                ProcessId = record.ProcessId.GetValueOrDefault(-1)
+                ProcessorCount = record.ProcessorCount.GetValueOrDefault(-1)
+                MaxJobCount = record.MaxJobs.GetValueOrDefault(-1) } } 
+
     member this.GetAllWorkers(): Async<WorkerState []> = 
         async { 
             let! records = Table.queryPK<WorkerRecord> config table partitionKey
-            let state = 
-                records |> Array.map (fun record -> 
-                                { Id = new WorkerId(record.Id)
-                                  CurrentJobCount = record.ActiveJobs.GetValueOrDefault(-1)
-                                  LastHeartbeat = record.Timestamp.DateTime
-                                  HeartbeatRate = TimeSpan.FromDays(1.) // TODO
-                                  InitializationTime = record.InitializationTime.DateTime
-                                  ExecutionStatus = unpickle record.Status
-                                  PerformanceMetrics = record.GetCounters()
-                                  Info = 
-                                      { Hostname = record.Hostname
-                                        ProcessId = record.ProcessId.GetValueOrDefault(-1)
-                                        ProcessorCount = record.ProcessorCount
-                                        MaxJobCount = record.MaxJobs.GetValueOrDefault(-1) } })
+            let state = records |> Array.map mkWorkerState
             return state
         }
 
@@ -129,7 +124,7 @@ type WorkerManager private (config : ConfigurationId) =
         member this.IncrementJobCount(id: IWorkerId): Async<unit> = 
             async {
                 let! _ = Table.transact<WorkerRecord> config table partitionKey id.Id 
-                            (fun e -> e.ActiveJobs <- e.ActiveJobs ?- 1)
+                            (fun e -> e.ActiveJobs <- e.ActiveJobs ?+ 1)
                 return ()            
             }
 
@@ -163,6 +158,7 @@ type WorkerManager private (config : ConfigurationId) =
                 record.Status <- pickle WorkerJobExecutionStatus.Running
                 record.Version <- ReleaseInfo.localVersion.ToString(4)
                 record.MaxJobs <- nullable info.MaxJobCount
+                record.ProcessorCount <- nullable info.ProcessorCount
                 record.ConfigurationId <- pickle config
                 do! Table.insertOrReplace<WorkerRecord> config table record //Worker might restart but keep id.
                 return null :> IDisposable
