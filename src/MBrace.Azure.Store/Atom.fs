@@ -70,21 +70,21 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
                 return! Table.delete<FatEntity> client table e
             } |> Cloud.OfAsync
 
-        member this.Force(newValue: 'T): Local<unit> = 
+        member this.Force(newValue: 'T): Async<unit> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
                 let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge client table e
                 return ()
-            } |> Cloud.OfAsync
+            }
 
-        member this.Value : Local<'T> = 
+        member this.Value : Async<'T> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 let value = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload())
                 return value
-            } |> Cloud.OfAsync
+            } 
 
 /// Store implementation that uses a Azure Blob Storage as backend.
 [<Sealed; DataContract>]
