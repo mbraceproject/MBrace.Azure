@@ -7,7 +7,7 @@ open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
 
-[<AllowNullLiteral()>]
+[<AllowNullLiteral>]
 type WorkerRecord(partitionKey, id) =
     inherit TableEntity(partitionKey, id)
     
@@ -80,7 +80,7 @@ type WorkerId internal (workerId) =
 
 [<AutoSerializable(true)>]
 type WorkerManager private (config : ConfigurationId) =
-    let partitionKey = "WorkerRef"
+    let partitionKey = "worker"
     let table = config.RuntimeTable
     let maxHeartbeatTimespan = TimeSpan.FromMinutes(10.)
 
@@ -125,15 +125,21 @@ type WorkerManager private (config : ConfigurationId) =
         
         member this.IncrementJobCount(id: IWorkerId): Async<unit> = 
             async {
-                let! _ = Table.transact<WorkerRecord> config table partitionKey id.Id 
-                            (fun e -> e.ActiveJobs <- e.ActiveJobs ?+ 1)
+                let! _ = Table.transact2<WorkerRecord> config table partitionKey id.Id 
+                            (fun e -> 
+                                let ec = e.CloneDefault()
+                                ec.ActiveJobs <- e.ActiveJobs ?+ 1
+                                ec)
                 return ()            
             }
 
         member this.DecrementJobCount(id: IWorkerId): Async<unit> = 
             async {
-                let! _ = Table.transact<WorkerRecord> config table partitionKey id.Id 
-                            (fun e -> e.ActiveJobs <- e.ActiveJobs ?- 1)
+                let! _ = Table.transact2<WorkerRecord> config table partitionKey id.Id 
+                            (fun e -> 
+                                let ec = e.CloneDefault()
+                                ec.ActiveJobs <- e.ActiveJobs ?- 1
+                                ec)
                 return ()            
             }
         
