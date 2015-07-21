@@ -7,8 +7,9 @@ open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
 
-type WorkerRecord(pk, id) =
-    inherit TableEntity(pk, id)
+[<AllowNullLiteral()>]
+type WorkerRecord(partitionKey, id) =
+    inherit TableEntity(partitionKey, id)
     
     member val Id                 = id with get, set
     member val Hostname           = Unchecked.defaultof<string> with get, set
@@ -27,7 +28,8 @@ type WorkerRecord(pk, id) =
     member val NetworkDown        = Nullable<double>() with get, set
     member val Version            = Unchecked.defaultof<string> with get, set
     member val Status             = Unchecked.defaultof<byte []> with get, set
-    
+    member val HeartbeatRate      = Unchecked.defaultof<TimeSpan> with get, set
+
     new () = new WorkerRecord(null, null)
 
     member this.GetCounters () : Utils.PerformanceMonitor.PerformanceInfo =
@@ -76,11 +78,6 @@ type WorkerId internal (workerId) =
 
     override this.GetHashCode() = hash workerId
 
-type internal HeartbeatMonitor(config : ConfigurationId, id : WorkerId) =
-    interface IDisposable with
-        member this.Dispose(): unit = 
-            failwith "Not implemented yet"
-
 [<AutoSerializable(true)>]
 type WorkerManager private (config : ConfigurationId) =
     let partitionKey = "WorkerRef"
@@ -94,7 +91,7 @@ type WorkerManager private (config : ConfigurationId) =
         { Id = new WorkerId(record.Id)
           CurrentJobCount = record.ActiveJobs.GetValueOrDefault(-1)
           LastHeartbeat = record.Timestamp.DateTime
-          HeartbeatRate = TimeSpan.FromDays(1.) // TODO
+          HeartbeatRate = record.HeartbeatRate
           InitializationTime = record.InitializationTime.DateTime
           ExecutionStatus = unpickle record.Status
           PerformanceMetrics = record.GetCounters()
@@ -109,6 +106,12 @@ type WorkerManager private (config : ConfigurationId) =
             let! records = Table.queryPK<WorkerRecord> config table partitionKey
             let state = records |> Array.map mkWorkerState
             return state
+        }
+
+    member this.UnsubscribeWorker(id : IWorkerId) =
+        async {
+            let record = new WorkerRecord(partitionKey, id.Id)
+            return! Table.delete config table record
         }
 
     interface IWorkerManager with
@@ -137,7 +140,12 @@ type WorkerManager private (config : ConfigurationId) =
         member this.GetAvailableWorkers(): Async<WorkerState []> = 
             async { 
                 let! workers = this.GetAllWorkers()
-                return workers |> Array.filter (fun w -> DateTime.UtcNow - w.LastHeartbeat <= maxHeartbeatTimespan)
+                return workers 
+                       |> Seq.filter (fun w -> DateTime.UtcNow - w.LastHeartbeat <= maxHeartbeatTimespan)
+                       |> Seq.filter (fun w -> match w.ExecutionStatus with
+                                               | WorkerJobExecutionStatus.Running -> true
+                                               | _ -> false)
+                       |> Seq.toArray
             }
         
         member this.SubmitPerformanceMetrics(id: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = 
@@ -162,11 +170,21 @@ type WorkerManager private (config : ConfigurationId) =
                 record.ProcessorCount <- nullable info.ProcessorCount
                 record.ConfigurationId <- pickle config
                 do! Table.insertOrReplace<WorkerRecord> config table record //Worker might restart but keep id.
-                return null :> IDisposable
+                let unsubscriber =
+                    { new IDisposable with
+                          member x.Dispose(): unit = 
+                            this.UnsubscribeWorker(id)
+                            |> Async.RunSynchronously
+                    }
+                return unsubscriber
             }
         
         member this.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = 
-            failwith "Not implemented yet"
+            async {
+                let! record = Table.read<WorkerRecord> config table partitionKey id.Id
+                if record = null then return None
+                else return Some(mkWorkerState record)
+            }
         
 
     static member Create(config : ConfigurationId) =
