@@ -22,6 +22,9 @@
         let inline nullableDefault< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > = 
             new Nullable<'T>()
 
+        let (|Null|Nullable|) (value : Nullable<'T>) =
+            if value.HasValue then Nullable(value.Value) else Null
+
         /// generates a human readable string for byte sizes
         /// including a KiB, MiB, GiB or TiB suffix depending on size
         let getHumanReadableByteSize (size : int64) =

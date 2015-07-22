@@ -105,6 +105,15 @@ module Table =
     let merge<'T when 'T :> ITableEntity> config table (e : 'T) : Async<'T> = 
         TableOperation.Merge(e) |> exec config table |> Async.Cast
     
+    let tryMerge<'T when 'T :> ITableEntity> config table (e : 'T) : Async<'T option> =
+        async {
+            let! result = Async.Catch <| merge<'T> config table e
+            match result with
+            | Choice1Of2 r -> return Some(r)
+            | Choice2Of2 ex when PreconditionFailed ex -> return None
+            | Choice2Of2 ex -> return raise ex
+        }
+
     let replace<'T when 'T :> ITableEntity> config table (e : 'T) : Async<'T> = 
         TableOperation.Replace(e) |> exec config table |> Async.Cast
 
