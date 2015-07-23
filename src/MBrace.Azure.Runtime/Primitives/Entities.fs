@@ -21,7 +21,7 @@ type RuntimeEntity (pid, rk, entity) =
     member val EntityType = entity with get, set
     
 type CounterEntity(pid, name : string, value : int) = 
-    inherit RuntimeEntity(pid, name, "CNT")
+    inherit RuntimeEntity(pid, name, "counter")
     member val Value = value with get, set
     new () = new CounterEntity(empty, empty, 0)
 
@@ -31,14 +31,14 @@ type CounterEntity(pid, name : string, value : int) =
 //    new () = new LatchEntity(empty, empty, -1, -1)
 
 type BlobReferenceEntity(pid, name : string, uri : string) =
-    inherit RuntimeEntity(pid, name, "REF")
+    inherit RuntimeEntity(pid, name, "blobref")
     member val Uri = uri with get, set
     new () = BlobReferenceEntity(empty, empty, empty)
     new(pid, name) = new BlobReferenceEntity(pid, name, empty)
 
 // Stores around 10K CTS links.
 type CancellationTokenSourceEntity(pid, id : string, links : (string * string) list) =
-    inherit RuntimeEntity(pid, id, "CTS")
+    inherit RuntimeEntity(pid, id, "cts")
 
     let split =
         if box links <> null then

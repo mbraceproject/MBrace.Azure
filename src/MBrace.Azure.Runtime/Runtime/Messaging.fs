@@ -120,12 +120,13 @@ and JobLeaseToken private (configurationId : ConfigurationId, jobId : string,
 
 /// Local queue subscription client
 [<AutoSerializable(false)>]
-type internal Subscription (config : ConfigurationId, affinity : string) = 
+type internal Subscription (config : ConfigurationId, workerId : IWorkerId) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
 
     do 
         let ns = cp.NamespaceClient
         let topic = config.RuntimeTopic
+        let affinity = workerId.Id
         if not <| ns.SubscriptionExists(topic, affinity) then 
             let sd = new SubscriptionDescription(topic, affinity)
             sd.DefaultMessageTimeToLive <- MaxTTL
@@ -134,9 +135,11 @@ type internal Subscription (config : ConfigurationId, affinity : string) =
             let filter = new SqlFilter(sprintf "%s = '%s'" AffinityPropertyName affinity)
             ns.CreateSubscription(sd, filter) |> ignore
 
-    let sub = cp.SubscriptionClient(config.RuntimeTopic, affinity)
+    let sub = cp.SubscriptionClient(config.RuntimeTopic, workerId.Id)
     
-    member this.TryDequeue<'T>() : Async<ICloudJobLeaseToken option> = 
+    member this.WorkerId = workerId
+
+    member this.TryDequeue() : Async<ICloudJobLeaseToken option> = 
         async { 
             let! msg = sub.ReceiveAsync(ServerWaitTime)
             if msg = null then 
@@ -154,7 +157,7 @@ type internal Topic (config : ConfigurationId) =
     
     member this.Metadata = cp.NamespaceClient.GetTopic(config.RuntimeTopic).UserMetadata
     
-    member this.GetSubscription(affinity) : Subscription = new Subscription(config, affinity)
+    member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, workerId)
     
     member this.EnqueueBatch(jobs : CloudJob []) = 
         async { 

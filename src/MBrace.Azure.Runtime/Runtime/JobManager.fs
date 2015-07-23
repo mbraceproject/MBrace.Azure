@@ -50,17 +50,20 @@ type JobManager private (config : ConfigurationId) =
     interface IJobQueue with
         member this.TryDequeue(id: IWorkerId): Async<ICloudJobLeaseToken option> = 
             async {
-                match subscription with
-                | None -> 
-                    subscription <- Some(topic.GetSubscription(id.Id))
-                    Async.Start(mkLoop (queue.TryDequeue()) queueMessage)
-                    Async.Start(mkLoop (subscription.Value.TryDequeue()) topicMessage)
-                | _ -> ()
+                let isDefault =
+                    match subscription with
+                    | None -> 
+                        subscription <- Some(topic.GetSubscription(id))
+                        Async.Start(mkLoop (queue.TryDequeue()) queueMessage)
+                        Async.Start(mkLoop (subscription.Value.TryDequeue()) topicMessage)
+                        true
+                    | Some s -> s.WorkerId = id 
 
-                match queueMessage.Value, topicMessage.Value with
-                | (Some _ as m), _ -> queueMessage := None; return m
-                | _, (Some _ as m) -> topicMessage := None; return m
-                | None, None -> return None
+                match isDefault, queueMessage.Value, topicMessage.Value with
+                | true, (Some _ as m), _ -> queueMessage := None; return m
+                | true, _, (Some _ as m) -> topicMessage := None; return m
+                | true, None, None -> return None
+                | false, _, _ -> return! topic.GetSubscription(id).TryDequeue()
             }
 
         member this.BatchEnqueue(jobs: CloudJob []): Async<unit> = 
@@ -80,7 +83,7 @@ type JobManager private (config : ConfigurationId) =
             async {
                 return! match job.TargetWorker with
                         | Some _ -> topic.Enqueue(job)
-                        | None -> queue.Enqueue(job)
+                        | None   -> queue.Enqueue(job)
             }
 
     static member Create(config : ConfigurationId) = new JobManager(config)
