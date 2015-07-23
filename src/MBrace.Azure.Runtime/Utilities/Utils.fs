@@ -16,10 +16,10 @@
 
         let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
 
-        let inline nullable< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > (value : 'T) = 
+        let inline nullable< 'T when 'T : struct and 'T : (new : unit -> 'T) and  'T :> ValueType > (value : 'T) = 
             new Nullable<'T>(value)
 
-        let inline nullableDefault< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > = 
+        let inline nullableDefault< 'T when 'T : struct and 'T : (new : unit -> 'T) and  'T :> ValueType > = 
             new Nullable<'T>()
 
         let (|Null|Nullable|) (value : Nullable<'T>) =

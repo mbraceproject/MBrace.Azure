@@ -8,8 +8,8 @@ open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
 
 [<AllowNullLiteral>]
-type WorkerRecord(partitionKey, id) =
-    inherit TableEntity(partitionKey, id)
+type WorkerRecord(id) =
+    inherit TableEntity(WorkerRecord.DefaultPartitionKey, id)
     
     member val Id                 = id with get, set
     member val Hostname           = Unchecked.defaultof<string> with get, set
@@ -30,7 +30,7 @@ type WorkerRecord(partitionKey, id) =
     member val Status             = Unchecked.defaultof<byte []> with get, set
     member val HeartbeatRate      = Unchecked.defaultof<TimeSpan> with get, set
 
-    new () = new WorkerRecord(null, null)
+    new () = new WorkerRecord(null)
 
     member this.GetCounters () : Utils.PerformanceMonitor.PerformanceInfo =
         { 
@@ -57,6 +57,7 @@ type WorkerRecord(partitionKey, id) =
         p.ETag <- this.ETag
         p
 
+    static member DefaultPartitionKey = "worker"
 
 [<AutoSerializable(true)>]
 type WorkerId internal (workerId) = 
@@ -80,7 +81,6 @@ type WorkerId internal (workerId) =
 
 [<AutoSerializable(true)>]
 type WorkerManager private (config : ConfigurationId) =
-    let partitionKey = "worker"
     let table = config.RuntimeTable
     let maxHeartbeatTimespan = TimeSpan.FromMinutes(10.)
 
@@ -103,21 +103,21 @@ type WorkerManager private (config : ConfigurationId) =
 
     member this.GetAllWorkers(): Async<WorkerState []> = 
         async { 
-            let! records = Table.queryPK<WorkerRecord> config table partitionKey
+            let! records = Table.queryPK<WorkerRecord> config table WorkerRecord.DefaultPartitionKey
             let state = records |> Array.map mkWorkerState
             return state
         }
 
     member this.UnsubscribeWorker(id : IWorkerId) =
         async {
-            let record = new WorkerRecord(partitionKey, id.Id)
+            let record = new WorkerRecord(id.Id)
             return! Table.delete config table record
         }
 
     interface IWorkerManager with
         member this.DeclareWorkerStatus(id: IWorkerId, status: WorkerJobExecutionStatus): Async<unit> = 
             async {
-                let record = new WorkerRecord(partitionKey, id.Id)
+                let record = new WorkerRecord(id.Id)
                 record.Status <- pickle status
                 let! _ = Table.merge config table record
                 return ()
@@ -125,7 +125,7 @@ type WorkerManager private (config : ConfigurationId) =
         
         member this.IncrementJobCount(id: IWorkerId): Async<unit> = 
             async {
-                let! _ = Table.transact2<WorkerRecord> config table partitionKey id.Id 
+                let! _ = Table.transact2<WorkerRecord> config table WorkerRecord.DefaultPartitionKey id.Id 
                             (fun e -> 
                                 let ec = e.CloneDefault()
                                 ec.ActiveJobs <- e.ActiveJobs ?+ 1
@@ -135,7 +135,7 @@ type WorkerManager private (config : ConfigurationId) =
 
         member this.DecrementJobCount(id: IWorkerId): Async<unit> = 
             async {
-                let! _ = Table.transact2<WorkerRecord> config table partitionKey id.Id 
+                let! _ = Table.transact2<WorkerRecord> config table WorkerRecord.DefaultPartitionKey id.Id 
                             (fun e -> 
                                 let ec = e.CloneDefault()
                                 ec.ActiveJobs <- e.ActiveJobs ?- 1
@@ -156,7 +156,7 @@ type WorkerManager private (config : ConfigurationId) =
         
         member this.SubmitPerformanceMetrics(id: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = 
             async {
-                let record = new WorkerRecord(partitionKey, id.Id)
+                let record = new WorkerRecord(id.Id)
                 record.UpdateCounters(perf)
                 let! _ = Table.merge config table record
                 return ()
@@ -165,7 +165,7 @@ type WorkerManager private (config : ConfigurationId) =
         member this.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = 
             async {
                 let joined = DateTimeOffset.UtcNow
-                let record = new WorkerRecord(partitionKey, id.Id)
+                let record = new WorkerRecord(id.Id)
                 record.Hostname <- info.Hostname
                 record.ProcessName <- Diagnostics.Process.GetCurrentProcess().ProcessName
                 record.InitializationTime <- joined
@@ -187,7 +187,7 @@ type WorkerManager private (config : ConfigurationId) =
         
         member this.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = 
             async {
-                let! record = Table.read<WorkerRecord> config table partitionKey id.Id
+                let! record = Table.read<WorkerRecord> config table WorkerRecord.DefaultPartitionKey id.Id
                 if record = null then return None
                 else return Some(mkWorkerState record)
             }

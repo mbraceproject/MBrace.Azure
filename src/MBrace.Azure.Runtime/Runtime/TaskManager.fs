@@ -39,8 +39,8 @@ module TaskStatus =
         | Canceled      -> 7
 
 [<AllowNullLiteral>]
-type TaskRecord(pk, taskId) = 
-    inherit TableEntity(pk, taskId)
+type TaskRecord(taskId) = 
+    inherit TableEntity(TaskRecord.DefaultPartitionKey, taskId)
     member val Id  : string = taskId with get, set
 
     member val Name : string = null with get, set
@@ -64,7 +64,7 @@ type TaskRecord(pk, taskId) =
     member val Type : byte [] = null with get, set
     member val Dependencies : byte [] = null with get, set
 
-    new () = new TaskRecord(null, null)
+    new () = new TaskRecord(null)
 
     member this.CloneDefault() =
         let p = new TaskRecord()
@@ -73,32 +73,34 @@ type TaskRecord(pk, taskId) =
         p.ETag <- this.ETag
         p
 
+    static member DefaultPartitionKey = "task"
+
 [<DataContract; Sealed>]
-type internal TaskCompletionSource (config : ConfigurationId, partitionKey, taskId) =
+type internal TaskCompletionSource (config : ConfigurationId, taskId) =
     static let unpickle (value : byte []) = Configuration.Pickler.UnPickle<'T>(value)
 
-    [<DataMember(Name = "config")>]
-    let config = config
-    [<DataMember(Name = "partitionKey")>]
-    let partitionKey = partitionKey
-    [<DataMember(Name = "taskId")>]
-    let taskId = taskId
+    let [<DataMember(Name = "config")>] config = config
+    let [<DataMember(Name = "taskId")>] taskId = taskId
     
-    [<IgnoreDataMember>]
-    let record = lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable partitionKey taskId, intervalMilliseconds = 500)
+    let [<IgnoreDataMember>] mutable record = Unchecked.defaultof<Lazy<CacheAtom<TaskRecord>>>
+    let [<IgnoreDataMember>] mutable info = Unchecked.defaultof<Lazy<CloudTaskInfo>>
+
+    [<OnDeserialized>]
+    let init _ =
+        record <- lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId, intervalMilliseconds = 500)
+        info <-
+            lazy
+                let record = Async.RunSynchronously(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
+                { 
+                    Name = if record.Name = null then None else Some record.Name
+                    CancellationTokenSource = failwith "Not implemented yet"
+                    Dependencies = unpickle record.Dependencies
+                    ReturnTypeName = record.TypeName
+                    ReturnType = unpickle record.Type
+                }
+    do init ()
+
     let getRecord () = record.Value.GetValueAsync()
-    
-    [<IgnoreDataMember>]
-    let info =
-        lazy
-            let record = Async.RunSynchronously(Table.read<TaskRecord> config config.RuntimeTable partitionKey taskId)
-            { 
-                Name = if record.Name = null then None else Some record.Name
-                CancellationTokenSource = failwith "Not implemented yet"
-                Dependencies = unpickle record.Dependencies
-                ReturnTypeName = record.TypeName
-                ReturnType = unpickle record.Type
-            }
 
     interface ICloudTaskCompletionSource with
         member this.Id: string = taskId
@@ -120,7 +122,7 @@ type internal TaskCompletionSource (config : ConfigurationId, partitionKey, task
         
         member this.DeclareStatus(status: CloudTaskStatus): Async<unit> = 
             async {
-                let record = new TaskRecord(partitionKey, taskId)
+                let record = new TaskRecord(taskId)
                 record.Status <- nullable(TaskStatus.toInt status)
                 let! _ = Table.merge config config.RuntimeTable record
                 return ()
@@ -162,7 +164,7 @@ type internal TaskCompletionSource (config : ConfigurationId, partitionKey, task
                 if record.ResultUri = null then
                     return None
                 else
-                    let blob = Blob<TaskResult>.FromPath(config, partitionKey, record.ResultUri)
+                    let blob = Blob<TaskResult>.FromPath(config, TaskRecord.DefaultPartitionKey, record.ResultUri)
                     let! result = blob.GetValue()
                     return Some result
             }
@@ -172,7 +174,7 @@ type internal TaskCompletionSource (config : ConfigurationId, partitionKey, task
                 let! record = getRecord()
                 if record.ResultUri = null then
                     let blobId = guid()
-                    let! _blob = Blob.Create(config, partitionKey, blobId, fun () -> result)
+                    let! _blob = Blob.Create(config, TaskRecord.DefaultPartitionKey, blobId, fun () -> result)
                     let newRecord = record.CloneDefault()
                     newRecord.ResultUri <- blobId
                     let! result = Table.tryMerge config config.RuntimeTable newRecord
@@ -184,15 +186,13 @@ type internal TaskCompletionSource (config : ConfigurationId, partitionKey, task
 
 [<AutoSerializable(true)>]
 type TaskManager private (config : ConfigurationId) =
-    let partitionKey = "task"
-
     let table = config.RuntimeTable
     let pickle (value : 'T) = Configuration.Pickler.Pickle(value)
 
     interface ICloudTaskManager with
         member this.Clear(taskId: string): Async<unit> = 
             async {
-                let record = new TaskRecord(partitionKey, taskId)
+                let record = new TaskRecord(taskId)
                 return! Table.delete config table record // TODO : perform full cleanup?
             }
         
@@ -208,10 +208,10 @@ type TaskManager private (config : ConfigurationId) =
         
         member this.CreateTask(info: CloudTaskInfo): Async<ICloudTaskCompletionSource> = 
             async {
-                let tcs = new TaskCompletionSource(config, partitionKey, guid())
+                let tcs = new TaskCompletionSource(config, guid())
                 let cts = info.CancellationTokenSource :?> DistributedCancellationTokenSource
                 let _elevated = cts.ElevateCancellationToken()
-                let record = new TaskRecord(partitionKey, guid())
+                let record = new TaskRecord(guid())
                 record.ActiveJobs <- nullable 0
                 record.CancellationPartitionKey <- cts.PartitionKey
                 record.CancellationRowKey <- cts.RowKey.Value
@@ -232,14 +232,14 @@ type TaskManager private (config : ConfigurationId) =
         
         member this.GetAllTasks(): Async<ICloudTaskCompletionSource []> = 
             async {
-                let! records = Table.queryPK<TaskRecord> config table partitionKey
-                return records |> Array.map(fun r -> new TaskCompletionSource(config, partitionKey, r.Id) :> ICloudTaskCompletionSource)
+                let! records = Table.queryPK<TaskRecord> config table TaskRecord.DefaultPartitionKey
+                return records |> Array.map(fun r -> new TaskCompletionSource(config, r.Id) :> ICloudTaskCompletionSource)
             }
         
         member this.TryGetTaskById(taskId: string): Async<ICloudTaskCompletionSource option> = 
             async {
-                let! record = Table.read<TaskRecord> config table partitionKey taskId
-                if record = null then return None else return Some(new TaskCompletionSource(config, partitionKey, taskId) :> ICloudTaskCompletionSource)
+                let! record = Table.read<TaskRecord> config table TaskRecord.DefaultPartitionKey taskId
+                if record = null then return None else return Some(new TaskCompletionSource(config, taskId) :> ICloudTaskCompletionSource)
             }
 
     static member Create(config : ConfigurationId) = new TaskManager(config)
