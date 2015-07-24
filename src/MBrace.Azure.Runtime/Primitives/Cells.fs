@@ -8,6 +8,15 @@ open System.IO
 open MBrace.Azure
 open Microsoft.WindowsAzure.Storage.Blob
 open Microsoft.WindowsAzure.Storage
+open Microsoft.WindowsAzure.Storage.Table
+
+
+type BlobReferenceEntity(pid, name : string, uri : string) =
+    inherit TableEntity(pid, name)
+    member val Uri = uri with get, set
+    new () = BlobReferenceEntity(empty, empty, empty)
+    new(pid, name) = new BlobReferenceEntity(pid, name, empty)
+
 
 [<DataContract>]
 type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : string) =

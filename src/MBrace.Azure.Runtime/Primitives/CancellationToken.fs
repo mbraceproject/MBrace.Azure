@@ -12,6 +12,8 @@ open MBrace.Core.Internals
 open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
+open MBrace.Runtime
+open MBrace.Runtime
 
 [<AutoOpen>]
 module private CancellationTokenSourceUtils =
@@ -247,9 +249,75 @@ type DistributedCancellationTokenSource private (config : ConfigurationId, parti
             return dcts
     }
 
-and private CancellationTokenState =
-    | Canceled // Note that dcts's will carry the cancelled state only if cancellation has occured 
-               // *before* elevation to table storage. This is to ensure state consistency across copies 
-               // of the the token.
-    | Distributed of rowKey:string
-    | Localized of metadata:string option * parent:DistributedCancellationTokenSource option
+
+// Stores around 10K CTS links.
+type CancellationTokenSourceEntity(pid, id : string, links : (string * string) list) =
+    inherit TableEntity(pid, id)
+
+    let split =
+        if box links <> null then
+            let s = 
+                links 
+                |> Seq.map (fun (pk, rk) -> sprintf "%s/%s" pk rk)
+                |> String.concat ";"
+            let chunkSize = 64 * 1024 // 64KB per property
+            {0..chunkSize..s.Length-1}
+            |> Seq.map(fun i -> s.Substring(i, Math.Min(chunkSize, s.Length-i)))
+            |> Seq.toArray
+        else null
+
+    let check (a : string []) i =
+        if a = null then null else if i >= a.Length then String.Empty else a.[i]
+
+    member val IsCancellationRequested = false with get, set
+    member val Metadata = empty with get, set
+
+    member val Link0 = check split 0 with get, set
+    member val Link1 = check split 1 with get, set
+    member val Link2 = check split 2 with get, set
+    member val Link3 = check split 3 with get, set
+    member val Link4 = check split 4 with get, set
+    member val Link5 = check split 5 with get, set
+    member val Link6 = check split 6 with get, set
+    member val Link7 = check split 7 with get, set
+    member val Link8 = check split 8 with get, set
+    member val Link9 = check split 9 with get, set
+
+    member this.GetLinks () =
+        String.Concat(
+            this.Link0, this.Link1, this.Link2, this.Link3, this.Link4, 
+            this.Link5, this.Link6, this.Link7, this.Link8, this.Link9).Split(';')
+        |> Seq.filter(not << String.IsNullOrEmpty)
+        |> Seq.map (fun pkrk -> let xs = pkrk.Split('/') in xs.[0], xs.[1])
+        |> Seq.toList
+        
+    new () = new CancellationTokenSourceEntity(empty, empty, Unchecked.defaultof<_>)
+
+
+[<Sealed>]
+type CancellationEntry private () =
+    interface ICancellationEntry with
+        member x.Cancel(): Async<unit> = 
+            failwith "Not implemented yet"
+        
+        member x.Dispose(): Async<unit> = 
+            failwith "Not implemented yet"
+        
+        member x.IsCancellationRequested: Async<bool> = 
+            failwith "Not implemented yet"
+        
+        member x.UUID: string = 
+            failwith "Not implemented yet"
+        
+
+[<Sealed>]
+type CancellationTokenFactory () =
+    interface ICancellationEntryFactory with
+        member x.CreateCancellationEntry(): Async<ICancellationEntry> = 
+            async {
+            
+            }
+        
+        member x.TryCreateLinkedCancellationEntry(parents: ICancellationEntry []): Async<ICancellationEntry option> = 
+            failwith "Not implemented yet"
+        
