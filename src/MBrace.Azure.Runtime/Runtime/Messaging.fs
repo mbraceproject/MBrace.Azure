@@ -1,18 +1,15 @@
 ﻿namespace MBrace.Azure.Runtime
 
 open System
-open System.Runtime.Serialization
 open Microsoft.ServiceBus.Messaging
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure
 open MBrace.Core.Internals
-open System.Threading.Tasks
 open System.IO
-open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime.Primitives
 open MBrace.Runtime
-open Nessos.FsPickler.ExtensionMethods
+open System.Runtime.Serialization
 
 [<AutoOpenAttribute>]
 module private Helpers = 
@@ -25,8 +22,21 @@ module private Helpers =
     let StreamOffsetPropertyName = "StreamOffset"
     let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
 
+/// Info stored in BrokeredMessage.
+type internal JobLeaseTokenInfo =
+    {
+        ConfigurationId : ConfigurationId
+        JobId : string
+        MessageLockId : Guid
+        ParentJobId : string
+        Offset : int64 option 
+        TargetWorker : string option
+        DeliveryCount : int
+        DequeueTime : DateTimeOffset
+    }
+
 [<Sealed; AbstractClass>]
-type JobLeaseMonitor private () = 
+type internal JobLeaseMonitor private () = 
     
     static member Start(message : BrokeredMessage) = 
         Async.StartChild(let rec renewLoop() = 
@@ -41,7 +51,7 @@ type JobLeaseMonitor private () =
                              }
                          renewLoop())
     
-    static member Complete(token : JobLeaseToken) : Async<unit> = 
+    static member Complete(token : JobLeaseTokenInfo) : Async<unit> = 
         async { 
             let config = token.ConfigurationId
             match token.TargetWorker with
@@ -57,53 +67,64 @@ type JobLeaseMonitor private () =
                 return! subscription.CompleteAsync(token.MessageLockId)
         }
 
-and [<AutoSerializable(true)>] 
-    JobLeaseToken private (configurationId : ConfigurationId, jobId : string, 
-                            messageLockId : Guid, parentJobId : string, 
-                            offset : int64 option, targetWorker : string option, 
-                            deliveryCount : int, dequeueTime : DateTimeOffset) = 
+[<AutoSerializable(true); DataContract>]
+type JobLeaseToken private (info : JobLeaseTokenInfo)  = 
+    let [<DataMember(Name="info")>] info = info
 
-    member this.ConfigurationId = configurationId
-    member this.TargetWorker = targetWorker
-    member this.MessageLockId = messageLockId
-    member this.DeliveryCount = deliveryCount
-    member this.ParentJobId = parentJobId
-    member ths.Id = jobId
-    member this.DequeueTime = dequeueTime
+    member ths.Id               = info.JobId
+    member this.ConfigurationId = info.ConfigurationId
+    member this.TargetWorker    = info.TargetWorker
+    member this.MessageLockId   = info.MessageLockId
+    member this.DeliveryCount   = info.DeliveryCount
+    member this.ParentJobId     = info.ParentJobId
+    member this.DequeueTime     = info.DequeueTime
 
     interface ICloudJobLeaseToken with
-        member this.DeclareCompleted() : Async<unit> = JobLeaseMonitor.Complete(this)
+        member this.DeclareCompleted() : Async<unit> = 
+            async {
+                do! JobLeaseMonitor.Complete(info)
+                let record = new JobRecord(info.ParentJobId, info.JobId)
+                record.Status <- nullable(int JobStatus.Completed)
+                record.CompletionTime <- nullable(DateTimeOffset.Now)
+                let! _record = Table.merge info.ConfigurationId info.ConfigurationId.RuntimeTable record
+                return ()
+            }
         
         member this.DeclareFaulted(arg1 : ExceptionDispatchInfo) : Async<unit> = 
             async { 
-                // TODO : Update record
-                return! JobLeaseMonitor.Complete(this) }
+                do! JobLeaseMonitor.Complete(info)
+                let record = new JobRecord(info.ParentJobId, info.JobId)
+                record.Status <- nullable(int JobStatus.Faulted)
+                record.CompletionTime <- nullable(DateTimeOffset.Now)
+                let! _record = Table.merge info.ConfigurationId info.ConfigurationId.RuntimeTable record
+                return () 
+            }
         
         member this.FaultInfo : JobFaultInfo = failwith "Not implemented yet"
         
         member this.GetJob() : Async<CloudJob> = 
             async { 
-                let blob = Blob.FromPath(configurationId, parentJobId, jobId)
+                let blob = Blob.FromPath(info.ConfigurationId, info.ParentJobId, info.JobId)
                 use! stream = blob.OpenRead()
                 let _pos = 
-                    match offset with
+                    match info.Offset with
                     | Some pos -> stream.Seek(pos, SeekOrigin.Begin)
                     | _ -> 0L
                 return Configuration.Pickler.Deserialize<CloudJob>(stream)
             }
         
-        member this.Id : string = jobId
+        member this.Id : string = info.JobId
         
         member this.JobType : JobType = failwith "Not implemented yet"
         
         member this.Size : int64 = failwith "Not implemented yet"
         
         member this.TargetWorker : IWorkerId option = 
-            match targetWorker with
+            match info.TargetWorker with
             | None -> None
             | Some w -> Some(WorkerId(w) :> _)
         
-        member this.TaskEntry : ICloudTaskCompletionSource = TaskCompletionSource(configurationId, parentJobId) :> _
+        member this.TaskEntry : ICloudTaskCompletionSource = TaskCompletionSource(info.ConfigurationId, info.ParentJobId) :> _
         
         member this.Type : string = failwith "Not implemented yet"
     
@@ -120,8 +141,17 @@ and [<AutoSerializable(true)>]
         let lockToken = message.LockToken
         let body = message.GetBody<string>()
         let dequeueTime = DateTimeOffset.Now
-        new JobLeaseToken(config, body, lockToken, parentId, streamPos, affinity, deliveryCount, dequeueTime)
-
+        let info = {
+            JobId = body
+            ConfigurationId = config
+            MessageLockId = lockToken
+            ParentJobId = parentId
+            Offset = streamPos
+            TargetWorker = affinity
+            DeliveryCount = deliveryCount
+            DequeueTime = dequeueTime
+        }
+        new JobLeaseToken(info)
 
 /// Local queue subscription client
 [<AutoSerializable(false)>]
@@ -228,10 +258,6 @@ type internal Topic (config : ConfigurationId) =
 type internal Queue (config : ConfigurationId) = 
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
     let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
-    
-    member this.Length = ns.GetQueue(config.RuntimeQueue).MessageCount
-
-    member this.Metadata = ns.GetQueue(config.RuntimeQueue).UserMetadata
 
     member this.EnqueueBatch(jobs : CloudJob []) = 
         async { 
