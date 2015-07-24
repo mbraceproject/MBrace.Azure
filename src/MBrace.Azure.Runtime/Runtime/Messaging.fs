@@ -71,7 +71,10 @@ type internal JobLeaseMonitor private () =
 type JobLeaseToken private (info : JobLeaseTokenInfo)  = 
     let [<DataMember(Name="info")>] info = info
 
-    member ths.Id               = info.JobId
+    let [<DataMember(Name="record")>] record : JobRecord = 
+        Async.RunSync(Table.read info.ConfigurationId info.ConfigurationId.RuntimeTable info.ParentJobId info.JobId)
+
+    member this.Id              = info.JobId
     member this.ConfigurationId = info.ConfigurationId
     member this.TargetWorker    = info.TargetWorker
     member this.MessageLockId   = info.MessageLockId
@@ -115,9 +118,15 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
         
         member this.Id : string = info.JobId
         
-        member this.JobType : JobType = failwith "Not implemented yet"
+        member this.JobType : JobType =
+            let jobKind = enum<JobKind>(record.Kind.GetValueOrDefault(-1))
+            match jobKind with
+            | JobKind.TaskRoot -> TaskRoot
+            | JobKind.Choice   -> ChoiceChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
+            | JobKind.Parallel -> ParallelChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
+            | _ -> failwithf "Invalid JobKind %d" <| int jobKind
         
-        member this.Size : int64 = failwith "Not implemented yet"
+        member this.Size : int64 = record.Size.GetValueOrDefault(-1L)
         
         member this.TargetWorker : IWorkerId option = 
             match info.TargetWorker with
@@ -126,7 +135,7 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
         
         member this.TaskEntry : ICloudTaskCompletionSource = TaskCompletionSource(info.ConfigurationId, info.ParentJobId) :> _
         
-        member this.Type : string = failwith "Not implemented yet"
+        member this.Type : string = record.Type
     
     static member FromBrokeredMessage(config : ConfigurationId, message : BrokeredMessage) = 
         let tryGet name = 
@@ -189,8 +198,6 @@ type internal Subscription (config : ConfigurationId, workerId : IWorkerId) =
 type internal Topic (config : ConfigurationId) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let topic = cp.TopicClient(config.RuntimeTopic)
-    
-    member this.Metadata = cp.NamespaceClient.GetTopic(config.RuntimeTopic).UserMetadata
     
     member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, workerId)
     
