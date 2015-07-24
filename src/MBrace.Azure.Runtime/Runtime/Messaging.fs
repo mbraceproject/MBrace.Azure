@@ -103,7 +103,9 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
                 return () 
             }
         
-        member this.FaultInfo : JobFaultInfo = failwith "Not implemented yet"
+        member this.FaultInfo : JobFaultInfo = 
+            // TODO : implement
+            NoFault
         
         member this.GetJob() : Async<CloudJob> = 
             async { 
@@ -264,7 +266,6 @@ type internal Topic (config : ConfigurationId) =
 [<AutoSerializable(false)>]
 type internal Queue (config : ConfigurationId) = 
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
-    let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
 
     member this.EnqueueBatch(jobs : CloudJob []) = 
         async { 
@@ -306,7 +307,7 @@ type internal Queue (config : ConfigurationId) =
             return blob.Size
         }
     
-    member this.TryDequeue<'T>() : Async<JobLeaseToken option> = 
+    member this.TryDequeue() : Async<JobLeaseToken option> = 
         async { 
             let! msg = queue.ReceiveAsync(ServerWaitTime)
             if msg = null then 

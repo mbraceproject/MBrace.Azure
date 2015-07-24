@@ -92,6 +92,7 @@
     <Compile Include="Runtime\JobRecord.fs" />
     <Compile Include="Runtime\Messaging.fs" />
     <Compile Include="Runtime\JobManager.fs" />
+    <Compile Include="Runtime\RuntimeManager.fs" />
     <Compile Include="RuntimeInfo\PerformanceMonitor.fs" />
     <Compile Include="RuntimeInfo\WorkerInfo.fs" />
     <Compile Include="RuntimeInfo\Logging.fs" />
