@@ -4,6 +4,8 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Azure
 open System
+open MBrace.Store.Internals
+open MBrace.Azure.Store
 
 type RuntimeId private (config : ConfigurationId) =
     
@@ -22,24 +24,41 @@ type RuntimeId private (config : ConfigurationId) =
     static member FromConfiguration(config) = new RuntimeId(config)
  
 [<AutoSerializable(false)>]       
-type RuntimeManager () =
+type RuntimeManager (config : ConfigurationId, logger : ISystemLogger, resources : ResourceRegistry) =
+    
+    let runtimeId = RuntimeId.FromConfiguration(config)
+    let workerManager = WorkerManager.Create(config)
+    let jobManager = JobManager.Create(config)
+    let taskManager = TaskManager.Create(config)
+    let assemblyManager = 
+        let store = resources.Resolve<CloudFileStoreConfiguration>()
+        let serializer = resources.Resolve<ISerializer>()
+        StoreAssemblyManager.Create(store, serializer, "vagabond", logger)
+
     interface IRuntimeManager with
-        member this.AssemblyManager: IAssemblyManager = 
-            failwith "Not implemented yet"
+        member this.Id = runtimeId :> _
+        member this.Serializer = Configuration.Pickler :> _
+        
+        member this.WorkerManager: IWorkerManager = workerManager :> _
+        member this.TaskManager: ICloudTaskManager = taskManager :> _
+        member this.JobQueue: IJobQueue = jobManager :> _
+        member this.AssemblyManager: IAssemblyManager = assemblyManager :> _
+        
+        member this.SystemLogger: ISystemLogger = logger
+
+        member this.GetCloudLogger(worker: IWorkerId, job: CloudJob): ICloudLogger = 
+            let pl = new MBrace.Azure.Runtime.Info.ProcessLogger(config, job.TaskEntry.Id) 
+            let lc = new MBrace.Azure.Runtime.Info.RuntimeLogger()
+            lc.Attach(new ConsoleLogger())
+            lc.Attach(pl)
+            lc :> _
+
+
         
         member this.CancellationEntryFactory: ICancellationEntryFactory = 
             failwith "Not implemented yet"
         
         member this.CounterFactory: ICloudCounterFactory = 
-            failwith "Not implemented yet"
-        
-        member this.GetCloudLogger(worker: IWorkerId, job: CloudJob): ICloudLogger = 
-            failwith "Not implemented yet"
-        
-        member this.Id: IRuntimeId = 
-            failwith "Not implemented yet"
-        
-        member this.JobQueue: IJobQueue = 
             failwith "Not implemented yet"
         
         member this.ResetClusterState(): Async<unit> = 
@@ -51,15 +70,5 @@ type RuntimeManager () =
         member this.ResultAggregatorFactory: ICloudResultAggregatorFactory = 
             failwith "Not implemented yet"
         
-        member this.Serializer: Nessos.FsPickler.FsPicklerSerializer = 
-            failwith "Not implemented yet"
         
-        member this.SystemLogger: ISystemLogger = 
-            failwith "Not implemented yet"
-        
-        member this.TaskManager: ICloudTaskManager = 
-            failwith "Not implemented yet"
-        
-        member this.WorkerManager: IWorkerManager = 
-            failwith "Not implemented yet"
         
