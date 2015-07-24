@@ -48,13 +48,13 @@
                 }
 
         type AsyncBuilder with
-            member __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
+            member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
                 __.Bind(Async.AwaitTask f, g)
-            member __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
+            member inline __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
                 __.Bind(Async.AwaitTask(f.ContinueWith ignore), g)
-            member __.ReturnFrom(f : Task<'T>) : Async<'T> =
+            member inline __.ReturnFrom(f : Task<'T>) : Async<'T> =
                 __.ReturnFrom(Async.AwaitTask f)
-            member __.ReturnFrom(f : Task) : Async<unit> =
+            member inline __.ReturnFrom(f : Task) : Async<unit> =
                 __.ReturnFrom(Async.AwaitTask f)
 
 

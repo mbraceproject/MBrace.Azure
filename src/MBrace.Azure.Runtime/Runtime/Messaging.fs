@@ -57,16 +57,20 @@ type JobLeaseMonitor private () =
                 return! subscription.CompleteAsync(token.MessageLockId)
         }
 
-and JobLeaseToken private (configurationId : ConfigurationId, jobId : string, 
+and [<AutoSerializable(true)>] 
+    JobLeaseToken private (configurationId : ConfigurationId, jobId : string, 
                             messageLockId : Guid, parentJobId : string, 
                             offset : int64 option, targetWorker : string option, 
-                            deliveryCount : int) = 
+                            deliveryCount : int, dequeueTime : DateTimeOffset) = 
 
     member this.ConfigurationId = configurationId
     member this.TargetWorker = targetWorker
     member this.MessageLockId = messageLockId
     member this.DeliveryCount = deliveryCount
-    
+    member this.ParentJobId = parentJobId
+    member ths.Id = jobId
+    member this.DequeueTime = dequeueTime
+
     interface ICloudJobLeaseToken with
         member this.DeclareCompleted() : Async<unit> = JobLeaseMonitor.Complete(this)
         
@@ -115,7 +119,8 @@ and JobLeaseToken private (configurationId : ConfigurationId, jobId : string,
         let streamPos = tryGet StreamOffsetPropertyName
         let lockToken = message.LockToken
         let body = message.GetBody<string>()
-        new JobLeaseToken(config, body, lockToken, parentId, streamPos, affinity, deliveryCount)
+        let dequeueTime = DateTimeOffset.Now
+        new JobLeaseToken(config, body, lockToken, parentId, streamPos, affinity, deliveryCount, dequeueTime)
 
 
 /// Local queue subscription client
@@ -139,14 +144,14 @@ type internal Subscription (config : ConfigurationId, workerId : IWorkerId) =
     
     member this.WorkerId = workerId
 
-    member this.TryDequeue() : Async<ICloudJobLeaseToken option> = 
+    member this.TryDequeue() : Async<JobLeaseToken option> = 
         async { 
             let! msg = sub.ReceiveAsync(ServerWaitTime)
             if msg = null then 
                 return None
             else 
                 let! _ = JobLeaseMonitor.Start(msg)
-                return Some(JobLeaseToken.FromBrokeredMessage(config, msg) :> ICloudJobLeaseToken)
+                return Some(JobLeaseToken.FromBrokeredMessage(config, msg))
         }
 
 /// Local queue topic client
@@ -159,10 +164,11 @@ type internal Topic (config : ConfigurationId) =
     
     member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, workerId)
     
-    member this.EnqueueBatch(jobs : CloudJob []) = 
+    member this.EnqueueBatch(jobs : CloudJob []) : Async<int64 seq> = 
         async { 
             //logger.Logf "Creating common job file."
             let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
+            let sizes = new ResizeArray<int64>(jobs.Length)
             for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
                 let temp = Path.GetTempFileName()
                 let fileStream = File.OpenWrite(temp)
@@ -175,6 +181,7 @@ type internal Topic (config : ConfigurationId) =
                     msg.Properties.Add(AffinityPropertyName, job.TargetWorker.Value.Id)
                     msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
                     ys.Add(msg)
+                    sizes.Add(fileStream.Position - lastPosition.Value)
                     lastPosition := fileStream.Position
                 fileStream.Flush()
                 fileStream.Dispose()
@@ -185,15 +192,17 @@ type internal Topic (config : ConfigurationId) =
                 File.Delete(temp)
 
             do! topic.SendBatchAsync(ys)
+            return sizes :> seq<int64>
         }
     
     member this.Enqueue(t : CloudJob) = 
         async { 
-            let! _blob = Blob.Create(config, t.TaskEntry.Id, t.Id, fun () -> t)
+            let! blob = Blob.Create(config, t.TaskEntry.Id, t.Id, fun () -> t)
             let msg = new BrokeredMessage(t.Id)
             msg.Properties.Add(AffinityPropertyName, t.TargetWorker.Value.Id)
             msg.Properties.Add(ParentTaskIdPropertyName, toGuid t.TaskEntry.Id)
             do! topic.SendAsync(msg)
+            return blob.Size
         }
 
     static member Create(config) = 
@@ -228,6 +237,7 @@ type internal Queue (config : ConfigurationId) =
         async { 
             //logger.Logf "Creating common job file."
             let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
+            let sizes = new ResizeArray<int64>(jobs.Length)
             for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
                 let temp = Path.GetTempFileName()
                 let fileStream = File.OpenWrite(temp)
@@ -239,6 +249,7 @@ type internal Queue (config : ConfigurationId) =
                     msg.Properties.Add(ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
                     msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
                     ys.Add(msg)
+                    sizes.Add(fileStream.Position - lastPosition.Value)
                     lastPosition := fileStream.Position
                 fileStream.Flush()
                 fileStream.Dispose()
@@ -248,26 +259,28 @@ type internal Queue (config : ConfigurationId) =
                     |> Async.Ignore
                 File.Delete(temp)
 
-            return! queue.SendBatchAsync(ys)
+            do! queue.SendBatchAsync(ys)
+            return sizes :> seq<int64>
         }
     
     member this.Enqueue(job : CloudJob) = 
         async {
             let parentTaskId = job.TaskEntry.Id
-            let! _blob = Blob.Create(config, parentTaskId, job.Id, fun () -> job)
+            let! blob = Blob.Create(config, parentTaskId, job.Id, fun () -> job)
             let msg = new BrokeredMessage(toGuid job.Id)
             msg.Properties.Add(ParentTaskIdPropertyName, toGuid parentTaskId)
             do! queue.SendAsync(msg)
+            return blob.Size
         }
     
-    member this.TryDequeue<'T>() : Async<ICloudJobLeaseToken option> = 
+    member this.TryDequeue<'T>() : Async<JobLeaseToken option> = 
         async { 
             let! msg = queue.ReceiveAsync(ServerWaitTime)
             if msg = null then 
                 return None
             else
                 let! _ = JobLeaseMonitor.Start(msg)
-                return Some(JobLeaseToken.FromBrokeredMessage(config, msg) :> ICloudJobLeaseToken)
+                return Some(JobLeaseToken.FromBrokeredMessage(config, msg))
         }
     
     static member Create(config : ConfigurationId) = 

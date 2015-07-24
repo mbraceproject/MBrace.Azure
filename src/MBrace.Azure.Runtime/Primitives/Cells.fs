@@ -19,6 +19,12 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
     [<DataMember(Name = "filename")>]
     let filename = filename
 
+    member this.Size =
+        let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+        let blob = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+        blob.FetchAttributes()
+        blob.Properties.Length
+
     member __.GetValue() : Async<'T> = 
         async { 
             let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
@@ -88,6 +94,12 @@ type Blob internal (config : ConfigurationId, prefix : string, filename : string
     let prefix = prefix
     [<DataMember(Name = "filename")>]
     let filename = filename
+
+    member this.Size =
+        let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+        let blob = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+        blob.FetchAttributes()
+        blob.Properties.Length
 
     member __.OpenRead() : Async<Stream> =
         async {

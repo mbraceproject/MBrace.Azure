@@ -35,7 +35,7 @@ type JobRecord(parentTaskId, jobId) =
     member val Index              = Nullable<int>() with get, set
     member val MaxIndex           = Nullable<int>() with get, set
 
-    member val WorkerId           = null : string with get, set
+    member val CurrentWorker      = null : string with get, set
     member val Status             = Nullable<int>() with get, set
 
     member val Size               = Nullable<int64>() with get, set
@@ -43,9 +43,10 @@ type JobRecord(parentTaskId, jobId) =
     member val DequeueTime        = Nullable<DateTimeOffset>() with get, set
     member val StartTime          = Nullable<DateTimeOffset>() with get, set
     member val CompletionTime     = Nullable<DateTimeOffset>() with get, set
-    member val DeliveryCount      = Nullable<int> with get, set
+    member val DeliveryCount      = Nullable<int>() with get, set
     member val Completed          = Nullable<bool>() with get, set
-    member val Dependencies       = null : byte [] with get, set
+    member val Type               = null : string with get, set
+    //member val Dependencies       = null : byte [] with get, set
 
     new () = new JobRecord(null, null)
 
@@ -55,3 +56,29 @@ type JobRecord(parentTaskId, jobId) =
         p.RowKey <- this.RowKey
         p.ETag <- this.ETag
         p
+
+    static member FromCloudJob(job : CloudJob) =
+        let record = new JobRecord(job.TaskEntry.Id, job.Id)
+        
+        match job.JobType with
+        | TaskRoot -> 
+            record.Kind <- nullable(int JobKind.TaskRoot)
+        | ParallelChild(i,m) ->
+            record.Kind <- nullable(int JobKind.Parallel)
+            record.Index <- nullable i
+            record.MaxIndex <- nullable m
+        | ChoiceChild(i,m) ->
+            record.Kind <- nullable(int JobKind.Choice)
+            record.Index <- nullable i
+            record.MaxIndex <- nullable m
+        
+        match job.TargetWorker with
+        | Some worker -> record.Affinity <- worker.Id
+        | _ -> ()
+
+        record.Status <- nullable(int JobStatus.Preparing)
+        record.DeliveryCount <- nullable 0
+        record.Completed <- nullable false
+        record.Type <- PrettyPrinters.Type.prettyPrint job.Type
+
+        record
