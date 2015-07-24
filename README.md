@@ -8,7 +8,7 @@ Windows Azure PaaS implementation of the [MBrace.Core/Runtime](https://github.co
 
 ### Road map
 
-See [ROADMAP.md]
+See [ROADMAP.md](ROADMAP.md)
 
 ### Build Status
 
