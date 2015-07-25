@@ -10,13 +10,13 @@ open Microsoft.WindowsAzure.Storage.Blob
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
+//type BlobReferenceEntity(name : string, uri : string) =
+//    inherit TableEntity(name, BlobReferenceEntity.DefaultRowKey)
+//    member val Uri = uri with get, set
+//    new () = BlobReferenceEntity(null, null)
+//    static member DefaultRowKey = String.Empty
 
-type BlobReferenceEntity(pid, name : string, uri : string) =
-    inherit TableEntity(pid, name)
-    member val Uri = uri with get, set
-    new () = BlobReferenceEntity(empty, empty, empty)
-    new(pid, name) = new BlobReferenceEntity(pid, name, empty)
-
+// TODO : Remove code duplication
 
 [<DataContract>]
 type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : string) =
