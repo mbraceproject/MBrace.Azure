@@ -47,3 +47,5 @@ type Int32CounterFactory private (config : ConfigurationId) =
                 let! _record = Table.insert config config.RuntimeTable record
                 return new Int32Counter(config, record.PartitionKey) :> ICloudCounter
             }
+
+    static member Create(config) = new Int32CounterFactory(config) :> ICloudCounterFactory

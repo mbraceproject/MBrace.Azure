@@ -81,8 +81,8 @@
     <Compile Include="Utilities\Table.fs" />
     <Compile Include="Utilities\Argument.fs" />
     <Compile Include="Primitives\Counters.fs" />
-    <Compile Include="Primitives\Cells.fs" />
-    <Compile Include="Primitives\CancellationToken.fs" />
+    <Compile Include="Primitives\BlobCells.fs" />
+    <Compile Include="Primitives\CancellationEntry.fs" />
     <Compile Include="Primitives\Result.fs" />
     <Compile Include="Primitives\BlobAssemblyManager.fs" />
     <Compile Include="RuntimeInfo\PerformanceMonitor.fs" />
