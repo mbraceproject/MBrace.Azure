@@ -10,12 +10,6 @@ open Microsoft.WindowsAzure.Storage.Blob
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
-//type BlobReferenceEntity(name : string, uri : string) =
-//    inherit TableEntity(name, BlobReferenceEntity.DefaultRowKey)
-//    member val Uri = uri with get, set
-//    new () = BlobReferenceEntity(null, null)
-//    static member DefaultRowKey = String.Empty
-
 // TODO : Remove code duplication
 
 [<DataContract>]
@@ -118,6 +112,14 @@ type Blob internal (config : ConfigurationId, prefix : string, filename : string
         }
     
     member __.Path = sprintf "%s/%s" prefix filename
+
+    static member Delete(config, file) =
+        async {
+            let c = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let b = c.GetBlockBlobReference(file)
+            let! _ = b.DeleteIfExistsAsync()
+            return ()
+        }        
 
     static member FromPath(config : ConfigurationId, path : string) = 
         let p = path.Split('/')
