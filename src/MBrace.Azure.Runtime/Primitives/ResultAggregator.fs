@@ -2,26 +2,21 @@
 
 open System
 open System.Runtime.Serialization
-open System.Threading
-
 open Microsoft.WindowsAzure.Storage.Table
-
-open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Runtime.Utils
 open MBrace.Azure
-open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
 
-type BlobReferenceEntity(partitionKey, rowKey, uri : string) =
+type BlobReferenceEntity(partitionKey, rowKey, uri : string) = 
     inherit TableEntity(partitionKey, rowKey)
     member val Uri = uri with get, set
-    new () = BlobReferenceEntity(null, null, null)
+    new() = BlobReferenceEntity(null, null, null)
+    static member internal MakeRowKey(rowKey, index) = sprintf "%s:%010d" rowKey index
+
 
 [<DataContract; Sealed>]
 type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : string, rowKey : string, size : int) = 
-    static let mkRowKey name i = sprintf "%s:%010d" name i
 
     [<DataMember(Name = "config")>]
     let config = config
@@ -34,8 +29,8 @@ type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : str
 
     let getEntities () = async {
         let pkFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, partitionKey)
-        let lower = mkRowKey rowKey 0
-        let upper = mkRowKey rowKey size
+        let lower = BlobReferenceEntity.MakeRowKey(rowKey, 0)
+        let upper = BlobReferenceEntity.MakeRowKey(rowKey, size)
         let rkFilter = 
             TableQuery.CombineFilters(
                 TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, upper),
@@ -79,13 +74,12 @@ type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : str
             async { 
                 let! bc = Blob.Create(config, partitionKey, guid(), fun () -> value)
                 if overwrite then
-                    let e = new BlobReferenceEntity(partitionKey, mkRowKey rowKey index, null, ETag = "*")
+                    let e = new BlobReferenceEntity(partitionKey, BlobReferenceEntity.MakeRowKey(rowKey, index), null, ETag = "*")
                     e.Uri <- bc.Path
                     let! _ = Table.merge config config.RuntimeTable e
                     return! completed()
                 else
-                    let entity = Table.read<BlobReferenceEntity> config 
-                    let! _ = Table.transact<BlobReferenceEntity> config config.RuntimeTable partitionKey (mkRowKey rowKey index)
+                    let! _ = Table.transact<BlobReferenceEntity> config config.RuntimeTable partitionKey (BlobReferenceEntity.MakeRowKey(rowKey, index))
                                 (fun e ->
                                     if e.Uri = null then e.Uri <- bc.Path)
                     return! completed()
@@ -114,16 +108,19 @@ type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : str
                     return re
             }
 
-    static member Create<'T>(config, size, pid) = 
-        let name = guid()
-        let entities = seq {
-            for i = 0 to size - 1 do
-                let name = mkRowKey name i
-                yield new BlobReferenceEntity(pid, name, String.Empty, EntityType = "AGGR")
-        }
-        let ops = entities |> Seq.map TableOperation.Insert
-        { new TableResourceOperation<ResultAggregator<'T>> with
-              member this.Operations = ops
-              member this.Resource = new ResultAggregator<'T>(config, pid, name, size)
-              
-        }
+[<Sealed>]
+type ResultAggregatorFactory private (config : ConfigurationId) =
+    interface ICloudResultAggregatorFactory with
+        member x.CreateResultAggregator(capacity: int): Async<ICloudResultAggregator<'T>> = 
+            async {
+                let key = guid()
+                let entities = seq {
+                    for i = 0 to capacity - 1 do
+                        let rowKey = BlobReferenceEntity.MakeRowKey(key, i)
+                        yield new BlobReferenceEntity(key, rowKey, null)
+                }
+                do! Table.insertBatch config config.RuntimeTable entities
+                return new ResultAggregator<'T>(config, key, key, capacity) :> ICloudResultAggregator<'T>
+            }
+    
+    static member Create(config) = new ResultAggregatorFactory(config) :> ICloudResultAggregatorFactory
