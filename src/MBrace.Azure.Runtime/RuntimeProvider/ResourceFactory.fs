@@ -42,7 +42,7 @@ type ResourceFactory private (configId : ConfigurationId) =
         DistributedCancellationTokenSource.Create(configId, pid, ?metadata = metadata, ?parent = parent, ?elevate = elevate)
 
     member this.RequestProcessLogger(pid) : ICloudLogger = 
-        let pl = new ProcessLogger(configId, pid) 
+        let pl = new CloudStorageLogger(configId, pid) 
         let lc = new RuntimeLogger()
         lc.Attach(new ConsoleLogger())
         lc.Attach(pl)

@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Primitives
+﻿namespace MBrace.Azure.Runtime
 
 open System
 open System.Runtime.Serialization

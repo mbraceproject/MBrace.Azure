@@ -41,7 +41,7 @@ type Runtime private (clientId, config : Configuration) =
             //Version.Parse(config.Version) <> typeof<Runtime>.Assembly.GetName().Version
         RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility = ignoreVersion)
         |> Async.RunSync
-    let storageLogger = new StorageLogger(configuration.ConfigurationId, Client(id = clientId))
+    let storageLogger = new TableStorageSystemLogger(configuration.ConfigurationId, Client(id = clientId))
     let clientLogger = state.Logger
     do  clientLogger.Attach(storageLogger)
     let wmon = WorkerManager.Create(configuration.ConfigurationId, state.Logger)

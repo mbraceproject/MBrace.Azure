@@ -35,7 +35,7 @@ type Init =
             do! Configuration.ActivateAsync(config)
 
             logf "Creating storage logger"
-            let storageLogger = new StorageLogger(config.ConfigurationId, Worker(id = serviceId))
+            let storageLogger = new StorageSystemLogger(config.ConfigurationId, Worker(id = serviceId))
             logger.Attach(storageLogger)
                 
             if isDefaultInitialization 

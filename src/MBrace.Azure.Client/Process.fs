@@ -25,7 +25,7 @@ type Process internal (config, pid : string, ty : Type, pmon : ProcessManager) =
         new Live<_>((fun () -> pmon.GetProcess(pid)), initial = Choice2Of2(exn ("Process not initialized")), 
                     keepLast = true, interval = 500)
 
-    let logger = new ProcessLogger(config, pid)
+    let logger = new CloudStorageLogger(config, pid)
     let dcts = lazy DistributedCancellationTokenSource.FromPath(config, proc.Value.CancellationPartitionKey, proc.Value.CancellationRowKey)
 
     member internal this.ProcessEntity = proc

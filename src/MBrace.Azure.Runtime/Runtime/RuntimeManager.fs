@@ -23,52 +23,49 @@ type RuntimeId private (config : ConfigurationId) =
 
     static member FromConfiguration(config) = new RuntimeId(config)
  
-[<AutoSerializable(false)>]       
-type RuntimeManager (config : ConfigurationId, logger : ISystemLogger, resources : ResourceRegistry) =
-    
-    let runtimeId = RuntimeId.FromConfiguration(config)
+[<AutoSerializable(false)>]
+type RuntimeManager private (config : ConfigurationId, uuid : string, customLoggers : ISystemLogger seq, customResources : ResourceRegistry) = 
+    let logger = new AttacheableLogger()
+    do  
+        let _ = logger.AttachLogger(StorageSystemLogger.Create(config, uuid))
+        customLoggers |> Seq.map logger.AttachLogger |> ignore
+
+    let runtimeId     = RuntimeId.FromConfiguration(config)
     let workerManager = WorkerManager.Create(config)
-    let jobManager = JobManager.Create(config)
-    let taskManager = TaskManager.Create(config)
+    let jobManager    = JobManager.Create(config)
+    let taskManager   = TaskManager.Create(config)
+    
     let assemblyManager = 
-        let store = resources.Resolve<CloudFileStoreConfiguration>()
-        let serializer = resources.Resolve<ISerializer>()
+        let store = customResources.Resolve<CloudFileStoreConfiguration>()
+        let serializer = customResources.Resolve<ISerializer>()
         StoreAssemblyManager.Create(store, serializer, "vagabond", logger)
+    
+    let cancellationEntryFactory = CancellationTokenFactory.Create(config)
+    let int32CounterFactory = Int32CounterFactory.Create(config)
+    let resultAggregatorFactory = ResultAggregatorFactory.Create(config)
+    
+    let resources = customResources
+
+    member this.RuntimeManagerId = uuid
 
     interface IRuntimeManager with
-        member this.Id = runtimeId :> _
-        member this.Serializer = Configuration.Pickler :> _
-        
-        member this.WorkerManager: IWorkerManager = workerManager :> _
-        member this.TaskManager: ICloudTaskManager = taskManager :> _
-        member this.JobQueue: IJobQueue = jobManager :> _
-        member this.AssemblyManager: IAssemblyManager = assemblyManager :> _
-        
-        member this.SystemLogger: ISystemLogger = logger
+        member this.Id                       = runtimeId :> _
+        member this.Serializer               = Configuration.Pickler :> _
+        member this.WorkerManager            = workerManager :> _
+        member this.TaskManager              = taskManager :> _
+        member this.JobQueue                 = jobManager :> _
+        member this.AssemblyManager          = assemblyManager :> _
+        member this.SystemLogger             = logger :> _
+        member this.CancellationEntryFactory = cancellationEntryFactory
+        member this.CounterFactory           = int32CounterFactory
+        member this.ResetClusterState()      = failwith "Not implemented yet"
+        member this.ResourceRegistry         = resources
+        member this.ResultAggregatorFactory  = resultAggregatorFactory
+        member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = 
+            CloudStorageLogger(config, job.Id) :> _
 
-        member this.GetCloudLogger(worker: IWorkerId, job: CloudJob): ICloudLogger = 
-            let pl = new MBrace.Azure.Runtime.Info.ProcessLogger(config, job.TaskEntry.Id) 
-            let lc = new MBrace.Azure.Runtime.Info.RuntimeLogger()
-            lc.Attach(new ConsoleLogger())
-            lc.Attach(pl)
-            lc :> _
+    static member CreateForWorker(config : ConfigurationId, workerId : IWorkerId, customLoggers) =
+        new RuntimeManager(config, workerId.Id, customLoggers, ResourceRegistry.Empty)
 
-
-        
-        member this.CancellationEntryFactory: ICancellationEntryFactory = 
-            failwith "Not implemented yet"
-        
-        member this.CounterFactory: ICloudCounterFactory = 
-            failwith "Not implemented yet"
-        
-        member this.ResetClusterState(): Async<unit> = 
-            failwith "Not implemented yet"
-        
-        member this.ResourceRegistry: ResourceRegistry = 
-            failwith "Not implemented yet"
-        
-        member this.ResultAggregatorFactory: ICloudResultAggregatorFactory = 
-            failwith "Not implemented yet"
-        
-        
-        
+    static member CreateForClient(config : ConfigurationId, clientId : string, customLoggers) =
+        new RuntimeManager(config, clientId, customLoggers, ResourceRegistry.Empty)

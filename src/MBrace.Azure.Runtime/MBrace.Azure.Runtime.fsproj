@@ -84,10 +84,7 @@
     <Compile Include="Primitives\BlobCells.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
     <Compile Include="Primitives\ResultAggregator.fs" />
-    <Compile Include="RuntimeInfo\PerformanceMonitor.fs" />
-    <Compile Include="RuntimeInfo\WorkerInfo.fs" />
-    <Compile Include="RuntimeInfo\Logging.fs" />
-    <Compile Include="RuntimeInfo\ProcessInfo.fs" />
+    <Compile Include="Primitives\Logging.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\TaskManager.fs" />
     <Compile Include="Runtime\JobRecord.fs" />

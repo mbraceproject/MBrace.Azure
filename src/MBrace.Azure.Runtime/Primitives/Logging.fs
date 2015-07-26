@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Info
+﻿namespace MBrace.Azure.Runtime
 
 open System
 open System.Collections.Concurrent
@@ -7,46 +7,25 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
+open MBrace.Runtime
 
 type LoggerType =
-    | Worker of id : string
-    | Client of id : string
-    | ProcessLog of id : string
-    | Other of name : string * id : string with 
+    | System of id : string
+    | CloudLog of taskId : string
         override this.ToString() = 
             match this with
-            | Worker id -> sprintf "worker:%s" id
-            | Client id -> sprintf "client:%s" id
-            | ProcessLog id -> sprintf "process:%s" id
-            | Other(name, id) -> sprintf "%s:%s" name id
+            | System id -> sprintf "client:%s" id
+            | CloudLog id -> sprintf "cloudlog:%s" id
 
-type LogRecord(pk, rk, message, time) =
+type LogRecord(pk, rk, message, time, level) =
     inherit TableEntity(pk, rk)
+    
+    member val Level : int = level with get, set
     member val Message : string = message with get, set
     member val Time : DateTimeOffset = time with get, set
-    new () = new LogRecord(null, null, null, Unchecked.defaultof<_>)
+    new () = new LogRecord(null, null, null, Unchecked.defaultof<_>, -1)  
 
-type RuntimeLogger (loggers, showAppDomain) =
-    let attached = new ConcurrentBag<ICloudLogger>(loggers)
-    let appDomain = AppDomain.CurrentDomain.FriendlyName
-
-    member __.Attach(logger) = attached.Add(logger)
-    member val ShowAppDomainAsPrefix = showAppDomain with get, set
-
-    interface ICloudLogger with
-        member this.Log entry =
-            let entry = if this.ShowAppDomainAsPrefix then sprintf "AppDomain %s\n%s" appDomain entry else entry
-            for l in attached do
-                try
-                    l.Log(entry)
-                with _ -> () // TODO : somehow aggregate and log the errors.
-
-    new () = RuntimeLogger(Seq.empty, false)
-    new (showAppDomain) = RuntimeLogger(Seq.empty, showAppDomain)
-    
-  
-
-type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
+type StorageSystemLogger private (config : ConfigurationId, loggerType : LoggerType) =
     let maxWaitTime = 5000
     let table = config.RuntimeLogsTable
     let logs = ResizeArray<LogRecord>()
@@ -77,14 +56,14 @@ type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
         }
         Async.Start(loop ())
 
-    let log msg = 
+    let log msg time level = 
         lock logs (fun () ->
-            let time = DateTimeOffset.UtcNow
-            let e = new LogRecord(string loggerType, timeToRK time (guid()), msg, time)
+            let e = new LogRecord(string loggerType, timeToRK time (guid()), msg, time, int level)
             logs.Add(e))
 
-    interface ICloudLogger with
-        override __.Log(entry: string) : unit = log entry
+    interface ISystemLogger with
+        member x.LogEntry(level: LogLevel, time: DateTime, message: string): unit = 
+            log message (DateTimeOffset(time)) level
 
     member __.Start () = running <- true
     member __.Stop () = 
@@ -113,17 +92,18 @@ type StorageLogger(config : ConfigurationId, loggerType : LoggerType) =
             | Some f -> query.Where(f)
         Table.query config table query
 
- 
- // TODO : Remove?       
-type ProcessLogger(config : ConfigurationId, pid : string) =
-    let loggerType = ProcessLog pid
+
+    static member Create(config, uuid) = new StorageSystemLogger(config, System uuid)
+      
+type CloudStorageLogger(config : ConfigurationId, taskId : string) =
+    let loggerType = CloudLog taskId
     let table = config.UserDataTable
     let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
 
     interface ICloudLogger with
         override __.Log(entry : string) : unit = 
             let time = DateTimeOffset.UtcNow
-            let e = new LogRecord(string loggerType, timeToRK time (guid()), entry, DateTimeOffset.UtcNow)
+            let e = new LogRecord(string loggerType, timeToRK time (guid()), entry, DateTimeOffset.UtcNow, int LogLevel.None)
             Async.RunSync(Table.insert<LogRecord> config table e)
 
     member __.GetLogs (?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
@@ -149,42 +129,6 @@ type ProcessLogger(config : ConfigurationId, pid : string) =
             | Some f -> query.Where(f)
         Table.query config table query
 
-namespace MBrace.Azure
-
-open System
-open MBrace.Core.Internals
-
-type NullLogger () =
-    interface ICloudLogger with
-        member __.Log(_: string): unit = ()
-        
-type ConsoleLogger () =
-    let format = "ddMMyyyy HH:mm:ss.fff zzz" // 31012015 15:42:50.404 +02:00
-    let prettyPrint (message : string) =
-        let offset = format.Length + 4
-        let space = new String(' ', offset)
-        let sb = new System.Text.StringBuilder()
-        let mutable first = true
-        for line in message.Split('\n') do
-            if first then first <- false else sb.Append(space) |> ignore
-            sb.AppendLine(line) |> ignore
-        sb.ToString()
-
-    interface ICloudLogger with
-        override __.Log(entry : string) : unit = 
-            Console.Write("{0} {1}", DateTimeOffset.Now.ToString(format), prettyPrint entry)
-
-type TimeEllapsedLogger (logger : ICloudLogger) =
-    let sync = new Object()
-    let time = ref DateTime.Now
-    let touch () = lock sync (fun () -> time := DateTime.Now)
-
-    interface ICloudLogger with
-        member x.Log(entry: string): unit =
-            let elapsed = DateTime.Now - time.Value
-            let msg = sprintf "[Elapsed %A] %s" elapsed entry
-            logger.Log(msg)
-            touch ()   
 
 type CustomLogger (f : Action<string>) =
     interface ICloudLogger with
