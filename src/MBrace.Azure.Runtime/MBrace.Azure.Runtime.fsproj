@@ -87,20 +87,11 @@
     <Compile Include="Primitives\Logging.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\TaskManager.fs" />
-    <Compile Include="Runtime\JobRecord.fs" />
-    <Compile Include="Runtime\Messaging.fs" />
-    <Compile Include="Runtime\JobManager.fs" />
+    <Compile Include="Runtime\JobManager\JobRecord.fs" />
+    <Compile Include="Runtime\JobManager\Messaging.fs" />
+    <Compile Include="Runtime\JobManager\JobManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
-    <Compile Include="RuntimeProvider\ResourceFactory.fs" />
-    <Compile Include="RuntimeProvider\Job.fs" />
-    <Compile Include="RuntimeProvider\State.fs" />
-    <Compile Include="RuntimeProvider\Combinators.fs" />
-    <Compile Include="RuntimeProvider\RuntimeProvider.fs" />
-    <Compile Include="Execution\Init.fs" />
-    <Compile Include="Execution\FaultHandler.fs" />
-    <Compile Include="Execution\JobEvaluator.fs" />
-    <Compile Include="Execution\Worker.fs" />
-    <Compile Include="Execution\Service.fs" />
+    <Compile Include="Service.fs" />
     <Content Include="paket.references" />
     <Content Include="app.config" />
   </ItemGroup>

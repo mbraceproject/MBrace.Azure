@@ -7,7 +7,6 @@ open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure
 open MBrace.Core.Internals
 open System.IO
-open MBrace.Azure.Runtime.Primitives
 open MBrace.Runtime
 open System.Runtime.Serialization
 

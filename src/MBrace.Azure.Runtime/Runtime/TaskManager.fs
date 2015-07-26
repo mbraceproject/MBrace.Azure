@@ -6,7 +6,6 @@ open MBrace.Azure.Runtime.Utilities
 open Microsoft.WindowsAzure.Storage.Table
 open System
 open Nessos.Vagabond
-open MBrace.Azure.Runtime.Primitives
 open System.Runtime.Serialization
 open MBrace.Runtime.Utils
 
@@ -51,8 +50,8 @@ type TaskRecord(taskId) =
     member val CompletionTime     = Nullable<DateTimeOffset>() with get, set
     member val Completed          = Nullable<bool>() with get, set
 
-    member val CancellationPartitionKey : string = null with get, set
-    member val CancellationRowKey : string = null with get, set
+    //member val CancellationPartitionKey : string = null with get, set
+    //member val CancellationRowKey : string = null with get, set
     member val ResultUri : string = null with get, set
 
     member val TotalJobs     = Nullable<int>() with get, set
@@ -208,13 +207,10 @@ type TaskManager private (config : ConfigurationId) =
         
         member this.CreateTask(info: CloudTaskInfo): Async<ICloudTaskCompletionSource> = 
             async {
-                let tcs = new TaskCompletionSource(config, guid())
-                let cts = info.CancellationTokenSource :?> DistributedCancellationTokenSource
-                let _elevated = cts.ElevateCancellationToken()
-                let record = new TaskRecord(guid())
+                let taskId = guid()
+                let tcs = new TaskCompletionSource(config, taskId)
+                let record = new TaskRecord(taskId)
                 record.ActiveJobs <- nullable 0
-                record.CancellationPartitionKey <- cts.PartitionKey
-                record.CancellationRowKey <- cts.RowKey.Value
                 record.Completed <- nullable false
                 record.CompletedJobs <- nullable 0
                 record.StartTime <- nullableDefault

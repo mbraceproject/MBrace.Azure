@@ -13,8 +13,6 @@ open MBrace.Runtime.Utils
 open MBrace.Azure
 open MBrace.Azure.Store
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Primitives
-open MBrace.Azure.Runtime.Info
 open MBrace.Azure.Runtime.Utilities
 
 /// MBrace Runtime Service.

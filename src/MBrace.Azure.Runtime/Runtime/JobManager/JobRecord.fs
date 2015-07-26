@@ -6,7 +6,6 @@ open MBrace.Azure.Runtime.Utilities
 open Microsoft.WindowsAzure.Storage.Table
 open System
 open Nessos.Vagabond
-open MBrace.Azure.Runtime.Primitives
 open System.Runtime.Serialization
 open MBrace.Runtime.Utils
 

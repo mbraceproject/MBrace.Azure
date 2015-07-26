@@ -48,6 +48,9 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
 
     member this.RuntimeManagerId = uuid
 
+    member private this.SetJobQueueDefaultWorker(workerId : IWorkerId) =
+        jobManager.SetDefaultWorker(workerId)
+
     interface IRuntimeManager with
         member this.Id                       = runtimeId :> _
         member this.Serializer               = Configuration.Pickler :> _
@@ -65,7 +68,10 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
             CloudStorageLogger(config, job.Id) :> _
 
     static member CreateForWorker(config : ConfigurationId, workerId : IWorkerId, customLoggers) =
-        new RuntimeManager(config, workerId.Id, customLoggers, ResourceRegistry.Empty)
+        let resources = ResourceRegistry.Empty
+        let runtime = new RuntimeManager(config, workerId.Id, customLoggers, resources)
+        runtime.SetJobQueueDefaultWorker(workerId)
+        runtime
 
     static member CreateForClient(config : ConfigurationId, clientId : string, customLoggers) =
         new RuntimeManager(config, clientId, customLoggers, ResourceRegistry.Empty)
