@@ -65,7 +65,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) =
             CloudStorageLogger(config, job.Id) :> _
 
-    static member private GetDefaultResources(config : Configuration, includeCache : bool) =
+    static member private GetDefaultResources(config : Configuration, customResources : ResourceRegistry, includeCache : bool) =
         let storeConfig = CloudFileStoreConfiguration.Create(BlobStore.Create(config.StorageConnectionString), config.UserDataContainer)
         let atomConfig = CloudAtomConfiguration.Create(AtomProvider.Create(config.StorageConnectionString), config.UserDataTable)
         let dictionaryConfig = CloudDictionaryProvider.Create(config.StorageConnectionString)
@@ -78,19 +78,20 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
             yield channelConfig
             yield Configuration.Serializer
             if includeCache then yield MBrace.Runtime.Store.InMemoryCache.Create()
+            yield! customResources
         }
 
-    static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLoggers) =
+    static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLoggers, customResources) =
         let config = config.WithAppendedId
         Configuration.Activate(config)
-        let resources = RuntimeManager.GetDefaultResources(config, true)
+        let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
         let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLoggers, resources)
         runtime.SetJobQueueDefaultWorker(workerId)
         runtime
 
-    static member CreateForClient(config : Configuration, clientId : string, customLoggers) =
+    static member CreateForClient(config : Configuration, clientId : string, customLoggers, customResources) =
         let config = config.WithAppendedId
         Configuration.Activate(config)
-        let resources = RuntimeManager.GetDefaultResources(config, false)
+        let resources = RuntimeManager.GetDefaultResources(config, customResources, false)
         let runtime = new RuntimeManager(config.ConfigurationId, clientId, customLoggers, resources)
         runtime
