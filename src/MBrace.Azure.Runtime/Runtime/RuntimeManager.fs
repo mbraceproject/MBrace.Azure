@@ -8,25 +8,25 @@ open MBrace.Store.Internals
 open MBrace.Azure.Store
 
 type RuntimeId private (config : ConfigurationId) =
-    
+
     member this.ConfigurationId = config
 
     interface IRuntimeId with
-        member this.CompareTo(obj : obj) : int = 
+        member this.CompareTo(obj : obj) : int =
             match obj with
             | :? RuntimeId as rId -> compare rId.ConfigurationId this.ConfigurationId
             | _ -> 1
-        
-        member this.Id : string = 
+
+        member this.Id : string =
             Configuration.Pickler.Pickle(config)
             |> Convert.ToBase64String
 
     static member FromConfiguration(config) = new RuntimeId(config)
- 
+
 [<AutoSerializable(false)>]
-type RuntimeManager private (config : ConfigurationId, uuid : string, customLoggers : ISystemLogger seq, customResources : ResourceRegistry) = 
+type RuntimeManager private (config : ConfigurationId, uuid : string, customLoggers : ISystemLogger seq, resources : ResourceRegistry) =
     let logger = new AttacheableLogger()
-    do  
+    do
         let _ = logger.AttachLogger(StorageSystemLogger.Create(config, uuid))
         customLoggers |> Seq.map logger.AttachLogger |> ignore
 
@@ -34,17 +34,15 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
     let workerManager = WorkerManager.Create(config)
     let jobManager    = JobManager.Create(config)
     let taskManager   = TaskManager.Create(config)
-    
-    let assemblyManager = 
-        let store = customResources.Resolve<CloudFileStoreConfiguration>()
-        let serializer = customResources.Resolve<ISerializer>()
+
+    let assemblyManager =
+        let store = resources.Resolve<CloudFileStoreConfiguration>()
+        let serializer = resources.Resolve<ISerializer>()
         StoreAssemblyManager.Create(store, serializer, "vagabond", logger)
-    
+
     let cancellationEntryFactory = CancellationTokenFactory.Create(config)
     let int32CounterFactory = Int32CounterFactory.Create(config)
     let resultAggregatorFactory = ResultAggregatorFactory.Create(config)
-    
-    let resources = customResources
 
     member this.RuntimeManagerId = uuid
 
@@ -64,14 +62,35 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         member this.ResetClusterState()      = failwith "Not implemented yet"
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
-        member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = 
+        member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) =
             CloudStorageLogger(config, job.Id) :> _
 
-    static member CreateForWorker(config : ConfigurationId, workerId : IWorkerId, customLoggers) =
-        let resources = ResourceRegistry.Empty
-        let runtime = new RuntimeManager(config, workerId.Id, customLoggers, resources)
+    static member private GetDefaultResources(config : Configuration, includeCache : bool) =
+        let storeConfig = CloudFileStoreConfiguration.Create(BlobStore.Create(config.StorageConnectionString), config.UserDataContainer)
+        let atomConfig = CloudAtomConfiguration.Create(AtomProvider.Create(config.StorageConnectionString), config.UserDataTable)
+        let dictionaryConfig = CloudDictionaryProvider.Create(config.StorageConnectionString)
+        let channelConfig = CloudChannelConfiguration.Create(ChannelProvider.Create(config.ServiceBusConnectionString))
+
+        resource {
+            yield storeConfig
+            yield atomConfig
+            yield dictionaryConfig
+            yield channelConfig
+            yield Configuration.Serializer
+            if includeCache then yield MBrace.Runtime.Store.InMemoryCache.Create()
+        }
+
+    static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLoggers) =
+        let config = config.WithAppendedId
+        Configuration.Activate(config)
+        let resources = RuntimeManager.GetDefaultResources(config, true)
+        let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLoggers, resources)
         runtime.SetJobQueueDefaultWorker(workerId)
         runtime
 
-    static member CreateForClient(config : ConfigurationId, clientId : string, customLoggers) =
-        new RuntimeManager(config, clientId, customLoggers, ResourceRegistry.Empty)
+    static member CreateForClient(config : Configuration, clientId : string, customLoggers) =
+        let config = config.WithAppendedId
+        Configuration.Activate(config)
+        let resources = RuntimeManager.GetDefaultResources(config, false)
+        let runtime = new RuntimeManager(config.ConfigurationId, clientId, customLoggers, resources)
+        runtime
