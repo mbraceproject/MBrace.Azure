@@ -7,8 +7,8 @@ open System.Text
 open System
 
 /// Configuration identifier.
-type ConfigurationId = 
-    private 
+type ConfigurationId =
+    private
       { /// Runtime identifier.
         Id : uint16
         /// Runtime version string
@@ -34,7 +34,7 @@ type ConfigurationId =
 
 
 /// Azure specific Runtime Configuration.
-type Configuration = 
+type Configuration =
     { /// Runtime identifier.
       Id : uint16
       /// Runtime version string.
@@ -56,11 +56,11 @@ type Configuration =
       /// User data container prefix.
       UserDataContainer : string
       /// User data table prefix.
-      UserDataTable : string 
+      UserDataTable : string
     }
 
     /// Returns an Azure Configuration with the default values.
-    static member Default = 
+    static member Default =
         { Id                         = 0us
           Version                    = typeof<Configuration>.Assembly.GetName().Version.ToString(4)
           StorageConnectionString    = "your connection string"
@@ -78,14 +78,14 @@ type Configuration =
     /// Append Configuration.Id on all values.
     /// Note : This property should not be used by clients.
     member this.WithAppendedId =
-        let version, versionString = 
+        let version, versionString =
             match Version.TryParse(this.Version) with
             | true, v  -> v, sprintf "%dx%dx%dx%d" v.Major v.Minor v.Build v.Revision
             | false, _ -> failwith <| sprintf "Invalid Version string '%s'" this.Version
 
         let versionNormalized = version.ToString(4)
 
-        let withVersionAndId s = 
+        let withVersionAndId s =
             // TODO : Temporary fix to enable GetHandle from newer clients.
             // 0.6.5 clients do not use Version in folder names.
             // < 0.6.1 clients have complete different folder structure.
@@ -95,7 +95,7 @@ type Configuration =
                 sprintf "%s%05d" s this.Id
             else
                 sprintf "%s%s%05d" s versionString this.Id
-        
+
         let withId s =sprintf "%s%05d" s this.Id
 
         { this with
@@ -110,14 +110,14 @@ type Configuration =
         }
 
     /// Configuration identifier hash.
-    member this.ConfigurationId : ConfigurationId = 
+    member this.ConfigurationId : ConfigurationId =
         let hashAlgorithm = SHA256Managed.Create()
         let getHash(txt : string) = hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes txt)
 
         let store = CloudStorageAccount.Parse(this.StorageConnectionString).Credentials.AccountName
         let sbus = NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
 
-        { Id = this.Id 
+        { Id = this.Id
           Version = this.Version
           StorageConnectionStringHash = getHash store
           ServiceBusConnectionStringHash = getHash sbus
@@ -129,16 +129,16 @@ type Configuration =
           UserDataContainer = this.UserDataContainer.ToLower()
           UserDataTable = this.UserDataTable.ToLower()
         }
-     
+
     /// Return a new copy with altered Version.
     member this.WithVersion(version : string) =
         { this with Version = version }
-    
+
     /// Return a new copy with altered Id.
     member this.WithId(id) =
         { this with Id = id }
 
-    
+
     /// Return a new copy with altered the default user data folders.
     member this.WithUserDataFolders(userDataContainer, userDataTable) =
         { this with
@@ -187,11 +187,11 @@ type StoreClientProvider (config : Configuration) =
     let awaitTask (task : Task) = task.ContinueWith ignore |> Async.AwaitTask
 
     let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
-    member this.TableClient = 
+    member this.TableClient =
         let client = acc.Value.CreateCloudTableClient()
         client.DefaultRequestOptions.RetryPolicy <- RetryPolicies.ExponentialRetry(TimeSpan.FromSeconds(3.), 10)
         client
-    member this.BlobClient = 
+    member this.BlobClient =
         let client = acc.Value.CreateCloudBlobClient()
         client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(min 64 (4 * System.Environment.ProcessorCount))
         client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(1L <<< 23) // 8MB, possible ranges: 1..64MB, default 32MB
@@ -211,14 +211,14 @@ type StoreClientProvider (config : Configuration) =
         }
 
     member this.ClearRuntimeState() =
-        async { 
+        async {
             let! _ = Async.AwaitTask <| this.TableClient.GetTableReference(config.RuntimeTable).DeleteIfExistsAsync()
             let! _ = Async.AwaitTask <| this.BlobClient.GetContainerReference(config.RuntimeContainer).DeleteIfExistsAsync()
             ()
         }
 
     member this.ClearRuntimeLogs() =
-        async { 
+        async {
             let! _ = Async.AwaitTask <| this.TableClient.GetTableReference(config.RuntimeLogsTable).DeleteIfExistsAsync()
             ()
         }
@@ -277,10 +277,10 @@ module Configuration =
         runOnce(fun () ->
             let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
             ignoredAssemblies.Add(Assembly.GetExecutingAssembly()) |> ignore
-            
+
             let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
             VagabondRegistry.Initialize(fun () -> Vagabond.Initialize(ignoredAssemblies, lookupPolicy = policy)))
-            
+
     /// Default Pickler.
     let Pickler = init () ; VagabondRegistry.Instance.Serializer
 
@@ -291,13 +291,15 @@ module Configuration =
     let Initialize () = init ()
 
     /// Activates the given configuration.
-    let ActivateAsync(config : Configuration) : Async<unit> = 
+    let ActivateAsync(config : Configuration) : Async<unit> =
       async {
         init ()
         let cp = new StoreClientProvider(config)
         do! cp.InitAll()
         ConfigurationRegistry.Register<StoreClientProvider>(config.ConfigurationId, cp)
     }
+
+    let Activate(config) = Async.RunSynchronously(ActivateAsync(config))
 
     let AddIgnoredAssembly(asm : Assembly) =
         // MUST BE CALLED BEFORE INIT.
