@@ -31,9 +31,9 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         customLoggers |> Seq.map logger.AttachLogger |> ignore
 
     let runtimeId     = RuntimeId.FromConfiguration(config)
-    let workerManager = WorkerManager.Create(config)
-    let jobManager    = JobManager.Create(config)
-    let taskManager   = TaskManager.Create(config)
+    let workerManager = WorkerManager.Create(config, logger)
+    let jobManager    = JobManager.Create(config, logger)
+    let taskManager   = TaskManager.Create(config, logger)
 
     let assemblyManager =
         let store = resources.Resolve<CloudFileStoreConfiguration>()

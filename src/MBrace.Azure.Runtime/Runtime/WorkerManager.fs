@@ -80,7 +80,7 @@ type WorkerId internal (workerId) =
     override this.GetHashCode() = hash workerId
 
 [<AutoSerializable(true)>]
-type WorkerManager private (config : ConfigurationId) =
+type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
     let table = config.RuntimeTable
     let maxHeartbeatTimespan = TimeSpan.FromMinutes(10.)
 
@@ -110,6 +110,7 @@ type WorkerManager private (config : ConfigurationId) =
 
     member this.UnsubscribeWorker(id : IWorkerId) =
         async {
+            logger.Logf LogLevel.Info "Unsubscribing worker %O" id
             let record = new WorkerRecord(id.Id)
             return! Table.delete config table record
         }
@@ -164,6 +165,7 @@ type WorkerManager private (config : ConfigurationId) =
         
         member this.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = 
             async {
+                logger.Logf LogLevel.Info "Subscribing worker %O" id
                 let joined = DateTimeOffset.UtcNow
                 let record = new WorkerRecord(id.Id)
                 record.Hostname <- info.Hostname
@@ -193,5 +195,5 @@ type WorkerManager private (config : ConfigurationId) =
             }
         
 
-    static member Create(config : ConfigurationId) =
-        new WorkerManager(config)
+    static member Create(config : ConfigurationId, logger) =
+        new WorkerManager(config, logger)

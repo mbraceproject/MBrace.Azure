@@ -8,7 +8,7 @@ open System
 open MBrace.Azure.Runtime.Utilities
 
 [<AutoSerializable(true); DataContract>]  
-type JobManager private (config : ConfigurationId) =
+type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
     let [<DataMember(Name = "config")>] config = config
 
     let [<IgnoreDataMember>] mutable queue = Unchecked.defaultof<_>
@@ -19,8 +19,8 @@ type JobManager private (config : ConfigurationId) =
 
     [<OnDeserialized>]
     let init _ =
-        queue <- Async.RunSync(Queue.Create(config))
-        topic <- Async.RunSync(Topic.Create(config))
+        queue <- Async.RunSync(Queue.Create(config, logger))
+        topic <- Async.RunSync(Topic.Create(config, logger))
         subscription <- None
         queueMessage <- ref None
         topicMessage <- ref None
@@ -38,7 +38,9 @@ type JobManager private (config : ConfigurationId) =
                     let! res = Async.Catch recv
                     match res with
                     | Choice1Of2 m -> return m
-                    | Choice2Of2 e -> return None
+                    | Choice2Of2 e -> 
+                        logger.Logf LogLevel.Error "Async receive loop error %A" e
+                        return None
             }
             match newMessage with
             | None -> ()
@@ -121,4 +123,4 @@ type JobManager private (config : ConfigurationId) =
                 return ()
             }
 
-    static member Create(config : ConfigurationId) = new JobManager(config)
+    static member Create(config : ConfigurationId, logger) = new JobManager(config, logger)

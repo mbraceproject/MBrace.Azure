@@ -37,13 +37,15 @@ type internal JobLeaseTokenInfo =
 [<Sealed; AbstractClass>]
 type internal JobLeaseMonitor private () = 
     
-    static member Start(message : BrokeredMessage) = 
+    static member Start(message : BrokeredMessage, logger : ISystemLogger) = 
         Async.StartChild(let rec renewLoop() = 
                              async { 
                                  try 
                                      do! message.RenewLockAsync()
                                  with
-                                 | :? MessageLockLostException -> return ()
+                                 | :? MessageLockLostException -> 
+                                    logger.Logf LogLevel.Info "Lock lost for message %A" <| message.GetBody<string>()
+                                    return ()   
                                  | _ -> ()
                                  do! Async.Sleep RenewLockInverval
                                  return! renewLoop()
@@ -165,7 +167,7 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
 
 /// Local queue subscription client
 [<AutoSerializable(false)>]
-type internal Subscription (config : ConfigurationId, workerId : IWorkerId) = 
+type internal Subscription (config : ConfigurationId, workerId : IWorkerId, logger : ISystemLogger) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
 
     do 
@@ -173,6 +175,7 @@ type internal Subscription (config : ConfigurationId, workerId : IWorkerId) =
         let topic = config.RuntimeTopic
         let affinity = workerId.Id
         if not <| ns.SubscriptionExists(topic, affinity) then 
+            logger.Logf LogLevel.Info "Creating new subscription for %A" affinity
             let sd = new SubscriptionDescription(topic, affinity)
             sd.DefaultMessageTimeToLive <- MaxTTL
             sd.LockDuration <- MaxLockDuration
@@ -190,24 +193,24 @@ type internal Subscription (config : ConfigurationId, workerId : IWorkerId) =
             if msg = null then 
                 return None
             else 
-                let! _ = JobLeaseMonitor.Start(msg)
+                let! _ = JobLeaseMonitor.Start(msg, logger)
                 return Some(JobLeaseToken.FromBrokeredMessage(config, msg))
         }
 
 /// Local queue topic client
 [<AutoSerializable(false)>]
-type internal Topic (config : ConfigurationId) = 
+type internal Topic (config : ConfigurationId, logger : ISystemLogger) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let topic = cp.TopicClient(config.RuntimeTopic)
     
-    member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, workerId)
+    member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, workerId, logger)
     
     member this.EnqueueBatch(jobs : CloudJob []) : Async<int64 seq> = 
         async { 
-            //logger.Logf "Creating common job file."
             let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
             let sizes = new ResizeArray<int64>(jobs.Length)
             for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
+                logger.Logf LogLevel.Info "Creating common job file for %d jobs, parent id = %O" (Seq.length jobs) parentId
                 let temp = Path.GetTempFileName()
                 let fileStream = File.OpenWrite(temp)
                 let blobName = guid()
@@ -224,7 +227,7 @@ type internal Topic (config : ConfigurationId) =
                 fileStream.Flush()
                 fileStream.Dispose()
 
-                //logger.Logf "Uploading job file [%s]." (getHumanReadableByteSize lastPosition.Value)
+                logger.Logf LogLevel.Info "Uploading job file for parent id = %O, %s." parentId (getHumanReadableByteSize lastPosition.Value)
                 do! Blob.UploadFromFile(config, parentId, blobName, temp)
                     |> Async.Ignore
                 File.Delete(temp)
@@ -243,12 +246,12 @@ type internal Topic (config : ConfigurationId) =
             return blob.Size
         }
 
-    static member Create(config) = 
+    static member Create(config, logger : ISystemLogger) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
             let! exists = ns.TopicExistsAsync(config.RuntimeTopic)
             if not exists then 
-                //logger.Logf "Creating Topic '%s'" config.RuntimeTopic
+                logger.Logf LogLevel.Info "Creating new topic %A" config.RuntimeTopic
                 let qd = new TopicDescription(config.RuntimeTopic)
                 qd.EnableBatchedOperations <- true
                 qd.EnablePartitioning <- true
@@ -256,14 +259,13 @@ type internal Topic (config : ConfigurationId) =
                 qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
                 do! ns.CreateTopicAsync(qd)
             else
-                //logger.Logf "Topic '%s' exists." config.RuntimeTopic
-                ()
-            return new Topic(config)
+                logger.Logf  LogLevel.Info "Topic %A exists." config.RuntimeTopic
+            return new Topic(config, logger)
         }
 
 /// Queue client implementation
 [<AutoSerializable(false)>]
-type internal Queue (config : ConfigurationId) = 
+type internal Queue (config : ConfigurationId, logger : ISystemLogger) = 
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
 
     member this.EnqueueBatch(jobs : CloudJob []) = 
@@ -272,6 +274,7 @@ type internal Queue (config : ConfigurationId) =
             let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
             let sizes = new ResizeArray<int64>(jobs.Length)
             for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
+                logger.Logf LogLevel.Info "Creating common job file for %d jobs, parent id = %O" (Seq.length jobs) parentId
                 let temp = Path.GetTempFileName()
                 let fileStream = File.OpenWrite(temp)
                 let blobName = guid()
@@ -287,7 +290,7 @@ type internal Queue (config : ConfigurationId) =
                 fileStream.Flush()
                 fileStream.Dispose()
 
-                //logger.Logf "Uploading job file [%s]." (getHumanReadableByteSize lastPosition.Value)
+                logger.Logf LogLevel.Info "Uploading job file for parent id = %O, %s." parentId (getHumanReadableByteSize lastPosition.Value)
                 do! Blob.UploadFromFile(config, parentId, blobName, temp)
                     |> Async.Ignore
                 File.Delete(temp)
@@ -312,16 +315,16 @@ type internal Queue (config : ConfigurationId) =
             if msg = null then 
                 return None
             else
-                let! _ = JobLeaseMonitor.Start(msg)
+                let! _ = JobLeaseMonitor.Start(msg, logger)
                 return Some(JobLeaseToken.FromBrokeredMessage(config, msg))
         }
     
-    static member Create(config : ConfigurationId) = 
+    static member Create(config : ConfigurationId, logger : ISystemLogger) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
             let! exists = ns.QueueExistsAsync(config.RuntimeQueue)
             if not exists then 
-                //logger.Logf "Creating Queue '%s'" config.RuntimeQueue
+                logger.Logf LogLevel.Info "Creating new queue %A" config.RuntimeQueue
                 let qd = new QueueDescription(config.RuntimeQueue)
                 qd.EnableBatchedOperations <- true
                 qd.EnablePartitioning <- true
@@ -330,7 +333,6 @@ type internal Queue (config : ConfigurationId) =
                 qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
                 do! ns.CreateQueueAsync(qd)
             else
-                //logger.Logf "Queue '%s' exists." config.RuntimeQueue
-                ()
-            return new Queue(config)//, logger)
+                logger.Logf LogLevel.Info "Queue %A exists." config.RuntimeQueue
+            return new Queue(config, logger)
         }

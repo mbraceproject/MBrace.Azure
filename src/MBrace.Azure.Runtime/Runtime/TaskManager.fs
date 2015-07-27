@@ -92,7 +92,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                 let record = Async.RunSynchronously(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
                 { 
                     Name = if record.Name = null then None else Some record.Name
-                    CancellationTokenSource = failwith "Not implemented yet"
+                    CancellationTokenSource = failwith "Not implemented yet" // TODO : implement
                     Dependencies = unpickle record.Dependencies
                     ReturnTypeName = record.TypeName
                     ReturnType = unpickle record.Type
@@ -116,8 +116,8 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
             }
         
         member this.DeclareCompletedJob(): Async<unit> = async.Zero()
-        
         member this.DeclareFaultedJob(): Async<unit> = async.Zero()
+        member this.IncrementJobCount(): Async<unit> = async.Zero()
         
         member this.DeclareStatus(status: CloudTaskStatus): Async<unit> = 
             async {
@@ -126,8 +126,6 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                 let! _ = Table.merge config config.RuntimeTable record
                 return ()
             }
-        
-        member this.IncrementJobCount(): Async<unit> = async.Zero()
         
         member this.GetState(): Async<CloudTaskState> = 
             async {
@@ -184,7 +182,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
         
 
 [<AutoSerializable(true)>]
-type TaskManager private (config : ConfigurationId) =
+type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
     let table = config.RuntimeTable
     let pickle (value : 'T) = Configuration.Pickler.Pickle(value)
 
@@ -238,4 +236,4 @@ type TaskManager private (config : ConfigurationId) =
                 if record = null then return None else return Some(new TaskCompletionSource(config, taskId) :> ICloudTaskCompletionSource)
             }
 
-    static member Create(config : ConfigurationId) = new TaskManager(config)
+    static member Create(config : ConfigurationId, logger) = new TaskManager(config, logger)
