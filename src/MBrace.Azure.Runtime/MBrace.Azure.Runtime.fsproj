@@ -91,7 +91,8 @@
     <Compile Include="Runtime\JobManager\Messaging.fs" />
     <Compile Include="Runtime\JobManager\JobManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
-    <Compile Include="Service.fs" />
+    <Compile Include="Runtime\Init.fs" />
+    <Compile Include="Runtime\Service.fs" />
     <Content Include="paket.references" />
     <Content Include="app.config" />
   </ItemGroup>

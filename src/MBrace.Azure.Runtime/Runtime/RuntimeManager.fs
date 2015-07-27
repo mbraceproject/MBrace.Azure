@@ -31,10 +31,13 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         customLoggers |> Seq.map logger.AttachLogger |> ignore
 
     let runtimeId     = RuntimeId.FromConfiguration(config)
+    do logger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(config, logger)
+    do logger.LogInfo "Creating job manager"
     let jobManager    = JobManager.Create(config, logger)
+    do logger.LogInfo "Creating task manager"
     let taskManager   = TaskManager.Create(config, logger)
-
+    do logger.LogInfo "Creating assembly manager"
     let assemblyManager =
         let store = resources.Resolve<CloudFileStoreConfiguration>()
         let serializer = resources.Resolve<ISerializer>()
@@ -45,6 +48,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
     let resultAggregatorFactory = ResultAggregatorFactory.Create(config)
 
     member this.RuntimeManagerId = uuid
+    member this.Resources = resources
 
     member private this.SetJobQueueDefaultWorker(workerId : IWorkerId) =
         jobManager.SetDefaultWorker(workerId)

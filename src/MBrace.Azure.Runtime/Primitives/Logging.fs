@@ -134,3 +134,17 @@ type CustomLogger (f : Action<string>) =
     interface ICloudLogger with
         override x.Log(entry : string) : unit = 
             f.Invoke(entry)
+
+[<AutoOpen>]
+module LoggerExtensions =
+    type AttacheableLogger with
+        static member FromLoggers(loggers : ISystemLogger seq) = 
+            let logger = new AttacheableLogger()
+            for l in loggers do
+                ignore(logger.AttachLogger(l))
+            logger
+
+    type ISystemLogger with
+        member this.LogInfof fmt = Printf.ksprintf (fun s -> this.LogInfo s) fmt
+        member this.LogErrorf fmt = Printf.ksprintf (fun s -> this.LogError s) fmt
+        member this.LogWarningf fmt = Printf.ksprintf (fun s -> this.LogWarning s) fmt
