@@ -11,7 +11,7 @@ open MBrace.Runtime
 // NOTE : All types that inherit TableEntity must provide a default public ctor.
 type CounterEntity(id : string, value : int) = 
     inherit TableEntity(id, CounterEntity.DefaultRowKey)
-    member val Value = value with get, set
+    member val Counter = value with get, set
     new () = new CounterEntity(null, 0)
     static member DefaultRowKey = String.Empty
 
@@ -28,14 +28,14 @@ type internal Int32Counter (config : ConfigurationId, partitionKey : string) =
         
         member x.Increment(): Async<int> = 
             async { 
-                let! e = Table.transact<CounterEntity> config config.RuntimeTable partitionKey CounterEntity.DefaultRowKey (fun e -> e.Value <- 1 + e.Value)
-                return e.Value
+                let! e = Table.transact<CounterEntity> config config.RuntimeTable partitionKey CounterEntity.DefaultRowKey (fun e -> e.Counter <- 1 + e.Counter)
+                return e.Counter
             }
 
         member x.Value: Async<int> = 
             async {
                 let! e = Table.read<CounterEntity> config config.RuntimeTable partitionKey CounterEntity.DefaultRowKey
-                return e.Value
+                return e.Counter
             }
 
 [<Sealed>]
