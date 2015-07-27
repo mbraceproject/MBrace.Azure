@@ -8,104 +8,117 @@ open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
 
-type BlobReferenceEntity(partitionKey, rowKey, uri : string) = 
+(*
+ * A ResultAggregator of length N consists of N indexed entries and 1 guard entry.
+ * All entries share the ResultAggregators partitionKey, each one of the indexed use
+ * its index as a rowKey, the guard entry uses an empty rowKey and acts like a counter.
+ * Each update changes both the indexed entry and the control entry in a single batch operation.
+ *
+ *  +-------------+--------------+---------------+---------------+
+ *    PartitionKey     RowKey         Uri             Counter
+ *  +-------------+--------------+---------------+---------------+
+ *     aggr_pk          empty            -                1
+ *  +-------------+--------------+---------------+---------------+
+ *     aggr_pk            0           empty              -
+ *     aggr_pk            1           someUri            -
+ *  +-------------+--------------+---------------+---------------+
+ *
+ *)
+
+type IndexedReferenceEntity(partitionKey, rowKey) = 
     inherit TableEntity(partitionKey, rowKey)
-    member val Uri = uri with get, set
-    new() = BlobReferenceEntity(null, null, null)
-    static member internal MakeRowKey(rowKey, index) = sprintf "%s:%010d" rowKey index
+    member val Uri = null : string with get, set
+    member val Counter = Nullable<int>() with get, set
+    new() = IndexedReferenceEntity(null, null)
+    static member MakeRowKey(index) = sprintf "%010d" index
+    static member DefaultRowKey = String.Empty
 
 
 [<DataContract; Sealed>]
-type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : string, rowKey : string, size : int) = 
+type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : string, size : int) = 
+    let [<DataMember(Name = "config")>] config = config
+    let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
+    let [<DataMember(Name = "size")>] size = size
 
-    [<DataMember(Name = "config")>]
-    let config = config
-    [<DataMember(Name = "partitionKey")>]
-    let partitionKey = partitionKey
-    [<DataMember(Name = "rowKey")>]
-    let rowKey = rowKey
-    [<DataMember(Name = "size")>]
-    let size = size
-
-    let getEntities () = async {
+    let getEntity index = async {
         let pkFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, partitionKey)
-        let lower = BlobReferenceEntity.MakeRowKey(rowKey, 0)
-        let upper = BlobReferenceEntity.MakeRowKey(rowKey, size)
         let rkFilter = 
             TableQuery.CombineFilters(
-                TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, upper),
-                TableOperators.And,
-                TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, lower))
+                TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.Equal, IndexedReferenceEntity.DefaultRowKey),
+                TableOperators.Or,
+                TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.Equal, IndexedReferenceEntity.MakeRowKey(index)))
 
-        let query = TableQuery<BlobReferenceEntity>().Where(TableQuery.CombineFilters(pkFilter, TableOperators.And, rkFilter))
+        let query = TableQuery<IndexedReferenceEntity>().Where(TableQuery.CombineFilters(pkFilter, TableOperators.And, rkFilter))
 
-        let! xs = Table.query<BlobReferenceEntity> config config.RuntimeTable query
-        return xs
+        let! entities = Table.query<IndexedReferenceEntity> config config.RuntimeTable query
+        let guard = entities |> Seq.find (fun e -> e.RowKey = IndexedReferenceEntity.DefaultRowKey)
+        let entity = entities |> Seq.find (fun e -> e.RowKey = IndexedReferenceEntity.MakeRowKey(index))
+        return guard, entity
     }
 
-    let completed () =
-        async {
-            let! xs = getEntities()
-            return xs |> Seq.forall (fun e -> not <| String.IsNullOrEmpty(e.Uri))
-        }
+    member this.UUID = partitionKey
 
     interface ICloudResultAggregator<'T> with
         member this.Capacity: int = size
         
         member this.CurrentSize: Async<int> = 
             async {
-                let! entities = getEntities()
-                return entities |> Seq.filter (fun e -> e.Uri <> null) |> Seq.length
+                let! record = Table.read<IndexedReferenceEntity> config config.RuntimeTable partitionKey IndexedReferenceEntity.DefaultRowKey
+                return record.Counter.Value
             }
         
         member this.Dispose(): Async<unit> = 
             async {
-                let! entities = getEntities()
-                do! entities 
-                    |> Seq.map (fun e -> async { if e.Uri <> null then return! Blob.Delete(config, e.Uri) })
+                let! records = Table.queryPK<IndexedReferenceEntity> config config.RuntimeTable partitionKey
+                let indexed = records |> Seq.filter (fun e -> e.RowKey <> IndexedReferenceEntity.DefaultRowKey)
+                do! Table.deleteBatch config config.RuntimeTable records
+                do! indexed
+                    |> Seq.map (fun r -> async { if r.Uri <> null then return! Blob.Delete(config, r.Uri) })
                     |> Async.Parallel
                     |> Async.Ignore
-                do! Table.deleteBatch config config.RuntimeTable entities
             }
         
-        member this.IsCompleted: Async<bool> = completed()
+        member this.IsCompleted: Async<bool> = 
+            async {
+                let! currentSize = (this :> ICloudResultAggregator<'T>).CurrentSize
+                return currentSize = size
+            }
         
         member this.SetResult(index: int, value: 'T, overwrite: bool): Async<bool> = 
             async { 
-                let! bc = Blob.Create(config, partitionKey, guid(), fun () -> value)
-                if overwrite then
-                    let e = new BlobReferenceEntity(partitionKey, BlobReferenceEntity.MakeRowKey(rowKey, index), null, ETag = "*")
-                    e.Uri <- bc.Path
-                    let! _ = Table.merge config config.RuntimeTable e
-                    return! completed()
-                else
-                    let! _ = Table.transact<BlobReferenceEntity> config config.RuntimeTable partitionKey (BlobReferenceEntity.MakeRowKey(rowKey, index))
-                                (fun e ->
-                                    if e.Uri = null then e.Uri <- bc.Path)
-                    return! completed()
+                let! bc = Blob.Create(config, partitionKey, IndexedReferenceEntity.MakeRowKey(index), fun () -> value)
+                let rec loop(guard : IndexedReferenceEntity, record : IndexedReferenceEntity) = async {
+                    if overwrite = false && record.Uri <> null then
+                            return guard.Counter.Value = size
+                    else
+                        if record.Uri = null then
+                            guard.Counter <- nullable(guard.Counter.Value + 1)
+                        record.Uri <- bc.Path
+                        try
+                            do! Table.mergeBatch config config.RuntimeTable [guard; record]
+                            return guard.Counter.Value = size
+                        with ex when Table.PreconditionFailed ex ->
+                            let! xs = getEntity index
+                            return! loop xs
+                }
+                let! xs = getEntity index
+                return! loop xs
             }
         
         member this.ToArray(): Async<'T []> = 
             async { 
-                let! entities = getEntities()
+                let! records = Table.queryPK<IndexedReferenceEntity> config config.RuntimeTable partitionKey
+                let records = records |> Seq.sortBy (fun r -> r.RowKey)
+                let guard = Seq.head records
+                let entities = Seq.skip 1 records
 
-                if entities |> Seq.exists (fun e -> e.Uri = null) then
-                    return! Async.Raise <| new InvalidOperationException("Result aggregator incomplete.")
+                if guard.Counter.Value <> size then
+                    return! Async.Raise <| new InvalidOperationException(sprintf "Result aggregator incomplete (%d/%d)." guard.Counter.Value size)
                 else
-                    let bs = 
+                    return!
                         entities
-                        |> Seq.sortBy (fun x -> x.RowKey)
-                        |> Seq.map (fun x -> x.Uri)
-                        |> Seq.map (fun x -> Blob<'T>.FromPath(config, x))
-                        |> Seq.toArray
-
-                    let re = Array.zeroCreate<'T> bs.Length
-                    let i = ref 0
-                    for b in bs do
-                        let! v = b.GetValue()
-                        re.[!i] <- v
-                        incr i
-                    return re
+                        |> Seq.map (fun x -> Blob<'T>.FromPath(config, x.Uri).GetValue())
+                        |> Async.Parallel
             }
 
 [<Sealed>]
@@ -113,14 +126,15 @@ type ResultAggregatorFactory private (config : ConfigurationId) =
     interface ICloudResultAggregatorFactory with
         member x.CreateResultAggregator(capacity: int): Async<ICloudResultAggregator<'T>> = 
             async {
-                let key = guid()
+                let partitionKey = guid()
                 let entities = seq {
+                    yield new IndexedReferenceEntity(partitionKey, IndexedReferenceEntity.DefaultRowKey, Counter = nullable 0)
                     for i = 0 to capacity - 1 do
-                        let rowKey = BlobReferenceEntity.MakeRowKey(key, i)
-                        yield new BlobReferenceEntity(key, rowKey, null)
+                        let rowKey = IndexedReferenceEntity.MakeRowKey(i)
+                        yield new IndexedReferenceEntity(partitionKey, rowKey)
                 }
                 do! Table.insertBatch config config.RuntimeTable entities
-                return new ResultAggregator<'T>(config, key, key, capacity) :> ICloudResultAggregator<'T>
+                return new ResultAggregator<'T>(config, partitionKey, capacity) :> ICloudResultAggregator<'T>
             }
     
     static member Create(config) = new ResultAggregatorFactory(config) :> ICloudResultAggregatorFactory
