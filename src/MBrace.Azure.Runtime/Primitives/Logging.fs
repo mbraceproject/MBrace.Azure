@@ -25,6 +25,7 @@ type LogRecord(pk, rk, message, time, level) =
     member val Time : DateTimeOffset = time with get, set
     new () = new LogRecord(null, null, null, Unchecked.defaultof<_>, -1)  
 
+[<AutoSerializableAttribute(false)>]
 type StorageSystemLogger private (config : ConfigurationId, loggerType : LoggerType) =
     let maxWaitTime = 5000
     let table = config.RuntimeLogsTable
@@ -131,9 +132,9 @@ type CloudStorageLogger(config : ConfigurationId, taskId : string) =
 
 
 type CustomLogger (f : Action<string>) =
-    interface ICloudLogger with
-        override x.Log(entry : string) : unit = 
-            f.Invoke(entry)
+    interface ISystemLogger with
+        member x.LogEntry(level: LogLevel, time: DateTime, message: string): unit = 
+            f.Invoke(sprintf "%O %O %O" time level message)
 
 [<AutoOpen>]
 module LoggerExtensions =

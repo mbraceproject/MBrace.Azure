@@ -12,6 +12,7 @@ using Microsoft.WindowsAzure.ServiceRuntime;
 using Microsoft.WindowsAzure.Storage;
 using MBrace.Azure;
 using MBrace.Azure.Store;
+using MBrace.Azure.Runtime;
 
 namespace MBrace.Azure.CloudService.WorkerRole
 {

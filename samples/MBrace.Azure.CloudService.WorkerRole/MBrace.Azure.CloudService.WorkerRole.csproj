@@ -54,6 +54,9 @@
     <Reference Include="FSharp.Core, Version=4.3.1.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <Private>True</Private>
     </Reference>
+    <Reference Include="MBrace.Runtime.Core">
+      <HintPath>..\..\packages\MBrace.Runtime.Core\lib\net45\MBrace.Runtime.Core.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.WindowsAzure.Diagnostics, Version=2.5.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
       <Private>True</Private>
     </Reference>
