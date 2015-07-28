@@ -81,7 +81,10 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
             yield dictionaryConfig
             yield channelConfig
             yield Configuration.Serializer
-            if includeCache then yield MBrace.Runtime.Store.InMemoryCache.Create()
+            if includeCache then 
+                match customResources.TryResolve<Func<IObjectCache>>() with
+                | None -> yield MBrace.Runtime.Store.InMemoryCache.Create()
+                | Some factory -> yield factory.Invoke()
             yield! customResources
         }
 

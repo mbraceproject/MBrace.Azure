@@ -14,30 +14,22 @@ open MBrace.Azure
 open MBrace.Azure.Store
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
+open MBrace.Runtime
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
-    // TODO : Add locks
-    let mutable storeProvider      = None
-    let mutable channelProvider    = None
-    let mutable atomProvider       = None
-    let mutable dictionaryProvider = None
-    let mutable objectCacheFactory = None
-
-    let mutable storeDirectory   = None
-    let mutable channelDirectory = None
-    let mutable atomDirectory    = None
-
-    let mutable ignoreVersion   = true
-    let mutable customResources = ResourceRegistry.Empty
-    let mutable configuration   = config
-    let mutable maxJobs         = Environment.ProcessorCount
-    let mutable workerManager   = None
-    let customLogger            = new RuntimeLogger() 
-    let worker                  = new Worker()
+    let mutable useAppDomainIsolation = true
+    let mutable ignoreVersion         = true
+    let mutable customResources       = ResourceRegistry.Empty
+    let mutable configuration         = config
+    let mutable maxJobs               = Environment.ProcessorCount
+    let mutable workerAgent           = None : WorkerAgent option
+    let loggers                       = new ResizeArray<ISystemLogger>()
     
-    let logf fmt = customLogger.Logf fmt
-    let check () = if worker.IsActive then invalidOp "Cannot change Service while it is active."
+    let check () = 
+        match workerAgent with
+        | Some wa when wa.IsRunning -> invalidOp "Cannot change Service while it is active."
+        | _ -> ()
 
     /// MBrace Runtime Service.
     new(config : Configuration) = new Service (config, guid())
@@ -46,12 +38,16 @@ type Service (config : Configuration, serviceId : string) =
     member this.Id = serviceId
     
     /// Attach logger to worker.
-    member this.AttachLogger(l) = check(); customLogger.Attach(l)
+    member this.AttachLogger(logger) = check(); loggers.Add(logger)
     
     /// Get or set service configuration.
     member this.Configuration  
         with get () = configuration
         and set c = check (); configuration <- c
+
+    member this.UseAppDomainIsolation 
+        with get () = useAppDomainIsolation
+        and set c = check (); useAppDomainIsolation <- c
 
     /// Get or set iff version compatibility will be ignored.
     member this.IgnoreVersionCompatibility
@@ -63,37 +59,31 @@ type Service (config : Configuration, serviceId : string) =
         with get () = maxJobs
         and set c = check (); maxJobs <- c
     
-    /// Register an ICloudFileStore instance. Defaults to BlobStore with configuration's storage connection string.
-    member this.RegisterStoreProvider(store : ICloudFileStore) =
-        check () ; storeProvider <- Some store
+    member this.IsRunning 
+        with get () =
+            match workerAgent with
+            | Some wa -> wa.IsRunning
+            | None -> false
+
+    /// Register a CloudFileStoreConfiguration instance. Defaults to BlobStore with configuration's storage connection string.
+    member this.RegisterStoreConfiguration(store : CloudFileStoreConfiguration) =
+        check () ; customResources <- customResources.Register(store)
+
+    /// Register a CloudAtomConfiguration instance. Defaults to table store implementation with configuration's storage connection string.
+    member this.RegisterAtomProvider(atom : CloudAtomConfiguration) = 
+        check () ; customResources <- customResources.Register(atom)
     
-    /// Set default store directory used by Store APIs.
-    member this.SetDefaultStoreDirectory(path : string) =
-        check () ; storeDirectory <- Some path
-
-    /// Set default atom directory used by Store APIs.
-    member this.SetDefaultAtomDirectory(path : string) =
-        check () ; atomDirectory <- Some path
-
-    /// Set default channel directory used by Store APIs.
-    member this.SetDefaultChannelDirectory(path : string) =
-        check () ; channelDirectory <- Some path
-
-    /// Register an ICloudAtomProvider instance. Defaults to table store implementation with configuration's storage connection string.
-    member this.RegisterAtomProvider(atom : ICloudAtomProvider) = 
-        check () ; atomProvider <- Some atom
-    
-    /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
-    member this.RegisterChannelProvider(channel : ICloudChannelProvider) = 
-        check () ; channelProvider <- Some channel
+    /// Register a CloudChannelConfiguration instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
+    member this.RegisterChannelProvider(channel : CloudChannelConfiguration) = 
+        check () ; customResources <- customResources.Register(channel)
 
     /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
     member this.RegisterDictionaryProvider(dictionary : ICloudDictionaryProvider) = 
-        check () ; dictionaryProvider <- Some dictionary
+        check () ; customResources <- customResources.Register(dictionary)
 
     /// Register an IObjectCache instance. Defaults to System.Runtime.Caching.MemoryCache implementation.
     member this.RegisterObjectCache(cacheFactory : Func<IObjectCache>) =
-        check () ; objectCacheFactory <- Some cacheFactory
+        check () ; customResources <- customResources.Register(cacheFactory)
 
     /// Add a custom resource in workers ResourceRegistry.
     member this.RegisterResource(resource : 'TResource) = 
@@ -108,111 +98,45 @@ type Service (config : Configuration, serviceId : string) =
     /// Asynchronously start Service and worker loop.
     member this.StartAsync() : Async<unit> =
         async {
+            let logger = AttacheableLogger.FromLoggers(loggers)
             try
-                let sw = new Stopwatch() in sw.Start()
+                let sw = Stopwatch.StartNew()
 
-                logf "Version Checks"
-                if not ignoreVersion then
-                    let configurationVersion = Version.Parse(config.Version)
-                    if ReleaseInfo.localVersion <> configurationVersion then
-                        return! Async.Raise(IncompatibleVersionException(sprintf "Activating Service '%s' with Configuration.Version '%s' not allowed. Versions must be exact." (string ReleaseInfo.localVersion) config.Version))
+                logger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
 
-                let! state, resources = Init.Initializer(config, serviceId, true, customLogger, ignoreVersion, maxJobs = this.MaxConcurrentJobs)
-                workerManager <- Some state.WorkerManager
-
-                storeProvider <- Some(defaultArg storeProvider (BlobStore.Create(config.StorageConnectionString) :> _))
-                logf "CloudFileStore : %s" storeProvider.Value.Id
-
-                let store = storeProvider.Value
-
-                atomProvider <- 
-                    Some <|
-                        match atomProvider with
-                        | Some ap -> ap
-                        | None -> AtomProvider.Create(config.StorageConnectionString) :> _
-
-                logf "AtomProvider : %s" atomProvider.Value.Id
-
-                channelProvider <- 
-                    Some <| 
-                        match channelProvider with
-                        | Some cp -> cp
-                        | None -> ChannelProvider.Create(config.ServiceBusConnectionString) :> _
-
-                logf "ChannelProvider : %s" channelProvider.Value.Id
-
-                dictionaryProvider <-
-                    Some <|
-                        match dictionaryProvider with
-                        | Some dp -> dp
-                        | None -> CloudDictionaryProvider.Create(config.StorageConnectionString) :> _
-
-                logf "DictionaryProvider : %A" dictionaryProvider.Value
-
-                objectCacheFactory <-
-                    Some <|
-                        match objectCacheFactory with
-                        | Some oc -> 
-                            logf "Using custom IObjectCache"
-                            oc
-                        | None -> 
-                            logf "Using InMemoryCache"
-                            new Func<_>(fun () -> InMemoryCache.Create() :> _)
-
-                logf "MaxConcurrentJobs : %d" this.MaxConcurrentJobs
-
-                logf "Initializing JobEvaluator"
-                let jobEvaluator = new JobEvaluator(config, serviceId, customLogger, objectCacheFactory.Value, ignoreVersion)
-                
-                logf "Starting worker loop"
-                let config = { 
-                    State                     = state
-                    JobEvaluator              = jobEvaluator
-                    MaxConcurrentJobs         = this.MaxConcurrentJobs
-                    Resources                 = resources
-                    JobEvaluatorConfiguration =
-                        { Store               = store
-                          StoreDirectory      = storeDirectory
-                          Channel             = channelProvider.Value
-                          ChannelDirectory    = channelDirectory
-                          Atom                = atomProvider.Value
-                          AtomDirectory       = atomDirectory
-                          Dictionary          = dictionaryProvider.Value
-                          CustomResources     = customResources }
-                    Logger                    = customLogger
-                }
-                let! handle = Async.StartChild <| async { do worker.Start(config) }
-                logf "Worker loop started"
-                
-                do! state.WorkerManager.SetCurrentAsRunning()
+                let! agent = Initializer.Init(config, this.Id, loggers, this.UseAppDomainIsolation, this.MaxConcurrentJobs, customResources)
+                workerAgent <- Some agent
                 sw.Stop()
-                logf "Service %s started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
-                return! handle
+                logger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
+                return ()
             with ex ->
-                logf "Service Start for %s failed with %A" this.Id ex
-                match workerManager with
-                | None -> 
-                    do! WorkerManager.SetFaulted(config.WithAppendedId.ConfigurationId, serviceId, ex)
-                | Some wman -> 
-                    wman.SetCurrentAsFaulted(ex)
+                logger.LogErrorf "Service Start for %A failed with %A" this.Id ex
+                // TODO : finalize
                 return! Async.Raise ex
         }
 
-    /// Start Service. This method is blocking until worker loop completes.
+    /// Start Service.
     member this.Start() = Async.RunSync(this.StartAsync())
+
+    /// Start service and block.
+    member this.Run() =
+        Async.RunSync(async {
+            do! this.StartAsync()
+            while this.IsRunning do
+                do! Async.Sleep 1000
+        })
 
     /// Stop Service and worker loop. Wait for any pending jobs.
     member this.StopAsync () =
         async {
+            let logger = AttacheableLogger.FromLoggers(loggers)
             try
-                logf "Stopping Service %s." serviceId
-                //TODO : Add other finalizations.
-                worker.Stop()
-                do! workerManager.Value.SetCurrentAsStopped()
-                logf "Service %s stopped." serviceId
+                logger.LogInfof "Stopping Service %A." serviceId
+                do! workerAgent.Value.Stop()
+                logger.LogInfof "Service %A stopped." serviceId
             with ex ->
-                do! WorkerManager.SetFaulted(config.WithAppendedId.ConfigurationId, serviceId, ex)
-                logf "Service Stop for %s failed with %A" this.Id  ex
+                // TODO : Handle error
+                logger.LogErrorf "Service Stop for %A failed with %A" this.Id ex
                 return! Async.Raise ex
         }
 
