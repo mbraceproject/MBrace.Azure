@@ -26,9 +26,9 @@ type RuntimeId private (config : ConfigurationId) =
 [<AutoSerializable(false)>]
 type RuntimeManager private (config : ConfigurationId, uuid : string, customLoggers : ISystemLogger seq, resources : ResourceRegistry) =
     let logger = new AttacheableLogger()
-    do
-        let _ = logger.AttachLogger(StorageSystemLogger.Create(config, uuid))
-        customLoggers |> Seq.map logger.AttachLogger |> ignore
+    do ignore(logger.AttachLogger(new ConsoleLogger(true)))
+        //let _ = logger.AttachLogger(StorageSystemLogger.Create(config, uuid))
+        //customLoggers |> Seq.map logger.AttachLogger |> ignore
 
     let runtimeId     = RuntimeId.FromConfiguration(config)
     do logger.LogInfo "Creating worker manager"

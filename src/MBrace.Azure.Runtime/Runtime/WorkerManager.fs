@@ -81,8 +81,7 @@ type WorkerId internal (workerId) =
 
 [<AutoSerializable(true)>]
 type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
-    let table = config.RuntimeTable
-    let maxHeartbeatTimespan = TimeSpan.FromMinutes(10.)
+    static let maxHeartbeatTimespan = TimeSpan.FromMinutes(10.)
 
     let pickle (value : 'T) = Configuration.Pickler.Pickle(value)
     let unpickle (value : byte []) = Configuration.Pickler.UnPickle<'T>(value)
@@ -103,7 +102,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
 
     member this.GetAllWorkers(): Async<WorkerState []> = 
         async { 
-            let! records = Table.queryPK<WorkerRecord> config table WorkerRecord.DefaultPartitionKey
+            let! records = Table.queryPK<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey
             let state = records |> Array.map mkWorkerState
             return state
         }
@@ -112,7 +111,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
         async {
             logger.Logf LogLevel.Info "Unsubscribing worker %O" id
             let record = new WorkerRecord(id.Id)
-            return! Table.delete config table record
+            return! Table.delete config config.RuntimeTable record
         }
 
     interface IWorkerManager with
@@ -121,13 +120,13 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 let record = new WorkerRecord(id.Id)
                 record.ETag <- "*"
                 record.Status <- pickle status
-                let! _ = Table.merge config table record
+                let! _ = Table.merge config config.RuntimeTable record
                 return ()
             }
         
         member this.IncrementJobCount(id: IWorkerId): Async<unit> = 
             async {
-                let! _ = Table.transact2<WorkerRecord> config table WorkerRecord.DefaultPartitionKey id.Id 
+                let! _ = Table.transact2<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
                             (fun e -> 
                                 let ec = e.CloneDefault()
                                 ec.ActiveJobs <- e.ActiveJobs ?+ 1
@@ -137,7 +136,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
 
         member this.DecrementJobCount(id: IWorkerId): Async<unit> = 
             async {
-                let! _ = Table.transact2<WorkerRecord> config table WorkerRecord.DefaultPartitionKey id.Id 
+                let! _ = Table.transact2<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
                             (fun e -> 
                                 let ec = e.CloneDefault()
                                 ec.ActiveJobs <- e.ActiveJobs ?- 1
@@ -161,7 +160,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 let record = new WorkerRecord(id.Id)
                 record.ETag <- "*"
                 record.UpdateCounters(perf)
-                let! _ = Table.merge config table record
+                let! _ = Table.merge config config.RuntimeTable record
                 return ()
             }
         
@@ -179,7 +178,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 record.MaxJobs <- nullable info.MaxJobCount
                 record.ProcessorCount <- nullable info.ProcessorCount
                 record.ConfigurationId <- pickle config
-                do! Table.insertOrReplace<WorkerRecord> config table record //Worker might restart but keep id.
+                do! Table.insertOrReplace<WorkerRecord> config config.RuntimeTable record //Worker might restart but keep id.
                 let unsubscriber =
                     { new IDisposable with
                           member x.Dispose(): unit = 
@@ -191,7 +190,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
         
         member this.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = 
             async {
-                let! record = Table.read<WorkerRecord> config table WorkerRecord.DefaultPartitionKey id.Id
+                let! record = Table.read<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id
                 if record = null then return None
                 else return Some(mkWorkerState record)
             }

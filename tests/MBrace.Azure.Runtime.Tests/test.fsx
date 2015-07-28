@@ -11,7 +11,6 @@ open MBrace.Core
 open MBrace.Azure
 open System
 open MBrace.Store
-open MBrace.Store.Internals
 open System.IO
 
 MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
