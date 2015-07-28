@@ -34,7 +34,7 @@ let config =
 
 let runtime = MBraceAzure.InitLocal(config, 1)
 
-
+runtime.Workers
 
 
 

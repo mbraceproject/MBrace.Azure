@@ -119,6 +119,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
         member this.DeclareWorkerStatus(id: IWorkerId, status: WorkerJobExecutionStatus): Async<unit> = 
             async {
                 let record = new WorkerRecord(id.Id)
+                record.ETag <- "*"
                 record.Status <- pickle status
                 let! _ = Table.merge config table record
                 return ()
@@ -158,6 +159,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
         member this.SubmitPerformanceMetrics(id: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = 
             async {
                 let record = new WorkerRecord(id.Id)
+                record.ETag <- "*"
                 record.UpdateCounters(perf)
                 let! _ = Table.merge config table record
                 return ()
