@@ -1,5 +1,6 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
+#r "MBrace.Runtime.Core.dll"
 #r "FsPickler.dll"
 #r "Vagabond.dll"
 #r "MBrace.Azure.Runtime.dll"
@@ -8,13 +9,12 @@
 
 open MBrace.Core
 open MBrace.Azure
-open MBrace.Azure.Client
 open System
 open MBrace.Store
 open MBrace.Store.Internals
 open System.IO
 
-Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 
 
 let selectEnv name =
@@ -32,8 +32,17 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-let runtime = Runtime.GetHandle(config)
-runtime.AttachClientLogger(new ConsoleLogger())
+let runtime = MBraceAzure.InitLocal(config, 1)
+
+
+
+
+
+
+
+
+
+//runtime.AttachClientLogger(new ConsoleLogger())
 //runtime.Reset(true, true, true, true, false)
 //Runtime.Reset(reactivate = false)
 //runtime.Reset()

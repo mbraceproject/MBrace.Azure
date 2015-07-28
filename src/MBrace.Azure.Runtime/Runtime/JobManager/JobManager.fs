@@ -7,7 +7,7 @@ open System.Runtime.Serialization
 open System
 open MBrace.Azure.Runtime.Utilities
 
-[<AutoSerializable(true); DataContract>]  
+[<AutoSerializable(true); DataContract; Sealed>]  
 type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
     let [<DataMember(Name = "config")>] config = config
 
@@ -18,14 +18,14 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
     let [<IgnoreDataMember>] mutable topicMessage : JobLeaseToken option ref = Unchecked.defaultof<_>
 
     [<OnDeserialized>]
-    let init _ =
+    let init (_ : StreamingContext) =
         queue <- Async.RunSync(Queue.Create(config, logger))
         topic <- Async.RunSync(Topic.Create(config, logger))
         subscription <- None
         queueMessage <- ref None
         topicMessage <- ref None
 
-    do init ()
+    do init Unchecked.defaultof<_>
 
     let rec mkLoop (recv : Async<JobLeaseToken option>) (slot : JobLeaseToken option ref) =
         async {

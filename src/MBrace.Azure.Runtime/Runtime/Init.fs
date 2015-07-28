@@ -28,7 +28,7 @@ type internal Initializer =
 
             let jobEvaluator = 
                 if useAppDomainIsolation then
-                    logger.LogErrorf "Initializing AppDomainpool evaluator"
+                    logger.LogInfof "Initializing AppDomainpool evaluator"
                     let init () =
                         logger.LogInfof "Initializing Application Domain %A" System.AppDomain.CurrentDomain.FriendlyName
                     let managerF = DomainLocal.Create(fun () -> RuntimeManager.CreateForWorker(config, workerId, loggers, customResources) :> IRuntimeManager , workerId)
@@ -38,6 +38,8 @@ type internal Initializer =
 
             logger.LogInfo "Creating worker agent"
             let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentJobs, submitPerformanceMetrics = true)
+            logger.LogInfo "Starting worker agent"
             do! agent.Start()
+            logger.LogInfo "Worker agent started"
             return agent
         }

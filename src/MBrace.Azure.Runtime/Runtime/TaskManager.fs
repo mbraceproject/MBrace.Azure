@@ -85,7 +85,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
     let [<IgnoreDataMember>] mutable info = Unchecked.defaultof<Lazy<CloudTaskInfo>>
 
     [<OnDeserialized>]
-    let init _ =
+    let init (_ : StreamingContext) =
         record <- lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId, intervalMilliseconds = 500)
         info <-
             lazy
@@ -97,7 +97,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                     ReturnTypeName = record.TypeName
                     ReturnType = unpickle record.Type
                 }
-    do init ()
+    do init Unchecked.defaultof<_>
 
     let getRecord () = record.Value.GetValueAsync()
 
