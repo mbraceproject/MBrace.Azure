@@ -22,10 +22,6 @@ type internal Initializer =
             logger.LogInfof "Creating RuntimeManager"
             let runtimeManager = RuntimeManager.CreateForWorker(config, workerId, loggers, customResources)
 
-            logger.LogInfo "Installed resources"
-            for rsc in runtimeManager.Resources.InstalledResources do
-                logger.LogInfo rsc
-
             let jobEvaluator = 
                 if useAppDomainIsolation then
                     logger.LogInfof "Initializing AppDomainpool evaluator"
