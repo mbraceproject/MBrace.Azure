@@ -141,21 +141,8 @@ type MBraceAzure private (manager : RuntimeManager) =
     /// Gets a handle for a remote runtime.
     /// </summary>
     /// <param name="config">Runtime configuration.</param>
-    /// <param name="waitWorkerCount">Wait until the specified number of workers join the runtime.</param>
-    static member GetHandle(config : Configuration, ?waitWorkerCount : int) : MBraceAzure = 
-        let waitWorkerCount = defaultArg waitWorkerCount 0
-        if waitWorkerCount < 0 then invalidArg "waitWorkerCount" "Must be greater than 0"
+    static member GetHandle(config : Configuration) : MBraceAzure = 
         let clientId = guid()
-        let manager = RuntimeManager.CreateForClient(config, clientId, Seq.empty, ResourceRegistry.Empty)
+        let manager = RuntimeManager.CreateForClient(config, clientId, Seq.singleton(ConsoleLogger(true) :> _), ResourceRegistry.Empty)
         let runtime = new MBraceAzure(manager)
-        let rec loop () = async {
-            let ws = runtime.Workers
-            if Seq.length ws >= waitWorkerCount then return ()
-            else
-                do! Async.Sleep 500
-                return! loop ()
-        }
-
-        if waitWorkerCount > 0 then
-            Async.RunSync(loop ())
         runtime

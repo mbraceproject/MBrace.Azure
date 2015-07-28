@@ -36,8 +36,8 @@ let runtime = MBraceAzure.InitLocal(config, 1)
 runtime.Workers
 
 
-
-
+let svc = MBrace.Azure.Runtime.Service(config, "Nemesis-10001")
+svc.Start()
 
 
 

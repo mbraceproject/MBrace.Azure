@@ -15,7 +15,7 @@ type WorkerRecord(id) =
     member val Hostname           = Unchecked.defaultof<string> with get, set
     member val ProcessId          = Nullable<int>() with get, set
     member val ProcessName        = Unchecked.defaultof<string> with get, set
-    member val InitializationTime = Unchecked.defaultof<DateTimeOffset> with get, set
+    member val InitializationTime = Nullable<DateTimeOffset>() with get, set
     member val ConfigurationId    = Unchecked.defaultof<byte []> with get, set
     member val MaxJobs            = Nullable<int>()   with get, set
     member val ActiveJobs         = Nullable<int>()   with get, set
@@ -28,8 +28,7 @@ type WorkerRecord(id) =
     member val NetworkDown        = Nullable<double>() with get, set
     member val Version            = Unchecked.defaultof<string> with get, set
     member val Status             = Unchecked.defaultof<byte []> with get, set
-    member val HeartbeatRate      = Unchecked.defaultof<TimeSpan> with get, set
-
+    
     new () = new WorkerRecord(null)
 
     member this.GetCounters () : Utils.PerformanceMonitor.PerformanceInfo =
@@ -90,8 +89,8 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
         { Id = new WorkerId(record.Id)
           CurrentJobCount = record.ActiveJobs.GetValueOrDefault(-1)
           LastHeartbeat = record.Timestamp.DateTime
-          HeartbeatRate = record.HeartbeatRate
-          InitializationTime = record.InitializationTime.DateTime
+          HeartbeatRate = TimeSpan.MinValue // TODO : Implement
+          InitializationTime = record.InitializationTime.Value.DateTime
           ExecutionStatus = unpickle record.Status
           PerformanceMetrics = record.GetCounters()
           Info = 
@@ -160,7 +159,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 let record = new WorkerRecord(id.Id)
                 record.ETag <- "*"
                 record.UpdateCounters(perf)
-                let! _ = Table.merge config config.RuntimeTable record
+                let! _result = Table.merge config config.RuntimeTable record
                 return ()
             }
         
@@ -171,7 +170,8 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 let record = new WorkerRecord(id.Id)
                 record.Hostname <- info.Hostname
                 record.ProcessName <- Diagnostics.Process.GetCurrentProcess().ProcessName
-                record.InitializationTime <- joined
+                record.ProcessId <- nullable info.ProcessId
+                record.InitializationTime <- nullable joined
                 record.ActiveJobs <- nullable 0
                 record.Status <- pickle WorkerJobExecutionStatus.Running
                 record.Version <- ReleaseInfo.localVersion.ToString(4)
