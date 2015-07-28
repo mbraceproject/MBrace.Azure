@@ -9,7 +9,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Azure.Runtime
-open MBrace.Azure.Client
+open MBrace.Azure
 
 #nowarn "445"
 
@@ -50,14 +50,15 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
     let mutable state = None
 
     member __.Start () = 
-        let rt = Runtime.GetHandle(config)
-        let logger = ConsoleLogger() :> ICloudLogger
-        rt.AttachClientLogger logger
+        let rt = MBraceAzure.GetHandle(config)
+        let logger = ConsoleLogger() :> ISystemLogger
+        // rt.lo logger TODO : implement
         state <- Some (rt, logger)
         do System.Threading.Thread.Sleep 2000
 
     member __.Stop () =
-        state |> Option.iter (fun (r,l) -> r.Reset(reactivate = true))
+        //state |> Option.iter (fun (r,l) -> r.Reset(reactivate = true))
+        // TODO : implement
         state <- None
 
     member __.Runtime =
