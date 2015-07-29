@@ -15,7 +15,6 @@ open System.IO
 
 MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 
-
 let selectEnv name =
     (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
       Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
@@ -31,9 +30,9 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
+//MBraceAzure.Reset(config)
 //let runtime = MBraceAzure.InitLocal(config, 1)
 let runtime = MBraceAzure.GetHandle(config)
-
 runtime.Workers
 
 let task = runtime.CreateProcess(cloud { return 42 })
