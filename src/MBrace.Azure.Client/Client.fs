@@ -143,7 +143,7 @@ type MBraceAzure private (manager : RuntimeManager) =
         let clientId = guid()
         // TODO : Add Configuration check
         let logger = new AttacheableLogger()
-        let _ = logger.AttachLogger(StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, clientId))
+        //let _ = logger.AttachLogger(StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, clientId))
         let _ = logger.AttachLogger(ConsoleLogger(true) :> ISystemLogger)
         
         let manager = RuntimeManager.CreateForClient(config, clientId, logger, ResourceRegistry.Empty)

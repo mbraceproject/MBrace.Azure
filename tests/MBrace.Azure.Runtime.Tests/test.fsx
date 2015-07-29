@@ -41,8 +41,55 @@ task.ShowInfo()
 task.TryGetResult()
 
 runtime.ShowProcessInfo()
-//let svc = MBrace.Azure.Runtime.Service(config, "Nemesis-10001")
-//svc.Start()
+
+
+let svc = MBrace.Azure.Runtime.Service(config, "Nemesis-10001")
+svc.AttachLogger(new MBrace.Runtime.ConsoleLogger(true))
+svc.Start()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

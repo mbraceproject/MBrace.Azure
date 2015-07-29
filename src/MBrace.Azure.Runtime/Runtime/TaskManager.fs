@@ -190,16 +190,18 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
             }
         
 
-[<AutoSerializable(true)>]
+[<Sealed; DataContract>]
 type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
-    let table = config.RuntimeTable
-    let pickle (value : 'T) = Configuration.Pickler.Pickle(value)
+    static let pickle (value : 'T) = Configuration.Pickler.Pickle(value)
+
+    let [<DataMember(Name="config")>] config = config
+    let [<DataMember(Name="logger")>] logger = logger
 
     interface ICloudTaskManager with
         member this.Clear(taskId: string): Async<unit> = 
             async {
                 let record = new TaskRecord(taskId)
-                return! Table.delete config table record // TODO : perform full cleanup?
+                return! Table.delete config config.RuntimeTable record // TODO : perform full cleanup?
             }
         
         member this.ClearAllTasks(): Async<unit> = 
@@ -237,13 +239,13 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
         
         member this.GetAllTasks(): Async<ICloudTaskCompletionSource []> = 
             async {
-                let! records = Table.queryPK<TaskRecord> config table TaskRecord.DefaultPartitionKey
+                let! records = Table.queryPK<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey
                 return records |> Array.map(fun r -> new TaskCompletionSource(config, r.Id) :> ICloudTaskCompletionSource)
             }
         
         member this.TryGetTaskById(taskId: string): Async<ICloudTaskCompletionSource option> = 
             async {
-                let! record = Table.read<TaskRecord> config table TaskRecord.DefaultPartitionKey taskId
+                let! record = Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId
                 if record = null then return None else return Some(new TaskCompletionSource(config, taskId) :> ICloudTaskCompletionSource)
             }
 
