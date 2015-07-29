@@ -72,8 +72,15 @@ type internal JobLeaseMonitor private () =
 type JobLeaseToken private (info : JobLeaseTokenInfo)  = 
     let [<DataMember(Name="info")>] info = info
 
-    let [<DataMember(Name="record")>] record : JobRecord = 
-        Async.RunSync(Table.read info.ConfigurationId info.ConfigurationId.RuntimeTable info.ParentJobId info.JobId)
+    let [<IgnoreDataMember>] mutable record : JobRecord = null
+        
+    let init () =
+        record <- Async.RunSync(Table.read info.ConfigurationId info.ConfigurationId.RuntimeTable info.ParentJobId info.JobId)
+
+    [<OnDeserialized>]
+    let _onDeserialized (_ : StreamingContext) = init ()
+
+    do init ()
 
     member this.Id              = info.JobId
     member this.ConfigurationId = info.ConfigurationId
@@ -90,6 +97,7 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
                 let record = new JobRecord(info.ParentJobId, info.JobId)
                 record.Status <- nullable(int JobStatus.Completed)
                 record.CompletionTime <- nullable(DateTimeOffset.Now)
+                record.ETag <- "*"
                 let! _record = Table.merge info.ConfigurationId info.ConfigurationId.RuntimeTable record
                 return ()
             }
@@ -100,6 +108,7 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
                 let record = new JobRecord(info.ParentJobId, info.JobId)
                 record.Status <- nullable(int JobStatus.Faulted)
                 record.CompletionTime <- nullable(DateTimeOffset.Now)
+                record.ETag <- "*"
                 let! _record = Table.merge info.ConfigurationId info.ConfigurationId.RuntimeTable record
                 return () 
             }
@@ -303,7 +312,7 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
         async {
             let parentTaskId = job.TaskEntry.Id
             let! blob = Blob.Create(config, parentTaskId, job.Id, fun () -> job)
-            let msg = new BrokeredMessage(toGuid job.Id)
+            let msg = new BrokeredMessage(job.Id)
             msg.Properties.Add(ParentTaskIdPropertyName, toGuid parentTaskId)
             do! queue.SendAsync(msg)
             return blob.Size

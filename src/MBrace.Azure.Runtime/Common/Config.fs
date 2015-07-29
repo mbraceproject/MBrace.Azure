@@ -271,15 +271,11 @@ module Configuration =
     open System.Collections.Generic
     open MBrace.Store.Internals
 
-    let private ignoredAssemblies = new HashSet<Assembly>()
-
     let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
 
     let private init =
         runOnce(fun () ->
             let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
-            ignoredAssemblies.Add(Assembly.GetExecutingAssembly()) |> ignore
-
             let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
             VagabondRegistry.Initialize(fun () -> Vagabond.Initialize(ignoredAssemblies, lookupPolicy = policy)))
 
@@ -302,13 +298,6 @@ module Configuration =
     }
 
     let Activate(config) = Async.RunSynchronously(ActivateAsync(config))
-
-    let AddIgnoredAssembly(asm : Assembly) =
-        // MUST BE CALLED BEFORE INIT.
-        ignore <| ignoredAssemblies.Add(asm)
-
-    let GetIgnoredAssemblies() : seq<Assembly> =
-        ignoredAssemblies :> _
 
     /// Delete Runtime Queue and Topic.
     let DeleteRuntimeQueues (config : Configuration) =

@@ -83,17 +83,23 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
             yield! customResources
         }
 
-    static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLogger, customResources) =
+    static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLogger : ISystemLogger, customResources) =
+        customLogger.LogInfof "Activating configuration with Id %A" config.Id
         let config = config.WithAppendedId
         Configuration.Activate(config)
+        customLogger.LogInfof "Creating resources"
         let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
+        customLogger.LogInfof "Creating RuntimeManager"
         let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLogger, resources)
         runtime.SetJobQueueDefaultWorker(workerId)
         runtime
 
-    static member CreateForClient(config : Configuration, clientId : string, customLogger, customResources) =
+    static member CreateForClient(config : Configuration, clientId : string, customLogger : ISystemLogger, customResources) =
+        customLogger.LogInfof "Activating configuration with Id %A" config.Id
         let config = config.WithAppendedId
         Configuration.Activate(config)
+        customLogger.LogInfof "Creating resources"        
         let resources = RuntimeManager.GetDefaultResources(config, customResources, false)
+        customLogger.LogInfof "Creating RuntimeManager"
         let runtime = new RuntimeManager(config.ConfigurationId, clientId, customLogger, resources)
         runtime
