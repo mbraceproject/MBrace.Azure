@@ -7,6 +7,7 @@ open System.Text
 open System
 
 /// Configuration identifier.
+[<AutoSerializable(true)>]
 type ConfigurationId =
     private
       { /// Runtime identifier.
@@ -34,6 +35,7 @@ type ConfigurationId =
 
 
 /// Azure specific Runtime Configuration.
+[<AutoSerializable(true)>]
 type Configuration =
     { /// Runtime identifier.
       Id : uint16

@@ -25,9 +25,11 @@ type internal Initializer =
                     logger.LogInfof "Initializing AppDomainpool evaluator"
                     let init () =
                         logger.LogInfof "Initializing Application Domain %A" System.AppDomain.CurrentDomain.FriendlyName
-                    let managerF = DomainLocal.Create(fun () -> RuntimeManager.CreateForWorker(config, workerId, logger, customResources) :> IRuntimeManager , workerId)
+                    let managerF = DomainLocal.Create(fun () -> 
+                        RuntimeManager.CreateForWorker(config, workerId, logger, customResources) :> IRuntimeManager , workerId)
                     AppDomainJobEvaluator.Create(managerF, init) :> ICloudJobEvaluator
                 else
+                    logger.LogInfo "Initializing local job evaluator"
                     new LocalJobEvaluator(runtimeManager, workerId) :> ICloudJobEvaluator
 
             logger.LogInfo "Creating worker agent"
