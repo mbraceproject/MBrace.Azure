@@ -61,81 +61,79 @@ type MBraceAzure private (manager : RuntimeManager) =
         MBraceAzure.GetHandle(config)
 
 
-//    /// <summary>
-//    /// Delete and re-activate runtime state.
-//    /// Using 'Reset' may cause unexpected behavior in clients and workers.
-//    /// Workers should be restarted manually.</summary>
-//    /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
-//    /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
-//    /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
-//    /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
-//    /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
-//    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-//    member this.Reset(?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
-//        async {
-//            let deleteState = defaultArg deleteState true
-//            let deleteQueue = defaultArg deleteQueue true
-//            let deleteUserData = defaultArg deleteUserData true
-//            let deleteLogs = defaultArg deleteLogs true
-//            let reactivate = defaultArg reactivate true
-//            Runtime.Reset(config, deleteQueue = deleteQueue, deleteState = deleteState, deleteLogs = deleteLogs, deleteUserData = deleteUserData, reactivate = reactivate)
-//        } |> Async.RunSync
-//
-//    /// <summary>
-//    /// Delete and re-activate runtime state.
-//    /// Using 'Reset' may cause unexpected behavior in clients and workers.
-//    /// Workers should be restarted manually.</summary>
-//    /// <param name="Configuration">Runtime configuration.</param>
-//    /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
-//    /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
-//    /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
-//    /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
-//    /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
-//    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-//    static member Reset(configuration, ?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
-//        async {
-//            let deleteState = defaultArg deleteState true
-//            let deleteQueue = defaultArg deleteQueue true
-//            let deleteUserData = defaultArg deleteUserData true
-//            let deleteRuntimeLogs = defaultArg deleteLogs true
-//            let reactivate = defaultArg reactivate true
-//
-//            let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
-//            cl.Logf "Activating configuration"
-//            let configuration = configuration.WithAppendedId
-//            Configuration.AddIgnoredAssembly(typeof<Runtime>.Assembly)
-//            Async.RunSync(Configuration.ActivateAsync(configuration))
-//
-//                
-//            cl.Logf "Deleting Queues."
-//            if deleteQueue then do! Configuration.DeleteRuntimeQueues(configuration)
-//            cl.Logf "Deleting Container and Table."
-//            if deleteState then do! Configuration.DeleteRuntimeState(configuration)
-//            cl.Logf "Deleting Logs."
-//            if deleteRuntimeLogs then do! Configuration.DeleteRuntimeLogs(configuration)
-//            cl.Logf "Deleting UserData."
-//            if deleteUserData then do! Configuration.DeleteUserData(configuration)
-//               
-//            if reactivate then
-//                cl.Logf "Activating Configuration."
-//                let rec loop retryCount = async {
-//                    cl.Logf "RetryCount %d." retryCount
-//                    let! step2 = Async.Catch <| Configuration.ActivateAsync(configuration)
-//                    match step2 with
-//                    | Choice1Of2 _ -> 
-//                        cl.Logf "Done."
-//                    | Choice2Of2 ex ->
-//                        cl.Logf "Failed with %A" ex
-//                        cl.Logf "Waiting."
-//                        do! Async.Sleep 10000
-//                        return! loop (retryCount + 1)
-//                }
-//                do! loop 0
-//
-//                cl.Logf "Initializing RuntimeState."
-//                let! _ = RuntimeState.FromConfiguration(configuration, ignoreVersionCompatibility = false)
-//                return ()
-//        } |> Async.RunSync
+    /// <summary>
+    /// Delete and re-activate runtime state.
+    /// Using 'Reset' may cause unexpected behavior in clients and workers.
+    /// Workers should be restarted manually.</summary>
+    /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
+    /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
+    /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
+    /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
+    /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
+    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
+    member this.Reset(?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
+        async {
+            let deleteState = defaultArg deleteState true
+            let deleteQueue = defaultArg deleteQueue true
+            let deleteUserData = defaultArg deleteUserData true
+            let deleteLogs = defaultArg deleteLogs true
+            let reactivate = defaultArg reactivate true
+            Runtime.Reset(config, deleteQueue = deleteQueue, deleteState = deleteState, deleteLogs = deleteLogs, deleteUserData = deleteUserData, reactivate = reactivate)
+        } |> Async.RunSync
+
+    /// <summary>
+    /// Delete and re-activate runtime state.
+    /// Using 'Reset' may cause unexpected behavior in clients and workers.
+    /// Workers should be restarted manually.</summary>
+    /// <param name="Configuration">Runtime configuration.</param>
+    /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
+    /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
+    /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
+    /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
+    /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
+    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
+    static member Reset(configuration : Configuration, ?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
+        async {
+            let deleteState = defaultArg deleteState true
+            let deleteQueue = defaultArg deleteQueue true
+            let deleteUserData = defaultArg deleteUserData true
+            let deleteRuntimeLogs = defaultArg deleteLogs true
+            let reactivate = defaultArg reactivate true
+
+            let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
+            cl.LogInfo "Activating configuration"
+            let configuration = configuration.WithAppendedId
+            Async.RunSync(Configuration.ActivateAsync(configuration))
+             
+            cl.LogInfo "Deleting Queues."
+            if deleteQueue then do! Configuration.DeleteRuntimeQueues(configuration)
+            cl.LogInfo "Deleting Container and Table."
+            if deleteState then do! Configuration.DeleteRuntimeState(configuration)
+            cl.LogInfo "Deleting Logs."
+            if deleteRuntimeLogs then do! Configuration.DeleteRuntimeLogs(configuration)
+            cl.LogInfo "Deleting UserData."
+            if deleteUserData then do! Configuration.DeleteUserData(configuration)
+               
+            if reactivate then
+                cl.LogInfo "Activating Configuration."
+                let rec loop retryCount = async {
+                    cl.LogInfof "RetryCount %d." retryCount
+                    let! step2 = Async.Catch <| Configuration.ActivateAsync(configuration)
+                    match step2 with
+                    | Choice1Of2 _ -> 
+                        cl.LogInfo "Done."
+                    | Choice2Of2 ex ->
+                        cl.LogInfof "Failed with %A" ex
+                        cl.LogInfo "Waiting."
+                        do! Async.Sleep 10000
+                        return! loop (retryCount + 1)
+                }
+                do! loop 0
+
+                //cl.LogInfo "Initializing RuntimeState."
+                //let! _ = RuntimeManager.CreateForClient(config,)
+                return ()
+        } |> Async.RunSync
 
     /// <summary>
     /// Gets a handle for a remote runtime.
@@ -143,6 +141,11 @@ type MBraceAzure private (manager : RuntimeManager) =
     /// <param name="config">Runtime configuration.</param>
     static member GetHandle(config : Configuration) : MBraceAzure = 
         let clientId = guid()
-        let manager = RuntimeManager.CreateForClient(config, clientId, Seq.singleton(ConsoleLogger(true) :> _), ResourceRegistry.Empty)
+        // TODO : Add Configuration check
+        let loggers = [
+            StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, clientId) :> ISystemLogger
+            ConsoleLogger(true) :> ISystemLogger
+        ]
+        let manager = RuntimeManager.CreateForClient(config, clientId, loggers, ResourceRegistry.Empty)
         let runtime = new MBraceAzure(manager)
         runtime

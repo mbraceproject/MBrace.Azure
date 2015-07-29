@@ -8,6 +8,8 @@ open MBrace.Core.Internals
 open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
+open System.Runtime.Serialization
+open Microsoft.WindowsAzure.Storage
 
 type LoggerType =
     | System of id : string
@@ -25,51 +27,66 @@ type LogRecord(pk, rk, message, time, level) =
     member val Time : DateTimeOffset = time with get, set
     new () = new LogRecord(null, null, null, Unchecked.defaultof<_>, -1)  
 
-[<AutoSerializableAttribute(false)>]
-type StorageSystemLogger private (config : ConfigurationId, loggerType : LoggerType) =
-    let maxWaitTime = 5000
-    let table = config.RuntimeLogsTable
-    let logs = ResizeArray<LogRecord>()
-    let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
-    let mutable running = true
+type private StorageLoggerMessage =
+    | Flush of AsyncReplyChannel<unit>
+    | Log of LogRecord
 
-    let flush () = async {
-        let count = logs.Count
-        if count > 0 then
-            let records =
-                lock logs (fun () -> 
-                            let r = logs.ToArray()
-                            logs.Clear()
-                            r)
-            let! result = Async.Catch <| Table.insertBatch<LogRecord> config table records
-            match result with
-            | Choice1Of2 _ -> ()
-            | Choice2Of2 ex ->
-                printf "Failed to log %A" ex
-                lock logs (fun () -> logs.AddRange(records))
-    }
+[<Sealed; DataContract>]
+type StorageSystemLogger private (storageConn : string, table : string, loggerType : LoggerType) =
+    static let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
+    
+    let [<DataMember(Name = "storageConn")>] storageConn = storageConn
+    let [<DataMember(Name = "table")>] table = table
+    let [<DataMember(Name = "config")>] loggerType = loggerType
 
-    do  let rec loop _ = async {
-            do! Async.Sleep maxWaitTime
-            if running then
-                do! flush ()
-            return! loop ()
-        }
-        Async.Start(loop ())
+    let [<IgnoreDataMember>] mutable agent = Unchecked.defaultof<MailboxProcessor<StorageLoggerMessage>>
+    let [<IgnoreDataMember>] mutable tableClient = Unchecked.defaultof<CloudTableClient>
+
+    let init () =
+        let acc = CloudStorageAccount.Parse(storageConn)
+        tableClient <- acc.CreateCloudTableClient()
+        let tableRef = tableClient.GetTableReference(table)
+        let _ = tableRef.CreateIfNotExists()
+        let timespan = TimeSpan.FromSeconds(5.)
+        let flush (logs : LogRecord seq) =
+            async {
+                let tbo = new TableBatchOperation()
+                logs |> Seq.iter (tbo.Insert)
+                if tbo.Count > 0 then
+                    return! Async.AwaitTask(tableRef.ExecuteBatchAsync(tbo))
+                            |> Async.Ignore
+            }
+            
+        agent <- MailboxProcessor.Start(fun inbox ->
+            let rec loop lastWrite (acc : LogRecord list) = async {
+                let! msg = inbox.TryReceive(100)
+                match msg with
+                | None when DateTime.Now - lastWrite >= timespan || acc.Length >= 100 ->
+                    do! flush acc
+                    return! loop DateTime.Now []
+                | Some(Flush(ch)) ->
+                    do! flush acc
+                    ch.Reply()
+                    return! loop DateTime.Now []
+                | Some(Log(log)) ->
+                    return! loop lastWrite (log :: acc)
+                | _ ->
+                    return! loop lastWrite acc
+            }
+            loop DateTime.Now [])
+
+    do init ()
+
+    [<OnDeserialized>]
+    let _onDeserialized (_ : StreamingContext) = init ()
 
     let log msg time level = 
-        lock logs (fun () ->
-            let e = new LogRecord(string loggerType, timeToRK time (guid()), msg, time, int level)
-            logs.Add(e))
+        let e = new LogRecord(string loggerType, timeToRK time (guid()), msg, time, int level)
+        agent.Post(Log e)
 
     interface ISystemLogger with
-        member x.LogEntry(level: LogLevel, time: DateTime, message: string): unit = 
+        member x.LogEntry(level: MBrace.Runtime.LogLevel, time: DateTime, message: string): unit = 
             log message (DateTimeOffset(time)) level
-
-    member __.Start () = running <- true
-    member __.Stop () = 
-        Async.RunSync(flush())
-        running <- false
 
     member __.GetLogs (?loggerType : LoggerType, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
         let query = new TableQuery<LogRecord>()
@@ -91,10 +108,15 @@ type StorageSystemLogger private (config : ConfigurationId, loggerType : LoggerT
             match filter with
             | None -> query
             | Some f -> query.Where(f)
-        Table.query config table query
+
+        let acc = CloudStorageAccount.Parse(storageConn)
+        tableClient <- acc.CreateCloudTableClient()
+        let tableRef = tableClient.GetTableReference(table)
+        let _ = tableRef.CreateIfNotExists()
+        tableRef.ExecuteQuery(query)
 
 
-    static member Create(config, uuid) = new StorageSystemLogger(config, System uuid)
+    static member Create(storageConn, table, uuid) = new StorageSystemLogger(storageConn, table, System uuid)
       
 type CloudStorageLogger(config : ConfigurationId, taskId : string) =
     let loggerType = CloudLog taskId
@@ -133,7 +155,7 @@ type CloudStorageLogger(config : ConfigurationId, taskId : string) =
 
 type CustomLogger (f : Action<string>) =
     interface ISystemLogger with
-        member x.LogEntry(level: LogLevel, time: DateTime, message: string): unit = 
+        member x.LogEntry(level: MBrace.Runtime.LogLevel, time: DateTime, message: string): unit = 
             f.Invoke(sprintf "%O %O %O" time level message)
 
 [<AutoOpen>]

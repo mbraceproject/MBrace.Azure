@@ -45,6 +45,7 @@ type Service (config : Configuration, serviceId : string) =
         with get () = configuration
         and set c = check (); configuration <- c
 
+    /// Get or set off AppDomain isolation will be used.
     member this.UseAppDomainIsolation 
         with get () = useAppDomainIsolation
         and set c = check (); useAppDomainIsolation <- c
@@ -98,6 +99,8 @@ type Service (config : Configuration, serviceId : string) =
     /// Asynchronously start Service and worker loop.
     member this.StartAsync() : Async<unit> =
         async {
+            // TODO : Add Configuration check.
+            loggers.Add(StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, serviceId))
             let logger = AttacheableLogger.FromLoggers(loggers)
             try
                 let sw = Stopwatch.StartNew()
