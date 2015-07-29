@@ -18,7 +18,7 @@ type RuntimeId private (config : ConfigurationId) =
             | _ -> 1
 
         member this.Id : string =
-            Configuration.Pickler.Pickle(config)
+            Config.Pickler.Pickle(config)
             |> Convert.ToBase64String
 
     static member FromConfiguration(config) = new RuntimeId(config)
@@ -50,7 +50,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
 
     interface IRuntimeManager with
         member this.Id                       = runtimeId :> _
-        member this.Serializer               = Configuration.Pickler :> _
+        member this.Serializer               = Config.Pickler :> _
         member this.WorkerManager            = workerManager :> _
         member this.TaskManager              = taskManager :> _
         member this.JobQueue                 = jobManager :> _
@@ -75,7 +75,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
             yield atomConfig
             yield dictionaryConfig
             yield channelConfig
-            yield Configuration.Serializer
+            yield Config.Serializer
             if includeCache then 
                 match customResources.TryResolve<Func<IObjectCache>>() with
                 | None -> yield MBrace.Runtime.Store.InMemoryCache.Create()
@@ -86,7 +86,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
     static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLogger : ISystemLogger, customResources) =
         customLogger.LogInfof "Activating configuration with Id %A" config.Id
         let config = config.WithAppendedId
-        Configuration.Activate(config)
+        Config.Activate(config, true)
         customLogger.LogInfof "Creating resources"
         let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
         customLogger.LogInfof "Creating RuntimeManager"
@@ -94,10 +94,20 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         runtime.SetJobQueueDefaultWorker(workerId)
         runtime
 
+    static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, customLogger : ISystemLogger, customResources) =
+        customLogger.LogInfof "Activating configuration with Id %A" config.Id
+        let config = config.WithAppendedId
+        Config.Activate(config, false)
+        customLogger.LogInfof "Creating resources"
+        let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
+        customLogger.LogInfof "Creating RuntimeManager"
+        let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLogger, resources)
+        runtime
+
     static member CreateForClient(config : Configuration, clientId : string, customLogger : ISystemLogger, customResources) =
         customLogger.LogInfof "Activating configuration with Id %A" config.Id
         let config = config.WithAppendedId
-        Configuration.Activate(config)
+        Config.Activate(config, true)
         customLogger.LogInfof "Creating resources"        
         let resources = RuntimeManager.GetDefaultResources(config, customResources, false)
         customLogger.LogInfof "Creating RuntimeManager"

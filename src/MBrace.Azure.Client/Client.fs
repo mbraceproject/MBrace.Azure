@@ -47,7 +47,7 @@ type MBraceAzure private (manager : RuntimeManager) =
         let exe = MBraceAzure.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
         let cfg = { Arguments.Configuration = config; Arguments.MaxTasks = defaultArg maxTasks Environment.ProcessorCount}
-        do Async.RunSync(Configuration.ActivateAsync(config.WithAppendedId))
+        do Async.RunSync(Config.ActivateAsync(config.WithAppendedId, true))
         let args = Config.ToBase64Pickle cfg
         let psi = new ProcessStartInfo(exe, args)
         psi.WorkingDirectory <- Path.GetDirectoryName exe
@@ -103,22 +103,22 @@ type MBraceAzure private (manager : RuntimeManager) =
             let cl = new ConsoleLogger() // Using client (storage) logger will throw exc.
             cl.LogInfo "Activating configuration"
             let configuration = configuration.WithAppendedId
-            Async.RunSync(Configuration.ActivateAsync(configuration))
+            Async.RunSync(Config.ActivateAsync(configuration, true))
              
             cl.LogInfo "Deleting Queues."
-            if deleteQueue then do! Configuration.DeleteRuntimeQueues(configuration)
+            if deleteQueue then do! Config.DeleteRuntimeQueues(configuration)
             cl.LogInfo "Deleting Container and Table."
-            if deleteState then do! Configuration.DeleteRuntimeState(configuration)
+            if deleteState then do! Config.DeleteRuntimeState(configuration)
             cl.LogInfo "Deleting Logs."
-            if deleteRuntimeLogs then do! Configuration.DeleteRuntimeLogs(configuration)
+            if deleteRuntimeLogs then do! Config.DeleteRuntimeLogs(configuration)
             cl.LogInfo "Deleting UserData."
-            if deleteUserData then do! Configuration.DeleteUserData(configuration)
+            if deleteUserData then do! Config.DeleteUserData(configuration)
                
             if reactivate then
                 cl.LogInfo "Activating Configuration."
                 let rec loop retryCount = async {
                     cl.LogInfof "RetryCount %d." retryCount
-                    let! step2 = Async.Catch <| Configuration.ActivateAsync(configuration)
+                    let! step2 = Async.Catch <| Config.ActivateAsync(configuration, true)
                     match step2 with
                     | Choice1Of2 _ -> 
                         cl.LogInfo "Done."

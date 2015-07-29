@@ -178,6 +178,10 @@ open System.Reflection
 open MBrace.Azure
 open System.Net
 open System.Threading.Tasks
+open MBrace.Runtime.Vagabond
+open MBrace.Runtime.Utils
+open System.IO
+open MBrace.Store.Internals
 
 /// Provides Azure client instances for storage related entities
 [<AutoSerializable(false)>]
@@ -264,69 +268,77 @@ type ConfigurationRegistry private () =
         | true, v  -> v :?> 'T
         | false, _ -> failwith <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>
 
-[<RequireQualifiedAccess>]
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Configuration =
-    open MBrace.Runtime.Vagabond
-    open System.Collections.Generic
-    open MBrace.Store.Internals
 
-    let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
+type Config private () =
+    static let isInitialized = ref false
 
-    let private init =
-        runOnce(fun () ->
-            let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
-            let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
-            VagabondRegistry.Initialize(fun () -> Vagabond.Initialize(ignoredAssemblies, lookupPolicy = policy)))
+    static let initVagabond populateDirs (path:string) =
+        if populateDirs then ignore <| Directory.CreateDirectory path
+        let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
+        Vagabond.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], cacheDirectory = path, lookupPolicy = policy)
+
+    static let checkInitialized () =
+        if not isInitialized.Value then
+            invalidOp "Runtime configuration has not been initialized."
+
+    static let initialize (populateDirs : bool) =
+        lock isInitialized (fun () ->
+            if not isInitialized.Value then
+                let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
+                let workingDirectory = WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
+                let vagabondDir = Path.Combine(workingDirectory, "vagabond")
+                VagabondRegistry.Initialize(fun () -> initVagabond populateDirs vagabondDir)
+                isInitialized := true
+        )
 
     /// Default Pickler.
-    let Pickler = init () ; VagabondRegistry.Instance.Serializer
+    static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Serializer
 
     /// Default ISerializer
-    let Serializer = init (); new FsPicklerBinaryStoreSerializer() :> ISerializer
+    static member Serializer = checkInitialized(); new FsPicklerBinaryStoreSerializer() :> ISerializer
 
-    /// Vagabond initialization.
-    let Initialize () = init ()
+    static member Initialize(populateDirs) = initialize populateDirs
 
     /// Activates the given configuration.
-    let ActivateAsync(config : Configuration) : Async<unit> =
+    static member ActivateAsync(config : Configuration, populateDirs) : Async<unit> =
       async {
-        init ()
+        initialize populateDirs
         let cp = new StoreClientProvider(config)
         do! cp.InitAll()
         ConfigurationRegistry.Register<StoreClientProvider>(config.ConfigurationId, cp)
     }
 
-    let Activate(config) = Async.RunSynchronously(ActivateAsync(config))
+    /// Activates the given configuration.
+    static member Activate(config) = Async.RunSynchronously(Config.ActivateAsync(config))
 
     /// Delete Runtime Queue and Topic.
-    let DeleteRuntimeQueues (config : Configuration) =
+    static member DeleteRuntimeQueues (config : Configuration) =
         async {
-            init()
+            checkInitialized()
             let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
             do! cp.ClearRuntimeQueues()
         }
 
     /// Delete Runtime container and table.
-    let DeleteRuntimeState (config : Configuration) =
+    static member DeleteRuntimeState (config : Configuration) =
         async {
-            init()
+            checkInitialized()
             let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
             do! cp.ClearRuntimeState()
         }
 
     /// Delete UserData folder.
-    let DeleteUserData (config : Configuration) =
+    static member DeleteUserData (config : Configuration) =
         async {
-            init()
+            checkInitialized()
             let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
             do! cp.ClearUserData()
         }
 
     /// Delete RuntimeLogs table.
-    let DeleteRuntimeLogs (config : Configuration) =
+    static member DeleteRuntimeLogs (config : Configuration) =
         async {
-            init()
+            checkInitialized()
             let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
             do! cp.ClearRuntimeLogs()
         }

@@ -75,7 +75,7 @@ type TaskRecord(taskId) =
 
 [<DataContract; Sealed>]
 type internal TaskCompletionSource (config : ConfigurationId, taskId) =
-    static let unpickle (value : byte []) = Configuration.Pickler.UnPickle<'T>(value)
+    static let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
 
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "taskId")>] taskId = taskId
@@ -192,7 +192,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
 
 [<Sealed; DataContract>]
 type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
-    static let pickle (value : 'T) = Configuration.Pickler.Pickle(value)
+    static let pickle (value : 'T) = Config.Pickler.Pickle(value)
 
     let [<DataMember(Name="config")>] config = config
     let [<DataMember(Name="logger")>] logger = logger

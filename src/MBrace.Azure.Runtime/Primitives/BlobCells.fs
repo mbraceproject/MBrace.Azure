@@ -32,7 +32,7 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
         async { 
             let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             use! s = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename).OpenReadAsync()
-            return Configuration.Pickler.Deserialize<'T>(s) 
+            return Config.Pickler.Deserialize<'T>(s) 
         }
 
     /// <summary>
@@ -46,7 +46,7 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
             let! exists = b.ExistsAsync()
             if exists then
                 use! s = b.OpenReadAsync()
-                let value = Configuration.Pickler.Deserialize<'T>(s)
+                let value = Config.Pickler.Deserialize<'T>(s)
                 return Some value
             else
                 return None
@@ -77,7 +77,7 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
 
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
             use! stream = b.OpenWriteAsync(null, options, OperationContext(), Async.DefaultCancellationToken)
-            Configuration.Pickler.Serialize<'T>(stream, f())
+            Config.Pickler.Serialize<'T>(stream, f())
             do! stream.FlushAsync()
             stream.Dispose()
 

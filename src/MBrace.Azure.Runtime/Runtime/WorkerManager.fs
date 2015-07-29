@@ -82,8 +82,8 @@ type WorkerId internal (workerId) =
 type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
     static let maxHeartbeatTimespan = TimeSpan.FromMinutes(5.)
 
-    let pickle (value : 'T) = Configuration.Pickler.Pickle(value)
-    let unpickle (value : byte []) = Configuration.Pickler.UnPickle<'T>(value)
+    let pickle (value : 'T) = Config.Pickler.Pickle(value)
+    let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
 
     let mkWorkerState (record : WorkerRecord) = 
         { Id = new WorkerId(record.Id)

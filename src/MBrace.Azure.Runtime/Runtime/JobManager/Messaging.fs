@@ -125,7 +125,7 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
                     match info.Offset with
                     | Some pos -> stream.Seek(pos, SeekOrigin.Begin)
                     | _ -> 0L
-                return Configuration.Pickler.Deserialize<CloudJob>(stream)
+                return Config.Pickler.Deserialize<CloudJob>(stream)
             }
         
         member this.Id : string = info.JobId
@@ -225,7 +225,7 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
                 let blobName = guid()
                 let lastPosition = ref 0L
                 for job in jobs do
-                    Configuration.Pickler.Serialize(fileStream, job, leaveOpen = true)
+                    Config.Pickler.Serialize(fileStream, job, leaveOpen = true)
                     let msg = new BrokeredMessage(blobName)
                     msg.Properties.Add(ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
                     msg.Properties.Add(AffinityPropertyName, job.TargetWorker.Value.Id)
@@ -289,7 +289,7 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
                 let blobName = guid()
                 let lastPosition = ref 0L
                 for job in jobs do
-                    Configuration.Pickler.Serialize(fileStream, job, leaveOpen = true)
+                    Config.Pickler.Serialize(fileStream, job, leaveOpen = true)
                     let msg = new BrokeredMessage(blobName)
                     msg.Properties.Add(ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
                     msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
