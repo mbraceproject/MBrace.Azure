@@ -107,7 +107,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 logger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
 
-                let! agent = Initializer.Init(config, this.Id, loggers, this.UseAppDomainIsolation, this.MaxConcurrentJobs, customResources)
+                let! agent = Initializer.Init(config, this.Id, logger, this.UseAppDomainIsolation, this.MaxConcurrentJobs, customResources)
                 workerAgent <- Some agent
                 sw.Stop()
                 logger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds

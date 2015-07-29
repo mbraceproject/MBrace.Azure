@@ -24,10 +24,7 @@ type RuntimeId private (config : ConfigurationId) =
     static member FromConfiguration(config) = new RuntimeId(config)
 
 [<AutoSerializable(false)>]
-type RuntimeManager private (config : ConfigurationId, uuid : string, customLoggers : ISystemLogger seq, resources : ResourceRegistry) =
-    let logger = new AttacheableLogger()
-    do customLoggers |> Seq.map logger.AttachLogger |> ignore
-
+type RuntimeManager private (config : ConfigurationId, uuid : string, logger : ISystemLogger, resources : ResourceRegistry) =
     let runtimeId     = RuntimeId.FromConfiguration(config)
     do logger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(config, logger)
@@ -58,7 +55,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         member this.TaskManager              = taskManager :> _
         member this.JobQueue                 = jobManager :> _
         member this.AssemblyManager          = assemblyManager :> _
-        member this.SystemLogger             = logger :> _
+        member this.SystemLogger             = logger
         member this.CancellationEntryFactory = cancellationEntryFactory
         member this.CounterFactory           = int32CounterFactory
         member this.ResetClusterState()      = failwith "Not implemented yet"
@@ -86,17 +83,17 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
             yield! customResources
         }
 
-    static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLoggers, customResources) =
+    static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLogger, customResources) =
         let config = config.WithAppendedId
         Configuration.Activate(config)
         let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
-        let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLoggers, resources)
+        let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLogger, resources)
         runtime.SetJobQueueDefaultWorker(workerId)
         runtime
 
-    static member CreateForClient(config : Configuration, clientId : string, customLoggers, customResources) =
+    static member CreateForClient(config : Configuration, clientId : string, customLogger, customResources) =
         let config = config.WithAppendedId
         Configuration.Activate(config)
         let resources = RuntimeManager.GetDefaultResources(config, customResources, false)
-        let runtime = new RuntimeManager(config.ConfigurationId, clientId, customLoggers, resources)
+        let runtime = new RuntimeManager(config.ConfigurationId, clientId, customLogger, resources)
         runtime
