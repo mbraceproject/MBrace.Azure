@@ -31,13 +31,20 @@ let config =
         StorageConnectionString = selectEnv "azurestorageconn"
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
-let runtime = MBraceAzure.InitLocal(config, 1)
+//let runtime = MBraceAzure.InitLocal(config, 1)
+let runtime = MBraceAzure.GetHandle(config)
 
 runtime.Workers
 
+let task = runtime.CreateProcess(cloud { return 42 })
+task.ShowInfo()
 
-let svc = MBrace.Azure.Runtime.Service(config, "Nemesis-10001")
-svc.Start()
+task.TryGetResult()
+
+runtime.ShowProcessInfo()
+//let svc = MBrace.Azure.Runtime.Service(config, "Nemesis-10001")
+//svc.Start()
+
 
 
 

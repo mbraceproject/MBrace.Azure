@@ -10,6 +10,7 @@ open MBrace.Azure.Runtime.Utilities
 [<AutoSerializable(true); DataContract; Sealed>]  
 type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
     let [<DataMember(Name = "config")>] config = config
+    let [<DataMember(Name = "logger")>] logger = logger
 
     let [<IgnoreDataMember>] mutable queue = Unchecked.defaultof<_>
     let [<IgnoreDataMember>] mutable topic = Unchecked.defaultof<_>
@@ -119,6 +120,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                 newRecord.Status <- nullable(int JobStatus.Enqueued)
                 newRecord.EnqueueTime <- nullable record.Timestamp
                 newRecord.Size <- nullable metadata
+                newRecord.ETag <- "*"
                 let! _ = Table.merge config config.RuntimeTable newRecord
                 return ()
             }

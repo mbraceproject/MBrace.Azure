@@ -8,6 +8,7 @@ open System
 open Nessos.Vagabond
 open System.Runtime.Serialization
 open MBrace.Runtime.Utils
+open Nessos.FsPickler
 
 // TODO
 // Add Posting status.
@@ -50,15 +51,13 @@ type TaskRecord(taskId) =
     member val CompletionTime     = Nullable<DateTimeOffset>() with get, set
     member val Completed          = Nullable<bool>() with get, set
 
-    //member val CancellationPartitionKey : string = null with get, set
-    //member val CancellationRowKey : string = null with get, set
-    member val ResultUri : string = null with get, set
-
     member val TotalJobs     = Nullable<int>() with get, set
     member val ActiveJobs    = Nullable<int>() with get, set
     member val CompletedJobs = Nullable<int>() with get, set
     member val FaultedJobs   = Nullable<int>() with get, set
 
+    member val CancellationTokenSource : byte [] = null with get, set
+    member val ResultUri : string = null with get, set
     member val TypeName : string = null with get, set
     member val Type : byte [] = null with get, set
     member val Dependencies : byte [] = null with get, set
@@ -81,25 +80,26 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "taskId")>] taskId = taskId
     
-    let [<IgnoreDataMember>] mutable record = Unchecked.defaultof<Lazy<CacheAtom<TaskRecord>>>
-    let [<IgnoreDataMember>] mutable info = Unchecked.defaultof<Lazy<CloudTaskInfo>>
+//    let [<IgnoreDataMember>] mutable record = Unchecked.defaultof<Lazy<CacheAtom<TaskRecord>>>
+//    let [<IgnoreDataMember>] mutable info = Unchecked.defaultof<Lazy<CloudTaskInfo>>
+//
+//    [<OnDeserialized>]
+//    let init (_ : StreamingContext) =
+//        record <- lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId, intervalMilliseconds = 500)
+//        info <-
+//            lazy
+//                let record = Async.RunSynchronously(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
+//                { 
+//                    Name = if record.Name = null then None else Some record.Name
+//                    CancellationTokenSource =  unpickle record.CancellationTokenSource
+//                    Dependencies = unpickle record.Dependencies
+//                    ReturnTypeName = record.TypeName
+//                    ReturnType = unpickle record.Type
+//                }
+//    do init Unchecked.defaultof<_>
 
-    [<OnDeserialized>]
-    let init (_ : StreamingContext) =
-        record <- lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId, intervalMilliseconds = 500)
-        info <-
-            lazy
-                let record = Async.RunSynchronously(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
-                { 
-                    Name = if record.Name = null then None else Some record.Name
-                    CancellationTokenSource = failwith "Not implemented yet" // TODO : implement
-                    Dependencies = unpickle record.Dependencies
-                    ReturnTypeName = record.TypeName
-                    ReturnType = unpickle record.Type
-                }
-    do init Unchecked.defaultof<_>
-
-    let getRecord () = record.Value.GetValueAsync()
+    let getRecord () = 
+        Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId
 
     interface ICloudTaskCompletionSource with
         member this.Id: string = taskId
@@ -123,6 +123,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
             async {
                 let record = new TaskRecord(taskId)
                 record.Status <- nullable(TaskStatus.toInt status)
+                record.ETag <- "*"
                 let! _ = Table.merge config config.RuntimeTable record
                 return ()
             }
@@ -144,7 +145,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                         raise ex
 
                 return { Status = TaskStatus.ofInt(record.Status.GetValueOrDefault(-1))
-                         Info = info.Value
+                         Info = (this :> ICloudTaskCompletionSource).Info
                          ExecutionTime = execTime
                          MaxActiveJobCount = -1
                          ActiveJobCount = record.ActiveJobs.GetValueOrDefault(-1)
@@ -153,7 +154,15 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                          TotalJobCount = record.TotalJobs.GetValueOrDefault(-1) }
             }
 
-        member this.Info: CloudTaskInfo = info.Value
+        member this.Info: CloudTaskInfo = 
+            let record = Async.RunSynchronously(getRecord())
+            { 
+                Name = if record.Name = null then None else Some record.Name
+                CancellationTokenSource =  unpickle record.CancellationTokenSource
+                Dependencies = unpickle record.Dependencies
+                ReturnTypeName = record.TypeName
+                ReturnType = unpickle record.Type
+            }
         
         member this.TryGetResult(): Async<TaskResult option> = 
             async {
@@ -206,7 +215,6 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
         member this.CreateTask(info: CloudTaskInfo): Async<ICloudTaskCompletionSource> = 
             async {
                 let taskId = guid()
-                let tcs = new TaskCompletionSource(config, taskId)
                 let record = new TaskRecord(taskId)
                 record.ActiveJobs <- nullable 0
                 record.Completed <- nullable false
@@ -219,9 +227,12 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
                 record.Name <- match info.Name with Some n -> n | None -> null
                 record.Status <- nullable(TaskStatus.toInt(CloudTaskStatus.Posted))
                 record.TotalJobs <- nullable 0
-                record.Type <- info.ReturnType.Bytes
+                record.Type <- pickle info.ReturnType
                 record.TypeName <- info.ReturnTypeName
-                return tcs :> _
+                record.CancellationTokenSource <- pickle info.CancellationTokenSource
+                let! _record = Table.insertOrReplace config config.RuntimeTable record
+                let tcs = new TaskCompletionSource(config, taskId)
+                return tcs :> ICloudTaskCompletionSource
             }
         
         member this.GetAllTasks(): Async<ICloudTaskCompletionSource []> = 

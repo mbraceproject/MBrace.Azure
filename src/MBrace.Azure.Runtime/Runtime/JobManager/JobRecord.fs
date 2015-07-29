@@ -24,7 +24,7 @@ type internal JobStatus =
 
 [<AllowNullLiteral>]
 type JobRecord(parentTaskId, jobId) = 
-    inherit TableEntity(parentTaskId, jobId)
+    inherit TableEntity(JobRecord.TransformPartitionKey parentTaskId, jobId)
     
     member val Id                 = jobId with get, set
     member val ParentTaskId       = parentTaskId with get, set
@@ -50,11 +50,12 @@ type JobRecord(parentTaskId, jobId) =
     new () = new JobRecord(null, null)
 
     member this.CloneDefault() =
-        let p = new JobRecord()
-        p.PartitionKey <- this.PartitionKey
-        p.RowKey <- this.RowKey
+        let p = new JobRecord(this.PartitionKey, this.RowKey)
         p.ETag <- this.ETag
         p
+
+    static member TransformPartitionKey(pk) =
+        if String.IsNullOrEmpty(pk) then "root" else pk
 
     static member FromCloudJob(job : CloudJob) =
         let record = new JobRecord(job.TaskEntry.Id, job.Id)
