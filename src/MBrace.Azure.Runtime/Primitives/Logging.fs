@@ -54,6 +54,7 @@ type StorageSystemLogger private (storageConn : string, table : string, loggerTy
                 logs |> Seq.iter (tbo.Insert)
                 if tbo.Count > 0 then
                     return! Async.AwaitTask(tableRef.ExecuteBatchAsync(tbo))
+                            |> Async.Catch
                             |> Async.Ignore
             }
             
