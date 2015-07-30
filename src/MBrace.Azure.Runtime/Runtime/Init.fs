@@ -24,8 +24,10 @@ type internal Initializer =
                 if useAppDomainIsolation then
                     logger.LogInfof "Initializing AppDomainpool evaluator"
                     let init () =
-                        Config.Initialize(false)
-                        logger.LogInfof "Initializing Application Domain %A" System.AppDomain.CurrentDomain.FriendlyName
+                        let domainName = System.AppDomain.CurrentDomain.FriendlyName
+                        logger.LogInfof "Initializing Application Domain %A" domainName
+                        Config.Activate(config.WithAppendedId, false)
+                        logger.LogInfof "Configuration activated in AppDomain %A" domainName
                     let managerF = DomainLocal.Create(fun () -> 
                         RuntimeManager.CreateForAppDomain(config, workerId, logger, customResources) :> IRuntimeManager , workerId)
                     AppDomainJobEvaluator.Create(managerF, init) :> ICloudJobEvaluator
