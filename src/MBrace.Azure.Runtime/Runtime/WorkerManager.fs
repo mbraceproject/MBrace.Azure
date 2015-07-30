@@ -80,7 +80,6 @@ type WorkerId internal (workerId) =
 
 [<AutoSerializable(true)>]
 type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
-    static let maxHeartbeatTimespan = TimeSpan.FromMinutes(5.)
 
     let pickle (value : 'T) = Config.Pickler.Pickle(value)
     let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
@@ -98,6 +97,8 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 ProcessId = record.ProcessId.GetValueOrDefault(-1)
                 ProcessorCount = record.ProcessorCount.GetValueOrDefault(-1)
                 MaxJobCount = record.MaxJobs.GetValueOrDefault(-1) } } 
+
+    static member MaxHeartbeatTimespan = TimeSpan.FromMinutes(5.)
 
     member this.GetAllWorkers(): Async<WorkerState []> = 
         async { 
@@ -147,7 +148,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
             async { 
                 let! workers = this.GetAllWorkers()
                 return workers 
-                       |> Seq.filter (fun w -> DateTime.UtcNow - w.LastHeartbeat <= maxHeartbeatTimespan)
+                       |> Seq.filter (fun w -> DateTime.UtcNow - w.LastHeartbeat <= WorkerManager.MaxHeartbeatTimespan)
                        |> Seq.filter (fun w -> match w.ExecutionStatus with
                                                | WorkerJobExecutionStatus.Running -> true
                                                | _ -> false)

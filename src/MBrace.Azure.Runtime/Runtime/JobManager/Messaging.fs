@@ -9,17 +9,17 @@ open MBrace.Core.Internals
 open System.IO
 open MBrace.Runtime
 open System.Runtime.Serialization
+open System.Threading.Tasks
 
-[<AutoOpenAttribute>]
-module private Helpers = 
-    let RenewLockInverval = 10000 // 10 minutes, same with heartbeat
-    let MaxLockDuration = TimeSpan.FromMinutes(5.) // 5 minutes, max value
-    let MaxTTL = TimeSpan.MaxValue
-    let ServerWaitTime = TimeSpan.FromMilliseconds(50.)
-    let AffinityPropertyName = "Affinity"
-    let ParentTaskIdPropertyName = "ParentId"
-    let StreamOffsetPropertyName = "StreamOffset"
-    let SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
+type internal Settings private () = 
+    static member RenewLockInverval = 10000 // message renew interval in ms
+    static member MaxLockDuration = WorkerManager.MaxHeartbeatTimespan // 5 minutes, max value
+    static member MaxTTL = TimeSpan.MaxValue
+    static member ServerWaitTime = TimeSpan.FromMilliseconds(50.)
+    static member AffinityPropertyName = "worker"
+    static member ParentTaskIdPropertyName = "parentId"
+    static member StreamOffsetPropertyName = "offset"
+    static member SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
 
 /// Info stored in BrokeredMessage.
 type internal JobLeaseTokenInfo =
@@ -47,7 +47,7 @@ type internal JobLeaseMonitor private () =
                                     logger.Logf LogLevel.Info "Lock lost for message %A" <| message.GetBody<string>()
                                     return ()   
                                  | _ -> ()
-                                 do! Async.Sleep RenewLockInverval
+                                 do! Async.Sleep Settings.RenewLockInverval
                                  return! renewLoop()
                              }
                          renewLoop())
@@ -155,10 +155,10 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
             | true, v -> Some(v :?> 'T)
             | false, _ -> None
         
-        let affinity = tryGet AffinityPropertyName
+        let affinity = tryGet Settings.AffinityPropertyName
         let deliveryCount = message.DeliveryCount
-        let parentId = fromGuid (message.Properties.[ParentTaskIdPropertyName] :?> Guid)
-        let streamPos = tryGet StreamOffsetPropertyName
+        let parentId = fromGuid (message.Properties.[Settings.ParentTaskIdPropertyName] :?> Guid)
+        let streamPos = tryGet Settings.StreamOffsetPropertyName
         let lockToken = message.LockToken
         let body = message.GetBody<string>()
         let dequeueTime = DateTimeOffset.Now
@@ -174,31 +174,11 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
         }
         new JobLeaseToken(info)
 
-/// Local queue subscription client
-[<AutoSerializable(false)>]
-type internal Subscription (config : ConfigurationId, workerId : IWorkerId, logger : ISystemLogger) = 
-    let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
-
-    do 
-        let ns = cp.NamespaceClient
-        let topic = config.RuntimeTopic
-        let affinity = workerId.Id
-        if not <| ns.SubscriptionExists(topic, affinity) then 
-            logger.Logf LogLevel.Info "Creating new subscription for %A" affinity
-            let sd = new SubscriptionDescription(topic, affinity)
-            sd.DefaultMessageTimeToLive <- MaxTTL
-            sd.LockDuration <- MaxLockDuration
-            sd.AutoDeleteOnIdle <- SubscriptionAutoDeleteInterval
-            let filter = new SqlFilter(sprintf "%s = '%s'" AffinityPropertyName affinity)
-            ns.CreateSubscription(sd, filter) |> ignore
-
-    let sub = cp.SubscriptionClient(config.RuntimeTopic, workerId.Id)
-    
-    member this.WorkerId = workerId
-
-    member this.TryDequeue() : Async<JobLeaseToken option> = 
+[<Sealed; AbstractClass>]
+type internal MessagingClient private () =
+    static member inline TryDequeue (config : ConfigurationId, logger : ISystemLogger, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
         async { 
-            let! msg = sub.ReceiveAsync(ServerWaitTime)
+            let! msg = dequeueF()
             if msg = null then 
                 return None
             else 
@@ -206,15 +186,19 @@ type internal Subscription (config : ConfigurationId, workerId : IWorkerId, logg
                 return Some(JobLeaseToken.FromBrokeredMessage(config, msg))
         }
 
-/// Local queue topic client
-[<AutoSerializable(false)>]
-type internal Topic (config : ConfigurationId, logger : ISystemLogger) = 
-    let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
-    let topic = cp.TopicClient(config.RuntimeTopic)
-    
-    member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, workerId, logger)
-    
-    member this.EnqueueBatch(jobs : CloudJob []) : Async<int64 seq> = 
+    static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
+        async { 
+            let! blob = Blob.Create(config, job.TaskEntry.Id, job.Id, fun () -> job)
+            let msg = new BrokeredMessage(job.Id)
+            msg.Properties.Add(Settings.ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
+            match job.TargetWorker with
+            | Some target -> msg.Properties.Add(Settings.AffinityPropertyName, target.Id)
+            | _ -> ()
+            do! sendF msg
+            return blob.Size
+        }
+
+    static member inline EnqueueBatch(config : ConfigurationId, logger : ISystemLogger, jobs : CloudJob [], sendF : BrokeredMessage seq -> Task) =
         async { 
             let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
             let sizes = new ResizeArray<int64>(jobs.Length)
@@ -227,9 +211,11 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
                 for job in jobs do
                     Config.Pickler.Serialize(fileStream, job, leaveOpen = true)
                     let msg = new BrokeredMessage(blobName)
-                    msg.Properties.Add(ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
-                    msg.Properties.Add(AffinityPropertyName, job.TargetWorker.Value.Id)
-                    msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
+                    msg.Properties.Add(Settings.ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
+                    msg.Properties.Add(Settings.StreamOffsetPropertyName, lastPosition.Value)
+                    match job.TargetWorker with
+                    | Some target -> msg.Properties.Add(Settings.AffinityPropertyName, target.Id)
+                    | _ -> ()
                     ys.Add(msg)
                     sizes.Add(fileStream.Position - lastPosition.Value)
                     lastPosition := fileStream.Position
@@ -241,19 +227,50 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
                     |> Async.Ignore
                 File.Delete(temp)
 
-            do! topic.SendBatchAsync(ys)
+            do! sendF ys
             return sizes :> seq<int64>
         }
     
-    member this.Enqueue(t : CloudJob) = 
-        async { 
-            let! blob = Blob.Create(config, t.TaskEntry.Id, t.Id, fun () -> t)
-            let msg = new BrokeredMessage(t.Id)
-            msg.Properties.Add(AffinityPropertyName, t.TargetWorker.Value.Id)
-            msg.Properties.Add(ParentTaskIdPropertyName, toGuid t.TaskEntry.Id)
-            do! topic.SendAsync(msg)
-            return blob.Size
-        }
+
+/// Local queue subscription client
+[<AutoSerializable(false)>]
+type internal Subscription (config : ConfigurationId, workerId : IWorkerId, logger : ISystemLogger) = 
+    let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+
+    do 
+        let ns = cp.NamespaceClient
+        let topic = config.RuntimeTopic
+        let affinity = workerId.Id
+        if not <| ns.SubscriptionExists(topic, affinity) then 
+            logger.Logf LogLevel.Info "Creating new subscription for %A" affinity
+            let sd = new SubscriptionDescription(topic, affinity)
+            sd.DefaultMessageTimeToLive <- Settings.MaxTTL
+            sd.LockDuration <- Settings.MaxLockDuration
+            sd.AutoDeleteOnIdle <- Settings.SubscriptionAutoDeleteInterval
+            let filter = new SqlFilter(sprintf "%s = '%s'" Settings.AffinityPropertyName affinity)
+            ns.CreateSubscription(sd, filter) |> ignore
+
+    let sub = cp.SubscriptionClient(config.RuntimeTopic, workerId.Id)
+    
+    member this.WorkerId = workerId
+
+    member this.TryDequeue() : Async<JobLeaseToken option> = 
+        MessagingClient.TryDequeue(config, logger, fun () -> sub.ReceiveAsync(Settings.ServerWaitTime))
+        
+
+/// Local queue topic client
+[<AutoSerializable(false)>]
+type internal Topic (config : ConfigurationId, logger : ISystemLogger) = 
+    let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+    let topic = cp.TopicClient(config.RuntimeTopic)
+    
+    member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, workerId, logger)
+    
+    member this.EnqueueBatch(jobs : CloudJob []) : Async<int64 seq> = 
+        MessagingClient.EnqueueBatch(config, logger, jobs, topic.SendBatchAsync)
+    
+    member this.Enqueue(job : CloudJob) = 
+        MessagingClient.Enqueue(config, logger, job, topic.SendAsync)
 
     static member Create(config, logger : ISystemLogger) = 
         async { 
@@ -264,7 +281,7 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
                 let qd = new TopicDescription(config.RuntimeTopic)
                 qd.EnableBatchedOperations <- true
                 qd.EnablePartitioning <- true
-                qd.DefaultMessageTimeToLive <- MaxTTL
+                qd.DefaultMessageTimeToLive <- Settings.MaxTTL
                 qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
                 do! ns.CreateTopicAsync(qd)
             else
@@ -278,55 +295,14 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
 
     member this.EnqueueBatch(jobs : CloudJob []) = 
-        async { 
-            let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
-            let sizes = new ResizeArray<int64>(jobs.Length)
-            for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
-                logger.Logf LogLevel.Info "Creating common job file for %d jobs, parent id = %O" (Seq.length jobs) parentId
-                let temp = Path.GetTempFileName()
-                let fileStream = File.OpenWrite(temp)
-                let blobName = guid()
-                let lastPosition = ref 0L
-                for job in jobs do
-                    Config.Pickler.Serialize(fileStream, job, leaveOpen = true)
-                    let msg = new BrokeredMessage(blobName)
-                    msg.Properties.Add(ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
-                    msg.Properties.Add(StreamOffsetPropertyName, lastPosition.Value)
-                    ys.Add(msg)
-                    sizes.Add(fileStream.Position - lastPosition.Value)
-                    lastPosition := fileStream.Position
-                fileStream.Flush()
-                fileStream.Dispose()
-
-                logger.Logf LogLevel.Info "Uploading job file for parent id = %O, %s." parentId (getHumanReadableByteSize lastPosition.Value)
-                do! Blob.UploadFromFile(config, parentId, blobName, temp)
-                    |> Async.Ignore
-                File.Delete(temp)
-
-            do! queue.SendBatchAsync(ys)
-            return sizes :> seq<int64>
-        }
+        MessagingClient.EnqueueBatch(config, logger, jobs, queue.SendBatchAsync)
     
     member this.Enqueue(job : CloudJob) = 
-        async {
-            let parentTaskId = job.TaskEntry.Id
-            let! blob = Blob.Create(config, parentTaskId, job.Id, fun () -> job)
-            let msg = new BrokeredMessage(job.Id)
-            msg.Properties.Add(ParentTaskIdPropertyName, toGuid parentTaskId)
-            do! queue.SendAsync(msg)
-            return blob.Size
-        }
+        MessagingClient.Enqueue(config, logger, job, queue.SendAsync)
     
     member this.TryDequeue() : Async<JobLeaseToken option> = 
-        async { 
-            let! msg = queue.ReceiveAsync(ServerWaitTime)
-            if msg = null then 
-                return None
-            else
-                let! _ = JobLeaseMonitor.Start(msg, logger)
-                return Some(JobLeaseToken.FromBrokeredMessage(config, msg))
-        }
-    
+        MessagingClient.TryDequeue(config, logger, fun () -> queue.ReceiveAsync(Settings.ServerWaitTime))
+        
     static member Create(config : ConfigurationId, logger : ISystemLogger) = 
         async { 
             let ns = ConfigurationRegistry.Resolve<StoreClientProvider>(config).NamespaceClient
@@ -336,8 +312,8 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
                 let qd = new QueueDescription(config.RuntimeQueue)
                 qd.EnableBatchedOperations <- true
                 qd.EnablePartitioning <- true
-                qd.DefaultMessageTimeToLive <- MaxTTL
-                qd.LockDuration <- MaxLockDuration
+                qd.DefaultMessageTimeToLive <- Settings.MaxTTL
+                qd.LockDuration <- Settings.MaxLockDuration
                 qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
                 do! ns.CreateQueueAsync(qd)
             else
