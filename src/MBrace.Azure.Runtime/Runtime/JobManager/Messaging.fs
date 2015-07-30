@@ -69,7 +69,7 @@ type internal JobLeaseMonitor private () =
         }
 
 [<AutoSerializable(true); DataContract>]
-type JobLeaseToken private (info : JobLeaseTokenInfo)  = 
+type JobLeaseToken internal (info : JobLeaseTokenInfo)  = 
     let [<DataMember(Name="info")>] info = info
 
     let [<IgnoreDataMember>] mutable record : JobRecord = null
@@ -148,42 +148,40 @@ type JobLeaseToken private (info : JobLeaseTokenInfo)  =
         member this.TaskEntry : ICloudTaskCompletionSource = TaskCompletionSource(info.ConfigurationId, info.ParentJobId) :> _
         
         member this.Type : string = record.Type
-    
-    static member FromBrokeredMessage(config : ConfigurationId, message : BrokeredMessage) = 
-        let tryGet name = 
-            match message.Properties.TryGetValue(name) with
-            | true, v -> Some(v :?> 'T)
-            | false, _ -> None
-        
-        let affinity = tryGet Settings.AffinityPropertyName
-        let deliveryCount = message.DeliveryCount
-        let parentId = fromGuid (message.Properties.[Settings.ParentTaskIdPropertyName] :?> Guid)
-        let streamPos = tryGet Settings.StreamOffsetPropertyName
-        let lockToken = message.LockToken
-        let body = message.GetBody<string>()
-        let dequeueTime = DateTimeOffset.Now
-        let info = {
-            JobId = body
-            ConfigurationId = config
-            MessageLockId = lockToken
-            ParentJobId = parentId
-            Offset = streamPos
-            TargetWorker = affinity
-            DeliveryCount = deliveryCount
-            DequeueTime = dequeueTime
-        }
-        new JobLeaseToken(info)
 
 [<Sealed; AbstractClass>]
 type internal MessagingClient private () =
     static member inline TryDequeue (config : ConfigurationId, logger : ISystemLogger, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
         async { 
-            let! msg = dequeueF()
-            if msg = null then 
+            let! message = dequeueF()
+            if message = null then 
                 return None
             else 
-                let! _ = JobLeaseMonitor.Start(msg, logger)
-                return Some(JobLeaseToken.FromBrokeredMessage(config, msg))
+                let! _ = JobLeaseMonitor.Start(message, logger)
+                
+                let tryGet name = 
+                    match message.Properties.TryGetValue(name) with
+                    | true, v -> Some(v :?> 'T)
+                    | false, _ -> None
+        
+                let affinity = tryGet Settings.AffinityPropertyName
+                let deliveryCount = message.DeliveryCount
+                let parentId = fromGuid (message.Properties.[Settings.ParentTaskIdPropertyName] :?> Guid)
+                let streamPos = tryGet Settings.StreamOffsetPropertyName
+                let lockToken = message.LockToken
+                let body = message.GetBody<string>()
+                let dequeueTime = DateTimeOffset.Now
+                let info = {
+                    JobId = body
+                    ConfigurationId = config
+                    MessageLockId = lockToken
+                    ParentJobId = parentId
+                    Offset = streamPos
+                    TargetWorker = affinity
+                    DeliveryCount = deliveryCount
+                    DequeueTime = dequeueTime
+                }
+                return Some(JobLeaseToken(info))
         }
 
     static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
