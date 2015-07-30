@@ -51,34 +51,31 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
 
     member this.SetDefaultWorker(id : IWorkerId) =
         subscription <- Some(topic.GetSubscription(id))
+        Async.Start(mkLoop (queue.TryDequeue()) queueMessage)
+        Async.Start(mkLoop (subscription.Value.TryDequeue()) topicMessage)
 
     interface IJobQueue with
         member this.TryDequeue(id: IWorkerId): Async<ICloudJobLeaseToken option> = 
             async {
-                //logger.Logf LogLevel.Debug "TryDequeue"
-//                let isDefault =
-//                    match subscription with
-//                    | None -> 
-//                        subscription <- Some(topic.GetSubscription(id))
-//                        Async.Start(mkLoop (queue.TryDequeue()) queueMessage)
-//                        Async.Start(mkLoop (subscription.Value.TryDequeue()) topicMessage)
-//                        true
-//                    | Some s -> s.WorkerId = id 
-//                //logger.Logf LogLevel.Debug "IsDefault %A" isDefault
-//                let! jobToken = async {
-//                    match isDefault, queueMessage.Value, topicMessage.Value with
-//                    | true, (Some _ as m), _ -> queueMessage := None; return m
-//                    | true, _, (Some _ as m) -> topicMessage := None; return m
-//                    | true, None, None -> return None
-//                    | false, _, _ -> return! topic.GetSubscription(id).TryDequeue()
-//                }
+                let isDefault =
+                    match subscription with
+                    | None -> false
+                    | Some s -> s.WorkerId = id 
+
+                let! jobToken = async {
+                    match isDefault, queueMessage.Value, topicMessage.Value with
+                    | true, (Some _ as m), _ -> queueMessage := None; return m
+                    | true, _, (Some _ as m) -> topicMessage := None; return m
+                    | true, None, None -> return None
+                    | false, _, _ -> return! topic.GetSubscription(id).TryDequeue()
+                }
                 
-                let! jobToken = queue.TryDequeue()
-                if jobToken.IsSome then logger.Logf LogLevel.Debug "JobToken %A" jobToken.Value
+                //let! jobToken = queue.TryDequeue()
+                if jobToken.IsSome then logger.Logf LogLevel.Debug "JobToken %A" jobToken.Value.Id
                 match jobToken with
                 | None -> return None
                 | Some token ->
-                    logger.Logf LogLevel.Debug "Changing status"
+                    logger.Logf LogLevel.Debug "Changing status to Dequeued"
                     let record = new JobRecord(token.ParentJobId, token.Id)
                     record.DequeueTime <- nullable token.DequeueTime
                     record.Status <- nullable(int JobStatus.Dequeued)
@@ -86,7 +83,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                     record.DeliveryCount <- nullable token.DeliveryCount
                     record.ETag <- "*"
                     let! _record = Table.merge config config.RuntimeTable record
-                    logger.Logf LogLevel.Debug "Changed status"
+                    logger.Logf LogLevel.Debug "Changed status successfully"
                     return Some(token :> ICloudJobLeaseToken)
             }
 

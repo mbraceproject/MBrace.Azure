@@ -35,7 +35,7 @@ let config =
 let runtime = MBraceAzure.GetHandle(config)
 runtime.Workers
 
-let task = runtime.CreateProcess(cloud { return 42 })
+let task = runtime.CreateProcess(cloud { return 42 }, faultPolicy = FaultPolicy.NoRetry)
 task.ShowInfo()
 
 task.TryGetResult()

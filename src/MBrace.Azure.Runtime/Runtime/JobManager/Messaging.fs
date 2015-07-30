@@ -279,7 +279,6 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
 
     member this.EnqueueBatch(jobs : CloudJob []) = 
         async { 
-            //logger.Logf "Creating common job file."
             let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
             let sizes = new ResizeArray<int64>(jobs.Length)
             for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
