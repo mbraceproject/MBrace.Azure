@@ -103,12 +103,13 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo)  =
                 return ()
             }
         
-        member this.DeclareFaulted(arg1 : ExceptionDispatchInfo) : Async<unit> = 
+        member this.DeclareFaulted(edi : ExceptionDispatchInfo) : Async<unit> = 
             async { 
                 do! JobLeaseMonitor.Complete(info)
                 let record = new JobRecord(info.ParentJobId, info.JobId)
                 record.Status <- nullable(int JobStatus.Faulted)
                 record.CompletionTime <- nullable(DateTimeOffset.Now)
+                record.LastException <- Config.Pickler.Pickle edi
                 record.ETag <- "*"
                 let! _record = Table.merge info.ConfigurationId info.ConfigurationId.RuntimeTable record
                 return () 

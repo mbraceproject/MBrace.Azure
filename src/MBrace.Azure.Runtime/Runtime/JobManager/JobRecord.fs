@@ -45,7 +45,7 @@ type JobRecord(parentTaskId, jobId) =
     member val DeliveryCount      = Nullable<int>() with get, set
     member val Completed          = Nullable<bool>() with get, set
     member val Type               = null : string with get, set
-    //member val Dependencies       = null : byte [] with get, set
+    member val LastException      = null : byte [] with get, set
 
     new () = new JobRecord(null, null)
 
