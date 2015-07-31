@@ -70,7 +70,6 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                     | false, _, _ -> return! topic.GetSubscription(id).TryDequeue()
                 }
                 
-                //let! jobToken = queue.TryDequeue()
                 if jobToken.IsSome then logger.Logf LogLevel.Debug "JobToken %A" jobToken.Value.Info.JobId
                 match jobToken with
                 | None -> return None

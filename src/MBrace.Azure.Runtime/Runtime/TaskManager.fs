@@ -46,7 +46,8 @@ type TaskRecord(taskId) =
     member val Name : string = null with get, set
 
     member val Status             = Nullable<int>() with get, set
-    member val InitializationTime = Nullable<DateTimeOffset>() with get, set
+    member val EnqueuedTime       = Nullable<DateTimeOffset>() with get, set
+    member val DequeuedTime       = Nullable<DateTimeOffset>() with get, set
     member val StartTime          = Nullable<DateTimeOffset>() with get, set
     member val CompletionTime     = Nullable<DateTimeOffset>() with get, set
     member val Completed          = Nullable<bool>() with get, set
@@ -124,6 +125,15 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                 let record = new TaskRecord(taskId)
                 record.Status <- nullable(TaskStatus.toInt status)
                 record.ETag <- "*"
+                let now = nullable DateTimeOffset.Now
+                match status with
+                | Posted -> record.EnqueuedTime <- now
+                | Dequeued -> record.DequeuedTime <- now
+                | Running -> record.StartTime <- now
+                | Faulted
+                | Completed
+                | UserException
+                | Canceled -> record.CompletionTime <- nullable DateTimeOffset.Now
                 let! _ = Table.merge config config.RuntimeTable record
                 return ()
             }
@@ -132,12 +142,12 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
             async {
                 let! record = getRecord()
                 let execTime =
-                    match record.Completed, record.InitializationTime, record.StartTime, record.CompletionTime with
-                    | Nullable true, Nullable _, Nullable s, Nullable c ->
+                    match record.Completed, record.StartTime, record.CompletionTime with
+                    | Nullable true, Nullable s, Nullable c ->
                         Finished(s.DateTime, c-s, c.DateTime)
-                    | Nullable false, Nullable _, Nullable s, _ ->
+                    | Nullable false, Nullable s, _ ->
                         Started(s.DateTime, DateTimeOffset.Now - s)
-                    | Nullable false, Nullable _, Null, Null ->
+                    | Nullable false, Null, Null ->
                         NotStarted
                     | _ -> 
                         let ex = RuntimeException(sprintf "Invalid record %s" record.Id)
@@ -146,7 +156,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
 
                 return { Status = TaskStatus.ofInt(record.Status.GetValueOrDefault(-1))
                          Info = (this :> ICloudTaskCompletionSource).Info
-                         ExecutionTime = execTime
+                         ExecutionTime = execTime // TODO : dequeued vs running time?
                          MaxActiveJobCount = -1
                          ActiveJobCount = record.ActiveJobs.GetValueOrDefault(-1)
                          CompletedJobCount = record.CompletedJobs.GetValueOrDefault(-1)
@@ -225,7 +235,7 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
                 record.CompletionTime <- nullableDefault
                 record.Dependencies <- pickle info.Dependencies
                 record.FaultedJobs <- nullable 0
-                record.InitializationTime <- nullable DateTimeOffset.Now
+                record.EnqueuedTime <- nullable DateTimeOffset.Now
                 record.Name <- match info.Name with Some n -> n | None -> null
                 record.Status <- nullable(TaskStatus.toInt(CloudTaskStatus.Posted))
                 record.TotalJobs <- nullable 0
