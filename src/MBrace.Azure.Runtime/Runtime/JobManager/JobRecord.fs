@@ -22,6 +22,12 @@ type internal JobStatus =
     | Completed = 4
     | Faulted   = 5
 
+type internal FaultInfo =
+    | NoFault                       = 0
+    | FaultDeclaredByWorker         = 1
+    | WorkerDeathWhileProcessingJob = 2
+    | IsTargetedJobOfDeadWorker     = 3
+
 [<AllowNullLiteral>]
 type JobRecord(parentTaskId, jobId) = 
     inherit TableEntity(JobRecord.TransformPartitionKey parentTaskId, jobId)
@@ -46,6 +52,7 @@ type JobRecord(parentTaskId, jobId) =
     member val Completed          = Nullable<bool>() with get, set
     member val Type               = null : string with get, set
     member val LastException      = null : byte [] with get, set
+    member val FaultInfo          = Nullable<int>() with get, set
 
     new () = new JobRecord(null, null)
 

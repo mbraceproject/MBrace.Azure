@@ -75,6 +75,22 @@ type internal JobLeaseMonitor private () =
                 return! subscription.CompleteAsync(token.MessageLockId)
         }
 
+    static member Abandon(token : JobLeaseTokenInfo) : Async<unit> = 
+        async { 
+            let config = token.ConfigurationId
+            match token.TargetWorker with
+            | None -> 
+                let queue = 
+                    ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+                        .QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
+                return! queue.AbandonAsync(token.MessageLockId)
+            | Some aff -> 
+                let subscription = 
+                    ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+                        .SubscriptionClient(config.RuntimeTopic, aff)
+                return! subscription.AbandonAsync(token.MessageLockId)
+        }
+
 [<AutoSerializable(true); DataContract>]
 type JobLeaseToken internal (info : JobLeaseTokenInfo)  = 
     let [<DataMember(Name="info")>] info = info
@@ -105,11 +121,12 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo)  =
         
         member this.DeclareFaulted(edi : ExceptionDispatchInfo) : Async<unit> = 
             async { 
-                do! JobLeaseMonitor.Complete(info)
+                do! JobLeaseMonitor.Abandon(info) // TODO : should this be Abandon or Complete?
                 let record = new JobRecord(info.ParentJobId, info.JobId)
                 record.Status <- nullable(int JobStatus.Faulted)
                 record.CompletionTime <- nullable(DateTimeOffset.Now)
                 record.LastException <- Config.Pickler.Pickle edi
+                record.FaultInfo <- nullable(int FaultInfo.FaultDeclaredByWorker)
                 record.ETag <- "*"
                 let! _record = Table.merge info.ConfigurationId info.ConfigurationId.RuntimeTable record
                 return () 

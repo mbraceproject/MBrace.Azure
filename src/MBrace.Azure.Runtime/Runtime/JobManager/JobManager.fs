@@ -123,6 +123,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                 newRecord.Status <- nullable(int JobStatus.Enqueued)
                 newRecord.EnqueueTime <- nullable record.Timestamp
                 newRecord.Size <- nullable metadata
+                newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
                 newRecord.ETag <- "*"
                 let! _ = Table.merge config config.RuntimeTable newRecord
                 return ()
