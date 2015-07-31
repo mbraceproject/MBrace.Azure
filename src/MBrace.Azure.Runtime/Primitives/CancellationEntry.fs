@@ -102,7 +102,7 @@ type CancellationTokenFactory private (config : ConfigurationId) =
             async {
                 let record = new CancellationTokenSourceEntity(guid(), List.empty)
                 let! _record = Table.insert config config.RuntimeTable record
-                return new CancellationEntry(config, record.PartitionKey) :> ICancellationEntry
+                return new CancellationEntry(config, record.RowKey) :> ICancellationEntry
             }
         
         member x.TryCreateLinkedCancellationEntry(parents: ICancellationEntry []): Async<ICancellationEntry option> = 
