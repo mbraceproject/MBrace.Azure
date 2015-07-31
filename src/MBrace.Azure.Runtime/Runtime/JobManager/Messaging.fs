@@ -16,9 +16,10 @@ type internal Settings private () =
     static member MaxLockDuration = WorkerManager.MaxHeartbeatTimespan // 5 minutes, max value
     static member MaxTTL = TimeSpan.MaxValue
     static member ServerWaitTime = TimeSpan.FromMilliseconds(50.)
-    static member AffinityPropertyName = "worker"
-    static member ParentTaskIdPropertyName = "parentId"
-    static member StreamOffsetPropertyName = "offset"
+    static member AffinityProperty = "worker"
+    static member ParentTaskIdProperty = "parentId"
+    static member StreamOffsetProperty = "offset"
+    static member JobIdProperty = "uuid"
     static member SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
 
 /// Info stored in BrokeredMessage.
@@ -26,6 +27,7 @@ type internal JobLeaseTokenInfo =
     {
         ConfigurationId : ConfigurationId
         JobId : string
+        ContentId : string
         MessageLockId : Guid
         ParentJobId : string
         Offset : int64 option 
@@ -87,13 +89,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo)  =
 
     do init ()
 
-    member this.Id              = info.JobId
-    member this.ConfigurationId = info.ConfigurationId
-    member this.TargetWorker    = info.TargetWorker
-    member this.MessageLockId   = info.MessageLockId
-    member this.DeliveryCount   = info.DeliveryCount
-    member this.ParentJobId     = info.ParentJobId
-    member this.DequeueTime     = info.DequeueTime
+    member internal this.Info = info
 
     interface ICloudJobLeaseToken with
         member this.DeclareCompleted() : Async<unit> = 
@@ -124,7 +120,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo)  =
         
         member this.GetJob() : Async<CloudJob> = 
             async { 
-                let blob = Blob.FromPath(info.ConfigurationId, info.ParentJobId, info.JobId)
+                let blob = Blob.FromPath(info.ConfigurationId, info.ParentJobId, info.ContentId)
                 use! stream = blob.OpenRead()
                 let _pos = 
                     match info.Offset with
@@ -169,15 +165,17 @@ type internal MessagingClient private () =
                     | true, v -> Some(v :?> 'T)
                     | false, _ -> None
         
-                let affinity = tryGet Settings.AffinityPropertyName
+                let affinity = tryGet Settings.AffinityProperty
                 let deliveryCount = message.DeliveryCount
-                let parentId = fromGuid (message.Properties.[Settings.ParentTaskIdPropertyName] :?> Guid)
-                let streamPos = tryGet Settings.StreamOffsetPropertyName
+                let parentId = fromGuid (message.Properties.[Settings.ParentTaskIdProperty] :?> Guid)
+                let streamPos = tryGet Settings.StreamOffsetProperty
                 let lockToken = message.LockToken
                 let body = fromGuid (message.GetBody<Guid>())
+                let jobId = fromGuid (message.Properties.[Settings.JobIdProperty] :?> Guid)
                 let dequeueTime = DateTimeOffset.Now
                 let info = {
-                    JobId = body
+                    JobId = jobId
+                    ContentId = body
                     ConfigurationId = config
                     MessageLockId = lockToken
                     ParentJobId = parentId
@@ -186,6 +184,7 @@ type internal MessagingClient private () =
                     DeliveryCount = deliveryCount
                     DequeueTime = dequeueTime
                 }
+                logger.Logf LogLevel.Debug "Dequeued %A" info
                 return Some(JobLeaseToken(info))
         }
 
@@ -193,9 +192,10 @@ type internal MessagingClient private () =
         async { 
             let! blob = Blob.Create(config, job.TaskEntry.Id, job.Id, fun () -> job)
             let msg = new BrokeredMessage(toGuid job.Id)
-            msg.Properties.Add(Settings.ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
+            msg.Properties.Add(Settings.JobIdProperty, toGuid job.Id)
+            msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
             match job.TargetWorker with
-            | Some target -> msg.Properties.Add(Settings.AffinityPropertyName, target.Id)
+            | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
             | _ -> ()
             do! sendF msg
             return blob.Size
@@ -214,10 +214,11 @@ type internal MessagingClient private () =
                 for job in jobs do
                     Config.Pickler.Serialize(fileStream, job, leaveOpen = true)
                     let msg = new BrokeredMessage(toGuid blobName)
-                    msg.Properties.Add(Settings.ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
-                    msg.Properties.Add(Settings.StreamOffsetPropertyName, lastPosition.Value)
+                    msg.Properties.Add(Settings.JobIdProperty, toGuid job.Id)
+                    msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
+                    msg.Properties.Add(Settings.StreamOffsetProperty, lastPosition.Value)
                     match job.TargetWorker with
-                    | Some target -> msg.Properties.Add(Settings.AffinityPropertyName, target.Id)
+                    | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
                     | _ -> ()
                     ys.Add(msg)
                     sizes.Add(fileStream.Position - lastPosition.Value)
@@ -250,7 +251,7 @@ type internal Subscription (config : ConfigurationId, workerId : IWorkerId, logg
             sd.DefaultMessageTimeToLive <- Settings.MaxTTL
             sd.LockDuration <- Settings.MaxLockDuration
             sd.AutoDeleteOnIdle <- Settings.SubscriptionAutoDeleteInterval
-            let filter = new SqlFilter(sprintf "%s = '%s'" Settings.AffinityPropertyName affinity)
+            let filter = new SqlFilter(sprintf "%s = '%s'" Settings.AffinityProperty affinity)
             ns.CreateSubscription(sd, filter) |> ignore
 
     let sub = cp.SubscriptionClient(config.RuntimeTopic, workerId.Id)
