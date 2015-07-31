@@ -71,16 +71,16 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                 }
                 
                 //let! jobToken = queue.TryDequeue()
-                if jobToken.IsSome then logger.Logf LogLevel.Debug "JobToken %A" jobToken.Value.Id
+                if jobToken.IsSome then logger.Logf LogLevel.Debug "JobToken %A" jobToken.Value.Info.JobId
                 match jobToken with
                 | None -> return None
                 | Some token ->
                     logger.Logf LogLevel.Debug "Changing status to Dequeued"
-                    let record = new JobRecord(token.ParentJobId, token.Id)
-                    record.DequeueTime <- nullable token.DequeueTime
+                    let record = new JobRecord(token.Info.ParentJobId, token.Info.JobId)
+                    record.DequeueTime <- nullable token.Info.DequeueTime
                     record.Status <- nullable(int JobStatus.Dequeued)
                     record.CurrentWorker <- subscription.Value.WorkerId.Id
-                    record.DeliveryCount <- nullable token.DeliveryCount
+                    record.DeliveryCount <- nullable token.Info.DeliveryCount
                     record.ETag <- "*"
                     let! _record = Table.merge config config.RuntimeTable record
                     logger.Logf LogLevel.Debug "Changed status successfully"
