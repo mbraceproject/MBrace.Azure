@@ -40,15 +40,20 @@ type internal JobLeaseMonitor private () =
     static member Start(message : BrokeredMessage, logger : ISystemLogger) = 
         Async.StartChild(let rec renewLoop() = 
                              async { 
-                                 try 
-                                     do! message.RenewLockAsync()
-                                 with
-                                 | :? MessageLockLostException -> 
-                                    logger.Logf LogLevel.Info "Lock lost for message %A" <| message.GetBody<string>()
+                                 let! tryRenew = message.RenewLockAsync()
+                                                 |> Async.AwaitTask
+                                                 |> Async.Catch
+                                 match tryRenew with
+                                 | Choice1Of2 () ->
+                                    do! Async.Sleep Settings.RenewLockInverval
+                                    return! renewLoop()
+                                 | Choice2Of2 ex when (ex :? MessageLockLostException) -> 
+                                    logger.Logf LogLevel.Warning "Lock lost for message %A" <| message.GetBody<string>()
                                     return ()   
-                                 | _ -> ()
-                                 do! Async.Sleep Settings.RenewLockInverval
-                                 return! renewLoop()
+                                 | Choice2Of2 ex ->
+                                    logger.LogErrorf "Lock loop for message %A failed with %A" <| message.GetBody<string>() <| ex
+                                    do! Async.Sleep Settings.RenewLockInverval
+                                    return! renewLoop()                                    
                              }
                          renewLoop())
     
@@ -169,7 +174,7 @@ type internal MessagingClient private () =
                 let parentId = fromGuid (message.Properties.[Settings.ParentTaskIdPropertyName] :?> Guid)
                 let streamPos = tryGet Settings.StreamOffsetPropertyName
                 let lockToken = message.LockToken
-                let body = message.GetBody<string>()
+                let body = fromGuid (message.GetBody<Guid>())
                 let dequeueTime = DateTimeOffset.Now
                 let info = {
                     JobId = body
@@ -187,7 +192,7 @@ type internal MessagingClient private () =
     static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
         async { 
             let! blob = Blob.Create(config, job.TaskEntry.Id, job.Id, fun () -> job)
-            let msg = new BrokeredMessage(job.Id)
+            let msg = new BrokeredMessage(toGuid job.Id)
             msg.Properties.Add(Settings.ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
             match job.TargetWorker with
             | Some target -> msg.Properties.Add(Settings.AffinityPropertyName, target.Id)
@@ -208,7 +213,7 @@ type internal MessagingClient private () =
                 let lastPosition = ref 0L
                 for job in jobs do
                     Config.Pickler.Serialize(fileStream, job, leaveOpen = true)
-                    let msg = new BrokeredMessage(blobName)
+                    let msg = new BrokeredMessage(toGuid blobName)
                     msg.Properties.Add(Settings.ParentTaskIdPropertyName, toGuid job.TaskEntry.Id)
                     msg.Properties.Add(Settings.StreamOffsetPropertyName, lastPosition.Value)
                     match job.TargetWorker with
