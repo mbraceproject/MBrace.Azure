@@ -268,8 +268,8 @@ type internal MessagingClient private () =
             let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
             let sizes = new ResizeArray<int64>(jobs.Length)
             for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
-                logger.Logf LogLevel.Info "Creating common job file for %d jobs, parent id = %O" (Seq.length jobs) parentId
                 let temp = Path.GetTempFileName()
+                logger.Logf LogLevel.Info "Creating common job file %A for %d jobs, parent id:%A" temp (Seq.length jobs) parentId
                 let fileStream = File.OpenWrite(temp)
                 let blobName = guid()
                 let lastPosition = ref 0L
@@ -288,7 +288,7 @@ type internal MessagingClient private () =
                 fileStream.Flush()
                 fileStream.Dispose()
 
-                logger.Logf LogLevel.Info "Uploading job file for parent id = %O, %s." parentId (getHumanReadableByteSize lastPosition.Value)
+                logger.Logf LogLevel.Info "Uploading job file to %A for parent id = %O, %s." blobName parentId (getHumanReadableByteSize lastPosition.Value)
                 do! Blob.UploadFromFile(config, parentId, blobName, temp)
                     |> Async.Ignore
                 File.Delete(temp)
