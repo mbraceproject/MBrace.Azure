@@ -56,11 +56,13 @@ type WorkerRecord(id) =
         p.ETag <- this.ETag
         p
 
+    override this.ToString () = sprintf "worker:%A" this.Id
+
     static member DefaultPartitionKey = "worker"
 
 [<AutoSerializable(true)>]
 type WorkerId internal (workerId) = 
-    member this.Id = workerId
+    member this.Id = sprintf "worker:%A" workerId
 
     interface IWorkerId with
         member this.CompareTo(obj: obj): int =

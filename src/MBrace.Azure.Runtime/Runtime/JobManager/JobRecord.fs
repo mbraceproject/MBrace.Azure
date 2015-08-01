@@ -56,6 +56,8 @@ type JobRecord(parentTaskId, jobId) =
 
     new () = new JobRecord(null, null)
 
+    override this.ToString() = sprintf "job:%A" jobId
+
     member this.CloneDefault() =
         let p = new JobRecord(this.PartitionKey, this.RowKey)
         p.ETag <- this.ETag

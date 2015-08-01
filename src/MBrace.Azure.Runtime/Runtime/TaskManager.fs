@@ -72,6 +72,8 @@ type TaskRecord(taskId) =
         p.ETag <- this.ETag
         p
 
+    override this.ToString() = sprintf "task:%A" taskId
+
     static member DefaultPartitionKey = "task"
 
 [<DataContract; Sealed>]
@@ -101,6 +103,8 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
 
     let getRecord () = 
         Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId
+
+    override this.ToString() = sprintf "task:%A" taskId
 
     interface ICloudTaskCompletionSource with
         member this.Id: string = taskId

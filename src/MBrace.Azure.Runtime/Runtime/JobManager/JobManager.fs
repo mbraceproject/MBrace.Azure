@@ -70,11 +70,10 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                     | false, _, _ -> return! topic.GetSubscription(id).TryDequeue()
                 }
                 
-                if jobToken.IsSome then logger.Logf LogLevel.Debug "JobToken %A" jobToken.Value.Info.JobId
                 match jobToken with
                 | None -> return None
                 | Some token ->
-                    logger.Logf LogLevel.Debug "Changing status to Dequeued"
+                    logger.Logf LogLevel.Debug "%O : changing status to Dequeued" token
                     let record = new JobRecord(token.Info.ParentJobId, token.Info.JobId)
                     record.DequeueTime <- nullable token.Info.DequeueTime
                     record.Status <- nullable(int JobStatus.Dequeued)
@@ -82,7 +81,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                     record.DeliveryCount <- nullable token.Info.DeliveryCount
                     record.ETag <- "*"
                     let! _record = Table.merge config config.RuntimeTable record
-                    logger.Logf LogLevel.Debug "Changed status successfully"
+                    logger.Logf LogLevel.Debug "%O : changed status successfully" token
                     return Some(token :> ICloudJobLeaseToken)
             }
 

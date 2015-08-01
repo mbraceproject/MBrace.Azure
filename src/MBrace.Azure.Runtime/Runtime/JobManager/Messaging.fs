@@ -107,6 +107,8 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo)  =
 
     member internal this.Info = info
 
+    override this.ToString () = sprintf "lease:%A" info.JobId
+
     interface ICloudJobLeaseToken with
         member this.DeclareCompleted() : Async<unit> = 
             async {
