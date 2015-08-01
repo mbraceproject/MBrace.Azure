@@ -62,7 +62,7 @@ type WorkerRecord(id) =
 
 [<AutoSerializable(true)>]
 type WorkerId internal (workerId) = 
-    member this.Id = sprintf "worker:%A" workerId
+    member this.Id = workerId
 
     interface IWorkerId with
         member this.CompareTo(obj: obj): int =
