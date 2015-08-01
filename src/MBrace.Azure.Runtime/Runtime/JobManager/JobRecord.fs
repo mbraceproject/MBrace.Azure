@@ -89,5 +89,5 @@ type JobRecord(parentTaskId, jobId) =
         record.DeliveryCount <- nullable 0
         record.Completed <- nullable false
         record.Type <- PrettyPrinters.Type.prettyPrint job.Type
-
+        record.FaultInfo <- nullable(int FaultInfo.NoFault)
         record

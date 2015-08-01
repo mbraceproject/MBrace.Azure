@@ -94,9 +94,9 @@ type internal JobLeaseMonitor private () =
         }
 
 [<AutoSerializable(true); DataContract>]
-type JobLeaseToken internal (info : JobLeaseTokenInfo)  = 
+type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : JobFaultInfo)  = 
     let [<DataMember(Name="info")>] info = info
-
+    let [<DataMember(Name="faultInfo")>] faultInfo = faultInfo
     let [<IgnoreDataMember>] mutable record : JobRecord = null
         
     let init () =
@@ -136,9 +136,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo)  =
                 return () 
             }
         
-        member this.FaultInfo : JobFaultInfo = 
-            // TODO : implement
-            NoFault
+        member this.FaultInfo : JobFaultInfo = faultInfo
         
         member this.GetJob() : Async<CloudJob> = 
             async { 
@@ -193,7 +191,7 @@ type internal MessagingClient private () =
                 let body = fromGuid (message.GetBody<Guid>())
                 let jobId = fromGuid (message.Properties.[Settings.JobIdProperty] :?> Guid)
                 let dequeueTime = DateTimeOffset.Now
-                let info = {
+                let jobInfo = {
                     JobId = jobId
                     ContentId = body
                     ConfigurationId = config
@@ -204,27 +202,55 @@ type internal MessagingClient private () =
                     DeliveryCount = deliveryCount
                     DequeueTime = dequeueTime
                 }
-                logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" info
+                logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" jobInfo
                 JobLeaseMonitor.Start(message, logger)
 
-                logger.Logf LogLevel.Debug "%O : changing status to Dequeued" info
-                let record = new JobRecord(info.ParentJobId, info.JobId)
-                record.DequeueTime <- nullable info.DequeueTime
+                logger.Logf LogLevel.Debug "%O : changing status to Dequeued" jobInfo
+                let record = new JobRecord(jobInfo.ParentJobId, jobInfo.JobId)
+                record.ETag <- "*"
+                record.DequeueTime <- nullable jobInfo.DequeueTime
                 record.Status <- nullable(int JobStatus.Dequeued)
                 record.CurrentWorker <- localWorkerId.Id
-                record.DeliveryCount <- nullable info.DeliveryCount
+                record.DeliveryCount <- nullable jobInfo.DeliveryCount
+                record.FaultInfo <- nullable(int FaultInfo.NoFault)
+                
+                logger.Logf LogLevel.Debug "%O : fetching FaultInfo" jobInfo
+                let! faultInfo = async {
+                    let faultCount = jobInfo.DeliveryCount - 1
+                    // On first delivery no fault
+                    if faultCount <= 1 then
+                        return NoFault
+                    else
+                        let! oldRecord = Table.read<JobRecord> config config.RuntimeTable jobInfo.ParentJobId jobInfo.JobId
+                        // two cases:
+                        match enum<FaultInfo> oldRecord.FaultInfo.Value with
+                        // either worker declared job faulted
+                        | FaultInfo.FaultDeclaredByWorker ->
+                            let lastExc = Config.Pickler.UnPickle<ExceptionDispatchInfo>(oldRecord.LastException)
+                            let lastWorker = new WorkerId(oldRecord.CurrentWorker)
+                            return FaultDeclaredByWorker(faultCount, lastExc, lastWorker)
+                        // or worker died
+                        | _ ->
+                            match jobInfo.TargetWorker with
+                            | None ->
+                                return WorkerDeathWhileProcessingJob(faultCount, new WorkerId(oldRecord.CurrentWorker))
+                            | Some target when target = localWorkerId.Id ->
+                                record.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingJob)
+                                return WorkerDeathWhileProcessingJob(faultCount, new WorkerId(oldRecord.CurrentWorker))
+                            | Some target ->
+                                record.FaultInfo <- nullable(int FaultInfo.IsTargetedJobOfDeadWorker)
+                                return IsTargetedJobOfDeadWorker(faultCount, new WorkerId(target))
+                }
 
-//                if info.DeliveryCount > 0 then
-//                    record.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingJob)
-//                    //FaultInfo.
-                record.ETag <- "*"
+                logger.Logf LogLevel.Debug "%O : extracted fault info %A" jobInfo faultInfo
                 let! _record = Table.merge config config.RuntimeTable record
-                logger.Logf LogLevel.Debug "%O : changed status successfully" info
-                return Some(JobLeaseToken(info))
+                logger.Logf LogLevel.Debug "%O : changed status successfully" jobInfo
+                return Some(JobLeaseToken(jobInfo, faultInfo))
         }
 
     static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
         async { 
+            logger.Logf LogLevel.Debug "job:%A : enqueue" job.Id
             let! blob = Blob.Create(config, job.TaskEntry.Id, job.Id, fun () -> job)
             let msg = new BrokeredMessage(toGuid job.Id)
             msg.Properties.Add(Settings.JobIdProperty, toGuid job.Id)
@@ -233,6 +259,7 @@ type internal MessagingClient private () =
             | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
             | _ -> ()
             do! sendF msg
+            logger.Logf LogLevel.Debug "job:%A : enqueue completed, size %s" job.Id (getHumanReadableByteSize blob.Size)
             return blob.Size
         }
 
