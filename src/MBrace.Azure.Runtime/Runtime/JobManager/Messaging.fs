@@ -129,7 +129,8 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : JobFaultInfo)
                 let record = new JobRecord(info.ParentJobId, info.JobId)
                 record.Status <- nullable(int JobStatus.Completed)
                 record.CompletionTime <- nullable(DateTimeOffset.Now)
-                record.ETag <- "*"
+                record.Completed <- nullable true
+                record.ETag <- "*" 
                 let! _record = Table.merge info.ConfigurationId info.ConfigurationId.RuntimeTable record
                 return ()
             }
@@ -139,6 +140,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : JobFaultInfo)
                 do! JobLeaseMonitor.Abandon(info) // TODO : should this be Abandon or Complete?
                 let record = new JobRecord(info.ParentJobId, info.JobId)
                 record.Status <- nullable(int JobStatus.Faulted)
+                record.Completed <- nullable true
                 record.CompletionTime <- nullable(DateTimeOffset.Now)
                 record.LastException <- Config.Pickler.Pickle edi
                 record.FaultInfo <- nullable(int FaultInfo.FaultDeclaredByWorker)
@@ -217,13 +219,14 @@ type internal MessagingClient private () =
                 JobLeaseMonitor.Start(message, logger)
 
                 logger.Logf LogLevel.Debug "%O : changing status to Dequeued" jobInfo
-                let record = new JobRecord(jobInfo.ParentJobId, jobInfo.JobId)
-                record.ETag <- "*"
-                record.DequeueTime <- nullable jobInfo.DequeueTime
-                record.Status <- nullable(int JobStatus.Dequeued)
-                record.CurrentWorker <- localWorkerId.Id
-                record.DeliveryCount <- nullable jobInfo.DeliveryCount
-                record.FaultInfo <- nullable(int FaultInfo.NoFault)
+                let newRecord = new JobRecord(jobInfo.ParentJobId, jobInfo.JobId)
+                newRecord.ETag <- "*"
+                newRecord.Completed <- nullable false
+                newRecord.DequeueTime <- nullable jobInfo.DequeueTime
+                newRecord.Status <- nullable(int JobStatus.Dequeued)
+                newRecord.CurrentWorker <- localWorkerId.Id
+                newRecord.DeliveryCount <- nullable jobInfo.DeliveryCount
+                newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
                 
                 logger.Logf LogLevel.Debug "%O : fetching fault info" jobInfo
                 let! faultInfo = async {
@@ -248,15 +251,15 @@ type internal MessagingClient private () =
                             | None ->
                                 return WorkerDeathWhileProcessingJob(faultCount, new WorkerId(oldRecord.CurrentWorker))
                             | Some target when target = localWorkerId.Id ->
-                                record.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingJob)
+                                newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingJob)
                                 return WorkerDeathWhileProcessingJob(faultCount, new WorkerId(oldRecord.CurrentWorker))
                             | Some target ->
-                                record.FaultInfo <- nullable(int FaultInfo.IsTargetedJobOfDeadWorker)
+                                newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedJobOfDeadWorker)
                                 return IsTargetedJobOfDeadWorker(faultCount, new WorkerId(target))
                 }
 
                 logger.Logf LogLevel.Debug "%O : extracted fault info %A" jobInfo faultInfo
-                let! _record = Table.merge config config.RuntimeTable record
+                let! _record = Table.merge config config.RuntimeTable newRecord
                 logger.Logf LogLevel.Debug "%O : changed status successfully" jobInfo
                 return Some(JobLeaseToken(jobInfo, faultInfo))
         }

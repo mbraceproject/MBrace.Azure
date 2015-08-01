@@ -131,9 +131,15 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                 record.ETag <- "*"
                 let now = nullable DateTimeOffset.Now
                 match status with
-                | Posted -> record.EnqueuedTime <- now
-                | Dequeued -> record.DequeuedTime <- now
-                | Running -> record.StartTime <- now
+                | Posted -> 
+                    record.Completed <- nullable false
+                    record.EnqueuedTime <- now
+                | Dequeued -> 
+                    record.Completed <- nullable false
+                    record.DequeuedTime <- now
+                | Running -> 
+                    record.Completed <- nullable false
+                    record.StartTime <- now
                 | Faulted
                 | Completed
                 | UserException
