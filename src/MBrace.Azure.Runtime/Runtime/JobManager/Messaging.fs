@@ -11,15 +11,25 @@ open MBrace.Runtime
 open System.Runtime.Serialization
 open System.Threading.Tasks
 
+/// Common settings for queue, topic and messages.
 type internal Settings private () = 
-    static member RenewLockInverval = 10000 // message renew interval in ms
-    static member MaxLockDuration = WorkerManager.MaxHeartbeatTimespan // 5 minutes, max value
+    /// Message lock renew interval (in milliseconds).
+    static member RenewLockInverval = 10000 
+    /// Maximum message lock duration (5 minutes is the max value).
+    static member MaxLockDuration = WorkerManager.MaxHeartbeatTimespan
+    /// Maximum message TTL.
     static member MaxTTL = TimeSpan.MaxValue
+    /// Server wait time for dequeue.
     static member ServerWaitTime = TimeSpan.FromMilliseconds(50.)
+    /// Affinity.
     static member AffinityProperty = "worker"
+    /// ParentTaskId.
     static member ParentTaskIdProperty = "parentId"
+    /// Stream offset.
     static member StreamOffsetProperty = "offset"
+    /// JobId.
     static member JobIdProperty = "uuid"
+    /// SUbscription queue auto delete interval.
     static member SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
 
 /// Info stored in BrokeredMessage.
@@ -214,7 +224,7 @@ type internal MessagingClient private () =
                 record.DeliveryCount <- nullable jobInfo.DeliveryCount
                 record.FaultInfo <- nullable(int FaultInfo.NoFault)
                 
-                logger.Logf LogLevel.Debug "%O : fetching FaultInfo" jobInfo
+                logger.Logf LogLevel.Debug "%O : fetching fault info" jobInfo
                 let! faultInfo = async {
                     let faultCount = jobInfo.DeliveryCount - 1
                     // On first delivery no fault
