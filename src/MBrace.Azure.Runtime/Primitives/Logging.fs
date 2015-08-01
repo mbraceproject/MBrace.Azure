@@ -15,11 +15,11 @@ type private LogLevel = MBrace.Runtime.LogLevel
 
 type LoggerType =
     | System of id : string
-    | CloudLog of taskId : string
+    | CloudLog of workerId : string * taskId : string
         override this.ToString() = 
             match this with
-            | System id -> sprintf "client:%s" id
-            | CloudLog id -> sprintf "cloudlog:%s" id
+            | System id -> sprintf "system:%A" id
+            | CloudLog(wid, tid) -> sprintf "cloudlog@%A:%A" wid tid
 
 type LogRecord(pk, rk, message, time, level) =
     inherit TableEntity(pk, rk)
@@ -121,8 +121,8 @@ type StorageSystemLogger private (storageConn : string, table : string, loggerTy
 
     static member Create(storageConn, table, uuid) = new StorageSystemLogger(storageConn, table, System uuid)
       
-type CloudStorageLogger(config : ConfigurationId, taskId : string) =
-    let loggerType = CloudLog taskId
+type CloudStorageLogger(config : ConfigurationId, workerId : IWorkerId, taskId : string) =
+    let loggerType = CloudLog(workerId.Id, taskId)
     let table = config.UserDataTable
     let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
 
@@ -171,8 +171,8 @@ module LoggerExtensions =
                     Console.ForegroundColor <-
                         match level with
                         | LogLevel.Error -> ConsoleColor.Red
-                        | LogLevel.Warning -> ConsoleColor.DarkYellow
-                        | LogLevel.Info -> ConsoleColor.DarkCyan
+                        | LogLevel.Warning -> ConsoleColor.Yellow
+                        | LogLevel.Info -> ConsoleColor.Cyan
                         | LogLevel.Debug -> ConsoleColor.White
                         | _ -> current
                     (logger :> ISystemLogger).LogEntry(level, time, message)

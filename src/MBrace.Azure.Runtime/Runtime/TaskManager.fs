@@ -137,7 +137,9 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                 | Faulted
                 | Completed
                 | UserException
-                | Canceled -> record.CompletionTime <- nullable DateTimeOffset.Now
+                | Canceled -> 
+                    record.Completed <- nullable true
+                    record.CompletionTime <- nullable DateTimeOffset.Now
                 let! _ = Table.merge config config.RuntimeTable record
                 return ()
             }

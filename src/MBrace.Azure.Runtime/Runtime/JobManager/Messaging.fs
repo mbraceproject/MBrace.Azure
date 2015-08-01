@@ -237,7 +237,9 @@ type internal MessagingClient private () =
                         match enum<FaultInfo> oldRecord.FaultInfo.Value with
                         // either worker declared job faulted
                         | FaultInfo.FaultDeclaredByWorker ->
-                            let lastExc = Config.Pickler.UnPickle<ExceptionDispatchInfo>(oldRecord.LastException)
+                            let lastExc =
+                                if oldRecord.LastException = null then Unchecked.defaultof<_>
+                                else Config.Pickler.UnPickle<ExceptionDispatchInfo>(oldRecord.LastException)
                             let lastWorker = new WorkerId(oldRecord.CurrentWorker)
                             return FaultDeclaredByWorker(faultCount, lastExc, lastWorker)
                         // or worker died
