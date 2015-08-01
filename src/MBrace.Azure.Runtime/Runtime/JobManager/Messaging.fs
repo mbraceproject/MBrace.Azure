@@ -53,22 +53,23 @@ type internal JobLeaseMonitor private () =
     
     static member Start(message : BrokeredMessage, logger : ISystemLogger) = 
         Async.Start(let rec renewLoop() = 
-                             async { 
-                                 let! tryRenew = message.RenewLockAsync()
-                                                 |> Async.AwaitTask
-                                                 |> Async.Catch
-                                 match tryRenew with
-                                 | Choice1Of2 () ->
-                                    do! Async.Sleep Settings.RenewLockInverval
-                                    return! renewLoop()
-                                 | Choice2Of2 ex when (ex :? MessageLockLostException) -> 
-                                    logger.Logf LogLevel.Warning "Lock lost for message %A" <| message.GetBody<string>()
-                                    return ()   
-                                 | Choice2Of2 ex ->
-                                    logger.LogErrorf "Lock loop for message %A failed with %A" <| message.GetBody<string>() <| ex
-                                    do! Async.Sleep Settings.RenewLockInverval
-                                    return! renewLoop()                                    
-                             }
+                        async { 
+                            let! tryRenew = 
+                                message.RenewLockAsync()
+                                |> Async.AwaitTask
+                                |> Async.Catch
+                            match tryRenew with
+                            | Choice1Of2 () ->
+                                do! Async.Sleep Settings.RenewLockInverval
+                                return! renewLoop()
+                            | Choice2Of2 ex when (ex :? MessageLockLostException) -> 
+                                logger.Logf LogLevel.Warning "Lock lost for message %A" <| message.GetBody<string>()
+                                return ()   
+                            | Choice2Of2 ex ->
+                                logger.LogErrorf "Lock loop for message %A failed with %A" <| message.GetBody<string>() <| ex
+                                do! Async.Sleep Settings.RenewLockInverval
+                                return! renewLoop()                                    
+                        }
                     renewLoop())
     
     static member Complete(token : JobLeaseTokenInfo) : Async<unit> = 

@@ -11,6 +11,8 @@ open MBrace.Runtime
 open System.Runtime.Serialization
 open Microsoft.WindowsAzure.Storage
 
+type private LogLevel = MBrace.Runtime.LogLevel
+
 type LoggerType =
     | System of id : string
     | CloudLog of taskId : string
@@ -161,6 +163,22 @@ type CustomLogger (f : Action<string>) =
 
 [<AutoOpen>]
 module LoggerExtensions =
+    type ConsoleLogger with
+        member logger.WithColor () =
+            { new ISystemLogger with
+                member x.LogEntry(level: LogLevel, time: DateTime, message: string): unit = 
+                    let current = Console.ForegroundColor
+                    Console.ForegroundColor <-
+                        match level with
+                        | LogLevel.Error -> ConsoleColor.Red
+                        | LogLevel.Warning -> ConsoleColor.DarkYellow
+                        | LogLevel.Info -> ConsoleColor.DarkCyan
+                        | LogLevel.Debug -> ConsoleColor.White
+                        | _ -> current
+                    (logger :> ISystemLogger).LogEntry(level, time, message)
+                    Console.ForegroundColor <- current
+            }
+    
     type AttacheableLogger with
         static member FromLoggers(loggers : ISystemLogger seq) = 
             let logger = new AttacheableLogger()

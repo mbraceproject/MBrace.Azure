@@ -19,7 +19,7 @@
             svc.MaxConcurrentJobs <- cfg.MaxTasks
             Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
 
-            svc.AttachLogger(new ConsoleLogger(true))
+            svc.AttachLogger(ConsoleLogger(true).WithColor())
             svc.Run()
             0
         with e ->
