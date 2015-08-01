@@ -80,8 +80,8 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
         member this.BatchEnqueue(jobs: CloudJob []): Async<unit> = 
             async {
                 if jobs.Length > 1024 then raise(ArgumentException(sprintf "Max batch size reached : %d/1024" jobs.Length))
-                let nQueue = jobs |> Seq.sumBy (fun j -> Convert.ToInt32 j.TargetWorker.IsSome)
-                if nQueue <> jobs.Length || nQueue <> 0 then
+                let nQueue = jobs |> Seq.sumBy (fun j -> Convert.ToInt32 j.TargetWorker.IsNone)
+                if nQueue <> jobs.Length && nQueue <> 0 then
                     raise(NotSupportedException("Jobs with mixed TargetWorker are not supported."))
 
                 let records = jobs |> Seq.map JobRecord.FromCloudJob
