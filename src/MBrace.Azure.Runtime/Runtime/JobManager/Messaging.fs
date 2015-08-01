@@ -36,11 +36,13 @@ type internal JobLeaseTokenInfo =
         DequeueTime : DateTimeOffset
     }
 
+    override this.ToString() = sprintf "leaseinfo:%A" this.JobId
+
 [<Sealed; AbstractClass>]
 type internal JobLeaseMonitor private () = 
     
     static member Start(message : BrokeredMessage, logger : ISystemLogger) = 
-        Async.StartChild(let rec renewLoop() = 
+        Async.Start(let rec renewLoop() = 
                              async { 
                                  let! tryRenew = message.RenewLockAsync()
                                                  |> Async.AwaitTask
@@ -57,7 +59,7 @@ type internal JobLeaseMonitor private () =
                                     do! Async.Sleep Settings.RenewLockInverval
                                     return! renewLoop()                                    
                              }
-                         renewLoop())
+                    renewLoop())
     
     static member Complete(token : JobLeaseTokenInfo) : Async<unit> = 
         async { 
@@ -172,14 +174,12 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo)  =
 
 [<Sealed; AbstractClass>]
 type internal MessagingClient private () =
-    static member inline TryDequeue (config : ConfigurationId, logger : ISystemLogger, workerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
+    static member inline TryDequeue (config : ConfigurationId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
         async { 
-            let! message = dequeueF()
+            let! (message : BrokeredMessage) = dequeueF()
             if message = null then 
                 return None
             else 
-                let! _ = JobLeaseMonitor.Start(message, logger)
-                
                 let tryGet name = 
                     match message.Properties.TryGetValue(name) with
                     | true, v -> Some(v :?> 'T)
@@ -204,19 +204,23 @@ type internal MessagingClient private () =
                     DeliveryCount = deliveryCount
                     DequeueTime = dequeueTime
                 }
-                logger.Logf LogLevel.Debug "Dequeued %A" info
-                let token = JobLeaseToken(info)
+                logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" info
+                JobLeaseMonitor.Start(message, logger)
 
-                logger.Logf LogLevel.Debug "%O : changing status to Dequeued" token
-                let record = new JobRecord(token.Info.ParentJobId, token.Info.JobId)
-                record.DequeueTime <- nullable token.Info.DequeueTime
+                logger.Logf LogLevel.Debug "%O : changing status to Dequeued" info
+                let record = new JobRecord(info.ParentJobId, info.JobId)
+                record.DequeueTime <- nullable info.DequeueTime
                 record.Status <- nullable(int JobStatus.Dequeued)
-                record.CurrentWorker <- workerId.Id
-                record.DeliveryCount <- nullable token.Info.DeliveryCount
+                record.CurrentWorker <- localWorkerId.Id
+                record.DeliveryCount <- nullable info.DeliveryCount
+
+//                if info.DeliveryCount > 0 then
+//                    record.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingJob)
+//                    //FaultInfo.
                 record.ETag <- "*"
                 let! _record = Table.merge config config.RuntimeTable record
-                logger.Logf LogLevel.Debug "%O : changed status successfully" token
-                return Some token
+                logger.Logf LogLevel.Debug "%O : changed status successfully" info
+                return Some(JobLeaseToken(info))
         }
 
     static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
@@ -269,13 +273,13 @@ type internal MessagingClient private () =
 
 /// Local queue subscription client
 [<AutoSerializable(false)>]
-type internal Subscription (config : ConfigurationId, workerId : IWorkerId, logger : ISystemLogger) = 
+type internal Subscription (config : ConfigurationId, localWorkerId : IWorkerId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
 
     do 
         let ns = cp.NamespaceClient
         let topic = config.RuntimeTopic
-        let affinity = workerId.Id
+        let affinity = targetWorkerId.Id
         if not <| ns.SubscriptionExists(topic, affinity) then 
             logger.Logf LogLevel.Info "Creating new subscription for %A" affinity
             let sd = new SubscriptionDescription(topic, affinity)
@@ -285,12 +289,12 @@ type internal Subscription (config : ConfigurationId, workerId : IWorkerId, logg
             let filter = new SqlFilter(sprintf "%s = '%s'" Settings.AffinityProperty affinity)
             ns.CreateSubscription(sd, filter) |> ignore
 
-    let sub = cp.SubscriptionClient(config.RuntimeTopic, workerId.Id)
-    
-    member this.WorkerId = workerId
+    let sub = cp.SubscriptionClient(config.RuntimeTopic, targetWorkerId.Id)
+
+    member this.TargetWorkerId = targetWorkerId
 
     member this.TryDequeue() : Async<JobLeaseToken option> = 
-        MessagingClient.TryDequeue(config, logger, workerId, fun () -> sub.ReceiveAsync(Settings.ServerWaitTime))
+        MessagingClient.TryDequeue(config, logger, localWorkerId, fun () -> sub.ReceiveAsync(Settings.ServerWaitTime))
         
 
 /// Local queue topic client
@@ -299,7 +303,9 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
     let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
     let topic = cp.TopicClient(config.RuntimeTopic)
     
-    member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, workerId, logger)
+    member val LocalWorkerId = Unchecked.defaultof<_> with get, set
+
+    member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, this.LocalWorkerId, workerId, logger)
     
     member this.EnqueueBatch(jobs : CloudJob []) : Async<int64 seq> = 
         MessagingClient.EnqueueBatch(config, logger, jobs, topic.SendBatchAsync)

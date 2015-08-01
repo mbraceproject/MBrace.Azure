@@ -50,8 +50,9 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
         }
 
     member this.SetLocalWorkerId(id : IWorkerId) =
-        subscription <- Some(topic.GetSubscription(id))
         queue.LocalWorkerId <- id
+        topic.LocalWorkerId <- id
+        subscription <- Some(topic.GetSubscription(id))
         Async.Start(mkLoop (queue.TryDequeue()) queueMessage)
         Async.Start(mkLoop (subscription.Value.TryDequeue()) topicMessage)
 
@@ -61,7 +62,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                 let isDefault =
                     match subscription with
                     | None -> false
-                    | Some s -> s.WorkerId = id 
+                    | Some s -> s.TargetWorkerId = id 
 
                 let! jobToken = async {
                     match isDefault, queueMessage.Value, topicMessage.Value with
