@@ -91,12 +91,14 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                         queue.EnqueueBatch(jobs)
                     else
                         topic.EnqueueBatch(jobs)
+                let now = DateTimeOffset.Now
                 let newRecords = 
                     records |> Seq.mapi (fun i r -> 
                         let newRec = r.CloneDefault()
                         newRec.ETag <- "*"
                         newRec.Status <- nullable(int JobStatus.Enqueued)
-                        newRec.EnqueueTime <- nullable r.Timestamp
+                        newRec.EnqueueTime <- nullable now
+                        newRec.FaultInfo <- nullable(int FaultInfo.NoFault)
                         newRec.Size <- nullable(Seq.nth i metadata)
                         newRec)
                 do! Table.mergeBatch config config.RuntimeTable newRecords
