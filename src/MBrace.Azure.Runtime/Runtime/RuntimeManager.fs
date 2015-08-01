@@ -45,8 +45,8 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
     member this.RuntimeManagerId = uuid
     member this.Resources = resources
 
-    member private this.SetJobQueueDefaultWorker(workerId : IWorkerId) =
-        jobManager.SetDefaultWorker(workerId)
+    member private this.SetLocalWorkerId(workerId : IWorkerId) =
+        jobManager.SetLocalWorkerId(workerId)
 
     interface IRuntimeManager with
         member this.Id                       = runtimeId :> _
@@ -91,7 +91,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
         customLogger.LogInfof "Creating RuntimeManager"
         let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLogger, resources)
-        runtime.SetJobQueueDefaultWorker(workerId)
+        runtime.SetLocalWorkerId(workerId)
         runtime
 
     static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, customLogger : ISystemLogger, customResources) =

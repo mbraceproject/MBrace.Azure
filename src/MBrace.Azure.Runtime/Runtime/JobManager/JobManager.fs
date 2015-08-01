@@ -49,8 +49,9 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
             return! mkLoop recv slot
         }
 
-    member this.SetDefaultWorker(id : IWorkerId) =
+    member this.SetLocalWorkerId(id : IWorkerId) =
         subscription <- Some(topic.GetSubscription(id))
+        queue.LocalWorkerId <- id
         Async.Start(mkLoop (queue.TryDequeue()) queueMessage)
         Async.Start(mkLoop (subscription.Value.TryDequeue()) topicMessage)
 
@@ -72,17 +73,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                 
                 match jobToken with
                 | None -> return None
-                | Some token ->
-                    logger.Logf LogLevel.Debug "%O : changing status to Dequeued" token
-                    let record = new JobRecord(token.Info.ParentJobId, token.Info.JobId)
-                    record.DequeueTime <- nullable token.Info.DequeueTime
-                    record.Status <- nullable(int JobStatus.Dequeued)
-                    record.CurrentWorker <- subscription.Value.WorkerId.Id
-                    record.DeliveryCount <- nullable token.Info.DeliveryCount
-                    record.ETag <- "*"
-                    let! _record = Table.merge config config.RuntimeTable record
-                    logger.Logf LogLevel.Debug "%O : changed status successfully" token
-                    return Some(token :> ICloudJobLeaseToken)
+                | Some token -> return Some(token :> ICloudJobLeaseToken)
             }
 
         member this.BatchEnqueue(jobs: CloudJob []): Async<unit> = 

@@ -172,7 +172,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo)  =
 
 [<Sealed; AbstractClass>]
 type internal MessagingClient private () =
-    static member inline TryDequeue (config : ConfigurationId, logger : ISystemLogger, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
+    static member inline TryDequeue (config : ConfigurationId, logger : ISystemLogger, workerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
         async { 
             let! message = dequeueF()
             if message = null then 
@@ -205,7 +205,18 @@ type internal MessagingClient private () =
                     DequeueTime = dequeueTime
                 }
                 logger.Logf LogLevel.Debug "Dequeued %A" info
-                return Some(JobLeaseToken(info))
+                let token = JobLeaseToken(info)
+
+                logger.Logf LogLevel.Debug "%O : changing status to Dequeued" token
+                let record = new JobRecord(token.Info.ParentJobId, token.Info.JobId)
+                record.DequeueTime <- nullable token.Info.DequeueTime
+                record.Status <- nullable(int JobStatus.Dequeued)
+                record.CurrentWorker <- workerId.Id
+                record.DeliveryCount <- nullable token.Info.DeliveryCount
+                record.ETag <- "*"
+                let! _record = Table.merge config config.RuntimeTable record
+                logger.Logf LogLevel.Debug "%O : changed status successfully" token
+                return Some token
         }
 
     static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
@@ -279,7 +290,7 @@ type internal Subscription (config : ConfigurationId, workerId : IWorkerId, logg
     member this.WorkerId = workerId
 
     member this.TryDequeue() : Async<JobLeaseToken option> = 
-        MessagingClient.TryDequeue(config, logger, fun () -> sub.ReceiveAsync(Settings.ServerWaitTime))
+        MessagingClient.TryDequeue(config, logger, workerId, fun () -> sub.ReceiveAsync(Settings.ServerWaitTime))
         
 
 /// Local queue topic client
@@ -318,6 +329,8 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
 type internal Queue (config : ConfigurationId, logger : ISystemLogger) = 
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
 
+    member val LocalWorkerId = Unchecked.defaultof<_> with get, set
+
     member this.EnqueueBatch(jobs : CloudJob []) = 
         MessagingClient.EnqueueBatch(config, logger, jobs, queue.SendBatchAsync)
     
@@ -325,7 +338,7 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
         MessagingClient.Enqueue(config, logger, job, queue.SendAsync)
     
     member this.TryDequeue() : Async<JobLeaseToken option> = 
-        MessagingClient.TryDequeue(config, logger, fun () -> queue.ReceiveAsync(Settings.ServerWaitTime))
+        MessagingClient.TryDequeue(config, logger, this.LocalWorkerId, fun () -> queue.ReceiveAsync(Settings.ServerWaitTime))
         
     static member Create(config : ConfigurationId, logger : ISystemLogger) = 
         async { 
