@@ -199,16 +199,13 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
 
         member this.TrySetResult(result: TaskResult): Async<bool> = 
             async {
-                let! record = getRecord()
-                if record.ResultUri = null then
-                    let blobId = guid()
-                    let! _blob = Blob.Create(config, TaskRecord.DefaultPartitionKey, blobId, fun () -> result)
-                    let newRecord = record.CloneDefault()
-                    newRecord.ResultUri <- blobId
-                    let! result = Table.tryMerge config config.RuntimeTable newRecord
-                    return result.IsSome
-                else
-                    return false
+                let record = new TaskRecord(taskId)
+                let blobId = guid()
+                let! _blob = Blob.Create(config, TaskRecord.DefaultPartitionKey, blobId, fun () -> result)
+                record.ResultUri <- blobId
+                record.ETag <- "*"
+                let! _record = Table.merge config config.RuntimeTable record
+                return true
             }
         
 

@@ -31,7 +31,7 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 //MBraceAzure.Reset(config)
-//let runtime = MBraceAzure.InitLocal(config, 1)
+//let runtime = MBraceAzure.InitLocal(config, 4)
 let runtime = MBraceAzure.GetHandle(config)
 runtime.Workers
 
@@ -41,6 +41,16 @@ task.ShowInfo()
 task.Result
 
 runtime.ShowProcessInfo()
+
+
+let task =
+    [1..10]
+    |> Seq.map(fun i -> cloud { return i })
+    |> Cloud.Parallel
+    |> runtime.CreateProcess
+
+task.Result
+
 
 
 let svc = MBrace.Azure.Runtime.Service(config, "Nemesis-10001")
