@@ -31,7 +31,7 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 //MBraceAzure.Reset(config)
-let runtime = MBraceAzure.InitLocal(config, 10)
+let runtime = MBraceAzure.InitLocal(config, 4)
 let runtime = MBraceAzure.GetHandle(config)
 runtime.Workers
 
@@ -45,8 +45,8 @@ runtime.ShowProcessInfo()
 
 let task =
     runtime.CreateProcess(
-        [1..20]
-        |> Seq.map(fun i -> cloud { return i })
+        [1..4]
+        |> Seq.map(fun i -> cloud { return! Cloud.Sleep(20000) })
         |> Cloud.Parallel, 
         faultPolicy = FaultPolicy.NoRetry)
 

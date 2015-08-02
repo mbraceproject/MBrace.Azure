@@ -83,26 +83,26 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "taskId")>] taskId = taskId
     
-//    let [<IgnoreDataMember>] mutable record = Unchecked.defaultof<Lazy<CacheAtom<TaskRecord>>>
-//    let [<IgnoreDataMember>] mutable info = Unchecked.defaultof<Lazy<CloudTaskInfo>>
-//
-//    [<OnDeserialized>]
-//    let init (_ : StreamingContext) =
-//        record <- lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId, intervalMilliseconds = 500)
-//        info <-
-//            lazy
-//                let record = Async.RunSynchronously(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
-//                { 
-//                    Name = if record.Name = null then None else Some record.Name
-//                    CancellationTokenSource =  unpickle record.CancellationTokenSource
-//                    Dependencies = unpickle record.Dependencies
-//                    ReturnTypeName = record.TypeName
-//                    ReturnType = unpickle record.Type
-//                }
-//    do init Unchecked.defaultof<_>
+    let [<IgnoreDataMember>] mutable record = Unchecked.defaultof<Lazy<CacheAtom<TaskRecord>>>
+    let [<IgnoreDataMember>] mutable info = Unchecked.defaultof<Lazy<CloudTaskInfo>>
 
-    let getRecord () = 
-        Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId
+    [<OnDeserialized>]
+    let init (_ : StreamingContext) =
+        record <- lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId, intervalMilliseconds = 200)
+        info <-
+            lazy
+                let record = Async.RunSynchronously(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
+                { 
+                    Name = if record.Name = null then None else Some record.Name
+                    CancellationTokenSource = unpickle record.CancellationTokenSource
+                    Dependencies = unpickle record.Dependencies
+                    ReturnTypeName = record.TypeName
+                    ReturnType = unpickle record.Type
+                }
+    do init Unchecked.defaultof<_>
+
+    let getRecord () = record.Value.GetValueAsync()
+        //Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId
 
     override this.ToString() = sprintf "task:%A" taskId
 
@@ -236,6 +236,7 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
         member this.CreateTask(info: CloudTaskInfo): Async<ICloudTaskCompletionSource> = 
             async {
                 let taskId = guid()
+                logger.LogInfof "task:%A : creating task" taskId
                 let record = new TaskRecord(taskId)
                 record.ActiveJobs <- nullable 0
                 record.Completed <- nullable false
@@ -253,6 +254,7 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
                 record.CancellationTokenSource <- pickle info.CancellationTokenSource
                 let! _record = Table.insertOrReplace config config.RuntimeTable record
                 let tcs = new TaskCompletionSource(config, taskId)
+                logger.LogInfof "%A : task created" tcs
                 return tcs :> ICloudTaskCompletionSource
             }
         

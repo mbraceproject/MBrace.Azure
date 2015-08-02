@@ -79,47 +79,28 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
 
         member this.BatchEnqueue(jobs: CloudJob []): Async<unit> = 
             async {
-                if jobs.Length > 1024 then raise(ArgumentException(sprintf "Max batch size reached : %d/1024" jobs.Length))
+                if jobs.Length > 1024 then 
+                    raise(NotSupportedException(sprintf "Max batch size reached : %d/1024" jobs.Length))
                 let nQueue = jobs |> Seq.sumBy (fun j -> Convert.ToInt32 j.TargetWorker.IsNone)
                 if nQueue <> jobs.Length && nQueue <> 0 then
                     raise(NotSupportedException("Jobs with mixed TargetWorker are not supported."))
+                let parentId = (Seq.head jobs).TaskEntry.Id
+                if jobs |> Seq.exists(fun j -> j.TaskEntry.Id <> parentId) then
+                    raise(NotSupportedException("Jobs with different parent TaskEntry not supported."))
 
-                let records = jobs |> Seq.map JobRecord.FromCloudJob
-                do! Table.insertBatch config config.RuntimeTable records
-                let! metadata =
-                    if nQueue = jobs.Length then
-                        queue.EnqueueBatch(jobs)
-                    else
-                        topic.EnqueueBatch(jobs)
-                let now = DateTimeOffset.Now
-                let newRecords = 
-                    records |> Seq.mapi (fun i r -> 
-                        let newRec = r.CloneDefault()
-                        newRec.ETag <- "*"
-                        newRec.Status <- nullable(int JobStatus.Enqueued)
-                        newRec.EnqueueTime <- nullable now
-                        newRec.FaultInfo <- nullable(int FaultInfo.NoFault)
-                        newRec.Size <- nullable(Seq.nth i metadata)
-                        newRec)
-                do! Table.mergeBatch config config.RuntimeTable newRecords
+                if jobs.Length = 0 then
+                    return ()
+                elif nQueue = jobs.Length then
+                    return! queue.EnqueueBatch(jobs)
+                else
+                    return! topic.EnqueueBatch(jobs)
             }
 
         member this.Enqueue(job: CloudJob): Async<unit> = 
             async {
-                let record = JobRecord.FromCloudJob(job)
-                do! Table.insert config config.RuntimeTable record
-                let! metadata = 
-                    match job.TargetWorker with
-                    | Some _ -> topic.Enqueue(job)
-                    | None   -> queue.Enqueue(job)
-                let newRecord = record.CloneDefault()
-                newRecord.Status <- nullable(int JobStatus.Enqueued)
-                newRecord.EnqueueTime <- nullable record.Timestamp
-                newRecord.Size <- nullable metadata
-                newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
-                newRecord.ETag <- "*"
-                let! _ = Table.merge config config.RuntimeTable newRecord
-                return ()
+                match job.TargetWorker with
+                | Some _ -> return! topic.Enqueue(job)
+                | None   -> return! queue.Enqueue(job)
             }
 
     static member Create(config : ConfigurationId, logger) = new JobManager(config, logger)

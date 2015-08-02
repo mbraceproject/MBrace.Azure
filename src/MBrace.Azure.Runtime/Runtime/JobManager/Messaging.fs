@@ -13,10 +13,12 @@ open System.Threading.Tasks
 
 /// Common settings for queue, topic and messages.
 type internal Settings private () = 
+    /// Max number of deliveries before deadlettering.
+    static member MaxDeliveryCount = Int32.MaxValue
     /// Message lock renew interval (in milliseconds).
     static member RenewLockInverval = 10000 
     /// Maximum message lock duration (5 minutes is the max value).
-    static member MaxLockDuration = WorkerManager.MaxHeartbeatTimespan
+    static member MaxLockDuration = TimeSpan.FromSeconds(30.)
     /// Maximum message TTL.
     static member MaxTTL = TimeSpan.MaxValue
     /// Server wait time for dequeue.
@@ -52,25 +54,28 @@ type internal JobLeaseTokenInfo =
 type internal JobLeaseMonitor private () = 
     
     static member Start(message : BrokeredMessage, logger : ISystemLogger) = 
-        Async.Start(let rec renewLoop() = 
-                        async { 
-                            let! tryRenew = 
-                                message.RenewLockAsync()
-                                |> Async.AwaitTask
-                                |> Async.Catch
-                            match tryRenew with
-                            | Choice1Of2 () ->
-                                do! Async.Sleep Settings.RenewLockInverval
-                                return! renewLoop()
-                            | Choice2Of2 ex when (ex :? MessageLockLostException) -> 
-                                logger.Logf LogLevel.Warning "Lock lost for message %A" <| message.GetBody<string>()
-                                return ()   
-                            | Choice2Of2 ex ->
-                                logger.LogErrorf "Lock loop for message %A failed with %A" <| message.GetBody<string>() <| ex
-                                do! Async.Sleep Settings.RenewLockInverval
-                                return! renewLoop()                                    
-                        }
-                    renewLoop())
+        Async.Start(
+            let jobId = fromGuid (message.Properties.[Settings.JobIdProperty] :?> Guid)
+            let rec renewLoop() = 
+                async { 
+                    let! tryRenew = 
+                        message.RenewLockAsync()
+                        |> Async.AwaitTask
+                        |> Async.Catch 
+                    match tryRenew with
+                    | Choice1Of2 () ->
+                        logger.Logf LogLevel.Debug "Lock renewed for message %A" jobId
+                        do! Async.Sleep Settings.RenewLockInverval
+                        return! renewLoop()
+                    | Choice2Of2 ex when (ex :? MessageLockLostException) -> 
+                        logger.Logf LogLevel.Warning "Lock lost for message %A" jobId
+                        message.Dispose()
+                    | Choice2Of2 ex ->
+                        logger.LogErrorf "Lock loop for message %A failed with %A" jobId ex
+                        do! Async.Sleep Settings.RenewLockInverval
+                        return! renewLoop()                                    
+                }
+            renewLoop())
     
     static member Complete(token : JobLeaseTokenInfo) : Async<unit> = 
         async { 
@@ -140,8 +145,8 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : JobFaultInfo)
                 do! JobLeaseMonitor.Abandon(info) // TODO : should this be Abandon or Complete?
                 let record = new JobRecord(info.ParentJobId, info.JobId)
                 record.Status <- nullable(int JobStatus.Faulted)
-                record.Completed <- nullable true
-                record.CompletionTime <- nullable(DateTimeOffset.Now)
+                record.Completed <- nullable false
+                record.CompletionTime <- nullableDefault
                 record.LastException <- Config.Pickler.Pickle edi
                 record.FaultInfo <- nullable(int FaultInfo.FaultDeclaredByWorker)
                 record.ETag <- "*"
@@ -227,7 +232,7 @@ type internal MessagingClient private () =
                 newRecord.CurrentWorker <- localWorkerId.Id
                 newRecord.DeliveryCount <- nullable jobInfo.DeliveryCount
                 newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
-                
+
                 logger.Logf LogLevel.Debug "%O : fetching fault info" jobInfo
                 let! faultInfo = async {
                     let faultCount = jobInfo.DeliveryCount - 1
@@ -267,6 +272,8 @@ type internal MessagingClient private () =
     static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
         async { 
             logger.Logf LogLevel.Debug "job:%A : enqueue" job.Id
+            let record = JobRecord.FromCloudJob(job)
+            do! Table.insert config config.RuntimeTable record
             let! blob = Blob.Create(config, job.TaskEntry.Id, job.Id, fun () -> job)
             let msg = new BrokeredMessage(toGuid job.Id)
             msg.Properties.Add(Settings.JobIdProperty, toGuid job.Id)
@@ -275,12 +282,21 @@ type internal MessagingClient private () =
             | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
             | _ -> ()
             do! sendF msg
+            let newRecord = record.CloneDefault()
+            newRecord.Status <- nullable(int JobStatus.Enqueued)
+            newRecord.EnqueueTime <- nullable record.Timestamp
+            newRecord.Size <- nullable blob.Size
+            newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
+            newRecord.ETag <- "*"
+            let! _record = Table.merge config config.RuntimeTable newRecord
             logger.Logf LogLevel.Debug "job:%A : enqueue completed, size %s" job.Id (getHumanReadableByteSize blob.Size)
-            return blob.Size
         }
 
     static member inline EnqueueBatch(config : ConfigurationId, logger : ISystemLogger, jobs : CloudJob [], sendF : BrokeredMessage seq -> Task) =
         async { 
+            let records = jobs |> Seq.map JobRecord.FromCloudJob
+            do! Table.insertBatch config config.RuntimeTable records
+
             let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
             let sizes = new ResizeArray<int64>(jobs.Length)
             for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
@@ -310,7 +326,18 @@ type internal MessagingClient private () =
                 File.Delete(temp)
 
             do! sendF ys
-            return sizes :> seq<int64>
+
+            let now = DateTimeOffset.Now
+            let newRecords = 
+                records |> Seq.mapi (fun i r -> 
+                    let newRec = r.CloneDefault()
+                    newRec.ETag <- "*"
+                    newRec.Status <- nullable(int JobStatus.Enqueued)
+                    newRec.EnqueueTime <- nullable now
+                    newRec.FaultInfo <- nullable(int FaultInfo.NoFault)
+                    newRec.Size <- nullable(sizes.[i])
+                    newRec)
+            return! Table.mergeBatch config config.RuntimeTable newRecords
         }
     
 
@@ -350,7 +377,7 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
 
     member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, this.LocalWorkerId, workerId, logger)
     
-    member this.EnqueueBatch(jobs : CloudJob []) : Async<int64 seq> = 
+    member this.EnqueueBatch(jobs : CloudJob []) : Async<unit> = 
         MessagingClient.EnqueueBatch(config, logger, jobs, topic.SendBatchAsync)
     
     member this.Enqueue(job : CloudJob) = 
@@ -398,7 +425,8 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
                 let qd = new QueueDescription(config.RuntimeQueue)
                 qd.EnableBatchedOperations <- true
                 qd.EnablePartitioning <- true
-                qd.DefaultMessageTimeToLive <- Settings.MaxTTL
+                qd.DefaultMessageTimeToLive <- Settings.MaxTTL 
+                qd.MaxDeliveryCount <- Settings.MaxDeliveryCount
                 qd.LockDuration <- Settings.MaxLockDuration
                 qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
                 do! ns.CreateQueueAsync(qd)
