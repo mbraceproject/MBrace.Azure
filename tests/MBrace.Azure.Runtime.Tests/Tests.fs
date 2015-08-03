@@ -55,7 +55,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
     override __.Logs = failwith "Not implemented"
     override __.FsCheckMaxTests = 4
     override __.Repeats = 1
-
+    override __.UsesSerialization = true
 
     [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
