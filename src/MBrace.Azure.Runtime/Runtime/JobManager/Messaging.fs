@@ -18,7 +18,7 @@ type internal Settings private () =
     /// Message lock renew interval (in milliseconds).
     static member RenewLockInverval = 10000 
     /// Maximum message lock duration (5 minutes is the max value).
-    static member MaxLockDuration = TimeSpan.FromSeconds(30.)
+    static member MaxLockDuration = TimeSpan.FromSeconds(60.)
     /// Maximum message TTL.
     static member MaxTTL = TimeSpan.MaxValue
     /// Server wait time for dequeue.
@@ -53,25 +53,42 @@ type internal JobLeaseTokenInfo =
 [<Sealed; AbstractClass>]
 type internal JobLeaseMonitor private () = 
     
-    static member Start(message : BrokeredMessage, logger : ISystemLogger) = 
+    static member Start(message : BrokeredMessage, token : JobLeaseTokenInfo, logger : ISystemLogger) = 
         Async.Start(
-            let jobId = fromGuid (message.Properties.[Settings.JobIdProperty] :?> Guid)
             let rec renewLoop() = 
                 async { 
+                    // NOTE : JobLeaseMonitor Complete/Abandon should
+                    // cause RenewLock to raise a MessageLostException, but this doesn't happen.
+                    // As a workaround we stop the renewLoop when the table storage record .Complete is true.
                     let! tryRenew = 
-                        message.RenewLockAsync()
-                        |> Async.AwaitTask
-                        |> Async.Catch 
+                        async {
+                            do! message.RenewLockAsync()
+                            let now = DateTimeOffset.Now
+                            let! record = Table.read<JobRecord> token.ConfigurationId token.ConfigurationId.RuntimeTable token.ParentJobId token.JobId
+                            match record.Completed, record.Status with
+                            | Nullable true, Nullable status when status = int JobStatus.Completed || status = int JobStatus.Faulted ->
+                                return true
+                            | _ ->
+                                let updated = record.CloneDefault()
+                                updated.ETag <- "*"
+                                updated.RenewLockTime <- nullable now
+                                let! _updated = Table.merge token.ConfigurationId token.ConfigurationId.RuntimeTable updated
+                                return false
+                        } |> Async.Catch 
+
                     match tryRenew with
-                    | Choice1Of2 () ->
-                        logger.Logf LogLevel.Debug "Lock renewed for message %A" jobId
+                    | Choice1Of2 false ->
+                        logger.Logf LogLevel.Debug "%A : lock renewed" token
                         do! Async.Sleep Settings.RenewLockInverval
                         return! renewLoop()
+                    | Choice1Of2 true ->
+                        logger.Logf LogLevel.Warning "%A : lock lost" token
+                        message.Dispose()
                     | Choice2Of2 ex when (ex :? MessageLockLostException) -> 
-                        logger.Logf LogLevel.Warning "Lock lost for message %A" jobId
+                        logger.Logf LogLevel.Warning "%A : lock lost" token
                         message.Dispose()
                     | Choice2Of2 ex ->
-                        logger.LogErrorf "Lock loop for message %A failed with %A" jobId ex
+                        logger.LogErrorf "%A : lock renew failed with %A" token ex
                         do! Async.Sleep Settings.RenewLockInverval
                         return! renewLoop()                                    
                 }
@@ -221,7 +238,7 @@ type internal MessagingClient private () =
                     DequeueTime = dequeueTime
                 }
                 logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" jobInfo
-                JobLeaseMonitor.Start(message, logger)
+                JobLeaseMonitor.Start(message, jobInfo, logger)
 
                 logger.Logf LogLevel.Debug "%O : changing status to Dequeued" jobInfo
                 let newRecord = new JobRecord(jobInfo.ParentJobId, jobInfo.JobId)
