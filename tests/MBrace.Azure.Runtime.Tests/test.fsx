@@ -35,6 +35,10 @@ let runtime = MBraceAzure.InitLocal(config, 4)
 let runtime = MBraceAzure.GetHandle(config)
 runtime.Workers
 
+runtime.ShowWorkerInfo()
+runtime.ShowSystemLogs()
+
+
 let task = runtime.CreateProcess(cloud { return 42 }, faultPolicy = FaultPolicy.NoRetry)
 task.ShowInfo()
 
@@ -45,10 +49,9 @@ runtime.ShowProcessInfo()
 
 let task =
     runtime.CreateProcess(
-        [1..4]
-        |> Seq.map(fun i -> cloud { return! Cloud.Sleep(20000) })
-        |> Cloud.Parallel, 
-        faultPolicy = FaultPolicy.NoRetry)
+        Cloud.ParallelEverywhere(cloud { return! Cloud.Sleep(20000) }), 
+        faultPolicy = FaultPolicy.NoRetry,
+        taskName = "foobar")
 
 task.Result
 task.ShowInfo()

@@ -27,11 +27,21 @@ open MBrace.Runtime
 /// Windows Azure Runtime client.
 /// </summary>
 [<AutoSerializable(false)>]
-type MBraceAzure private (manager : RuntimeManager) =
+type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSystemLogger) =
     inherit MBraceClient(manager)
 
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
+
+    /// <summary>
+    /// Fetches all system logs.
+    /// </summary>
+    member this.GetSystemLogs () = defaultLogger.GetLogs()
+
+    /// <summary>
+    /// Fetches and prints all system logs.
+    /// </summary>
+    member this.ShowSystemLogs () = defaultLogger.ShowLogs()
 
     /// Gets or sets the path for a local standalone worker executable.
     static member LocalWorkerExecutable
@@ -140,12 +150,14 @@ type MBraceAzure private (manager : RuntimeManager) =
     /// </summary>
     /// <param name="config">Runtime configuration.</param>
     static member GetHandle(config : Configuration) : MBraceAzure = 
-        let clientId = guid()
+        let hostProc = Diagnostics.Process.GetCurrentProcess()
+        let clientId = sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         // TODO : Add Configuration check
         let logger = new AttacheableLogger()
-        //let _ = logger.AttachLogger(StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, clientId))
+        let storageLogger = StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, clientId)
+        let _ = logger.AttachLogger(storageLogger)
         let _ = logger.AttachLogger(ConsoleLogger(true) :> ISystemLogger)
         
         let manager = RuntimeManager.CreateForClient(config, clientId, logger, ResourceRegistry.Empty)
-        let runtime = new MBraceAzure(manager)
+        let runtime = new MBraceAzure(manager, storageLogger)
         runtime

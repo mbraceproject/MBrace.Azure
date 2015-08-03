@@ -100,7 +100,7 @@ type Service (config : Configuration, serviceId : string) =
     member this.StartAsync() : Async<unit> =
         async {
             // TODO : Add Configuration check.
-            //loggers.Add(StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, serviceId))
+            loggers.Add(StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, serviceId))
             let logger = AttacheableLogger.FromLoggers(loggers)
             try
                 let sw = Stopwatch.StartNew()

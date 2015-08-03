@@ -88,7 +88,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         Config.Activate(config, true)
         customLogger.LogInfof "Creating resources"
         let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
-        customLogger.LogInfof "Creating RuntimeManager"
+        customLogger.LogInfof "Creating RuntimeManager for Worker %A" workerId
         let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLogger, resources)
         runtime.SetLocalWorkerId(workerId)
         runtime
@@ -99,7 +99,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         Config.Activate(config, false)
         customLogger.LogInfof "Creating resources"
         let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
-        customLogger.LogInfof "Creating RuntimeManager"
+        customLogger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
         let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLogger, resources)
         runtime
 
@@ -109,6 +109,6 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         Config.Activate(config, true)
         customLogger.LogInfof "Creating resources"        
         let resources = RuntimeManager.GetDefaultResources(config, customResources, false)
-        customLogger.LogInfof "Creating RuntimeManager"
+        customLogger.LogInfof "Creating RuntimeManager for Client %A" clientId
         let runtime = new RuntimeManager(config.ConfigurationId, clientId, customLogger, resources)
         runtime

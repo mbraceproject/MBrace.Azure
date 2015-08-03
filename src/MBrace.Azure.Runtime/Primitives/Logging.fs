@@ -10,6 +10,7 @@ open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
 open System.Runtime.Serialization
 open Microsoft.WindowsAzure.Storage
+open MBrace.Runtime.Utils.PrettyPrinters
 
 type private LogLevel = MBrace.Runtime.LogLevel
 
@@ -28,6 +29,19 @@ type LogRecord(pk, rk, message, time, level) =
     member val Message : string = message with get, set
     member val Time : DateTimeOffset = time with get, set
     new () = new LogRecord(null, null, null, Unchecked.defaultof<_>, -1)  
+
+type internal LogReporter() = 
+    static let template : Field<LogRecord> list = 
+        [ Field.create "Source" Left (fun p -> p.PartitionKey)
+          Field.create "Level" Left (fun p -> enum<LogLevel> p.Level)
+          Field.create "Timestamp" Right (fun p -> let pt = p.Time in pt.ToString("ddMMyyyy HH:mm:ss.fff zzz"))
+          Field.create "Message" Left (fun p -> p.Message) ]
+    
+    static member Report(logs : LogRecord seq) = 
+        let ls = logs 
+                 |> Seq.sortBy (fun l -> l.Time, l.PartitionKey)
+                 |> Seq.toList
+        Record.PrettyPrint(template, ls, "Logs", false)
 
 type private StorageLoggerMessage =
     | Flush of AsyncReplyChannel<unit>
@@ -91,7 +105,12 @@ type StorageSystemLogger private (storageConn : string, table : string, loggerTy
         member x.LogEntry(level: MBrace.Runtime.LogLevel, time: DateTime, message: string): unit = 
             log message (DateTimeOffset(time)) level
 
-    member __.GetLogs (?loggerType : LoggerType, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+    member this.ShowLogs(?loggerType : LoggerType, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+        this.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
+        |> LogReporter.Report
+        |> Console.WriteLine
+
+    member __.GetLogs(?loggerType : LoggerType, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
         let query = new TableQuery<LogRecord>()
         let lower = Guid.Empty.ToString "N"
         let upper = lower.Replace('0','f')
@@ -154,7 +173,6 @@ type CloudStorageLogger(config : ConfigurationId, workerId : IWorkerId, taskId :
             | None -> query
             | Some f -> query.Where(f)
         Table.query config table query
-
 
 type CustomLogger (f : Action<string>) =
     interface ISystemLogger with
