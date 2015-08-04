@@ -5,10 +5,8 @@ open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open Microsoft.WindowsAzure.Storage.Table
 open System
-open Nessos.Vagabond
 open System.Runtime.Serialization
 open MBrace.Runtime.Utils
-open Nessos.FsPickler
 
 // TODO
 // Add Posting status.

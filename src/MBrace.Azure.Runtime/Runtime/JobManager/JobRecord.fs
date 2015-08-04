@@ -1,12 +1,9 @@
 ﻿namespace MBrace.Azure.Runtime
 
 open MBrace.Runtime
-open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open Microsoft.WindowsAzure.Storage.Table
 open System
-open Nessos.Vagabond
-open System.Runtime.Serialization
 open MBrace.Runtime.Utils
 
 type internal JobKind =

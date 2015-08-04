@@ -5,7 +5,6 @@ open MBrace.Runtime
 open MBrace.Azure
 open System.Runtime.Serialization
 open System
-open MBrace.Azure.Runtime.Utilities
 
 [<AutoSerializable(true); DataContract; Sealed>]  
 type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
