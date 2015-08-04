@@ -52,11 +52,6 @@ type TaskRecord(taskId) =
     member val CompletionTime     = Nullable<DateTimeOffset>() with get, set
     member val Completed          = Nullable<bool>() with get, set
 
-    member val TotalJobs     = Nullable<int>() with get, set
-    member val ActiveJobs    = Nullable<int>() with get, set
-    member val CompletedJobs = Nullable<int>() with get, set
-    member val FaultedJobs   = Nullable<int>() with get, set
-
     member val CancellationTokenSource : byte [] = null with get, set
     member val ResultUri : string = null with get, set
     member val TypeName : string = null with get, set
@@ -151,7 +146,15 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
         
         member this.GetState(): Async<CloudTaskState> = 
             async {
-                let! record = getRecord()
+                // Fetch all jobRecord for with this taskId as a parent and
+                // do all the active/completed, etc calculations.
+                // TODO : use JobManager.
+                let! recordHandle = Async.StartChild(getRecord())
+                let! jobsHandle = Async.StartChild(Table.queryPK<JobRecord> config config.RuntimeTable taskId)
+
+                let! record = recordHandle
+                let! jobs = jobsHandle
+
                 let execTime =
                     match record.Completed, record.StartTime, record.CompletionTime with
                     | Nullable true, Nullable s, Nullable c ->
@@ -165,14 +168,27 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                         ex.Data.Add("record", record)
                         raise ex
 
+                let total = jobs.Length
+                let active, completed, faulted =
+                    jobs
+                    |> Array.fold (fun ((a,c,f) as state) job ->
+                        match enum<JobStatus> job.Status.Value with
+                        | JobStatus.Preparing 
+                        | JobStatus.Enqueued  -> state
+                        | JobStatus.Faulted   -> (a, c, f + 1)
+                        | JobStatus.Dequeued
+                        | JobStatus.Started   -> (a + 1, c, f)
+                        | JobStatus.Completed -> (a, c+1, f)
+                        | _ as s -> failwith "Invalid JobStatus %A" s) (0, 0, 0)
+
                 return { Status = TaskStatus.ofInt(record.Status.GetValueOrDefault(-1))
                          Info = (this :> ICloudTaskCompletionSource).Info
                          ExecutionTime = execTime // TODO : dequeued vs running time?
                          MaxActiveJobCount = -1
-                         ActiveJobCount = record.ActiveJobs.GetValueOrDefault(-1)
-                         CompletedJobCount = record.CompletedJobs.GetValueOrDefault(-1)
-                         FaultedJobCount = record.FaultedJobs.GetValueOrDefault(-1)
-                         TotalJobCount = record.TotalJobs.GetValueOrDefault(-1) }
+                         ActiveJobCount = active
+                         CompletedJobCount = completed
+                         FaultedJobCount = faulted
+                         TotalJobCount = total }
             }
 
         member this.Info: CloudTaskInfo = info.Value
@@ -229,17 +245,13 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
                 let taskId = guid()
                 logger.LogInfof "task:%A : creating task" taskId
                 let record = new TaskRecord(taskId)
-                record.ActiveJobs <- nullable 0
                 record.Completed <- nullable false
-                record.CompletedJobs <- nullable 0
                 record.StartTime <- nullableDefault
                 record.CompletionTime <- nullableDefault
                 record.Dependencies <- pickle info.Dependencies
-                record.FaultedJobs <- nullable 0
                 record.EnqueuedTime <- nullable DateTimeOffset.Now
                 record.Name <- match info.Name with Some n -> n | None -> null
                 record.Status <- nullable(TaskStatus.toInt(CloudTaskStatus.Posted))
-                record.TotalJobs <- nullable 0
                 record.Type <- pickle info.ReturnType
                 record.TypeName <- info.ReturnTypeName
                 record.CancellationTokenSource <- pickle info.CancellationTokenSource
