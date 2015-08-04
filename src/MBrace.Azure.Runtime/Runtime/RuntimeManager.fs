@@ -7,25 +7,20 @@ open System
 open MBrace.Store.Internals
 open MBrace.Azure.Store
 
-type RuntimeId private (config : ConfigurationId) =
-
-    member this.ConfigurationId = config
+type RuntimeId = 
+    private { Id : string } with
 
     interface IRuntimeId with
-        member this.CompareTo(obj : obj) : int =
-            match obj with
-            | :? RuntimeId as rId -> compare rId.ConfigurationId this.ConfigurationId
-            | _ -> 1
+        member x.Id : string = x.Id
 
-        member this.Id : string =
-            Config.Pickler.Pickle(config)
-            |> Convert.ToBase64String
+    override x.ToString() = x.Id
 
-    static member FromConfiguration(config) = new RuntimeId(config)
+    static member FromConfigurationId(config : ConfigurationId) =
+        { Id = Convert.ToBase64String(Config.Pickler.Pickle(config)) }
 
 [<AutoSerializable(false)>]
 type RuntimeManager private (config : ConfigurationId, uuid : string, logger : ISystemLogger, resources : ResourceRegistry) =
-    let runtimeId     = RuntimeId.FromConfiguration(config)
+    let runtimeId     = RuntimeId.FromConfigurationId(config)
     do logger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(config, logger)
     do logger.LogInfo "Creating job manager"

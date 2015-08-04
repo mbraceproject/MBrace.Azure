@@ -35,6 +35,21 @@ let runtime = MBraceAzure.InitLocal(config, 4)
 let runtime = MBraceAzure.GetHandle(config)
 runtime.Workers
 
+let w, r =
+    runtime.Run(
+        cloud {
+            let! workers = Cloud.GetAvailableWorkers()
+            let! results = Cloud.ParallelEverywhere Cloud.CurrentWorker
+            return results, workers
+        }) 
+
+set w = set r
+Array.map2 (fun l r -> compare l r) w r
+Array.map2 (fun l r -> l = r) w r
+
+w |> Array.map (fun ww -> ww.)
+r |> Array.map (fun ww -> ww.Type)
+
 runtime.ShowWorkerInfo()
 runtime.ShowSystemLogs()
 

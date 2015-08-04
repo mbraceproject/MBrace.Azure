@@ -120,9 +120,9 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                     return! tcs.AwaitResult()
             }
         
-        member this.DeclareCompletedJob(): Async<unit> = async.Zero()
-        member this.DeclareFaultedJob(): Async<unit> = async.Zero()
-        member this.IncrementJobCount(): Async<unit> = async.Zero()
+        member this.DeclareCompletedJob(): Async<unit> = async { return () }
+        member this.DeclareFaultedJob(): Async<unit> = async { return () }
+        member this.IncrementJobCount(): Async<unit> = async { return () }
         
         member this.DeclareStatus(status: CloudTaskStatus): Async<unit> = 
             async {
