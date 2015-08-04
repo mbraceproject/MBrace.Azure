@@ -102,7 +102,6 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
     do init Unchecked.defaultof<_>
 
     let getRecord () = record.Value.GetValueAsync()
-        //Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId
 
     override this.ToString() = sprintf "task:%A" taskId
 
@@ -176,15 +175,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                          TotalJobCount = record.TotalJobs.GetValueOrDefault(-1) }
             }
 
-        member this.Info: CloudTaskInfo = 
-            let record = Async.RunSynchronously(getRecord())
-            { 
-                Name = if record.Name = null then None else Some record.Name
-                CancellationTokenSource =  unpickle record.CancellationTokenSource
-                Dependencies = unpickle record.Dependencies
-                ReturnTypeName = record.TypeName
-                ReturnType = unpickle record.Type
-            }
+        member this.Info: CloudTaskInfo = info.Value
         
         member this.TryGetResult(): Async<TaskResult option> = 
             async {
