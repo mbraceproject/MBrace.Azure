@@ -14,7 +14,10 @@
             let ps = Process.GetCurrentProcess()
             let cfg = Arguments.Config.OfBase64Pickle args
             let config = cfg.Configuration
-            let workerId = sprintf "%s-%05d" <| System.Net.Dns.GetHostName() <| Diagnostics.Process.GetCurrentProcess().Id
+            let workerId = 
+                match cfg.Name with
+                | None -> sprintf "%s-%05d" <| System.Net.Dns.GetHostName() <| ps.Id
+                | Some n -> n
             let svc = new Service(config, workerId)
             svc.MaxConcurrentJobs <- cfg.MaxTasks
             Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id

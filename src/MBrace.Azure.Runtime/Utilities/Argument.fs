@@ -7,7 +7,11 @@ open MBrace.Runtime.Vagabond
 // TODO replace with UnionArgParser
 /// BASE64 serialized argument parsing schema
     
-type Config = { Configuration : Configuration; MaxTasks : int}
+type Config = { 
+    Configuration : Configuration
+    MaxTasks : int
+    Name : string option
+}
 with
     static member ToBase64Pickle (config : Config) =
         Config.Initialize(true)

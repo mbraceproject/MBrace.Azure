@@ -43,6 +43,39 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// </summary>
     member this.ShowSystemLogs () = defaultLogger.ShowLogs()
 
+
+
+    /// <summary>
+    /// Kill all local worker processes.
+    /// </summary>
+    member this.KillLocalWorker() =
+        let workers = this.Workers
+        let exists id hostname =
+            if Net.Dns.GetHostName() = hostname then
+                let ps = try Some <| Process.GetProcessById(id) with :? ArgumentException -> None
+                ps.IsSome
+            else false
+        workers |> Seq.filter (fun w -> exists w.ProcessId w.Hostname)    
+                |> Seq.iter this.KillLocalWorker
+
+    /// <summary>
+    /// Kill local worker process.
+    /// </summary>
+    /// <param name="worker">Local worker to kill.</param>
+    member this.KillLocalWorker(worker : WorkerRef) =
+        let hostname = System.Net.Dns.GetHostName()
+        if worker.Hostname <> hostname then
+            failwith "WorkerRef hostname %A does not match local hostname %A" worker.Hostname hostname
+        else
+            let ps = try Some <| Process.GetProcessById(worker.ProcessId) with :? ArgumentException -> None
+            match ps with
+            | Some p ->
+                (manager :> IRuntimeManager).WorkerManager.DeclareWorkerStatus(worker.WorkerId, WorkerJobExecutionStatus.Stopped)
+                |> Async.RunSync
+                p.Kill()
+            | _ ->
+                failwithf "No local process with Id = %d found." worker.ProcessId
+
     /// Gets or sets the path for a local standalone worker executable.
     static member LocalWorkerExecutable
         with get () = match localWorkerExecutable with None -> invalidOp "unset executable path." | Some e -> e
@@ -53,21 +86,26 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
                 else raise <| FileNotFoundException(path))
 
     /// Initialize a new local runtime instance with supplied worker count.
-    static member SpawnLocal(config, workerCount, ?maxTasks : int) =
+    static member SpawnLocal(config, workerCount, ?maxTasks : int, ?workerNameF : int -> string) =
         let exe = MBraceAzure.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
-        let cfg = { Arguments.Configuration = config; Arguments.MaxTasks = defaultArg maxTasks Environment.ProcessorCount}
+        let cfg = { Arguments.Configuration = config; Arguments.MaxTasks = defaultArg maxTasks Environment.ProcessorCount; Name = None}
         do Async.RunSync(Config.ActivateAsync(config.WithAppendedId, true))
-        let args = Config.ToBase64Pickle cfg
-        let psi = new ProcessStartInfo(exe, args)
-        psi.WorkingDirectory <- Path.GetDirectoryName exe
-        psi.UseShellExecute <- true
-        let _ = Array.Parallel.init workerCount (fun _ -> Process.Start psi)
+        let _ = Array.Parallel.init workerCount (fun i -> 
+            let conf =
+                match workerNameF with
+                | None -> cfg
+                | Some f -> {cfg with Name = Some(f(i)) }
+            let args = Config.ToBase64Pickle conf
+            let psi = new ProcessStartInfo(exe, args)
+            psi.WorkingDirectory <- Path.GetDirectoryName exe
+            psi.UseShellExecute <- true
+            Process.Start psi)
         ()
 
     /// Initialize a new local runtime instance with supplied worker count and return a handle.
-    static member InitLocal(config, workerCount : int, ?maxTasks : int) : MBraceAzure =
-        MBraceAzure.SpawnLocal(config, workerCount, ?maxTasks = maxTasks)
+    static member InitLocal(config, workerCount : int, ?maxTasks : int, ?workerNameF) : MBraceAzure =
+        MBraceAzure.SpawnLocal(config, workerCount, ?maxTasks = maxTasks, ?workerNameF = workerNameF)
         MBraceAzure.GetHandle(config)
 
 

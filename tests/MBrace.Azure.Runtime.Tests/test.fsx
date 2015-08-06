@@ -31,7 +31,7 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 //MBraceAzure.Reset(config)
-let runtime = MBraceAzure.InitLocal(config, 1)
+let runtime = MBraceAzure.InitLocal(config, 2)
 let runtime = MBraceAzure.GetHandle(config)
 runtime.Workers
 
@@ -45,8 +45,8 @@ let workflow =
         return 42
     }
 
-let task = runtime.CreateProcess(workflow, faultPolicy = FaultPolicy.InfiniteRetry())
-
+let task = runtime.CreateProcess(workflow, faultPolicy = FaultPolicy.NoRetry)
+task.Result
 
 
 
