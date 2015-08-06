@@ -240,7 +240,7 @@ type internal MessagingClient private () =
                 logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" jobInfo
                 JobLeaseMonitor.Start(message, jobInfo, logger)
 
-                logger.Logf LogLevel.Debug "%O : changing status to Dequeued" jobInfo
+                logger.Logf LogLevel.Debug "%O : changing status to %A" jobInfo JobStatus.Dequeued
                 let newRecord = new JobRecord(jobInfo.ParentJobId, jobInfo.JobId)
                 newRecord.ETag <- "*"
                 newRecord.Completed <- nullable false
@@ -252,9 +252,10 @@ type internal MessagingClient private () =
 
                 logger.Logf LogLevel.Debug "%O : fetching fault info" jobInfo
                 let! faultInfo = async {
+                    logger.Logf LogLevel.Debug "%O : delivery count = %d" jobInfo jobInfo.DeliveryCount
                     let faultCount = jobInfo.DeliveryCount - 1
                     // On first delivery no fault
-                    if faultCount <= 1 then
+                    if faultCount = 0 then
                         return NoFault
                     else
                         let! oldRecord = Table.read<JobRecord> config config.RuntimeTable jobInfo.ParentJobId jobInfo.JobId

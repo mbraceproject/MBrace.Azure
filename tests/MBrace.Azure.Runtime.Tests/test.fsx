@@ -31,12 +31,38 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 //MBraceAzure.Reset(config)
-let runtime = MBraceAzure.InitLocal(config, 4)
+let runtime = MBraceAzure.InitLocal(config, 1)
 let runtime = MBraceAzure.GetHandle(config)
 runtime.Workers
 
 runtime.ShowWorkerInfo()
 runtime.ShowSystemLogs()
+
+
+let workflow =
+    cloud {
+        do! Cloud.Sleep 30000
+        return 42
+    }
+
+let task = runtime.CreateProcess(workflow, faultPolicy = FaultPolicy.InfiniteRetry())
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 let task = runtime.CreateProcess(cloud { return 42 }, faultPolicy = FaultPolicy.NoRetry)
