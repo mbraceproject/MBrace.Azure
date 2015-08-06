@@ -33,17 +33,35 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
 
-    /// <summary>
-    /// Fetches all system logs.
-    /// </summary>
-    member this.GetSystemLogs () = defaultLogger.GetLogs()
 
     /// <summary>
-    /// Fetches and prints all system logs.
+    /// Get runtime logs.
     /// </summary>
-    member this.ShowSystemLogs () = defaultLogger.ShowLogs()
+    /// <param name="worker">Get logs from specific worker.</param>
+    /// <param name="fromDate">Get logs from this date.</param>
+    /// <param name="toDate">Get logs until this date.</param>
+    member this.GetSystemLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
+        let loggerType = worker |> Option.map (fun w -> System w.Id)
+        defaultLogger.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
 
+    /// <summary>
+    /// Print runtime logs.
+    /// </summary>
+    /// <param name="worker">Get logs from specific worker.</param>
+    /// <param name="fromDate">Get logs from this date.</param>
+    /// <param name="toDate">Get logs until this date.</param>
+    member this.ShowSystemLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+        let loggerType = worker |> Option.map (fun w -> System w.Id)
+        defaultLogger.ShowLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
 
+    /// <summary>
+    /// Print runtime logs.
+    /// </summary>
+    /// <param name="worker">Get logs from specific worker.</param>
+    /// <param name="n">Get logs written the last n seconds.</param>
+    member this.ShowSystemLogs(n : float, ?worker : IWorkerRef) =
+        let fromDate = DateTimeOffset.Now - (TimeSpan.FromSeconds n)
+        this.ShowSystemLogs(?worker = worker, fromDate = fromDate)
 
     /// <summary>
     /// Kill all local worker processes.
