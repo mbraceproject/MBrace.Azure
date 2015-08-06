@@ -6,6 +6,10 @@ MBrace.Azure
 
 Windows Azure PaaS implementation of the [MBrace.Core/Runtime](https://github.com/mbraceproject/MBrace.Core).
 
+### Road map
+
+See [ROADMAP.md](ROADMAP.md)
+
 ### Build Status
 
 Head (branch master), Build only
