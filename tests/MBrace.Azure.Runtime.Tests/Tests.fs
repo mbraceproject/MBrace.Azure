@@ -13,7 +13,7 @@ open MBrace.Azure.Runtime
 
 [<AbstractClass; TestFixture>]
 type ``Azure Runtime Tests`` (sbus, storage) as self =
-    inherit ``Parallelism Tests`` (parallelismFactor = 4, delayFactor = 10000)
+    inherit ``Parallelism Tests`` (parallelismFactor = 4, delayFactor = 6000)
     
     let config = 
         { Configuration.Default with
