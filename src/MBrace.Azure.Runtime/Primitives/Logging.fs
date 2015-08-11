@@ -17,25 +17,31 @@ type private LogLevel = MBrace.Runtime.LogLevel
 type LoggerType =
     | System of id : string
     | CloudLog of workerId : string * taskId : string
-        override this.ToString() = 
+        member this.ToPartitionKey() = 
             match this with
             | System id -> sprintf "system:%A" id
-            | CloudLog(wid, tid) -> sprintf "cloudlog@%A:%A" wid tid
+            | CloudLog(_, tid) -> sprintf "cloudlog:%A" tid
+        member this.LoggerId =
+            match this with
+            | System id | CloudLog(id, _) -> id
 
-type LogRecord(pk, rk, message, time, level) =
+type LogRecord(pk, rk, message, time, level, loggerId, isSysLog) =
     inherit TableEntity(pk, rk)
     
-    member val Level : int = level with get, set
+    member val Level : int = level with get, set 
     member val Message : string = message with get, set
     member val Time : DateTimeOffset = time with get, set
-    new () = new LogRecord(null, null, null, Unchecked.defaultof<_>, -1)  
+    member val LoggerId : string = loggerId with get, set
+    member val IsSystemLog : bool = isSysLog with get, set
+    new () = new LogRecord(null, null, null, Unchecked.defaultof<_>, -1, null, true)  
 
 type internal LogReporter() = 
     static let template : Field<LogRecord> list = 
-        [ Field.create "Source" Left (fun p -> p.PartitionKey)
+        [ Field.create "Source" Left (fun p ->
+            if p.IsSystemLog then p.PartitionKey else sprintf "%s@%s"p.PartitionKey p.LoggerId)
+          Field.create "Message" Left (fun p -> p.Message)
           Field.create "Level" Left (fun p -> enum<LogLevel> p.Level)
-          Field.create "Timestamp" Right (fun p -> let pt = p.Time in pt.ToString("ddMMyyyy HH:mm:ss.fff zzz"))
-          Field.create "Message" Left (fun p -> p.Message) ]
+          Field.create "Timestamp" Right (fun p -> let pt = p.Time in pt.ToString("ddMMyyyy HH:mm:ss.fff zzz")) ]
     
     static member Report(logs : LogRecord seq) = 
         let ls = logs 
@@ -98,7 +104,7 @@ type StorageSystemLogger private (storageConn : string, table : string, loggerTy
     let _onDeserialized (_ : StreamingContext) = init ()
 
     let log msg time level = 
-        let e = new LogRecord(string loggerType, timeToRK time (guid()), msg, time, int level)
+        let e = new LogRecord(loggerType.ToPartitionKey(), timeToRK time (guid()), msg, time, int level, loggerType.LoggerId, true)
         agent.Post(Log e)
 
     interface ISystemLogger with
@@ -148,16 +154,20 @@ type CloudStorageLogger(config : ConfigurationId, workerId : IWorkerId, taskId :
     interface ICloudLogger with
         override __.Log(entry : string) : unit = 
             let time = DateTimeOffset.UtcNow
-            let e = new LogRecord(string loggerType, timeToRK time (guid()), entry, DateTimeOffset.UtcNow, int LogLevel.None)
+            let e = new LogRecord(loggerType.ToPartitionKey(), timeToRK time (guid()), entry, DateTimeOffset.UtcNow, int LogLevel.None, loggerType.LoggerId, false)
             Async.RunSync(Table.insert<LogRecord> config table e)
+
+    member this.ShowLogs(?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+        Async.RunSync(this.GetLogs(?fromDate = fromDate, ?toDate = toDate))
+        |> LogReporter.Report
+        |> Console.WriteLine
 
     member __.GetLogs (?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
         let query = new TableQuery<LogRecord>()
-        let loggerType = Some loggerType
         let lower = Guid.Empty.ToString "N"
         let upper = lower.Replace('0','f')
         let filters = 
-            [ loggerType |> Option.map (fun pk -> TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, string pk))
+            [ Some(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, loggerType.ToPartitionKey()))
               fromDate   |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, timeToRK t lower))
               toDate     |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, timeToRK t upper)) ]
         let filter = 
@@ -171,7 +181,7 @@ type CloudStorageLogger(config : ConfigurationId, workerId : IWorkerId, taskId :
         let query =
             match filter with
             | None -> query
-            | Some f -> query.Where(f)
+            | Some f -> query.Where(f) 
         Table.query config table query
 
 type CustomLogger (f : Action<string>) =

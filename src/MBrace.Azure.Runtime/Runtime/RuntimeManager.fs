@@ -39,6 +39,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
 
     member this.RuntimeManagerId = uuid
     member this.Resources = resources
+    member this.ConfigurationId = config
 
     member private this.SetLocalWorkerId(workerId : IWorkerId) =
         jobManager.SetLocalWorkerId(workerId)

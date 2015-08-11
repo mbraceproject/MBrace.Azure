@@ -33,6 +33,43 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
 
+    /// <summary>
+    /// Fetch cloud logs for given task.
+    /// </summary>
+    /// <param name="taskId">Task Id.</param>
+    /// <param name="fromDate">Get logs starting from this date.</param>
+    /// <param name="toDate">Get logs until this date.</param>
+    member this.GetCloudLogs(taskId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : seq<LogRecord> =
+        let logger = CloudStorageLogger(manager.ConfigurationId, Unchecked.defaultof<_>, taskId)
+        Async.RunSync(logger.GetLogs(?fromDate = fromDate, ?toDate = toDate)) :> _
+
+    /// <summary>
+    /// Fetch cloud logs for given task.
+    /// </summary>
+    /// <param name="taskId">CloudTask.</param>
+    /// <param name="fromDate">Get logs starting from this date.</param>
+    /// <param name="toDate">Get logs until this date.</param>
+    member this.GetCloudLogs(task : CloudTask, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+        this.GetCloudLogs(task.Id, ?fromDate = fromDate, ?toDate = toDate)
+
+    /// <summary>
+    /// Print cloud logs for given task.
+    /// </summary>
+    /// <param name="taskId">Task Id.</param>
+    /// <param name="fromDate">Get logs starting from this date.</param>
+    /// <param name="toDate">Get logs until this date.</param>
+    member this.ShowCloudLogs(taskId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+        let logger = CloudStorageLogger(manager.ConfigurationId, Unchecked.defaultof<_>, taskId)
+        logger.ShowLogs(?fromDate = fromDate, ?toDate = toDate) 
+        
+    /// <summary>
+    /// Show cloud logs for given task.
+    /// </summary>
+    /// <param name="taskId">CloudTask.</param>
+    /// <param name="fromDate">Get logs starting from this date.</param>
+    /// <param name="toDate">Get logs until this date.</param>
+    member this.ShowCloudLogs(task : CloudTask, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+        this.ShowCloudLogs(task.Id, ?fromDate = fromDate, ?toDate = toDate) 
 
     /// <summary>
     /// Get runtime logs.
@@ -40,7 +77,7 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// <param name="worker">Get logs from specific worker.</param>
     /// <param name="fromDate">Get logs from this date.</param>
     /// <param name="toDate">Get logs until this date.</param>
-    member this.GetSystemLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) = 
+    member this.GetSystemLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : seq<_> = 
         let loggerType = worker |> Option.map (fun w -> System w.Id)
         defaultLogger.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
 
