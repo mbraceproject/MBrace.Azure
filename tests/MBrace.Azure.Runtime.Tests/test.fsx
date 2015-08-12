@@ -31,7 +31,7 @@ let config =
         ServiceBusConnectionString = selectEnv "azureservicebusconn" }
 
 //MBraceAzure.Reset(config)
-let runtime = MBraceAzure.InitLocal(config, 2)
+let runtime = MBraceAzure.InitLocal(config, 4)
 let runtime = MBraceAzure.GetHandle(config)
 runtime.Workers
 
@@ -48,10 +48,14 @@ let workflow =
 let task = runtime.CreateProcess(workflow, faultPolicy = FaultPolicy.NoRetry)
 task.Result
 
+let t = runtime.CreateProcess(Cloud.Log "foobar")
+
+runtime.ShowCloudLogs(t)
+t.Id
+t.ShowInfo()
 
 
-
-
+runtime.ShowSystemLogs()
 
 
 

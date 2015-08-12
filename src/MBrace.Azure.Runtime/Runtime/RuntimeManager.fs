@@ -57,7 +57,14 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         member this.ResetClusterState()      = failwith "Not implemented yet"
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
-        member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = CloudStorageLogger(config, worker, job.Id) :> _
+        member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = 
+            let cloudLogger = CloudStorageLogger(config, worker, job.TaskEntry.Id)
+            let consoleLogger = new ConsoleLogger(showDate = true)
+            
+            { new ICloudLogger with
+                  member x.Log(entry : string) : unit = 
+                      consoleLogger.Log LogLevel.None entry
+                      (cloudLogger :> ICloudLogger).Log(entry) }
 
     static member private GetDefaultResources(config : Configuration, customResources : ResourceRegistry, includeCache : bool) =
         let storeConfig = CloudFileStoreConfiguration.Create(BlobStore.Create(config.StorageConnectionString), config.UserDataContainer)

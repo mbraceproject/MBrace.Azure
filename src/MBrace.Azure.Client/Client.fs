@@ -40,7 +40,11 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// <param name="fromDate">Get logs starting from this date.</param>
     /// <param name="toDate">Get logs until this date.</param>
     member this.GetCloudLogs(taskId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : seq<LogRecord> =
-        let logger = CloudStorageLogger(manager.ConfigurationId, Unchecked.defaultof<_>, taskId)
+        let emptyWorkerId = { new IWorkerId with
+                                  member x.CompareTo(obj: obj): int = -1
+                                  member x.Id: string = String.Empty
+                            }
+        let logger = CloudStorageLogger(manager.ConfigurationId, emptyWorkerId , taskId)
         Async.RunSync(logger.GetLogs(?fromDate = fromDate, ?toDate = toDate)) :> _
 
     /// <summary>
@@ -59,7 +63,11 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// <param name="fromDate">Get logs starting from this date.</param>
     /// <param name="toDate">Get logs until this date.</param>
     member this.ShowCloudLogs(taskId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
-        let logger = CloudStorageLogger(manager.ConfigurationId, Unchecked.defaultof<_>, taskId)
+        let emptyWorkerId = { new IWorkerId with
+                                member x.CompareTo(obj: obj): int = -1
+                                member x.Id: string = String.Empty
+                            }
+        let logger = CloudStorageLogger(manager.ConfigurationId, emptyWorkerId, taskId)
         logger.ShowLogs(?fromDate = fromDate, ?toDate = toDate) 
         
     /// <summary>

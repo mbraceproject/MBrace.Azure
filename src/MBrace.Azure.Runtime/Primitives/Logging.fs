@@ -19,8 +19,8 @@ type LoggerType =
     | CloudLog of workerId : string * taskId : string
         member this.ToPartitionKey() = 
             match this with
-            | System id -> sprintf "system:%A" id
-            | CloudLog(_, tid) -> sprintf "cloudlog:%A" tid
+            | System id -> sprintf "systemlog:%s" id
+            | CloudLog(_, tid) -> sprintf "cloudlog:%s" tid
         member this.LoggerId =
             match this with
             | System id | CloudLog(id, _) -> id
@@ -121,7 +121,7 @@ type StorageSystemLogger private (storageConn : string, table : string, loggerTy
         let lower = Guid.Empty.ToString "N"
         let upper = lower.Replace('0','f')
         let filters = 
-            [ loggerType |> Option.map (fun pk -> TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, string pk))
+            [ loggerType |> Option.map (fun pk -> TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk.ToPartitionKey()))
               fromDate   |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, timeToRK t lower))
               toDate     |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, timeToRK t upper)) ]
         let filter = 
@@ -198,11 +198,11 @@ module LoggerExtensions =
                     let current = Console.ForegroundColor
                     Console.ForegroundColor <-
                         match level with
-                        | LogLevel.Error -> ConsoleColor.Red
+                        | LogLevel.Error   -> ConsoleColor.Red
                         | LogLevel.Warning -> ConsoleColor.Yellow
-                        | LogLevel.Info -> ConsoleColor.Cyan
-                        | LogLevel.Debug -> ConsoleColor.White
-                        | _ -> current
+                        | LogLevel.Info    -> ConsoleColor.Cyan
+                        | LogLevel.Debug   -> ConsoleColor.White
+                        | _                -> current
                     (logger :> ISystemLogger).LogEntry(level, time, message)
                     Console.ForegroundColor <- current
             }
