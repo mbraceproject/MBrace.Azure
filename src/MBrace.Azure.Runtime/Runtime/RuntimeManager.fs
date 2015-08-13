@@ -41,6 +41,49 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
     member this.Resources = resources
     member this.ConfigurationId = config
 
+    member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, force) =
+        async {
+            if not force then
+                let! workers = workerManager.GetAllWorkers()
+                if  workers.Length > 0 then
+                    let exc = RuntimeException(sprintf "Found %d active workers. Shutdown workers first or 'force' reset." workers.Length)
+                    logger.LogError exc.Message
+                    return! Async.Raise exc
+             
+            
+            if deleteQueues then 
+                logger.LogWarning "Deleting Queues."
+                do! Config.DeleteRuntimeQueues(config)
+            
+            if deleteState then 
+                logger.LogWarning "Deleting Container and Table."
+                do! Config.DeleteRuntimeState(config)
+            
+            if deleteLogs then 
+                logger.LogWarning "Deleting Logs."
+                do! Config.DeleteRuntimeLogs(config)
+
+            if deleteUserData then 
+                logger.LogWarning "Deleting UserData."
+                do! Config.DeleteUserData(config)
+            
+            logger.LogInfo "Reactivating configuration."
+            let rec loop retryCount = async {
+                logger.LogInfof "RetryCount %d." retryCount
+                let! step2 = Async.Catch <| Config.ReactivateAsync(config)
+                match step2 with
+                | Choice1Of2 _ -> 
+                    logger.LogInfo "Done."
+                | Choice2Of2 ex ->
+                    logger.LogWarningf "Failed with %A\nWaiting." ex
+                    do! Async.Sleep 10000
+                    return! loop (retryCount + 1)
+            }
+            do! loop 0
+
+            return ()
+        }
+
     member private this.SetLocalWorkerId(workerId : IWorkerId) =
         jobManager.SetLocalWorkerId(workerId)
 
@@ -54,7 +97,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         member this.SystemLogger             = logger
         member this.CancellationEntryFactory = cancellationEntryFactory
         member this.CounterFactory           = int32CounterFactory
-        member this.ResetClusterState()      = failwith "Not implemented yet"
+        member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false)
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
         member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = 

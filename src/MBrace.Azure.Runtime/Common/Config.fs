@@ -299,6 +299,13 @@ type Config private () =
 
     static member Initialize(populateDirs) = initialize populateDirs
 
+    static member ReactivateAsync(config : ConfigurationId) =
+        async {
+            checkInitialized()
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+            do! cp.InitAll()        
+        }
+
     /// Activates the given configuration.
     static member ActivateAsync(config : Configuration, populateDirs) : Async<unit> =
       async {
@@ -312,33 +319,33 @@ type Config private () =
     static member Activate(config) = Async.RunSynchronously(Config.ActivateAsync(config))
 
     /// Delete Runtime Queue and Topic.
-    static member DeleteRuntimeQueues (config : Configuration) =
+    static member DeleteRuntimeQueues (config : ConfigurationId) =
         async {
             checkInitialized()
-            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearRuntimeQueues()
         }
 
     /// Delete Runtime container and table.
-    static member DeleteRuntimeState (config : Configuration) =
+    static member DeleteRuntimeState (config : ConfigurationId) =
         async {
             checkInitialized()
-            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearRuntimeState()
         }
 
     /// Delete UserData folder.
-    static member DeleteUserData (config : Configuration) =
+    static member DeleteUserData (config : ConfigurationId) =
         async {
             checkInitialized()
-            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearUserData()
         }
 
     /// Delete RuntimeLogs table.
-    static member DeleteRuntimeLogs (config : Configuration) =
+    static member DeleteRuntimeLogs (config : ConfigurationId) =
         async {
             checkInitialized()
-            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearRuntimeLogs()
         }
