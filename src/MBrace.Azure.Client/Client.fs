@@ -33,6 +33,9 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
 
+    /// Current client instance identifier.
+    member this.ClientId = manager.RuntimeManagerId
+
     /// <summary>
     /// Fetch cloud logs for given task.
     /// </summary>
@@ -170,28 +173,6 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     static member InitLocal(config, workerCount : int, ?maxTasks : int, ?workerNameF) : MBraceAzure =
         MBraceAzure.SpawnLocal(config, workerCount, ?maxTasks = maxTasks, ?workerNameF = workerNameF)
         MBraceAzure.GetHandle(config)
-
-
-//    /// <summary>
-//    /// Delete and re-activate runtime state.
-//    /// Using 'Reset' may cause unexpected behavior in clients and workers.
-//    /// Workers should be restarted manually.</summary>
-//    /// <param name="deleteQueue">Delete runtime queues. Defaults to true.</param>
-//    /// <param name="deleteState">Delete runtime container and table. Defaults to true.</param>
-//    /// <param name="deleteLogs">Delete runtime logs table. Defaults to true.</param>
-//    /// <param name="deleteUserData">Delete Configuration.UserData container and table. Defaults to true.</param>
-//    /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
-//    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-//    member this.Reset(?deleteQueue, ?deleteState, ?deleteLogs, ?deleteUserData, ?reactivate) =
-//        async {
-//            let deleteState = defaultArg deleteState true
-//            let deleteQueue = defaultArg deleteQueue true
-//            let deleteUserData = defaultArg deleteUserData true
-//            let deleteLogs = defaultArg deleteLogs true
-//            let reactivate = defaultArg reactivate true
-//            MBraceAzure.Reset(manager., deleteQueue = deleteQueue, deleteState = deleteState, deleteLogs = deleteLogs, deleteUserData = deleteUserData, reactivate = reactivate)
-//        } |> Async.RunSync
-
 
     /// Delete and reactivate runtime state (queues, containers, tables and logs but not user folders).
     /// Using 'Reset' may cause unexpected behavior in clients and workers.

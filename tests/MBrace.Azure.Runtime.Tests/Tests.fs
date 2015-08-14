@@ -13,7 +13,7 @@ open MBrace.Azure.Runtime
 
 [<AbstractClass; TestFixture>]
 type ``Azure Runtime Tests`` (sbus, storage) as self =
-    inherit ``Parallelism Tests`` (parallelismFactor = 4, delayFactor = 6000)
+    inherit ``Parallelism Tests`` (parallelismFactor = 4, delayFactor = 10000)
     
     let config = 
         { Configuration.Default with
@@ -23,7 +23,6 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
     let session = new RuntimeSession(config)
 
     let run (wf : Cloud<'T>) = self.Run wf
-    let repeat f = repeat self.Repeats f
 
     member __.Configuration = config
 
@@ -52,7 +51,7 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
 
     override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
 
-    override __.Logs = failwith "Not implemented"
+    override __.Logs = session.Logger
     override __.FsCheckMaxTests = 4
     override __.Repeats = 1
     override __.UsesSerialization = true
