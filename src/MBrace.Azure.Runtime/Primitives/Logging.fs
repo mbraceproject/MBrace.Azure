@@ -202,7 +202,8 @@ module LoggerExtensions =
                         | LogLevel.Warning -> ConsoleColor.Yellow
                         | LogLevel.Info    -> ConsoleColor.Cyan
                         | LogLevel.Debug   -> ConsoleColor.White
-                        | _                -> current
+                        | LogLevel.None    -> ConsoleColor.Gray
+                        | _                -> failwithf "Invalid LogLevel %A" level
                     (logger :> ISystemLogger).LogEntry(level, time, message)
                     Console.ForegroundColor <- current
             }
