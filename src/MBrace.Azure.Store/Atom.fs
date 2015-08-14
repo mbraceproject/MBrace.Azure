@@ -37,8 +37,8 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
     interface ICloudAtom<'T> with
 
         member this.Id = sprintf "%s/%s/%s" table pk rk
-
-        member this.Update(updater: 'T -> 'T, ?maxRetries : int): Local<unit> = 
+        
+        member x.Transact(transaction: 'T -> 'R * 'T, maxRetries: int option): Async<'R> = 
             async {
                 let interval = let r = new Random() in r.Next(2,10) 
                 let maxInterval = 5000
@@ -49,42 +49,41 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
                     else
                         let! e = Table.read<FatEntity> client table pk rk
                         let oldValue = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload()) 
-                        let newValue = updater oldValue
+                        let returnValue, newValue = transaction oldValue
                         let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
                         let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = e.ETag)
                         let! result = Async.Catch <| Table.merge client table e
                         match result with
-                        | Choice1Of2 _ -> return ()
+                        | Choice1Of2 _ -> return returnValue
                         | Choice2Of2 e when Table.PreconditionFailed e -> 
                             do! Async.Sleep currInterval
                             return! update (min (interval * currInterval) maxInterval) (count+1)
                         | Choice2Of2 e -> return raise e
                 }
-
                 return! update interval 0
-            } |> Cloud.OfAsync
-             
+            } 
+
         member this.Dispose(): Local<unit> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 return! Table.delete<FatEntity> client table e
             } |> Cloud.OfAsync
 
-        member this.Force(newValue: 'T): Local<unit> = 
+        member this.Force(newValue: 'T): Async<unit> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
                 let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge client table e
                 return ()
-            } |> Cloud.OfAsync
+            }
 
-        member this.Value : Local<'T> = 
+        member this.Value : Async<'T> = 
             async {
                 let! e = Table.read<FatEntity> client table pk rk
                 let value = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload())
                 return value
-            } |> Cloud.OfAsync
+            } 
 
 /// Store implementation that uses a Azure Blob Storage as backend.
 [<Sealed; DataContract>]

@@ -1,3 +1,6 @@
+### 0.7.0-alpha
+* Migrate to MBrace.Runtime.Core 0.9.14 APIs
+
 ### 0.6.10-alpha
 * Update MBrace.Core libraries.
 * Process.Kill renamed to Cancel for clarity.

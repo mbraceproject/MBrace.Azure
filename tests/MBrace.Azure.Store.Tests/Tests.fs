@@ -10,12 +10,11 @@ open MBrace.Client
 module private Config =
     open MBrace.Runtime.Vagabond
     open MBrace.Azure.Store
-    open MBrace.Runtime.Serialization
     open MBrace.Store
 
     do VagabondRegistry.Initialize(throwOnError = false)
 
-    let serializer = MBrace.Runtime.Serialization.FsPicklerBinaryStoreSerializer()
+    let serializer = new FsPicklerBinaryStoreSerializer()
 
     let emulatorConn = "UseDevelopmentStorage=true"
     let remoteConn = lazy Tests.Utils.selectEnv "azurestorageconn"

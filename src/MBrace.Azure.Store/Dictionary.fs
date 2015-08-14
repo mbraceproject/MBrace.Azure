@@ -36,53 +36,57 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
         
         member x.IsKnownSize: bool = false
         
-        member this.Add(key: string, value : 'T): Local<unit> = 
+        member this.Add(key: string, value : 'T): Async<unit> = 
             async {
                 let binary = VagabondRegistry.Instance.Serializer.Pickle value
                 let e = new FatEntity(key, String.Empty, binary)
                 do! Table.insert<FatEntity> client tableName e
-            } |> Cloud.OfAsync
+            }
         
-        member this.AddOrUpdate(key: string, updater : 'T option -> 'T) : Local<'T> = 
-            let rec addOrUpdate key updater = 
-                async {
-                    let rec transact (e : FatEntity) : Async<'T> = async { 
-                        let value = 
-                            match e with
-                            | null -> None
-                            | e -> Some(VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload()))
+        member this.Transact(key: string, transacter: 'T option -> 'R * 'T, maxRetries: int option): Async<'R> = 
+            async {
+                let rec transact (e : FatEntity) (count : int) : Async<'R> = async { 
+                    match maxRetries with
+                    | Some maxRetries when count >= maxRetries -> 
+                        return raise <| exn("Maximum number of retries exceeded.")
+                    | _ -> ()
+
+                    let value = 
+                        match e with
+                        | null -> None
+                        | e -> Some(VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload()))
                         
-                        let newValue = updater value
-                        let binary = VagabondRegistry.Instance.Serializer.Pickle newValue
-                        let e' = new FatEntity(key, String.Empty, binary)
-                        match value with
-                        | None ->
-                            let! result = Async.Catch <| Table.insert<FatEntity> client tableName e'
-                            match result with
-                            | Choice1Of2 () -> return newValue
-                            | Choice2Of2 ex when Conflict ex ->
-                                return! addOrUpdate key updater
-                            | Choice2Of2 ex -> return raise ex
-                        | Some v ->
-                            e'.ETag <- e.ETag
-                            let! result = Async.Catch <| Table.merge<FatEntity> client tableName e'
-                            match result with
-                            | Choice1Of2 _ -> return v
-                            | Choice2Of2 ex when PreconditionFailed ex -> 
-                                let! e = Table.read<FatEntity> client tableName key String.Empty
-                                return! transact e
-                            | Choice2Of2 ex -> return raise ex
-                    }
-                    let! e = Table.read<FatEntity> client tableName key String.Empty
-                    return! transact e
+                    let returnValue, newValue = transacter value
+                    let binary = VagabondRegistry.Instance.Serializer.Pickle newValue
+                    let e' = new FatEntity(key, String.Empty, binary)
+                    match value with
+                    | None ->
+                        let! result = Async.Catch <| Table.insert<FatEntity> client tableName e'
+                        match result with
+                        | Choice1Of2 () -> return returnValue
+                        | Choice2Of2 ex when Conflict ex ->
+                            let! e = Table.read<FatEntity> client tableName key String.Empty
+                            return! transact e (count + 1)
+                        | Choice2Of2 ex -> return raise ex
+                    | Some _ ->
+                        e'.ETag <- e.ETag
+                        let! result = Async.Catch <| Table.merge<FatEntity> client tableName e'
+                        match result with
+                        | Choice1Of2 _ -> return returnValue
+                        | Choice2Of2 ex when PreconditionFailed ex -> 
+                            let! e = Table.read<FatEntity> client tableName key String.Empty
+                            return! transact e (count + 1)
+                        | Choice2Of2 ex -> return raise ex
                 }
-            Cloud.OfAsync(addOrUpdate key updater)
-        
-        member this.ContainsKey(key: string): Local<bool> = 
+                let! e = Table.read<FatEntity> client tableName key String.Empty
+                return! transact e 0
+            }
+
+        member this.ContainsKey(key: string): Async<bool> = 
             async {
                 let! e = Table.read<FatEntity> client tableName key String.Empty
                 return e <> null
-            } |> Cloud.OfAsync
+            }
         
         member this.Count: Local<int64> = Cloud.Raise(new NotSupportedException("Count property not supported."))
         
@@ -97,14 +101,14 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
         
         member this.Id: string = tableName
         
-        member this.Remove(key: string): Local<bool> = 
+        member this.Remove(key: string): Async<bool> = 
             async {
                 try
                     do! Table.delete client tableName (TableEntity(key, String.Empty, ETag = "*"))
                     return true
                 with ex -> 
                     if NotFound ex then return false else return raise ex
-            } |> Cloud.OfAsync
+            }
         
         member this.ToEnumerable(): Local<seq<Collections.Generic.KeyValuePair<string,'T>>> = 
             async {
@@ -113,8 +117,8 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
                        |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, VagabondRegistry.Instance.Serializer.UnPickle<'T>(entity.GetPayload())))
             } |> Cloud.OfAsync
         
-        member this.TryAdd(key: string, value: 'T): Local<bool> = 
-            local {
+        member this.TryAdd(key: string, value: 'T): Async<bool> = 
+            async {
                 try
                     do! (this :> ICloudDictionary<'T>).Add(key, value)
                     return true
@@ -122,7 +126,7 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
                     if Conflict ex then return false else return raise ex
             }
         
-        member x.TryFind(key: string): Local<'T option> = 
+        member x.TryFind(key: string): Async<'T option> = 
             async {
                 let! e = Table.read<FatEntity> client tableName key String.Empty
                 match e with
@@ -130,7 +134,7 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
                 | e ->
                     let value = VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload())
                     return Some value
-            } |> Cloud.OfAsync
+            }
 
 [<Sealed; DataContract>]
 type CloudDictionaryProvider private (connectionString : string) =

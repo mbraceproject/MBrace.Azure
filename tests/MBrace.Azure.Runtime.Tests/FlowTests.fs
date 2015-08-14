@@ -4,7 +4,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Flow.Tests
 open MBrace.Azure
-open MBrace.Azure.Client
+open MBrace.Azure
 open MBrace.Azure.Runtime
 
 open NUnit.Framework
@@ -53,8 +53,8 @@ type ``Flows Standalone - Storage Emulator`` () =
 
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
-        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 4, 16) 
+        MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+        MBraceAzure.SpawnLocal(base.Configuration, 4, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -69,8 +69,8 @@ type ``Flow Standalone`` () =
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
-        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 4, 16) 
+        MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+        MBraceAzure.SpawnLocal(base.Configuration, 4, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]

@@ -1,68 +1,51 @@
-﻿namespace MBrace.Azure.Runtime.Primitives
+﻿namespace MBrace.Azure.Runtime
 
-// Contains types used a table storage entities, service bus messages and blog objects.
 open System
 open System.Runtime.Serialization
-open MBrace.Core.Internals
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure
 open Microsoft.WindowsAzure.Storage.Table
+open MBrace.Runtime
 
-[<DataContract>]
-type IntCell internal (config : ConfigurationId, partitionKey : string, rowKey : string) =
+// NOTE : All types that inherit TableEntity must provide a default public ctor.
+type CounterEntity(id : string, value : int) = 
+    inherit TableEntity(id, CounterEntity.DefaultRowKey)
+    member val Counter = value with get, set
+    new () = new CounterEntity(null, 0)
+    static member DefaultRowKey = String.Empty
 
-    [<DataMember(Name = "config")>]
-    let config = config
-    [<DataMember(Name = "partitionKey")>]
-    let partitionKey = partitionKey
-    [<DataMember(Name = "rowKey")>]
-    let rowKey = rowKey
+[<DataContract; Sealed>]
+type internal Int32Counter (config : ConfigurationId, partitionKey : string) =
+    let [<DataMember(Name = "config")>] config = config    
+    let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
 
-    member __.Value = 
-        let e = Table.read<CounterEntity> config config.RuntimeTable partitionKey rowKey |> Async.RunSync
-        e.Value
-    
-    member internal __.Update(updatef : int -> int) = 
-        async { 
-            let! e = Table.transact<CounterEntity> config config.RuntimeTable partitionKey rowKey (fun e -> e.Value <- updatef e.Value)
-            return e.Value
-        }
+    interface ICloudCounter with
+        member x.Dispose(): Async<unit> = 
+            async {
+                do! Table.delete config config.RuntimeTable <| CounterEntity(PartitionKey = partitionKey)
+            }
+        
+        member x.Increment(): Async<int> = 
+            async { 
+                let! e = Table.transact<CounterEntity> config config.RuntimeTable partitionKey CounterEntity.DefaultRowKey (fun e -> e.Counter <- 1 + e.Counter)
+                return e.Counter
+            }
 
-    static member Create(config : ConfigurationId, name : string, value : int, pid) = 
-        async { 
-            let e = new CounterEntity(pid, name, value)
-            do! Table.insert config config.RuntimeTable e
-            return new IntCell(config, pid, name)
-        }
+        member x.Value: Async<int> = 
+            async {
+                let! e = Table.read<CounterEntity> config config.RuntimeTable partitionKey CounterEntity.DefaultRowKey
+                return e.Counter
+            }
 
-//[<DataContract>]
-//type Latch internal (config, partitionKey, rowKey) = 
-//    inherit IntCell(config, partitionKey, rowKey)
-//
-//    member __.Decrement() = base.Update(fun v -> v - 1)
-//
-//    static member Create(config, name : string, value : int, pid) = 
-//        async { 
-//            let e = new LatchEntity(pid, name, value, value)
-//            do! Table.insert config config.RuntimeTable e
-//            return new Latch(config, pid, name)
-//        }
-//
-//    static member Create(config, value : int, pid) = 
-//        Latch.Create(config, guid(), value, pid)
+[<Sealed>]
+type Int32CounterFactory private (config : ConfigurationId) =
+    interface ICloudCounterFactory with
+        member x.CreateCounter(initialValue: int): Async<ICloudCounter> = 
+            async {
+                let record = new CounterEntity(guid(), initialValue)
+                let! _record = Table.insert config config.RuntimeTable record
+                return new Int32Counter(config, record.PartitionKey) :> ICloudCounter
+            }
 
-[<DataContract>]
-type Counter internal (config, partitionKey, rowKey) = 
-    inherit IntCell(config, partitionKey, rowKey)
-
-    member __.Increment() = base.Update(fun v -> v + 1)
-
-    static member Create(config, value : int, pid) = 
-        let name = guid()
-        let e = new CounterEntity(pid, name, value)
-        let op = TableOperation.Insert(e)
-        { new TableResourceOperation<Counter> with
-            member x.Operations = Seq.singleton op
-            member x.Resource = new Counter(config, pid, name)
-        }
+    static member Create(config) = new Int32CounterFactory(config) :> ICloudCounterFactory

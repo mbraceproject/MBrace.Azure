@@ -7,8 +7,9 @@ open System.Text
 open System
 
 /// Configuration identifier.
-type ConfigurationId = 
-    private 
+[<AutoSerializable(true)>]
+type ConfigurationId =
+    private
       { /// Runtime identifier.
         Id : uint16
         /// Runtime version string
@@ -34,7 +35,8 @@ type ConfigurationId =
 
 
 /// Azure specific Runtime Configuration.
-type Configuration = 
+[<AutoSerializable(true)>]
+type Configuration =
     { /// Runtime identifier.
       Id : uint16
       /// Runtime version string.
@@ -56,11 +58,11 @@ type Configuration =
       /// User data container prefix.
       UserDataContainer : string
       /// User data table prefix.
-      UserDataTable : string 
+      UserDataTable : string
     }
 
     /// Returns an Azure Configuration with the default values.
-    static member Default = 
+    static member Default =
         { Id                         = 0us
           Version                    = typeof<Configuration>.Assembly.GetName().Version.ToString(4)
           StorageConnectionString    = "your connection string"
@@ -78,14 +80,14 @@ type Configuration =
     /// Append Configuration.Id on all values.
     /// Note : This property should not be used by clients.
     member this.WithAppendedId =
-        let version, versionString = 
+        let version, versionString =
             match Version.TryParse(this.Version) with
             | true, v  -> v, sprintf "%dx%dx%dx%d" v.Major v.Minor v.Build v.Revision
             | false, _ -> failwith <| sprintf "Invalid Version string '%s'" this.Version
 
         let versionNormalized = version.ToString(4)
 
-        let withVersionAndId s = 
+        let withVersionAndId s =
             // TODO : Temporary fix to enable GetHandle from newer clients.
             // 0.6.5 clients do not use Version in folder names.
             // < 0.6.1 clients have complete different folder structure.
@@ -95,7 +97,7 @@ type Configuration =
                 sprintf "%s%05d" s this.Id
             else
                 sprintf "%s%s%05d" s versionString this.Id
-        
+
         let withId s =sprintf "%s%05d" s this.Id
 
         { this with
@@ -110,14 +112,14 @@ type Configuration =
         }
 
     /// Configuration identifier hash.
-    member this.ConfigurationId : ConfigurationId = 
+    member this.ConfigurationId : ConfigurationId =
         let hashAlgorithm = SHA256Managed.Create()
         let getHash(txt : string) = hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes txt)
 
         let store = CloudStorageAccount.Parse(this.StorageConnectionString).Credentials.AccountName
         let sbus = NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
 
-        { Id = this.Id 
+        { Id = this.Id
           Version = this.Version
           StorageConnectionStringHash = getHash store
           ServiceBusConnectionStringHash = getHash sbus
@@ -129,16 +131,16 @@ type Configuration =
           UserDataContainer = this.UserDataContainer.ToLower()
           UserDataTable = this.UserDataTable.ToLower()
         }
-     
+
     /// Return a new copy with altered Version.
     member this.WithVersion(version : string) =
         { this with Version = version }
-    
+
     /// Return a new copy with altered Id.
     member this.WithId(id) =
         { this with Id = id }
 
-    
+
     /// Return a new copy with altered the default user data folders.
     member this.WithUserDataFolders(userDataContainer, userDataTable) =
         { this with
@@ -176,6 +178,10 @@ open System.Reflection
 open MBrace.Azure
 open System.Net
 open System.Threading.Tasks
+open MBrace.Runtime.Vagabond
+open MBrace.Runtime.Utils
+open System.IO
+open MBrace.Store.Internals
 
 /// Provides Azure client instances for storage related entities
 [<AutoSerializable(false)>]
@@ -187,11 +193,11 @@ type StoreClientProvider (config : Configuration) =
     let awaitTask (task : Task) = task.ContinueWith ignore |> Async.AwaitTask
 
     let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
-    member this.TableClient = 
+    member this.TableClient =
         let client = acc.Value.CreateCloudTableClient()
         client.DefaultRequestOptions.RetryPolicy <- RetryPolicies.ExponentialRetry(TimeSpan.FromSeconds(3.), 10)
         client
-    member this.BlobClient = 
+    member this.BlobClient =
         let client = acc.Value.CreateCloudBlobClient()
         client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(min 64 (4 * System.Environment.ProcessorCount))
         client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(1L <<< 23) // 8MB, possible ranges: 1..64MB, default 32MB
@@ -211,14 +217,14 @@ type StoreClientProvider (config : Configuration) =
         }
 
     member this.ClearRuntimeState() =
-        async { 
+        async {
             let! _ = Async.AwaitTask <| this.TableClient.GetTableReference(config.RuntimeTable).DeleteIfExistsAsync()
             let! _ = Async.AwaitTask <| this.BlobClient.GetContainerReference(config.RuntimeContainer).DeleteIfExistsAsync()
             ()
         }
 
     member this.ClearRuntimeLogs() =
-        async { 
+        async {
             let! _ = Async.AwaitTask <| this.TableClient.GetTableReference(config.RuntimeLogsTable).DeleteIfExistsAsync()
             ()
         }
@@ -262,77 +268,84 @@ type ConfigurationRegistry private () =
         | true, v  -> v :?> 'T
         | false, _ -> failwith <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>
 
-[<RequireQualifiedAccess>]
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
-module Configuration =
-    open MBrace.Runtime.Vagabond
-    open System.Collections.Generic
-    open MBrace.Runtime.Serialization
-    open MBrace.Store.Internals
 
-    let private ignoredAssemblies = new HashSet<Assembly>()
+type Config private () =
+    static let isInitialized = ref false
 
-    let private runOnce (f : unit -> 'T) = let v = lazy(f ()) in fun () -> v.Value
+    static let initVagabond populateDirs (path:string) =
+        if populateDirs then ignore <| Directory.CreateDirectory path
+        let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
+        Vagabond.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], cacheDirectory = path, lookupPolicy = policy)
 
-    let private init =
-        runOnce(fun () ->
-            let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
-            ignoredAssemblies.Add(Assembly.GetExecutingAssembly()) |> ignore
-            VagabondRegistry.Initialize(ignoredAssemblies = (ignoredAssemblies |> List.ofSeq), loadPolicy = AssemblyLoadPolicy.ResolveAll))
-            
+    static let checkInitialized () =
+        if not isInitialized.Value then
+            invalidOp "Runtime configuration has not been initialized."
+
+    static let initialize (populateDirs : bool) =
+        lock isInitialized (fun () ->
+            if not isInitialized.Value then
+                let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
+                let workingDirectory = WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
+                let vagabondDir = Path.Combine(workingDirectory, "vagabond")
+                VagabondRegistry.Initialize(fun () -> initVagabond populateDirs vagabondDir)
+                isInitialized := true
+        )
+
     /// Default Pickler.
-    let Pickler = init () ; VagabondRegistry.Instance.Serializer
+    static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Serializer
 
     /// Default ISerializer
-    let Serializer = init (); new FsPicklerBinaryStoreSerializer() :> ISerializer
+    static member Serializer = checkInitialized(); new FsPicklerBinaryStoreSerializer() :> ISerializer
 
-    /// Vagabond initialization.
-    let Initialize () = init ()
+    static member Initialize(populateDirs) = initialize populateDirs
+
+    static member ReactivateAsync(config : ConfigurationId) =
+        async {
+            checkInitialized()
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+            do! cp.InitAll()        
+        }
 
     /// Activates the given configuration.
-    let ActivateAsync(config : Configuration) : Async<unit> = 
+    static member ActivateAsync(config : Configuration, populateDirs) : Async<unit> =
       async {
-        init ()
+        initialize populateDirs
         let cp = new StoreClientProvider(config)
         do! cp.InitAll()
         ConfigurationRegistry.Register<StoreClientProvider>(config.ConfigurationId, cp)
     }
 
-    let AddIgnoredAssembly(asm : Assembly) =
-        // MUST BE CALLED BEFORE INIT.
-        ignore <| ignoredAssemblies.Add(asm)
-
-    let GetIgnoredAssemblies() : seq<Assembly> =
-        ignoredAssemblies :> _
+    /// Activates the given configuration.
+    static member Activate(config) = Async.RunSynchronously(Config.ActivateAsync(config))
 
     /// Delete Runtime Queue and Topic.
-    let DeleteRuntimeQueues (config : Configuration) =
+    static member DeleteRuntimeQueues (config : ConfigurationId) =
         async {
-            init()
-            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
+            checkInitialized()
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearRuntimeQueues()
         }
 
     /// Delete Runtime container and table.
-    let DeleteRuntimeState (config : Configuration) =
+    static member DeleteRuntimeState (config : ConfigurationId) =
         async {
-            init()
-            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
+            checkInitialized()
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearRuntimeState()
         }
 
     /// Delete UserData folder.
-    let DeleteUserData (config : Configuration) =
+    static member DeleteUserData (config : ConfigurationId) =
         async {
-            init()
-            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
+            checkInitialized()
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearUserData()
         }
 
     /// Delete RuntimeLogs table.
-    let DeleteRuntimeLogs (config : Configuration) =
+    static member DeleteRuntimeLogs (config : ConfigurationId) =
         async {
-            init()
-            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config.ConfigurationId)
+            checkInitialized()
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearRuntimeLogs()
         }

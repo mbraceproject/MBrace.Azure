@@ -33,13 +33,13 @@ type SendPort<'T> internal (queuePath, connectionString) =
     interface ISendPort<'T> with
         member x.Id : string = queuePath
         
-        member __.Send(message : 'T) : Local<unit> = 
+        member __.Send(message : 'T) : Async<unit> = 
             async {
                 let bin = VagabondRegistry.Instance.Serializer.Pickle message
                 use ms = new MemoryStream(bin) in ms.Position <- 0L
                 let msg = new BrokeredMessage(ms)
                 do! client.SendAsync(msg)
-            } |> Cloud.OfAsync
+            } 
 
 [<AutoSerializable(true) ; Sealed; DataContract>]
 type ReceivePort<'T> internal (queuePath, connectionString) =
@@ -66,7 +66,7 @@ type ReceivePort<'T> internal (queuePath, connectionString) =
             |> Async.AwaitTask
             |> Cloud.OfAsync
 
-        member __.Receive(?timeout : int) : Local<'T> =
+        member __.Receive(?timeout : int) : Async<'T> =
             async {
                 let! msg =
                     match timeout with 
@@ -87,7 +87,7 @@ type ReceivePort<'T> internal (queuePath, connectionString) =
 
                 use stream = msg.GetBody<Stream>()
                 return VagabondRegistry.Instance.Serializer.Deserialize<'T>(stream)
-            } |> Cloud.OfAsync
+            }
 
 
 /// MBrace Channel provider over Azure Service Bus queues

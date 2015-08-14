@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Primitives
+﻿namespace MBrace.Azure.Runtime
 
 open System
 open System.Runtime.Serialization
@@ -8,6 +8,9 @@ open System.IO
 open MBrace.Azure
 open Microsoft.WindowsAzure.Storage.Blob
 open Microsoft.WindowsAzure.Storage
+open Microsoft.WindowsAzure.Storage.Table
+
+// TODO : Remove code duplication
 
 [<DataContract>]
 type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : string) =
@@ -19,11 +22,17 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
     [<DataMember(Name = "filename")>]
     let filename = filename
 
+    member this.Size =
+        let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+        let blob = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+        blob.FetchAttributes()
+        blob.Properties.Length
+
     member __.GetValue() : Async<'T> = 
         async { 
             let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
             use! s = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename).OpenReadAsync()
-            return Configuration.Pickler.Deserialize<'T>(s) 
+            return Config.Pickler.Deserialize<'T>(s) 
         }
 
     /// <summary>
@@ -37,7 +46,7 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
             let! exists = b.ExistsAsync()
             if exists then
                 use! s = b.OpenReadAsync()
-                let value = Configuration.Pickler.Deserialize<'T>(s)
+                let value = Config.Pickler.Deserialize<'T>(s)
                 return Some value
             else
                 return None
@@ -68,7 +77,7 @@ type Blob<'T> internal (config : ConfigurationId, prefix : string, filename : st
 
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
             use! stream = b.OpenWriteAsync(null, options, OperationContext(), Async.DefaultCancellationToken)
-            Configuration.Pickler.Serialize<'T>(stream, f())
+            Config.Pickler.Serialize<'T>(stream, f())
             do! stream.FlushAsync()
             stream.Dispose()
 
@@ -89,6 +98,12 @@ type Blob internal (config : ConfigurationId, prefix : string, filename : string
     [<DataMember(Name = "filename")>]
     let filename = filename
 
+    member this.Size =
+        let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+        let blob = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
+        blob.FetchAttributes()
+        blob.Properties.Length
+
     member __.OpenRead() : Async<Stream> =
         async {
             let container = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
@@ -97,6 +112,14 @@ type Blob internal (config : ConfigurationId, prefix : string, filename : string
         }
     
     member __.Path = sprintf "%s/%s" prefix filename
+
+    static member Delete(config, file) =
+        async {
+            let c = ConfigurationRegistry.Resolve<StoreClientProvider>(config).BlobClient.GetContainerReference(config.RuntimeContainer)
+            let b = c.GetBlockBlobReference(file)
+            let! _ = b.DeleteIfExistsAsync()
+            return ()
+        }        
 
     static member FromPath(config : ConfigurationId, path : string) = 
         let p = path.Split('/')

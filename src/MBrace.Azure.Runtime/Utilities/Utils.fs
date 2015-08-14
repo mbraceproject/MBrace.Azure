@@ -16,11 +16,14 @@
 
         let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
 
-        let inline nullable< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > (value : 'T) = 
+        let inline nullable< 'T when 'T : struct and 'T : (new : unit -> 'T) and  'T :> ValueType > (value : 'T) = 
             new Nullable<'T>(value)
 
-        let inline nullableDefault< 'T when 'T : struct and  'T : (new : unit -> 'T) and  'T :> ValueType > = 
+        let inline nullableDefault< 'T when 'T : struct and 'T : (new : unit -> 'T) and  'T :> ValueType > = 
             new Nullable<'T>()
+
+        let (|Null|Nullable|) (value : Nullable<'T>) =
+            if value.HasValue then Nullable(value.Value) else Null
 
         /// generates a human readable string for byte sizes
         /// including a KiB, MiB, GiB or TiB suffix depending on size
@@ -45,13 +48,13 @@
                 }
 
         type AsyncBuilder with
-            member __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
+            member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
                 __.Bind(Async.AwaitTask f, g)
-            member __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
+            member inline __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
                 __.Bind(Async.AwaitTask(f.ContinueWith ignore), g)
-            member __.ReturnFrom(f : Task<'T>) : Async<'T> =
+            member inline __.ReturnFrom(f : Task<'T>) : Async<'T> =
                 __.ReturnFrom(Async.AwaitTask f)
-            member __.ReturnFrom(f : Task) : Async<unit> =
+            member inline __.ReturnFrom(f : Task) : Async<unit> =
                 __.ReturnFrom(Async.AwaitTask f)
 
 

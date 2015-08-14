@@ -9,9 +9,11 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Azure.Runtime
-open MBrace.Azure.Client
+open MBrace.Azure
 
 #nowarn "445"
+
+open MBrace.Core.Tests
 
 module Utils =
     open System
@@ -50,14 +52,21 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
     let mutable state = None
 
     member __.Start () = 
-        let rt = Runtime.GetHandle(config)
-        let logger = ConsoleLogger() :> ICloudLogger
-        rt.AttachClientLogger logger
-        state <- Some (rt, logger)
-        do System.Threading.Thread.Sleep 2000
+        let rt = MBraceAzure.GetHandle(config)
+
+        let logTest = 
+            { new ILogTester with
+                  member x.Clear() = ()
+                  member x.GetLogs() =
+                    rt.GetAllProcesses()
+                    |> Seq.collect rt.GetCloudLogs
+                    |> Seq.map (fun l -> l.Message)
+                    |> Seq.toArray }
+
+        state <- Some (rt, logTest)
 
     member __.Stop () =
-        state |> Option.iter (fun (r,l) -> r.Reset(reactivate = true))
+        state |> Option.iter (fun (r,l) -> (r.KillLocalWorker() ; r.Reset(true, true, true, true, true)))
         state <- None
 
     member __.Runtime =
@@ -65,7 +74,7 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
         | None -> invalidOp "MBrace runtime not initialized."
         | Some (r,_) -> r
 
-    member __.Logger =
+    member __.Logger : ILogTester =
         match state with
         | None -> invalidOp "MBrace runtime not initialized."
         | Some (_,l) -> l

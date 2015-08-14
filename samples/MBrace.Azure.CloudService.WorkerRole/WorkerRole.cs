@@ -10,6 +10,7 @@ using Microsoft.WindowsAzure;
 using Microsoft.WindowsAzure.Diagnostics;
 using Microsoft.WindowsAzure.ServiceRuntime;
 using Microsoft.WindowsAzure.Storage;
+using MBrace.Azure;
 using MBrace.Azure.Store;
 using MBrace.Azure.Runtime;
 
@@ -22,7 +23,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
 
         public override void Run()
         {
-            _svc.Start();
+            _svc.Run();
         }
 
         public override bool OnStart()

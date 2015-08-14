@@ -6,7 +6,7 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Core.Tests
 open MBrace.Azure
-open MBrace.Azure.Client
+open MBrace.Azure
 open MBrace.Azure.Runtime
 
 #nowarn "445" // 'Reset'
@@ -23,7 +23,6 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
     let session = new RuntimeSession(config)
 
     let run (wf : Cloud<'T>) = self.Run wf
-    let repeat f = repeat self.Repeats f
 
     member __.Configuration = config
 
@@ -47,19 +46,19 @@ type ``Azure Runtime Tests`` (sbus, storage) as self =
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
             let! ps = runtime.CreateProcessAsync(workflow cts, cancellationToken = cts.Token)
-            return! Async.Catch <| ps.AwaitResultAsync()
+            return! Async.Catch <| ps.AwaitResult()
         } |> Async.RunSync
 
     override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
 
-    override __.Logs = failwith "Not implemented"
+    override __.Logs = session.Logger
     override __.FsCheckMaxTests = 4
     override __.Repeats = 1
-
+    override __.UsesSerialization = true
 
     [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
-        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.GetWorkers() |> Seq.length)
+        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers |> Seq.length)
 
     [<Test>]
     member __.``Z4. Runtime : Get current worker`` () =
@@ -116,8 +115,8 @@ type ``Standalone - Storage Emulator`` () =
 
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
-        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 4, 16) 
+        MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+        MBraceAzure.SpawnLocal(base.Configuration, 4, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -132,8 +131,8 @@ type ``Standalone`` () =
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
-        Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        Runtime.SpawnLocal(base.Configuration, 4, 16) 
+        MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+        MBraceAzure.SpawnLocal(base.Configuration, 4, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
