@@ -41,7 +41,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
     member this.Resources = resources
     member this.ConfigurationId = config
 
-    member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, force) =
+    member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, force, reactivate) =
         async {
             if not force then
                 let! workers = workerManager.GetAllWorkers()
@@ -66,20 +66,21 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
             if deleteUserData then 
                 logger.LogWarning "Deleting UserData."
                 do! Config.DeleteUserData(config)
-            
-            logger.LogInfo "Reactivating configuration."
-            let rec loop retryCount = async {
-                logger.LogInfof "RetryCount %d." retryCount
-                let! step2 = Async.Catch <| Config.ReactivateAsync(config)
-                match step2 with
-                | Choice1Of2 _ -> 
-                    logger.LogInfo "Done."
-                | Choice2Of2 ex ->
-                    logger.LogWarningf "Failed with %A\nWaiting." ex
-                    do! Async.Sleep 10000
-                    return! loop (retryCount + 1)
-            }
-            do! loop 0
+    
+            if reactivate then        
+                logger.LogInfo "Reactivating configuration."
+                let rec loop retryCount = async {
+                    logger.LogInfof "RetryCount %d." retryCount
+                    let! step2 = Async.Catch <| Config.ReactivateAsync(config)
+                    match step2 with
+                    | Choice1Of2 _ -> 
+                        logger.LogInfo "Done."
+                    | Choice2Of2 ex ->
+                        logger.LogWarningf "Failed with %A\nWaiting." ex
+                        do! Async.Sleep 10000
+                        return! loop (retryCount + 1)
+                }
+                do! loop 0
 
             return ()
         }
@@ -97,7 +98,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         member this.SystemLogger             = logger
         member this.CancellationEntryFactory = cancellationEntryFactory
         member this.CounterFactory           = int32CounterFactory
-        member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false)
+        member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false, true)
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
         member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = 

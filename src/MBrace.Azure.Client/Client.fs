@@ -198,9 +198,10 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// <param name="deleteLogs">Delete Configuration logs table.</param>
     /// <param name="deleteUserData">Delete Configuration UserData table and container.</param>
     /// <param name="force">Ignore active workers.</param>
+    /// <param name="reactivate">Reactivate configuration.</param>
     [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.Reset(deleteQueues, deleteState, deleteLogs, deleteUserData, force) =
-        manager.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, force)
+    member this.Reset(deleteQueues, deleteState, deleteLogs, deleteUserData, force, reactivate) =
+        manager.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, force, reactivate)
         |> Async.RunSync
 
     /// <summary>
