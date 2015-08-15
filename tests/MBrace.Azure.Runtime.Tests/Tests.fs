@@ -15,10 +15,7 @@ open MBrace.Azure.Runtime
 type ``Azure Runtime Tests`` (sbus, storage) as self =
     inherit ``Parallelism Tests`` (parallelismFactor = 4, delayFactor = 10000)
     
-    let config = 
-        { Configuration.Default with
-            StorageConnectionString = storage
-            ServiceBusConnectionString = sbus }
+    let config = new Configuration(storage, sbus)
 
     let session = new RuntimeSession(config)
 

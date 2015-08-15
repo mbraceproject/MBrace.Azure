@@ -13,10 +13,7 @@ open NUnit.Framework
 type ``Azure Flow Tests`` (sbus, storage) as self =
     inherit ``CloudFlow tests`` ()
 
-    let config = 
-        { Configuration.Default with
-            StorageConnectionString = storage
-            ServiceBusConnectionString = sbus }
+    let config = new Configuration(storage, sbus)
 
     let session = new RuntimeSession(config)
 

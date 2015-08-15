@@ -165,7 +165,7 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
         let exe = MBraceAzure.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
         let cfg = { Arguments.Configuration = config; Arguments.MaxTasks = defaultArg maxTasks Environment.ProcessorCount; Name = None}
-        do Async.RunSync(Config.ActivateAsync(config.WithAppendedId, true))
+        do Async.RunSync(Config.ActivateAsync(config, true))
         let _ = Array.Parallel.init workerCount (fun i -> 
             let conf =
                 match workerNameF with
@@ -206,13 +206,22 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// <summary>
     /// Gets a handle for a remote runtime.
     /// </summary>
+    /// <param name="storageConnectionString">Azure Storage connection string.</param>
+    /// <param name="serviceBusConnectionString">Azure Service Bus connection string.</param>
+    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string) : MBraceAzure = 
+        MBraceAzure.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString))
+
+    /// <summary>
+    /// Gets a handle for a remote runtime.
+    /// </summary>
     /// <param name="config">Runtime configuration.</param>
-    static member GetHandle(config : Configuration) : MBraceAzure = 
+    /// <param name="clientId">Client identifier.</param>
+    static member GetHandle(config : Configuration, ?clientId : string) : MBraceAzure = 
         let hostProc = Diagnostics.Process.GetCurrentProcess()
-        let clientId = sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
+        let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         // TODO : Add Configuration check
         let logger = new AttacheableLogger()
-        let storageLogger = StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, clientId)
+        let storageLogger = StorageSystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, clientId)
         let _ = logger.AttachLogger(storageLogger)
         
         let manager = RuntimeManager.CreateForClient(config, clientId, logger, ResourceRegistry.Empty)

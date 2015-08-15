@@ -26,7 +26,7 @@ type internal Initializer =
                     let init () =
                         let domainName = System.AppDomain.CurrentDomain.FriendlyName
                         logger.LogInfof "Initializing Application Domain %A" domainName
-                        Config.Activate(config.WithAppendedId, false)
+                        Config.Activate(config, false)
                         logger.LogInfof "Configuration activated in AppDomain %A" domainName
                     let managerF = DomainLocal.Create(fun () -> 
                         RuntimeManager.CreateForAppDomain(config, workerId, logger, customResources) :> IRuntimeManager , workerId)

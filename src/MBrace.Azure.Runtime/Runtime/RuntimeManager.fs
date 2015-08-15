@@ -110,10 +110,13 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
                       (cloudLogger :> ICloudLogger).Log(entry) }
 
     static member private GetDefaultResources(config : Configuration, customResources : ResourceRegistry, includeCache : bool) =
-        let storeConfig = CloudFileStoreConfiguration.Create(BlobStore.Create(config.StorageConnectionString), config.UserDataContainer)
-        let atomConfig = CloudAtomConfiguration.Create(AtomProvider.Create(config.StorageConnectionString), config.UserDataTable)
-        let dictionaryConfig = CloudDictionaryProvider.Create(config.StorageConnectionString)
-        let channelConfig = CloudChannelConfiguration.Create(ChannelProvider.Create(config.ServiceBusConnectionString))
+        let storeConn = config.StorageConnectionString
+        let sbusConn = config.ServiceBusConnectionString
+        let config = config.GetConfigurationId()
+        let storeConfig = CloudFileStoreConfiguration.Create(BlobStore.Create(storeConn), config.UserDataContainer)
+        let atomConfig = CloudAtomConfiguration.Create(AtomProvider.Create(storeConn), config.UserDataTable)
+        let dictionaryConfig = CloudDictionaryProvider.Create(storeConn)
+        let channelConfig = CloudChannelConfiguration.Create(ChannelProvider.Create(sbusConn))
 
         resource {
             yield storeConfig
@@ -130,31 +133,28 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
 
     static member CreateForWorker(config : Configuration, workerId : IWorkerId, customLogger : ISystemLogger, customResources) =
         customLogger.LogInfof "Activating configuration with Id %A" config.Id
-        let config = config.WithAppendedId
         Config.Activate(config, true)
         customLogger.LogInfof "Creating resources"
         let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
         customLogger.LogInfof "Creating RuntimeManager for Worker %A" workerId
-        let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLogger, resources)
+        let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, customLogger, resources)
         runtime.SetLocalWorkerId(workerId)
         runtime
 
     static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, customLogger : ISystemLogger, customResources) =
         customLogger.LogInfof "Activating configuration with Id %A" config.Id
-        let config = config.WithAppendedId
         Config.Activate(config, false)
         customLogger.LogInfof "Creating resources"
         let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
         customLogger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
-        let runtime = new RuntimeManager(config.ConfigurationId, workerId.Id, customLogger, resources)
+        let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, customLogger, resources)
         runtime
 
     static member CreateForClient(config : Configuration, clientId : string, customLogger : ISystemLogger, customResources) =
         customLogger.LogInfof "Activating configuration with Id %A" config.Id
-        let config = config.WithAppendedId
         Config.Activate(config, true)
         customLogger.LogInfof "Creating resources"        
         let resources = RuntimeManager.GetDefaultResources(config, customResources, false)
         customLogger.LogInfof "Creating RuntimeManager for Client %A" clientId
-        let runtime = new RuntimeManager(config.ConfigurationId, clientId, customLogger, resources)
+        let runtime = new RuntimeManager(config.GetConfigurationId(), clientId, customLogger, resources)
         runtime
