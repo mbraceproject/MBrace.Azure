@@ -21,6 +21,8 @@ type RuntimeId =
 [<AutoSerializable(false)>]
 type RuntimeManager private (config : ConfigurationId, uuid : string, logger : ISystemLogger, resources : ResourceRegistry) =
     let runtimeId     = RuntimeId.FromConfigurationId(config)
+    do logger.LogInfof "RuntimeManager Id = %A" runtimeId
+
     do logger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(config, logger)
     do logger.LogInfo "Creating job manager"
@@ -52,19 +54,19 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
              
             
             if deleteQueues then 
-                logger.LogWarning "Deleting Queues."
+                logger.LogWarningf "Deleting Queues %A, %A." config.RuntimeQueue config.RuntimeTable
                 do! Config.DeleteRuntimeQueues(config)
             
             if deleteState then 
-                logger.LogWarning "Deleting Container and Table."
+                logger.LogWarningf "Deleting Container %A and Table %A." config.RuntimeContainer config.RuntimeTable
                 do! Config.DeleteRuntimeState(config)
             
             if deleteLogs then 
-                logger.LogWarning "Deleting Logs."
+                logger.LogWarningf "Deleting Logs Table %A." config.RuntimeLogsTable
                 do! Config.DeleteRuntimeLogs(config)
 
             if deleteUserData then 
-                logger.LogWarning "Deleting UserData."
+                logger.LogWarningf "Deleting UserData Container %A and Table %A." config.UserDataContainer config.UserDataTable
                 do! Config.DeleteUserData(config)
     
             if reactivate then        
@@ -73,15 +75,14 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
                     logger.LogInfof "RetryCount %d." retryCount
                     let! step2 = Async.Catch <| Config.ReactivateAsync(config)
                     match step2 with
-                    | Choice1Of2 _ -> 
-                        logger.LogInfo "Done."
+                    | Choice1Of2 _ -> ()
                     | Choice2Of2 ex ->
                         logger.LogWarningf "Failed with %A\nWaiting." ex
                         do! Async.Sleep 10000
                         return! loop (retryCount + 1)
                 }
                 do! loop 0
-
+            logger.LogInfo "Reset : done."
             return ()
         }
 
