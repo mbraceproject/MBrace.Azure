@@ -75,6 +75,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Common\Exceptions.fs" />
+    <Compile Include="Common\Validation.fs" />
     <Compile Include="Common\Config.fs" />
     <Compile Include="Common\Version.fs" />
     <Compile Include="Utilities\Utils.fs" />

@@ -101,6 +101,9 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
         let hashAlgorithm = SHA256Managed.Create()
         let getHash(txt : string) = hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes txt)
 
+        let _ = Validate.storageConn this.StorageConnectionString
+        let _ = Validate.serviceBusConn this.ServiceBusConnectionString
+
         let store = CloudStorageAccount.Parse(this.StorageConnectionString).Credentials.AccountName
         let sbus = NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
 
@@ -109,13 +112,13 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
             Version                        = versionNormalized
             StorageConnectionStringHash    = getHash store
             ServiceBusConnectionStringHash = getHash sbus
-            RuntimeQueue                   = (appendVersionAndId this.RuntimeQueue    ).ToLower()
-            RuntimeTopic                   = (appendVersionAndId this.RuntimeTopic    ).ToLower()
-            RuntimeContainer               = (appendVersionAndId this.RuntimeContainer).ToLower()
-            RuntimeTable                   = (appendVersionAndId this.RuntimeTable    ).ToLower()
-            RuntimeLogsTable               = (appendVersionAndId this.RuntimeLogsTable).ToLower()
-            UserDataContainer              = (appendId this.UserDataContainer         ).ToLower()
-            UserDataTable                  = (appendId this.UserDataTable             ).ToLower()
+            RuntimeQueue                   = (appendVersionAndId this.RuntimeQueue    ).ToLower() |> Validate.queueName
+            RuntimeTopic                   = (appendVersionAndId this.RuntimeTopic    ).ToLower() |> Validate.queueName
+            RuntimeContainer               = (appendVersionAndId this.RuntimeContainer).ToLower() |> Validate.containerName
+            RuntimeTable                   = (appendVersionAndId this.RuntimeTable    ).ToLower() |> Validate.tableName
+            RuntimeLogsTable               = (appendVersionAndId this.RuntimeLogsTable).ToLower() |> Validate.tableName
+            UserDataContainer              = (appendId this.UserDataContainer         ).ToLower() |> Validate.containerName
+            UserDataTable                  = (appendId this.UserDataTable             ).ToLower() |> Validate.tableName
         }
 
 namespace MBrace.Azure.Runtime
@@ -138,13 +141,14 @@ open MBrace.Store.Internals
 /// Provides Azure client instances for storage related entities
 [<AutoSerializable(false)>]
 type StoreClientProvider (config : Configuration) =
+    let config, store, sbus = config.GetConfigurationId(), config.StorageConnectionString, config.ServiceBusConnectionString
     do ServicePointManager.DefaultConnectionLimit <- 512
     do ServicePointManager.Expect100Continue <- false
     do ServicePointManager.UseNagleAlgorithm <- false
 
     let awaitTask (task : Task) = task.ContinueWith ignore |> Async.AwaitTask
 
-    let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
+    let acc = lazy CloudStorageAccount.Parse(store)
     member this.TableClient =
         let client = acc.Value.CreateCloudTableClient()
         client.DefaultRequestOptions.RetryPolicy <- RetryPolicies.ExponentialRetry(TimeSpan.FromSeconds(3.), 10)
@@ -156,10 +160,10 @@ type StoreClientProvider (config : Configuration) =
         client.DefaultRequestOptions.MaximumExecutionTime <- Nullable<_>(TimeSpan.FromMinutes(20.))
         client.DefaultRequestOptions.RetryPolicy <- RetryPolicies.ExponentialRetry(TimeSpan.FromSeconds(3.), 10)
         client
-    member this.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
-    member this.QueueClient(queue : string, mode) = QueueClient.CreateFromConnectionString(config.ServiceBusConnectionString, queue, mode)
-    member this.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic, name)
-    member this.TopicClient(topic) = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic)
+    member this.NamespaceClient = NamespaceManager.CreateFromConnectionString(sbus)
+    member this.QueueClient(queue : string, mode) = QueueClient.CreateFromConnectionString(sbus, queue, mode)
+    member this.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(sbus, topic, name)
+    member this.TopicClient(topic) = TopicClient.CreateFromConnectionString(sbus, topic)
 
     member this.ClearUserData() =
         async {
