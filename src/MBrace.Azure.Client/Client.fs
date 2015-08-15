@@ -7,20 +7,11 @@
 open System
 open System.Diagnostics
 open System.IO
-open System.Threading
-
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Core.Internals.InMemoryRuntime
-open MBrace.Store
-open MBrace.Store.Internals
 open MBrace.Azure
-open MBrace.Azure.Store
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure.Runtime.Arguments
-open MBrace.Client
-open MBrace.Runtime.Utils
 open MBrace.Runtime
 
 /// <summary>
@@ -33,8 +24,26 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
 
+    let mutable consoleLogger = None : IDisposable option
+
     /// Current client instance identifier.
     member this.ClientId = manager.RuntimeManagerId
+
+    /// Sets iff logging in console is enabled for this client.
+    member this.EnableClientConsoleLogger 
+        with get () = consoleLogger.IsSome
+        and set enable =
+            lock lockObj (fun () ->
+                match enable, consoleLogger with
+                | true, None ->
+                    match (manager :> IRuntimeManager).SystemLogger with
+                    | :? AttacheableLogger as l -> 
+                        consoleLogger <- Some(l.AttachLogger(new ConsoleLogger(true)))
+                    | _ as l -> failwithf "Not supported client logger %A" l
+                | false, Some(logger) -> 
+                    logger.Dispose()
+                    consoleLogger <- None
+                | _ -> ())
 
     /// <summary>
     /// Fetch cloud logs for given task.
@@ -205,7 +214,6 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
         let logger = new AttacheableLogger()
         let storageLogger = StorageSystemLogger.Create(config.StorageConnectionString, config.WithAppendedId.RuntimeLogsTable, clientId)
         let _ = logger.AttachLogger(storageLogger)
-        let _ = logger.AttachLogger(ConsoleLogger(true) :> ISystemLogger)
         
         let manager = RuntimeManager.CreateForClient(config, clientId, logger, ResourceRegistry.Empty)
         let runtime = new MBraceAzure(manager, storageLogger)
