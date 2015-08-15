@@ -33,11 +33,11 @@ let config =
 //MBraceAzure.Reset(config)
 let runtime = MBraceAzure.InitLocal(config, 4)
 let runtime = MBraceAzure.GetHandle(config)
+runtime.EnableClientConsoleLogging <- false
 runtime.Workers
 
 runtime.ShowWorkerInfo()
 runtime.ShowSystemLogs()
-
 
 let workflow =
     cloud {
