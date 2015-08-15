@@ -7,20 +7,11 @@
 open System
 open System.Diagnostics
 open System.IO
-open System.Threading
-
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Core.Internals.InMemoryRuntime
-open MBrace.Store
-open MBrace.Store.Internals
 open MBrace.Azure
-open MBrace.Azure.Store
 open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure.Runtime.Arguments
-open MBrace.Client
-open MBrace.Runtime.Utils
 open MBrace.Runtime
 
 /// <summary>
