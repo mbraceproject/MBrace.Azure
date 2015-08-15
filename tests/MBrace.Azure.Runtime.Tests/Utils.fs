@@ -53,7 +53,7 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
 
     member __.Start () = 
         let runtime = MBraceAzure.GetHandle(config)
-        runtime.EnableClientConsoleLogging <- true
+        runtime.EnableClientConsoleLogger <- true
         let logTest = 
             { new ILogTester with
                   member x.Clear() = ()
