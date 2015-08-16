@@ -13,7 +13,7 @@ open System
 open MBrace.Store
 
 let config = 
-    let selectEnv name = Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine)
+    let selectEnv name = Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User)
     new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
 
 MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"

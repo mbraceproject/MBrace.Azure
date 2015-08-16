@@ -1,6 +1,9 @@
 ﻿namespace MBrace.Azure.Runtime
 
+open System
+
 /// Configuration identifier.
+/// Holds hashes of connection strings and normalized runtime folders.
 [<AutoSerializable(true)>]
 type ConfigurationId =
       { /// Runtime identifier.
@@ -11,20 +14,40 @@ type ConfigurationId =
         StorageConnectionStringHash : byte []
         /// Service Bus connection string hash.
         ServiceBusConnectionStringHash : byte []
-        /// Service Bus Queue prefix.
+        /// Service Bus Queue.
         RuntimeQueue : string
-        /// Service Bus Topic prefix.
+        /// Service Bus Topic.
         RuntimeTopic : string
-        /// Runtime blob container prefix.
+        /// Runtime blob container.
         RuntimeContainer : string
-        /// Runtime table prefix.
+        /// Runtime table.
         RuntimeTable : string
-        /// Runtime logs table prefix.
+        /// Runtime logs table.
         RuntimeLogsTable : string
-        /// User data container prefix.
+        /// User data container.
         UserDataContainer : string
-        /// User data table prefix.
+        /// User data table.
         UserDataTable : string }
+    with
+        interface MBrace.Runtime.IRuntimeId with
+            member this.Id: string = 
+                let toBytes (text : string) = System.Text.Encoding.UTF8.GetBytes(text)
+                [
+                    this.Id |> sprintf "%05d" |> toBytes
+                    this.Version              |> toBytes
+                    this.StorageConnectionStringHash
+                    this.ServiceBusConnectionStringHash
+                    this.RuntimeQueue      + ";" |> toBytes
+                    this.RuntimeTopic      + ";" |> toBytes
+                    this.RuntimeContainer  + ";" |> toBytes
+                    this.RuntimeTable      + ";" |> toBytes
+                    this.RuntimeLogsTable  + ";" |> toBytes
+                    this.UserDataContainer + ";" |> toBytes
+                    this.UserDataTable     + ";" |> toBytes
+                ] 
+                |> Array.concat
+                |> Convert.ToBase64String
+            
 
 namespace MBrace.Azure
 
