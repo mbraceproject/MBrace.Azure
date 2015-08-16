@@ -27,24 +27,24 @@ module Validate =
         conn
 
     let tableName (name : string) =
-        let exn = InvalidConfigurationException(sprintf "Invalid table name %A. See Azure Table Storage naming rules." name)
+        let exn = InvalidConfigurationException(sprintf "Invalid table name %A. Name length should be between 3 and 63, containing alphanumeric characters." name)
         if name.Length < 3 || name.Length > 63 then raise exn
         if name |> Seq.forall alphanumeric.Contains |> not then raise exn
         name
 
     let containerName (name : string) = 
-        let exn = InvalidConfigurationException(sprintf "Invalid container name %A. See Azure Blob Storage naming rules." name)
+        let exn = InvalidConfigurationException(sprintf "Invalid container name %A. Name length should be between 3 and 63, containing lowercase characters or numbers." name)
         if name.Length < 3 || name.Length > 63 then raise exn
         if name |> Seq.forall (lower + number).Contains |> not then raise exn
         name
 
     let queueName (name : string) = 
-        let exn = InvalidConfigurationException(sprintf "Invalid queue name %A. See Azure Service Bus naming rules." name)
+        let exn = InvalidConfigurationException(sprintf "Invalid queue name %A. Name should contain only alphanumeric characters or '-','_','/' delimiters." name)
         if name |> Seq.forall (alphanumeric + set ['-'; '_'; '/']).Contains |> not then raise exn
         name
                 
     let subscriptionName (name : string) = 
-        let exn = InvalidConfigurationException(sprintf "Invalid subscription name %A. See Azure Service Bus naming rules." name)
+        let exn = InvalidConfigurationException(sprintf "Invalid subscription name %A. Name length should be less than 50, containing only alphanumeric characters or '-','_','/' delimiters." name)
         if name.Length > 50 then raise exn
-        if name |> Seq.forall (alphanumeric + set ['-'; '_';]).Contains |> not then raise exn
+        if name |> Seq.forall (alphanumeric + set ['-'; '_'; '/']).Contains |> not then raise exn
         name
