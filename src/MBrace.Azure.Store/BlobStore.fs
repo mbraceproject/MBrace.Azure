@@ -5,7 +5,7 @@ open System.IO
 open System.Security.AccessControl
 open System.Runtime.Serialization
 
-open MBrace.Store.Internals
+open MBrace.Core.Internals
 
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Blob
@@ -13,10 +13,13 @@ open MBrace.Azure.Store.TableEntities.Table
 
 ///  MBrace File Store implementation that uses Azure Blob Storage as backend.
 [<Sealed; DataContract>]
-type BlobStore private (connectionString : string) =
+type BlobStore private (connectionString : string, defaultContainer : string) =
 
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
+
+    [<DataMember(Name = "DefaultContainer")>]
+    let defaultContainer = defaultContainer
 
     [<IgnoreDataMember>]
     let mutable acc = CloudStorageAccount.Parse(connectionString)
@@ -29,7 +32,8 @@ type BlobStore private (connectionString : string) =
     ///     Creates an MBrace blob storage interface that connects to storage account with provided connection string.
     /// </summary>
     /// <param name="connectionString">Azure storage account connection string.</param>
-    static member Create(connectionString : string) = new BlobStore(connectionString)
+    /// <param name="defaultContainer">Default container to be used be store instance.</param>
+    static member Create(connectionString : string, ?defaultContainer : string) = new BlobStore(connectionString, defaultArg defaultContainer "")
 
     interface ICloudFileStore with
         member this.BeginWrite(path: string): Async<Stream> = 
@@ -69,11 +73,14 @@ type BlobStore private (connectionString : string) =
         member this.Name = "MBrace.Azure.Store.BlobStore"
         member this.Id : string = acc.BlobStorageUri.PrimaryUri.ToString()
 
+        member this.DefaultDirectory = defaultContainer
+        member this.WithDefaultDirectory container = new BlobStore(connectionString, container) :> _
+
         member this.GetRootDirectory () = String.Empty
 
         member this.GetRandomDirectoryName() : string = Guid.NewGuid().ToString()
 
-        member this.TryGetFullPath(path : string) = Some path
+        member this.IsPathRooted(_ : string) = true // ??????
 
         member this.GetDirectoryName(path : string) = Path.GetDirectoryName(path)
 

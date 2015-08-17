@@ -8,7 +8,6 @@ open Microsoft.WindowsAzure.Storage
 
 [<AutoOpen>]
 module internal Utils =
-    open MBrace.Store
 
     /// Generates a new guid in string form
     let guid() = Guid.NewGuid().ToString("N")
