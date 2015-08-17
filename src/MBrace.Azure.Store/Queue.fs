@@ -32,7 +32,12 @@ type Queue<'T> internal (queuePath, connectionString) =
 
     interface CloudQueue<'T> with
         member x.Id: string = queuePath
-        member x.Count: Async<int64> = raise <| NotImplementedException()
+        member x.Count: Async<int64> =
+            async {
+                let! queueDescription = nsClient.GetQueueAsync(queuePath)
+                                        |> Async.AwaitTask
+                return queueDescription.MessageCount
+            }
         
         member x.Enqueue(message: 'T): Async<unit> = 
             async {
@@ -42,11 +47,26 @@ type Queue<'T> internal (queuePath, connectionString) =
                 do! client.SendAsync(msg)
             }
         
-        member x.EnqueueBatch(_messages: seq<'T>): Async<unit> = 
-            raise <| new NotImplementedException()
+        member x.EnqueueBatch(messages: seq<'T>): Async<unit> = 
+            async {
+                return!
+                    messages
+                    |> Seq.map (fun item ->
+                        let bin = VagabondRegistry.Instance.Serializer.Pickle item
+                        use ms = new MemoryStream(bin) in ms.Position <- 0L
+                        new BrokeredMessage(ms))
+                    |> client.SendBatchAsync
+            }
         
         member x.TryDequeue(): Async<'T option> = 
-            raise <| new NotImplementedException()
+            async {
+                let! (msg : BrokeredMessage) = client.ReceiveAsync()
+                match msg with
+                | null -> return None
+                | msg ->
+                    use stream = msg.GetBody<Stream>()
+                    return Some(VagabondRegistry.Instance.Serializer.Deserialize<'T>(stream))
+            }
         
         member x.Dequeue(?timeout: int): Async<'T> = 
             async {
@@ -102,7 +122,7 @@ type QueueProvider private (connectionString : string) =
 
         member __.CreateQueue<'T> (_ : string) =
             async {
-                let queuePath = sprintf "channel_%s" <| guid()
+                let queuePath = sprintf "queue_%s" <| guid()
                 let qd = new QueueDescription(queuePath)
                 qd.SupportOrdering <- true
                 qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
