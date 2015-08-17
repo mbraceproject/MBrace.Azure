@@ -1,5 +1,9 @@
 ### 0.7.0-alpha
 * Migrate to MBrace.Runtime.Core 0.9.14 APIs
+* Client API changes.
+* Configuration API changes.
+* Service API changed.
+* Misc bugfixes.
 
 ### 0.6.10-alpha
 * Update MBrace.Core libraries.
