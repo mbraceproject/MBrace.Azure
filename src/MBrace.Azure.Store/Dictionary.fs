@@ -1,24 +1,24 @@
 ﻿namespace MBrace.Azure.Store
 
 open System
-open System.Runtime.Serialization
 open System.IO
+open System.Runtime.Serialization
+open System.Collections
+open System.Collections.Generic
 
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
 open MBrace.Core
-open MBrace.Store
-open MBrace.Store.Internals
-open MBrace.Runtime.Vagabond
+open MBrace.Core.Internals
+open MBrace.Runtime
 
 open MBrace.Azure.Store.TableEntities
 open MBrace.Azure.Store.TableEntities.Table
-open System.Collections.Generic
 
 /// Azure Table store CloudDictionary implementation.
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type CloudDictionary<'T> (tableName : string, connectionString) = 
+type Dictionary<'T> (tableName : string, connectionString) = 
     
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
@@ -30,10 +30,22 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
     [<OnDeserialized>]
     let _onDeserialized (_ : StreamingContext) =
         client <- Table.getClient(CloudStorageAccount.Parse connectionString)
+
+    let getSeqAsync() = async {
+        let! entities = Table.readAll<FatEntity> client tableName
+        return entities
+                |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, VagabondRegistry.Instance.Serializer.UnPickle<'T>(entity.GetPayload())))
+    }
+
+    let getSeq() = getSeqAsync() |> Async.RunSync
+
+    interface seq<KeyValuePair<string,'T>> with
+        member __.GetEnumerator() = getSeq().GetEnumerator() :> IEnumerator
+        member __.GetEnumerator() = getSeq().GetEnumerator()
         
-    interface ICloudDictionary<'T> with
+    interface CloudDictionary<'T> with
         member x.IsKnownCount: bool = false
-        
+        member x.IsMaterialized : bool = false
         member x.IsKnownSize: bool = false
         
         member this.Add(key: string, value : 'T): Async<unit> = 
@@ -88,16 +100,15 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
                 return e <> null
             }
         
-        member this.Count: Local<int64> = Cloud.Raise(new NotSupportedException("Count property not supported."))
-        
-        member this.Size: Local<int64> = Cloud.Raise(new NotSupportedException("Size property not supported."))
+        member this.GetCount () : Async<int64> = Async.Raise(new NotSupportedException("Count property not supported."))
+        member this.GetSize () : Async<int64> = Async.Raise(new NotSupportedException("Size property not supported."))
 
-        member this.Dispose(): Local<unit> = 
+        member this.Dispose(): Async<unit> = 
             async {
                 let! _ = client.GetTableReference(tableName).DeleteAsync()
                          |> Async.AwaitTask
                 return ()
-            } |> Cloud.OfAsync
+            }
         
         member this.Id: string = tableName
         
@@ -110,17 +121,17 @@ type CloudDictionary<'T> (tableName : string, connectionString) =
                     if NotFound ex then return false else return raise ex
             }
         
-        member this.ToEnumerable(): Local<seq<Collections.Generic.KeyValuePair<string,'T>>> = 
+        member this.ToEnumerable(): Async<seq<Collections.Generic.KeyValuePair<string,'T>>> = 
             async {
                 let! entities = Table.readAll<FatEntity> client tableName
                 return entities
                        |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, VagabondRegistry.Instance.Serializer.UnPickle<'T>(entity.GetPayload())))
-            } |> Cloud.OfAsync
+            }
         
         member this.TryAdd(key: string, value: 'T): Async<bool> = 
             async {
                 try
-                    do! (this :> ICloudDictionary<'T>).Add(key, value)
+                    do! (this :> CloudDictionary<'T>).Add(key, value)
                     return true
                 with ex ->
                     if Conflict ex then return false else return raise ex
@@ -156,12 +167,14 @@ type CloudDictionaryProvider private (connectionString : string) =
         new CloudDictionaryProvider(connectionString)
 
     interface ICloudDictionaryProvider with
-        member x.Create(): Async<ICloudDictionary<'T>> = 
+        member x.Id = client.BaseUri.AbsolutePath
+        member x.Name = "Table Store CloudDictionary Provider"
+        member x.Create(): Async<CloudDictionary<'T>> = 
             async {
                 let tableName = Table.getRandomName()
                 let tableRef = client.GetTableReference(tableName)
                 let! _ = tableRef.CreateIfNotExistsAsync()
-                return new CloudDictionary<'T>(tableName, connectionString) :> ICloudDictionary<'T>
+                return new Dictionary<'T>(tableName, connectionString) :> CloudDictionary<'T>
             }
 
         member x.IsSupportedValue(value: 'T): bool = 
