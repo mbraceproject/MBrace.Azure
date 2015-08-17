@@ -18,4 +18,4 @@
 #r @"tools\MBrace.Azure.Runtime.dll"
 #r @"tools\MBrace.Azure.Client.dll"
 
-MBrace.Azure.Client.Runtime.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/tools/mbrace.azureworker.exe"
+MBrace.Azure.MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/tools/mbrace.azureworker.exe"
