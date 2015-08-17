@@ -38,12 +38,12 @@ module internal Metadata =
     let toString (version : Version) (configurationId : ConfigurationId) =
         let metadata = { Version = version; ConfigurationId = configurationId }
         use sw = new StringWriter()
-        let json = Nessos.FsPickler.Json.JsonSerializer()
+        let json = Nessos.FsPickler.Json.JsonSerializer(omitHeader = true)
         json.Serialize(sw, metadata)
         sw.ToString()
 
     let fromString (metadata : string) =
-        let json = Nessos.FsPickler.Json.JsonSerializer()
+        let json = Nessos.FsPickler.Json.JsonSerializer(omitHeader = true)
         use sr = new StringReader(metadata)
         try
             json.Deserialize<Metadata>(sr)

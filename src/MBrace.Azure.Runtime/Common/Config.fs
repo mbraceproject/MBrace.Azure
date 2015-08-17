@@ -1,15 +1,11 @@
-﻿namespace MBrace.Azure
+﻿namespace MBrace.Azure.Runtime
 
-open Microsoft.ServiceBus
-open Microsoft.WindowsAzure.Storage
-open System.Security.Cryptography
-open System.Text
 open System
 
 /// Configuration identifier.
+/// Holds hashes of connection strings and normalized runtime folders.
 [<AutoSerializable(true)>]
 type ConfigurationId =
-    private
       { /// Runtime identifier.
         Id : uint16
         /// Runtime version string
@@ -18,153 +14,135 @@ type ConfigurationId =
         StorageConnectionStringHash : byte []
         /// Service Bus connection string hash.
         ServiceBusConnectionStringHash : byte []
-        /// Service Bus Queue prefix.
+        /// Service Bus Queue.
         RuntimeQueue : string
-        /// Service Bus Topic prefix.
+        /// Service Bus Topic.
         RuntimeTopic : string
-        /// Runtime blob container prefix.
+        /// Runtime blob container.
         RuntimeContainer : string
-        /// Runtime table prefix.
+        /// Runtime table.
         RuntimeTable : string
-        /// Runtime logs table prefix.
+        /// Runtime logs table.
         RuntimeLogsTable : string
-        /// User data container prefix.
+        /// User data container.
         UserDataContainer : string
-        /// User data table prefix.
+        /// User data table.
         UserDataTable : string }
+    with
+        interface MBrace.Runtime.IRuntimeId with
+            member this.Id: string = 
+                let toBytes (text : string) = System.Text.Encoding.UTF8.GetBytes(text)
+                [
+                    this.Id |> sprintf "%05d" |> toBytes
+                    this.Version              |> toBytes
+                    this.StorageConnectionStringHash
+                    this.ServiceBusConnectionStringHash
+                    this.RuntimeQueue      + ";" |> toBytes
+                    this.RuntimeTopic      + ";" |> toBytes
+                    this.RuntimeContainer  + ";" |> toBytes
+                    this.RuntimeTable      + ";" |> toBytes
+                    this.RuntimeLogsTable  + ";" |> toBytes
+                    this.UserDataContainer + ";" |> toBytes
+                    this.UserDataTable     + ";" |> toBytes
+                ] 
+                |> Array.concat
+                |> Convert.ToBase64String
+            
 
+namespace MBrace.Azure
 
-/// Azure specific Runtime Configuration.
+open Microsoft.ServiceBus
+open Microsoft.WindowsAzure.Storage
+open System.Security.Cryptography
+open System.Text
+open System
+open MBrace.Azure.Runtime
+open MBrace.Runtime.Utils.String
+
+// Make this serializable for client/local runtime communication.
 [<AutoSerializable(true)>]
-type Configuration =
-    { /// Runtime identifier.
-      Id : uint16
-      /// Runtime version string.
-      Version : string
-      /// Azure storage connection string.
-      StorageConnectionString : string
-      /// Service Bus connection string.
-      ServiceBusConnectionString : string
-      /// Service Bus Queue prefix.
-      RuntimeQueue : string
-      /// Service Bus Topic prefix.
-      RuntimeTopic : string
-      /// Runtime blob container prefix.
-      RuntimeContainer : string
-      /// Runtime table prefix.
-      RuntimeTable : string
-      /// Runtime logs table prefix.
-      RuntimeLogsTable : string
-      /// User data container prefix.
-      UserDataContainer : string
-      /// User data table prefix.
-      UserDataTable : string
-    }
+/// MBrace.Azure runtime configuration.
+type Configuration(storageConnectionString : string, serviceBusConnectionString : string) = 
 
-    /// Returns an Azure Configuration with the default values.
-    static member Default =
-        { Id                         = 0us
-          Version                    = typeof<Configuration>.Assembly.GetName().Version.ToString(4)
-          StorageConnectionString    = "your connection string"
-          ServiceBusConnectionString = "your connection string"
-          // See Azure/ServiceBus name limits
-          RuntimeQueue               = "MBraceQueue"
-          RuntimeTopic               = "MBraceTopic"
-          RuntimeContainer           = "mbraceruntimedata"
-          RuntimeTable               = "MBraceRuntimeData"
-          RuntimeLogsTable           = "MBraceRuntimeLogs"
-          UserDataContainer          = "mbraceuserdata"
-          UserDataTable              = "MBraceUserData" }
+    /// Runtime identifier, used for runtime isolation when using the same storage/servicebus accounts. Defaults to 0.
+    member val Id                         = 0us with get, set
 
+    /// Runtime version this configuration is targeting. Default to current assembly version.
+    member val Version                    = typeof<Configuration>.Assembly.GetName().Version.ToString(4) with get, set
 
-    /// Append Configuration.Id on all values.
-    /// Note : This property should not be used by clients.
-    member this.WithAppendedId =
-        let version, versionString =
+    /// Azure Storage connection string.
+    member val StorageConnectionString    = storageConnectionString with get, set
+
+    /// Azure Service Bus connection string.
+    member val ServiceBusConnectionString = serviceBusConnectionString with get, set
+
+    /// Service Bus queue used by the runtime.
+    member val RuntimeQueue               = "MBraceQueue" with get, set
+
+    /// Service Bus topic used by the runtime.
+    member val RuntimeTopic               = "MBraceTopic" with get, set
+
+    /// Azure Storage container used by the runtime.
+    member val RuntimeContainer           = "mbraceruntimedata" with get, set
+
+    /// Azure Storage table used by the runtime.
+    member val RuntimeTable               = "MBraceRuntimeData" with get, set
+
+    /// Azure Storage table used by the runtime for storing logs.
+    member val RuntimeLogsTable           = "MBraceRuntimeLogs" with get, set
+
+    /// Azure Storage container used for user data.
+    member val UserDataContainer          = "mbraceuserdata" with get, set
+
+    /// Azure Storage table used for user data.
+    member val UserDataTable              = "MBraceUserData" with get, set
+    
+    /// Append version to given configuration e.g. $RuntimeQueue$Version. Defaults to true.
+    member val UseVersionPostfix          = true with get, set
+
+    /// Append runtime id to given configuration e.g. $RuntimeQueue$Version$Id. Defaults to true.
+    member val UseIdPostfix               = true with get, set
+
+    /// Validate configuration and construct ConfigurationId.
+    member this.GetConfigurationId () : ConfigurationId = 
+        let versionNormalized, versionPostfix =
             match Version.TryParse(this.Version) with
-            | true, v  -> v, sprintf "%dx%dx%dx%d" v.Major v.Minor v.Build v.Revision
-            | false, _ -> failwith <| sprintf "Invalid Version string '%s'" this.Version
+            | true, v  -> v.ToString(4), sprintf "%dx%dx" v.Major v.Minor
+            | false, _ -> raise <| InvalidConfigurationException(sprintf "Invalid Version string '%s'" this.Version)
+        
+        let appendId text =
+            if this.UseIdPostfix then sprintf "%s%05d" text this.Id else text
+        let appendVersionAndId (text : string) =
+            let sb = new StringBuilder()
+            (stringB {
+                yield text
+                if this.UseVersionPostfix then yield versionPostfix
+                if this.UseIdPostfix then yield sprintf "%05d" this.Id
+            }) sb
+            sb.ToString()
 
-        let versionNormalized = version.ToString(4)
-
-        let withVersionAndId s =
-            // TODO : Temporary fix to enable GetHandle from newer clients.
-            // 0.6.5 clients do not use Version in folder names.
-            // < 0.6.1 clients have complete different folder structure.
-            if version <= Version(0, 6, 1, 0) then
-                raise(NotSupportedException("Connecting to runtimes with Version <= 0.6.1 not supported from newer clients. Use a client with the same version instead."))
-            elif version < Version(0, 6, 5, 0) then
-                sprintf "%s%05d" s this.Id
-            else
-                sprintf "%s%s%05d" s versionString this.Id
-
-        let withId s =sprintf "%s%05d" s this.Id
-
-        { this with
-            Version = versionNormalized
-            RuntimeQueue = withVersionAndId this.RuntimeQueue
-            RuntimeTopic = withVersionAndId this.RuntimeTopic
-            RuntimeContainer = withVersionAndId this.RuntimeContainer
-            RuntimeTable = withVersionAndId this.RuntimeTable
-            RuntimeLogsTable = withVersionAndId this.RuntimeLogsTable
-            UserDataContainer = withId this.UserDataContainer
-            UserDataTable = withId this.UserDataTable
-        }
-
-    /// Configuration identifier hash.
-    member this.ConfigurationId : ConfigurationId =
         let hashAlgorithm = SHA256Managed.Create()
         let getHash(txt : string) = hashAlgorithm.ComputeHash(Encoding.UTF8.GetBytes txt)
+
+        let _ = Validate.storageConn this.StorageConnectionString
+        let _ = Validate.serviceBusConn this.ServiceBusConnectionString
 
         let store = CloudStorageAccount.Parse(this.StorageConnectionString).Credentials.AccountName
         let sbus = NamespaceManager.CreateFromConnectionString(this.ServiceBusConnectionString).Address.ToString()
 
-        { Id = this.Id
-          Version = this.Version
-          StorageConnectionStringHash = getHash store
-          ServiceBusConnectionStringHash = getHash sbus
-          RuntimeQueue = this.RuntimeQueue.ToLower()
-          RuntimeTopic = this.RuntimeTopic.ToLower()
-          RuntimeContainer = this.RuntimeContainer.ToLower()
-          RuntimeTable = this.RuntimeTable.ToLower()
-          RuntimeLogsTable = this.RuntimeLogsTable.ToLower()
-          UserDataContainer = this.UserDataContainer.ToLower()
-          UserDataTable = this.UserDataTable.ToLower()
+        {
+            Id                             = this.Id
+            Version                        = versionNormalized
+            StorageConnectionStringHash    = getHash store
+            ServiceBusConnectionStringHash = getHash sbus
+            RuntimeQueue                   = (appendVersionAndId this.RuntimeQueue    ).ToLower() |> Validate.queueName
+            RuntimeTopic                   = (appendVersionAndId this.RuntimeTopic    ).ToLower() |> Validate.queueName
+            RuntimeContainer               = (appendVersionAndId this.RuntimeContainer).ToLower() |> Validate.containerName
+            RuntimeTable                   = (appendVersionAndId this.RuntimeTable    ).ToLower() |> Validate.tableName
+            RuntimeLogsTable               = (appendVersionAndId this.RuntimeLogsTable).ToLower() |> Validate.tableName
+            UserDataContainer              = (appendId this.UserDataContainer         ).ToLower() |> Validate.containerName
+            UserDataTable                  = (appendId this.UserDataTable             ).ToLower() |> Validate.tableName
         }
-
-    /// Return a new copy with altered Version.
-    member this.WithVersion(version : string) =
-        { this with Version = version }
-
-    /// Return a new copy with altered Id.
-    member this.WithId(id) =
-        { this with Id = id }
-
-
-    /// Return a new copy with altered the default user data folders.
-    member this.WithUserDataFolders(userDataContainer, userDataTable) =
-        { this with
-            UserDataContainer = userDataContainer
-            UserDataTable = userDataTable }
-
-    /// Return a new copy with altered runtime Queues, Containers and Tables.
-    member this.WithRuntimeFolders(runtimeQueue, runtimeTopic, runtimeContainer, runtimeTable, runtimeLogsTable, userDataContainer, userDataTable) =
-        { this with
-            RuntimeQueue      = runtimeQueue
-            RuntimeTopic      = runtimeTopic
-            RuntimeContainer  = runtimeContainer
-            RuntimeTable      = runtimeTable
-            RuntimeLogsTable  = runtimeLogsTable
-            UserDataContainer = userDataContainer
-            UserDataTable     = userDataTable }
-
-    /// Return a new copy with altered storage connection string.
-    member this.WithStorageConnectionString(conn : string) =
-        { this with StorageConnectionString = conn }
-
-    /// Return a new copy with altered service bus connection string.
-    member this.WithServiceBusConnectionString(conn : string) =
-        { this with ServiceBusConnectionString = conn }
 
 namespace MBrace.Azure.Runtime
 
@@ -186,13 +164,14 @@ open MBrace.Store.Internals
 /// Provides Azure client instances for storage related entities
 [<AutoSerializable(false)>]
 type StoreClientProvider (config : Configuration) =
+    let config, store, sbus = config.GetConfigurationId(), config.StorageConnectionString, config.ServiceBusConnectionString
     do ServicePointManager.DefaultConnectionLimit <- 512
     do ServicePointManager.Expect100Continue <- false
     do ServicePointManager.UseNagleAlgorithm <- false
 
     let awaitTask (task : Task) = task.ContinueWith ignore |> Async.AwaitTask
 
-    let acc = lazy CloudStorageAccount.Parse(config.StorageConnectionString)
+    let acc = lazy CloudStorageAccount.Parse(store)
     member this.TableClient =
         let client = acc.Value.CreateCloudTableClient()
         client.DefaultRequestOptions.RetryPolicy <- RetryPolicies.ExponentialRetry(TimeSpan.FromSeconds(3.), 10)
@@ -204,10 +183,10 @@ type StoreClientProvider (config : Configuration) =
         client.DefaultRequestOptions.MaximumExecutionTime <- Nullable<_>(TimeSpan.FromMinutes(20.))
         client.DefaultRequestOptions.RetryPolicy <- RetryPolicies.ExponentialRetry(TimeSpan.FromSeconds(3.), 10)
         client
-    member this.NamespaceClient = NamespaceManager.CreateFromConnectionString(config.ServiceBusConnectionString)
-    member this.QueueClient(queue : string, mode) = QueueClient.CreateFromConnectionString(config.ServiceBusConnectionString, queue, mode)
-    member this.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic, name)
-    member this.TopicClient(topic) = TopicClient.CreateFromConnectionString(config.ServiceBusConnectionString, topic)
+    member this.NamespaceClient = NamespaceManager.CreateFromConnectionString(sbus)
+    member this.QueueClient(queue : string, mode) = QueueClient.CreateFromConnectionString(sbus, queue, mode)
+    member this.SubscriptionClient(topic, name) = SubscriptionClient.CreateFromConnectionString(sbus, topic, name)
+    member this.TopicClient(topic) = TopicClient.CreateFromConnectionString(sbus, topic)
 
     member this.ClearUserData() =
         async {
@@ -312,7 +291,7 @@ type Config private () =
         initialize populateDirs
         let cp = new StoreClientProvider(config)
         do! cp.InitAll()
-        ConfigurationRegistry.Register<StoreClientProvider>(config.ConfigurationId, cp)
+        ConfigurationRegistry.Register<StoreClientProvider>(config.GetConfigurationId(), cp)
     }
 
     /// Activates the given configuration.

@@ -11,29 +11,15 @@ open MBrace.Core
 open MBrace.Azure
 open System
 open MBrace.Store
-open System.IO
-
-MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-
-let selectEnv name =
-    (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
-      Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
-        Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Process))
-    |> function 
-       | s, _, _ when not <| String.IsNullOrEmpty(s) -> s
-       | _, s, _ when not <| String.IsNullOrEmpty(s) -> s
-       | _, _, s when not <| String.IsNullOrEmpty(s) -> s
-       | _ -> failwith "Variable not found"
 
 let config = 
-    { Configuration.Default with
-        StorageConnectionString = selectEnv "azurestorageconn"
-        ServiceBusConnectionString = selectEnv "azureservicebusconn" }
+    let selectEnv name = Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User)
+    new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
 
-//MBraceAzure.Reset(config)
+MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 let runtime = MBraceAzure.InitLocal(config, 4)
-let runtime = MBraceAzure.GetHandle(config)
-runtime.EnableClientConsoleLogging <- false
+//let runtime = MBraceAzure.GetHandle(config)
+runtime.EnableClientConsoleLogger <- true
 runtime.Workers
 
 runtime.ShowWorkerInfo()

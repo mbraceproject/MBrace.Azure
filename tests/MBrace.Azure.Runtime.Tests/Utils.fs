@@ -66,7 +66,7 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
         state <- Some (runtime, logTest)
 
     member __.Stop () =
-        state |> Option.iter (fun (r,l) -> (r.KillLocalWorker() ; r.Reset(true, true, true, true, true)))
+        state |> Option.iter (fun (r,l) -> (r.KillLocalWorker() ; r.Reset(true, true, true, true, true, false)))
         state <- None
 
     member __.Runtime =

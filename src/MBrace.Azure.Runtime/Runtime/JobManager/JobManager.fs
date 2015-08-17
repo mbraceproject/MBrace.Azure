@@ -49,6 +49,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
         }
 
     member this.SetLocalWorkerId(id : IWorkerId) =
+        let _ = Validate.subscriptionName id.Id
         queue.LocalWorkerId <- id
         topic.LocalWorkerId <- id
         subscription <- Some(topic.GetSubscription(id))
