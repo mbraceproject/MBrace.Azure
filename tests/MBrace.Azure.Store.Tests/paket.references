@@ -2,6 +2,6 @@ FsCheck
 FsPickler
 MBrace.Core
 MBrace.Tests
-MBrace.Runtime.Core
+MBrace.Runtime
 NUnit
 Vagabond

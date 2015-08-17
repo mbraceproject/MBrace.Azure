@@ -1,5 +1,5 @@
 MBrace.Core
-MBrace.Runtime.Core
+MBrace.Runtime
 Microsoft.Data.Edm
 Microsoft.Data.OData
 Microsoft.Data.Services.Client
