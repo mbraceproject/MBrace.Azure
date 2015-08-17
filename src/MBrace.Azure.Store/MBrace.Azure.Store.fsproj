@@ -78,7 +78,7 @@
     <Compile Include="TableEntities.fs" />
     <Compile Include="BlobStore.fs" />
     <Compile Include="Atom.fs" />
-    <Compile Include="Channel.fs" />
+    <Compile Include="Queue.fs" />
     <Compile Include="Dictionary.fs" />
     <None Include="script.fsx" />
     <Content Include="paket.references" />
