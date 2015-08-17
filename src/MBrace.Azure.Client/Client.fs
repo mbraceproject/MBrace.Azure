@@ -217,14 +217,11 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// </summary>
     /// <param name="config">Runtime configuration.</param>
     /// <param name="clientId">Client identifier.</param>
-    static member GetHandle(config : Configuration, ?clientId : string) : MBraceAzure = 
+    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger) : MBraceAzure = 
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
-        // TODO : Add Configuration check
-        let logger = new AttacheableLogger()
         let storageLogger = StorageSystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, clientId)
-        let _ = logger.AttachLogger(storageLogger)
-        
+        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
         let manager = RuntimeManager.CreateForClient(config, clientId, logger, ResourceRegistry.Empty)
         let runtime = new MBraceAzure(manager, storageLogger)
         runtime

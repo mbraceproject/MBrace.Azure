@@ -35,7 +35,8 @@ type IndexedReferenceEntity(partitionKey, rowKey) =
 
 
 [<DataContract; Sealed>]
-type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : string, size : int) = 
+type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : string, size : int) =
+    static let enableOverWrite = false
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
     let [<DataMember(Name = "size")>] size = size
@@ -84,11 +85,11 @@ type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : str
                 return currentSize = size
             }
         
-        member this.SetResult(index: int, value: 'T, overwrite: bool): Async<bool> = 
+        member this.SetResult(index: int, value: 'T, _ : IWorkerId): Async<bool> = 
             async { 
                 let! bc = Blob.Create(config, partitionKey, IndexedReferenceEntity.MakeRowKey(index), fun () -> value)
                 let rec loop(guard : IndexedReferenceEntity, record : IndexedReferenceEntity) = async {
-                    if overwrite = false && record.Uri <> null then
+                    if enableOverWrite = false && record.Uri <> null then
                             return guard.Counter.Value = size
                     else
                         if record.Uri = null then
@@ -124,7 +125,7 @@ type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : str
 [<Sealed>]
 type ResultAggregatorFactory private (config : ConfigurationId) =
     interface ICloudResultAggregatorFactory with
-        member x.CreateResultAggregator(capacity: int): Async<ICloudResultAggregator<'T>> = 
+        member x.CreateResultAggregator(_aggregatorId : string, capacity: int): Async<ICloudResultAggregator<'T>> = 
             async {
                 let partitionKey = guid()
                 let entities = seq {

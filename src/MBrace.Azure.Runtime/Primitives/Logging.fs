@@ -108,8 +108,8 @@ type StorageSystemLogger private (storageConn : string, table : string, loggerTy
         agent.Post(Log e)
 
     interface ISystemLogger with
-        member x.LogEntry(level: MBrace.Runtime.LogLevel, time: DateTime, message: string): unit = 
-            log message (DateTimeOffset(time)) level
+        member x.LogEntry(entry : SystemLogEntry) =
+            log entry.Message (DateTimeOffset(entry.DateTime)) entry.LogLevel
 
     member this.ShowLogs(?loggerType : LoggerType, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
         this.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
@@ -154,7 +154,7 @@ type CloudStorageLogger(config : ConfigurationId, workerId : IWorkerId, taskId :
     interface ICloudLogger with
         override __.Log(entry : string) : unit = 
             let time = DateTimeOffset.UtcNow
-            let e = new LogRecord(loggerType.ToPartitionKey(), timeToRK time (guid()), entry, DateTimeOffset.UtcNow, int LogLevel.None, loggerType.LoggerId, false)
+            let e = new LogRecord(loggerType.ToPartitionKey(), timeToRK time (guid()), entry, DateTimeOffset.UtcNow, int MBrace.Runtime.LogLevel.Undefined, loggerType.LoggerId, false)
             Async.RunSync(Table.insert<LogRecord> config table e)
 
     member this.ShowLogs(?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
@@ -186,31 +186,33 @@ type CloudStorageLogger(config : ConfigurationId, workerId : IWorkerId, taskId :
 
 type CustomLogger (f : Action<string>) =
     interface ISystemLogger with
-        member x.LogEntry(level: MBrace.Runtime.LogLevel, time: DateTime, message: string): unit = 
-            f.Invoke(sprintf "%O %O %O" time level message)
+        member x.LogEntry(entry : SystemLogEntry): unit = 
+            f.Invoke(sprintf "%O %O %O" entry.DateTime entry.LogLevel entry.Message)
 
 [<AutoOpen>]
 module LoggerExtensions =
     type ConsoleLogger with
         member logger.WithColor () =
             { new ISystemLogger with
-                member x.LogEntry(level: LogLevel, time: DateTime, message: string): unit = 
+                member x.LogEntry(entry : SystemLogEntry): unit = 
                     let current = Console.ForegroundColor
                     Console.ForegroundColor <-
-                        match level with
-                        | LogLevel.Error   -> ConsoleColor.Red
-                        | LogLevel.Warning -> ConsoleColor.Yellow
-                        | LogLevel.Info    -> ConsoleColor.Cyan
-                        | LogLevel.Debug   -> ConsoleColor.White
-                        | LogLevel.None    -> ConsoleColor.Gray
-                        | _                -> failwithf "Invalid LogLevel %A" level
-                    (logger :> ISystemLogger).LogEntry(level, time, message)
+                        match entry.LogLevel with
+                        | LogLevel.Critical     -> ConsoleColor.Red
+                        | LogLevel.Error        -> ConsoleColor.Red
+                        | LogLevel.Warning      -> ConsoleColor.Yellow
+                        | LogLevel.Info         -> ConsoleColor.Cyan
+                        | LogLevel.Debug        -> ConsoleColor.White
+                        | LogLevel.Undefined    -> ConsoleColor.Gray
+                        | _                     -> failwithf "Invalid LogLevel %A" entry.LogLevel
+
+                    (logger :> ISystemLogger).LogEntry(entry)
                     Console.ForegroundColor <- current
             }
     
     type AttacheableLogger with
         static member FromLoggers(loggers : ISystemLogger seq) = 
-            let logger = new AttacheableLogger()
+            let logger = AttacheableLogger.Create(makeAsynchronous = false)
             for l in loggers do
                 ignore(logger.AttachLogger(l))
             logger

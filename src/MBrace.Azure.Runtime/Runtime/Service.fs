@@ -5,7 +5,6 @@ open System.Diagnostics
 open System.Threading
 
 open MBrace.Core.Internals
-open MBrace.Store.Internals
 open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
@@ -62,24 +61,20 @@ type Service (config : Configuration, serviceId : string) =
             | None -> false
 
     /// Register a CloudFileStoreConfiguration instance. Defaults to BlobStore with configuration's storage connection string.
-    member this.RegisterStoreConfiguration(store : CloudFileStoreConfiguration) =
+    member this.RegisterStoreConfiguration(store : ICloudFileStore) =
         check () ; customResources <- customResources.Register(store)
 
     /// Register a CloudAtomConfiguration instance. Defaults to table store implementation with configuration's storage connection string.
-    member this.RegisterAtomProvider(atom : CloudAtomConfiguration) = 
+    member this.RegisterAtomProvider(atom : ICloudAtomProvider) = 
         check () ; customResources <- customResources.Register(atom)
     
-    /// Register a CloudChannelConfiguration instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
-    member this.RegisterChannelProvider(channel : CloudChannelConfiguration) = 
+    /// Register a CloudQueueConfiguration instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
+    member this.RegisterQueueProvider(channel : ICloudQueueProvider) = 
         check () ; customResources <- customResources.Register(channel)
 
     /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
     member this.RegisterDictionaryProvider(dictionary : ICloudDictionaryProvider) = 
         check () ; customResources <- customResources.Register(dictionary)
-
-    /// Register an IObjectCache instance. Defaults to System.Runtime.Caching.MemoryCache implementation.
-    member this.RegisterObjectCache(cacheFactory : Func<IObjectCache>) =
-        check () ; customResources <- customResources.Register(cacheFactory)
 
     /// Add a custom resource in workers ResourceRegistry.
     member this.RegisterResource(resource : 'TResource) = 

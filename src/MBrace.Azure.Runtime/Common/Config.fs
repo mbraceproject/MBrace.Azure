@@ -156,10 +156,11 @@ open System.Reflection
 open MBrace.Azure
 open System.Net
 open System.Threading.Tasks
-open MBrace.Runtime.Vagabond
+open MBrace.Core.Internals
+open MBrace.Runtime
 open MBrace.Runtime.Utils
+open MBrace.Runtime.Store
 open System.IO
-open MBrace.Store.Internals
 
 /// Provides Azure client instances for storage related entities
 [<AutoSerializable(false)>]
@@ -250,6 +251,8 @@ type ConfigurationRegistry private () =
 
 type Config private () =
     static let isInitialized = ref false
+    static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
+    static let mutable localFileStore = Unchecked.defaultof<FileSystemStore>
 
     static let initVagabond populateDirs (path:string) =
         if populateDirs then ignore <| Directory.CreateDirectory path
@@ -267,14 +270,22 @@ type Config private () =
                 let workingDirectory = WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
                 let vagabondDir = Path.Combine(workingDirectory, "vagabond")
                 VagabondRegistry.Initialize(fun () -> initVagabond populateDirs vagabondDir)
+                objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
+                localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"))
                 isInitialized := true
         )
 
-    /// Default Pickler.
+    /// Default FsPicklerSerializer instance.
     static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Serializer
 
     /// Default ISerializer
-    static member Serializer = checkInitialized(); new FsPicklerBinaryStoreSerializer() :> ISerializer
+    static member Serializer = checkInitialized(); new VagabondFsPicklerBinarySerializer() :> ISerializer
+
+    /// In-Memory cache
+    static member ObjectCache = checkInitialized(); objectCache
+
+    /// Local file system store
+    static member FileStore = checkInitialized(); localFileStore
 
     static member Initialize(populateDirs) = initialize populateDirs
 

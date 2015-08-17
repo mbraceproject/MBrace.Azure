@@ -1,14 +1,17 @@
 ﻿namespace MBrace.Azure.Runtime
 
+open System
+
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Components
 open MBrace.Azure
-open System
-open MBrace.Store.Internals
 open MBrace.Azure.Store
 
 [<AutoSerializable(false)>]
-type RuntimeManager private (config : ConfigurationId, uuid : string, logger : ISystemLogger, resources : ResourceRegistry) =
+type RuntimeManager private (config : ConfigurationId, uuid : string, customLogger : ISystemLogger, resources : ResourceRegistry) =
+    let logger = AttacheableLogger.Create(makeAsynchronous = true)
+    do ignore <| logger.AttachLogger customLogger
     do logger.LogInfof "RuntimeManager Id = %A" (config :> IRuntimeId).Id
 
     do logger.LogInfo "Creating worker manager"
@@ -18,10 +21,15 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
     do logger.LogInfo "Creating task manager"
     let taskManager   = TaskManager.Create(config, logger)
     do logger.LogInfo "Creating assembly manager"
+    let store = resources.Resolve<ICloudFileStore>()
+
     let assemblyManager =
-        let store = resources.Resolve<CloudFileStoreConfiguration>()
         let serializer = resources.Resolve<ISerializer>()
-        StoreAssemblyManager.Create(store, serializer, "vagabond", logger)
+        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = "vagabond")
+        StoreAssemblyManager.Create(config)
+
+    // This implementation will currently create a separate log container per task; need to fix this.
+    let taskLogger = StoreCloudLogManager.Create(store, sysLogger = logger)
 
     let cancellationEntryFactory = CancellationTokenFactory.Create(config)
     let int32CounterFactory = Int32CounterFactory.Create(config)
@@ -84,40 +92,47 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         member this.TaskManager              = taskManager :> _
         member this.JobQueue                 = jobManager :> _
         member this.AssemblyManager          = assemblyManager :> _
-        member this.SystemLogger             = logger
+        member this.SystemLogger             = logger :> _
+        member this.AttachSystemLogger l     = logger.AttachLogger l
         member this.CancellationEntryFactory = cancellationEntryFactory
         member this.CounterFactory           = int32CounterFactory
         member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false, true)
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
-        member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = 
-            let cloudLogger = CloudStorageLogger(config, worker, job.TaskEntry.Id)
-            let consoleLogger = new ConsoleLogger(showDate = true)
-            
-            { new ICloudLogger with
-                  member x.Log(entry : string) : unit = 
-                      consoleLogger.Log LogLevel.None entry
-                      (cloudLogger :> ICloudLogger).Log(entry) }
+        member this.CloudLogManager          = taskLogger :> _
+        member this.LogLevel                 = logger.LogLevel
+        member this.LogLevel with set l      = logger.LogLevel <- l
+//        member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = 
+//            let cloudLogger = CloudStorageLogger(config, worker, job.TaskEntry.Id)
+//            let consoleLogger = new ConsoleLogger(showDate = true)
+//            
+//            { new ICloudLogger with
+//                  member x.Log(entry : string) : unit = 
+//                      consoleLogger.Log LogLevel.None entry
+//                      (cloudLogger :> ICloudLogger).Log(entry) }
 
-    static member private GetDefaultResources(config : Configuration, customResources : ResourceRegistry, includeCache : bool) =
+    static member private GetDefaultResources(config : Configuration, customResources : ResourceRegistry) =
         let storeConn = config.StorageConnectionString
         let sbusConn = config.ServiceBusConnectionString
         let config = config.GetConfigurationId()
-        let storeConfig = CloudFileStoreConfiguration.Create(BlobStore.Create(storeConn), config.UserDataContainer)
-        let atomConfig = CloudAtomConfiguration.Create(AtomProvider.Create(storeConn), config.UserDataTable)
-        let dictionaryConfig = CloudDictionaryProvider.Create(storeConn)
-        let channelConfig = CloudChannelConfiguration.Create(ChannelProvider.Create(sbusConn))
+        let fileStore = BlobStore.Create(storeConn, defaultContainer = config.UserDataContainer)
+        let atomProvider = AtomProvider.Create(storeConn, defaultTable = config.UserDataTable)
+        let dictionaryProvider = CloudDictionaryProvider.Create(storeConn)
+        let queueProvider = QueueProvider.Create(sbusConn)
+
+        let cloudValueProvider =
+            let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory "cloudValue"
+            let mkCache () = Config.ObjectCache
+            let mkLocalCachingStore () = (Config.FileStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
+            StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, cacheFactory = mkCache, localFileStore = mkLocalCachingStore, shadowPersistObjects = true)
 
         resource {
-            yield storeConfig
-            yield atomConfig
-            yield dictionaryConfig
-            yield channelConfig
+            yield fileStore :> ICloudFileStore
+            yield cloudValueProvider :> ICloudValueProvider
+            yield atomProvider :> ICloudAtomProvider
+            yield dictionaryProvider :> ICloudDictionaryProvider
+            yield queueProvider :> ICloudQueueProvider
             yield Config.Serializer
-            if includeCache then 
-                match customResources.TryResolve<Func<IObjectCache>>() with
-                | None -> yield MBrace.Runtime.Store.InMemoryCache.Create()
-                | Some factory -> yield factory.Invoke()
             yield! customResources
         }
 
@@ -125,7 +140,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         customLogger.LogInfof "Activating configuration with Id %A" config.Id
         Config.Activate(config, true)
         customLogger.LogInfof "Creating resources"
-        let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
+        let resources = RuntimeManager.GetDefaultResources(config, customResources)
         customLogger.LogInfof "Creating RuntimeManager for Worker %A" workerId
         let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, customLogger, resources)
         runtime.SetLocalWorkerId(workerId)
@@ -135,7 +150,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         customLogger.LogInfof "Activating configuration with Id %A" config.Id
         Config.Activate(config, false)
         customLogger.LogInfof "Creating resources"
-        let resources = RuntimeManager.GetDefaultResources(config, customResources, true)
+        let resources = RuntimeManager.GetDefaultResources(config, customResources)
         customLogger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
         let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, customLogger, resources)
         runtime
@@ -144,7 +159,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
         customLogger.LogInfof "Activating configuration with Id %A" config.Id
         Config.Activate(config, true)
         customLogger.LogInfof "Creating resources"        
-        let resources = RuntimeManager.GetDefaultResources(config, customResources, false)
+        let resources = RuntimeManager.GetDefaultResources(config, customResources)
         customLogger.LogInfof "Creating RuntimeManager for Client %A" clientId
         let runtime = new RuntimeManager(config.GetConfigurationId(), clientId, customLogger, resources)
         runtime

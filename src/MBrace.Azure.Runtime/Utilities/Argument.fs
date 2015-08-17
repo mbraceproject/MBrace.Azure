@@ -2,7 +2,7 @@
 
 open MBrace.Azure
 open MBrace.Azure.Runtime
-open MBrace.Runtime.Vagabond
+open MBrace.Runtime
 
 // TODO replace with UnionArgParser
 /// BASE64 serialized argument parsing schema

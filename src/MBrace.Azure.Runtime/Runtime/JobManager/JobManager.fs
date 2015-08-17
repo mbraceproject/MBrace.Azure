@@ -56,7 +56,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
         Async.Start(mkLoop (queue.TryDequeue()) queueMessage)
         Async.Start(mkLoop (subscription.Value.TryDequeue()) topicMessage)
 
-    interface IJobQueue with
+    interface ICloudJobQueue with
         member this.TryDequeue(id: IWorkerId): Async<ICloudJobLeaseToken option> = 
             async {
                 let isDefault =
@@ -78,6 +78,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
             }
 
         member this.BatchEnqueue(jobs: CloudJob []): Async<unit> = 
+            // TODO: sifting
             async {
                 if jobs.Length > 1024 then 
                     raise(NotSupportedException(sprintf "Max batch size reached : %d/1024" jobs.Length))
@@ -96,7 +97,8 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                     return! topic.EnqueueBatch(jobs)
             }
 
-        member this.Enqueue(job: CloudJob): Async<unit> = 
+        member this.Enqueue(job: CloudJob, _isClientSideEnqueue : bool): Async<unit> = 
+            // TODO: sifting
             async {
                 match job.TargetWorker with
                 | Some _ -> return! topic.Enqueue(job)

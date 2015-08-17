@@ -112,8 +112,8 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                     return! tcs.AwaitResult()
             }
         
-        member this.DeclareCompletedJob(): Async<unit> = async { return () }
-        member this.DeclareFaultedJob(): Async<unit> = async { return () }
+        member this.IncrementCompletedJobCount(): Async<unit> = async { return () }
+        member this.IncrementFaultedJobCount(): Async<unit> = async { return () }
         member this.IncrementJobCount(): Async<unit> = async { return () }
         
         member this.DeclareStatus(status: CloudTaskStatus): Async<unit> = 
@@ -202,7 +202,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                     return Some result
             }
 
-        member this.TrySetResult(result: TaskResult): Async<bool> = 
+        member this.TrySetResult(result: TaskResult, _workerId : IWorkerId): Async<bool> = 
             async {
                 let record = new TaskRecord(taskId)
                 let blobId = guid()

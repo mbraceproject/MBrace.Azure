@@ -62,7 +62,7 @@ type JobRecord(parentTaskId, jobId) =
         p
 
     static member FromCloudJob(job : CloudJob) =
-        let record = new JobRecord(job.TaskEntry.Id, job.Id)
+        let record = new JobRecord(job.TaskEntry.Id, job.Id.ToString())
         
         match job.JobType with
         | TaskRoot -> 
@@ -83,6 +83,6 @@ type JobRecord(parentTaskId, jobId) =
         record.Status <- nullable(int JobStatus.Preparing)
         record.DeliveryCount <- nullable 0
         record.Completed <- nullable false
-        record.Type <- PrettyPrinters.Type.prettyPrint job.Type
+        record.Type <- PrettyPrinters.Type.prettyPrintUntyped job.Type
         record.FaultInfo <- nullable(int FaultInfo.NoFault)
         record

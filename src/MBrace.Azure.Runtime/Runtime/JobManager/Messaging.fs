@@ -127,7 +127,7 @@ type internal JobLeaseMonitor private () =
         }
 
 [<AutoSerializable(true); DataContract>]
-type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : JobFaultInfo)  = 
+type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFaultInfo)  = 
     let [<DataMember(Name="info")>] info = info
     let [<DataMember(Name="faultInfo")>] faultInfo = faultInfo
     let [<IgnoreDataMember>] mutable record : JobRecord = null
@@ -171,7 +171,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : JobFaultInfo)
                 return () 
             }
         
-        member this.FaultInfo : JobFaultInfo = faultInfo
+        member this.FaultInfo : CloudJobFaultInfo = faultInfo
         
         member this.GetJob() : Async<CloudJob> = 
             async { 
@@ -184,9 +184,9 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : JobFaultInfo)
                 return Config.Pickler.Deserialize<CloudJob>(stream)
             }
         
-        member this.Id : string = info.JobId
+        member this.Id : CloudJobId = Guid.Parse info.JobId
         
-        member this.JobType : JobType =
+        member this.JobType : CloudJobType =
             let jobKind = enum<JobKind>(record.Kind.GetValueOrDefault(-1))
             match jobKind with
             | JobKind.TaskRoot -> TaskRoot
@@ -292,9 +292,9 @@ type internal MessagingClient private () =
             logger.Logf LogLevel.Debug "job:%A : enqueue" job.Id
             let record = JobRecord.FromCloudJob(job)
             do! Table.insert config config.RuntimeTable record
-            let! blob = Blob.Create(config, job.TaskEntry.Id, job.Id, fun () -> job)
-            let msg = new BrokeredMessage(toGuid job.Id)
-            msg.Properties.Add(Settings.JobIdProperty, toGuid job.Id)
+            let! blob = Blob.Create(config, job.TaskEntry.Id, job.Id.ToString(), fun () -> job)
+            let msg = new BrokeredMessage(job.Id)
+            msg.Properties.Add(Settings.JobIdProperty, job.Id)
             msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
             match job.TargetWorker with
             | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
@@ -326,7 +326,7 @@ type internal MessagingClient private () =
                 for job in jobs do
                     Config.Pickler.Serialize(fileStream, job, leaveOpen = true)
                     let msg = new BrokeredMessage(toGuid blobName)
-                    msg.Properties.Add(Settings.JobIdProperty, toGuid job.Id)
+                    msg.Properties.Add(Settings.JobIdProperty, job.Id)
                     msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
                     msg.Properties.Add(Settings.StreamOffsetProperty, lastPosition.Value)
                     match job.TargetWorker with
