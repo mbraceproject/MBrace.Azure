@@ -5,7 +5,6 @@
     open MBrace.Azure.Runtime
     open System.Diagnostics
     open MBrace.Azure.Store
-    open MBrace.Store
     open MBrace.Runtime
 
     [<EntryPoint>]

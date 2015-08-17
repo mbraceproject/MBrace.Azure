@@ -54,27 +54,13 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
     member __.Start () = 
         let runtime = MBraceAzure.GetHandle(config)
         runtime.EnableClientConsoleLogger <- true
-        let logTest = 
-            { new ILogTester with
-                  member x.Clear() = ()
-                  member x.GetLogs() =
-                    runtime.GetAllProcesses()
-                    |> Seq.collect runtime.GetCloudLogs
-                    |> Seq.map (fun l -> l.Message)
-                    |> Seq.toArray }
-
-        state <- Some (runtime, logTest)
+        state <- Some runtime
 
     member __.Stop () =
-        state |> Option.iter (fun (r,l) -> (r.KillLocalWorker() ; r.Reset(true, true, true, true, true, false)))
+        state |> Option.iter (fun r -> (r.KillLocalWorker() ; r.Reset(true, true, true, true, true, false)))
         state <- None
 
     member __.Runtime =
         match state with
         | None -> invalidOp "MBrace runtime not initialized."
-        | Some (r,_) -> r
-
-    member __.Logger : ILogTester =
-        match state with
-        | None -> invalidOp "MBrace runtime not initialized."
-        | Some (_,l) -> l
+        | Some r -> r

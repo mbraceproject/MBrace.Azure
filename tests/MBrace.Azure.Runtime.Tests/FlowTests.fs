@@ -2,7 +2,7 @@
 
 open MBrace.Core
 open MBrace.Core.Internals
-open MBrace.Flow.Tests
+open MBrace.Core.Tests
 open MBrace.Azure
 open MBrace.Azure
 open MBrace.Azure.Runtime
@@ -17,7 +17,7 @@ type ``Azure Flow Tests`` (sbus, storage) as self =
 
     let session = new RuntimeSession(config)
 
-    let run (wf : Cloud<'T>) = self.Run wf
+    let run (wf : Cloud<'T>) = self.RunOnCloud wf
 
     member __.Configuration = config
 
@@ -29,10 +29,12 @@ type ``Azure Flow Tests`` (sbus, storage) as self =
     abstract Fini : unit -> unit
     default __.Fini () = session.Stop()
 
-    override __.Run (workflow : Cloud<'T>) = 
-        session.Runtime.Run(workflow)
+    override __.IsSupportedStorageLevel _ = true
 
-    override __.RunLocally(workflow : Cloud<'T>) = session.Runtime.RunLocally(workflow)
+    override __.RunOnCloud (workflow : Cloud<'T>) = 
+        session.Runtime.RunOnCloud(workflow)
+
+    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
 
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3

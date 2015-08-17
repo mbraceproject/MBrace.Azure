@@ -2,104 +2,102 @@
 
 open NUnit.Framework
 
+open MBrace.Core
 open MBrace.Core.Tests
-open MBrace.Store.Internals
-open MBrace.Client
+open MBrace.Core.Internals
+open MBrace.Runtime
+open MBrace.ThreadPool
+open MBrace.Azure.Store
 
 [<AutoOpen>]
 module private Config =
-    open MBrace.Runtime.Vagabond
-    open MBrace.Azure.Store
-    open MBrace.Store
 
     do VagabondRegistry.Initialize(throwOnError = false)
 
-    let serializer = new FsPicklerBinaryStoreSerializer()
+    let serializer = new VagabondFsPicklerBinarySerializer()
 
     let emulatorConn = "UseDevelopmentStorage=true"
     let remoteConn = lazy Tests.Utils.selectEnv "azurestorageconn"
 
-    let remoteBlobStoreConfig = 
-        lazy let store = BlobStore.Create(remoteConn.Value)
-             CloudFileStoreConfiguration.Create(store)
+    let remoteBlobStoreConfig = lazy BlobStore.Create(remoteConn.Value)
 
-    let emulatorBlobStoreConfig = 
-        lazy let store = BlobStore.Create(emulatorConn)
-             CloudFileStoreConfiguration.Create(store)
+    let emulatorBlobStoreConfig = lazy BlobStore.Create(emulatorConn)
 
-    let remoteAtomStoreConfig =
-        lazy 
-            let store = AtomProvider.Create(remoteConn.Value) :> ICloudAtomProvider 
-            in CloudAtomConfiguration.Create(store, "mbracetest")
+    let remoteAtomStoreConfig = lazy AtomProvider.Create(remoteConn.Value, "mbraceTest")
 
-    let emulatorAtomStoreConfig =
-        lazy 
-            let store = AtomProvider.Create(emulatorConn) :> ICloudAtomProvider 
-            in CloudAtomConfiguration.Create(store, "mbracetest")
+    let emulatorAtomStoreConfig = lazy AtomProvider.Create(emulatorConn, "mbraceTest")
 
-    let remoteChannelStoreConfig =
-        lazy 
-            let store = ChannelProvider.Create(Tests.Utils.selectEnv "azureservicebusconn") :> ICloudChannelProvider
-            in CloudChannelConfiguration.Create(store)
+    let remoteChannelStoreConfig = lazy QueueProvider.Create(Tests.Utils.selectEnv "azureservicebusconn")
 
-    let emulatorDictionaryProvider =
-        lazy (CloudDictionaryProvider.Create(emulatorConn) :> ICloudDictionaryProvider)
+    let emulatorDictionaryProvider = lazy CloudDictionaryProvider.Create(emulatorConn)
 
-    let remoteDictionaryProvider =
-        lazy (CloudDictionaryProvider.Create(remoteConn.Value) :> ICloudDictionaryProvider)
+    let remoteDictionaryProvider = lazy CloudDictionaryProvider.Create(remoteConn.Value)
 
 [<TestFixture>]
 type ``Remote - BlobStore Tests`` () =
-    inherit  ``Local FileStore Tests``(remoteBlobStoreConfig.Value, serializer)
+    inherit  ``CloudFileStore Tests``(parallelismFactor = 100)
+
+    let store = remoteBlobStoreConfig.Value
+    let runtime = ThreadPoolRuntime.Create(fileStore = store, serializer = serializer)
+
+    override __.FileStore = store :> _
+    override __.Serializer = serializer :> _
+    override __.RunOnCloud (workflow : Cloud<'T>) = runtime.RunSynchronously workflow
+    override __.RunOnCurrentProcess (workflow : Cloud<'T>) = runtime.RunSynchronously workflow
 
 [<TestFixture>]
 type ``Emulator - BlobStore Tests`` () =
-    inherit  ``Local FileStore Tests``(emulatorBlobStoreConfig.Value, serializer)
+    inherit  ``CloudFileStore Tests``(parallelismFactor = 100)
+
+    let store = emulatorBlobStoreConfig.Value
+    let runtime = ThreadPoolRuntime.Create(fileStore = store, serializer = serializer)
+
+    override __.FileStore = store :> _
+    override __.Serializer = serializer :> _
+    override __.RunOnCloud (workflow : Cloud<'T>) = runtime.RunSynchronously workflow
+    override __.RunOnCurrentProcess (workflow : Cloud<'T>) = runtime.RunSynchronously workflow
+
 
 [<TestFixture>]
 type ``Remote - Atom Tests`` () =
     inherit ``CloudAtom Tests``(5)
 
-    let imem = LocalRuntime.Create(atomConfig = remoteAtomStoreConfig.Value)
+    let imem = ThreadPoolRuntime.Create(atomProvider = remoteAtomStoreConfig.Value)
 
-    override __.Run wf = imem.Run wf
-    override __.RunLocally wf = imem.Run wf
-    override __.AtomClient = imem.StoreClient.Atom
+    override __.RunOnCloud wf = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
     override __.Repeats = 1
 
 [<TestFixture>]
 type ``Emulator - Atom Tests`` () =
     inherit ``CloudAtom Tests``(5)
 
-    let imem = LocalRuntime.Create(atomConfig = emulatorAtomStoreConfig.Value)
+    let imem = ThreadPoolRuntime.Create(atomProvider = emulatorAtomStoreConfig.Value)
 
-    override __.Run wf = imem.Run wf
-    override __.RunLocally wf = imem.Run wf
-    override __.AtomClient = imem.StoreClient.Atom
+    override __.RunOnCloud wf = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
     override __.Repeats = 3
 
 
 
 [<TestFixture>]
 type ``Remote - Channel Tests`` () =
-    inherit ``CloudChannel Tests``(10) 
+    inherit ``CloudQueue Tests``(10) 
     
-    let imem = LocalRuntime.Create(channelConfig = remoteChannelStoreConfig.Value)
+    let imem = ThreadPoolRuntime.Create(queueProvider = remoteChannelStoreConfig.Value)
 
-    override __.Run wf = imem.Run wf
-    override __.RunLocally wf = imem.Run wf
-    override __.ChannelClient = imem.StoreClient.Channel
+    override __.RunOnCloud wf = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
 
 
 [<TestFixture>]
 type ``Emulator - Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(5)
 
-    let imem = LocalRuntime.Create(dictionaryProvider = emulatorDictionaryProvider.Value)
+    let imem = ThreadPoolRuntime.Create(dictionaryProvider = emulatorDictionaryProvider.Value)
 
-    override __.Run wf = imem.Run wf
-    override __.RunLocally wf = imem.Run wf
-    override __.DictionaryClient = imem.StoreClient.Dictionary
+    override __.RunOnCloud wf = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
     override __.IsInMemoryFixture = false
 
 
@@ -107,9 +105,8 @@ type ``Emulator - Dictionary Tests`` () =
 type ``Remote - Dictionary Tests`` () =
     inherit ``CloudDictionary Tests``(5) 
     
-    let imem = LocalRuntime.Create(dictionaryProvider = remoteDictionaryProvider.Value)
+    let imem = ThreadPoolRuntime.Create(dictionaryProvider = remoteDictionaryProvider.Value)
 
-    override __.Run wf = imem.Run wf
-    override __.RunLocally wf = imem.Run wf
-    override __.DictionaryClient = imem.StoreClient.Dictionary
+    override __.RunOnCloud wf = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
     override __.IsInMemoryFixture = false
