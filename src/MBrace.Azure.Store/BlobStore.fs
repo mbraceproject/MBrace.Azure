@@ -14,6 +14,7 @@ open MBrace.Azure.Store.TableEntities.Table
 ///  MBrace File Store implementation that uses Azure Blob Storage as backend.
 [<Sealed; DataContract>]
 type BlobStore private (connectionString : string, defaultContainer : string) =
+    // TODO: validate defaultContainer input
 
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString

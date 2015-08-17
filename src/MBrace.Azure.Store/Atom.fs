@@ -8,35 +8,41 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
 open MBrace.Core
-open MBrace.Store
-open MBrace.Store.Internals
-open MBrace.Runtime.Vagabond
+open MBrace.Core.Internals
+open MBrace.Runtime
 
 open MBrace.Azure.Store.TableEntities
 
 /// Azure Table store CloudAtom implementation
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type Atom<'T> internal (table, pk, rk, connectionString : string) =
+type Atom<'T> internal (table : string, partitionKey : string, rowKey : string, connectionString : string) =
     
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
     [<DataMember(Name = "Table")>]
     let table = table
     [<DataMember(Name = "PartitionKey")>]
-    let pk = pk
+    let partitionKey = partitionKey
     [<DataMember(Name = "RowKey")>]
-    let rk = rk
+    let rowKey = rowKey
 
     [<IgnoreDataMember>]
     let mutable client = Table.getClient(CloudStorageAccount.Parse connectionString)
 
     [<OnDeserialized>]
     let _onDeserialized (_ : StreamingContext) =
-        client <- Table.getClient(CloudStorageAccount.Parse connectionString )
+        client <- Table.getClient(CloudStorageAccount.Parse connectionString)
 
-    interface ICloudAtom<'T> with
+    
+    let getValueAsync() = async {
+        let! e = Table.read<FatEntity> client table partitionKey rowKey
+        let value = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload())
+        return value
+    } 
 
-        member this.Id = sprintf "%s/%s/%s" table pk rk
+    interface CloudAtom<'T> with
+
+        member this.Id = sprintf "%s/%s/%s" table partitionKey rowKey
         
         member x.Transact(transaction: 'T -> 'R * 'T, maxRetries: int option): Async<'R> = 
             async {
@@ -47,7 +53,7 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
                     if count >= maxRetries then
                         return raise <| exn("Maximum number of retries exceeded.")
                     else
-                        let! e = Table.read<FatEntity> client table pk rk
+                        let! e = Table.read<FatEntity> client table partitionKey rowKey
                         let oldValue = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload()) 
                         let returnValue, newValue = transaction oldValue
                         let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
@@ -63,34 +69,34 @@ type Atom<'T> internal (table, pk, rk, connectionString : string) =
                 return! update interval 0
             } 
 
-        member this.Dispose(): Local<unit> = 
+        member this.Dispose(): Async<unit> = 
             async {
-                let! e = Table.read<FatEntity> client table pk rk
+                let! e = Table.read<FatEntity> client table partitionKey rowKey
                 return! Table.delete<FatEntity> client table e
-            } |> Cloud.OfAsync
+            }
 
         member this.Force(newValue: 'T): Async<unit> = 
             async {
-                let! e = Table.read<FatEntity> client table pk rk
+                let! e = Table.read<FatEntity> client table partitionKey rowKey
                 let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
                 let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
                 let! _ = Table.merge client table e
                 return ()
             }
 
-        member this.Value : Async<'T> = 
-            async {
-                let! e = Table.read<FatEntity> client table pk rk
-                let value = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload())
-                return value
-            } 
+        member this.GetValueAsync () : Async<'T> = getValueAsync()
+        member this.Value : 'T = getValueAsync () |> Async.RunSync
 
 /// Store implementation that uses a Azure Blob Storage as backend.
 [<Sealed; DataContract>]
-type AtomProvider private (connectionString : string) =
+type AtomProvider private (connectionString : string, defaultTable : string) =
+    // TODO: validate table inputs
     
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
+
+    [<DataMember(Name = "DefaultTable")>]
+    let defaultTable = defaultTable
 
     [<IgnoreDataMember>]
     let mutable client = 
@@ -107,13 +113,17 @@ type AtomProvider private (connectionString : string) =
     ///     connects to storage account with provided connection sting.
     /// </summary>
     /// <param name="connectionString">Azure storage account connection string.</param>
-    static member Create (connectionString : string) =
-        new AtomProvider(connectionString)
+    static member Create (connectionString : string, ?defaultTable : string) =
+        let defaultTable = match defaultTable with Some d -> d | None -> Table.getRandomName()
+        new AtomProvider(connectionString, defaultTable)
 
     interface ICloudAtomProvider with
         member this.Id = client.StorageUri.PrimaryUri.ToString()
             
-        member this.Name = "Azure Table Storage Atom Provider" 
+        member this.Name = "Azure Table Storage Atom Provider"
+        
+        member this.DefaultContainer = defaultTable
+        member this.WithDefaultContainer table = new AtomProvider(connectionString, table) :> _
 
         member this.IsSupportedValue(value: 'T) : bool = 
             VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
@@ -125,10 +135,10 @@ type AtomProvider private (connectionString : string) =
                     let binary = VagabondRegistry.Instance.Serializer.Pickle initial
                     let e = new FatEntity(guid(), String.Empty, binary)
                     do! Table.insert<FatEntity> client path e
-                    return new Atom<'T>(path, e.PartitionKey, e.RowKey, connectionString) :> ICloudAtom<'T>
+                    return new Atom<'T>(path, e.PartitionKey, e.RowKey, connectionString) :> CloudAtom<'T>
                 }
 
-        member this.DisposeContainer(path) =
+        member this.DisposeContainer(path : string) =
             async {
                 do! client.GetTableReference(path).DeleteIfExistsAsync()
             }
