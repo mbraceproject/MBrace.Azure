@@ -19,9 +19,9 @@ module private Config =
     let emulatorConn = "UseDevelopmentStorage=true"
     let remoteConn = lazy Tests.Utils.selectEnv "azurestorageconn"
 
-    let remoteBlobStoreConfig = lazy BlobStore.Create(remoteConn.Value, "mbraceUnitTests")
+    let remoteBlobStoreConfig = lazy BlobStore.Create(remoteConn.Value, "mbracetests")
 
-    let emulatorBlobStoreConfig = lazy BlobStore.Create(emulatorConn, "mbraceUnitTests")
+    let emulatorBlobStoreConfig = lazy BlobStore.Create(emulatorConn, "mbractests")
 
     let remoteAtomStoreConfig = lazy AtomProvider.Create(remoteConn.Value, "mbraceTest")
 
