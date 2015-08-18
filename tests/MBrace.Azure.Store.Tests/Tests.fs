@@ -81,7 +81,7 @@ type ``Emulator - Atom Tests`` () =
 
 
 [<TestFixture>]
-type ``Remote - Channel Tests`` () =
+type ``Remote - Queue Tests`` () =
     inherit ``CloudQueue Tests``(parallelismFactor = 10) 
     
     let imem = ThreadPoolRuntime.Create(queueProvider = remoteChannelStoreConfig.Value)
