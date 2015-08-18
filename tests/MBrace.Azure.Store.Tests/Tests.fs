@@ -35,7 +35,7 @@ module private Config =
 
 [<TestFixture>]
 type ``Remote - BlobStore Tests`` () =
-    inherit  ``CloudFileStore Tests``(parallelismFactor = 100)
+    inherit  ``CloudFileStore Tests``(parallelismFactor = 20)
 
     let store = remoteBlobStoreConfig.Value
     let runtime = ThreadPoolRuntime.Create(fileStore = store, serializer = serializer)
@@ -47,7 +47,7 @@ type ``Remote - BlobStore Tests`` () =
 
 [<TestFixture>]
 type ``Emulator - BlobStore Tests`` () =
-    inherit  ``CloudFileStore Tests``(parallelismFactor = 100)
+    inherit  ``CloudFileStore Tests``(parallelismFactor = 20)
 
     let store = emulatorBlobStoreConfig.Value
     let runtime = ThreadPoolRuntime.Create(fileStore = store, serializer = serializer)
@@ -60,7 +60,7 @@ type ``Emulator - BlobStore Tests`` () =
 
 [<TestFixture>]
 type ``Remote - Atom Tests`` () =
-    inherit ``CloudAtom Tests``(5)
+    inherit ``CloudAtom Tests``(parallelismFactor = 5)
 
     let imem = ThreadPoolRuntime.Create(atomProvider = remoteAtomStoreConfig.Value)
 
@@ -70,7 +70,7 @@ type ``Remote - Atom Tests`` () =
 
 [<TestFixture>]
 type ``Emulator - Atom Tests`` () =
-    inherit ``CloudAtom Tests``(5)
+    inherit ``CloudAtom Tests``(parallelismFactor = 5)
 
     let imem = ThreadPoolRuntime.Create(atomProvider = emulatorAtomStoreConfig.Value)
 
@@ -82,7 +82,7 @@ type ``Emulator - Atom Tests`` () =
 
 [<TestFixture>]
 type ``Remote - Channel Tests`` () =
-    inherit ``CloudQueue Tests``(10) 
+    inherit ``CloudQueue Tests``(parallelismFactor = 10) 
     
     let imem = ThreadPoolRuntime.Create(queueProvider = remoteChannelStoreConfig.Value)
 
@@ -92,7 +92,7 @@ type ``Remote - Channel Tests`` () =
 
 [<TestFixture>]
 type ``Emulator - Dictionary Tests`` () =
-    inherit ``CloudDictionary Tests``(5)
+    inherit ``CloudDictionary Tests``(parallelismFactor = 5)
 
     let imem = ThreadPoolRuntime.Create(dictionaryProvider = emulatorDictionaryProvider.Value)
 
@@ -103,7 +103,7 @@ type ``Emulator - Dictionary Tests`` () =
 
 [<TestFixture>]
 type ``Remote - Dictionary Tests`` () =
-    inherit ``CloudDictionary Tests``(5) 
+    inherit ``CloudDictionary Tests``(parallelismFactor = 5) 
     
     let imem = ThreadPoolRuntime.Create(dictionaryProvider = remoteDictionaryProvider.Value)
 
