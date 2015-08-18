@@ -271,7 +271,7 @@ type Config private () =
                 let vagabondDir = Path.Combine(workingDirectory, "vagabond")
                 VagabondRegistry.Initialize(fun () -> initVagabond populateDirs vagabondDir)
                 objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
-                localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"))
+                localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
                 isInitialized := true
         )
 
