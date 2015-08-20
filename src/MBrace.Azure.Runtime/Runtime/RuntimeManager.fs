@@ -34,7 +34,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, logger : I
     member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, force, reactivate) =
         async {
             if not force then
-                let! workers = workerManager.GetAllWorkers()
+                let! workers = (workerManager :> IWorkerManager).GetAvailableWorkers()
                 if  workers.Length > 0 then
                     let exc = RuntimeException(sprintf "Found %d active workers. Shutdown workers first or 'force' reset." workers.Length)
                     logger.LogError exc.Message
