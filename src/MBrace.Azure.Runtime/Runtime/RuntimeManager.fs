@@ -29,7 +29,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         StoreAssemblyManager.Create(config)
 
     // This implementation will currently create a separate log container per task; need to fix this.
-    let taskLogger = StoreCloudLogManager.Create(store, sysLogger = logger)
+    let taskLogger = StoreCloudLogManager.Create(store, new DefaultStoreLogSchema(store), sysLogger = logger)
 
     let cancellationEntryFactory = CancellationTokenFactory.Create(config)
     let int32CounterFactory = Int32CounterFactory.Create(config)

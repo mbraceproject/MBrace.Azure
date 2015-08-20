@@ -91,7 +91,9 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                     Dependencies = unpickle record.Dependencies
                     ReturnTypeName = record.TypeName
                     ReturnType = unpickle record.Type
+                    AdditionalResources = None // TODO : fix
                 }
+
     do init Unchecked.defaultof<_>
 
     let getRecord () = record.Value.GetValueAsync()
