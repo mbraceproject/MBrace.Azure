@@ -289,10 +289,10 @@ type internal MessagingClient private () =
 
     static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
         async { 
-            logger.Logf LogLevel.Debug "job:%A : enqueue" job.Id
+            logger.Logf LogLevel.Debug "job:%O : enqueue" job.Id
             let record = JobRecord.FromCloudJob(job)
             do! Table.insert config config.RuntimeTable record
-            let! blob = Blob.Create(config, job.TaskEntry.Id, job.Id.ToString(), fun () -> job)
+            let! blob = Blob.Create(config, job.TaskEntry.Id, fromGuid job.Id, fun () -> job)
             let msg = new BrokeredMessage(job.Id)
             msg.Properties.Add(Settings.JobIdProperty, job.Id)
             msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
