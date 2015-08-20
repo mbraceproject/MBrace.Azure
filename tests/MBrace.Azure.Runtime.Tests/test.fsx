@@ -1,6 +1,6 @@
 ﻿#I "../../bin/"
 #r "MBrace.Core.dll"
-#r "MBrace.Runtime.Core.dll"
+#r "MBrace.Runtime.dll"
 #r "FsPickler.dll"
 #r "Vagabond.dll"
 #r "MBrace.Azure.Runtime.dll"
