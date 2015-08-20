@@ -38,7 +38,7 @@ type internal Settings private () =
 type internal JobLeaseTokenInfo =
     {
         ConfigurationId : ConfigurationId
-        JobId : string
+        JobId : Guid
         ContentId : string
         MessageLockId : Guid
         ParentJobId : string
@@ -64,7 +64,7 @@ type internal JobLeaseMonitor private () =
                         async {
                             do! message.RenewLockAsync()
                             let now = DateTimeOffset.Now
-                            let! record = Table.read<JobRecord> token.ConfigurationId token.ConfigurationId.RuntimeTable token.ParentJobId token.JobId
+                            let! record = Table.read<JobRecord> token.ConfigurationId token.ConfigurationId.RuntimeTable token.ParentJobId (fromGuid token.JobId)
                             match record.Completed, record.Status with
                             | Nullable true, Nullable status when status = int JobStatus.Completed || status = int JobStatus.Faulted ->
                                 return true
@@ -133,7 +133,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
     let [<IgnoreDataMember>] mutable record : JobRecord = null
         
     let init () =
-        record <- Async.RunSync(Table.read info.ConfigurationId info.ConfigurationId.RuntimeTable info.ParentJobId info.JobId)
+        record <- Async.RunSync(Table.read info.ConfigurationId info.ConfigurationId.RuntimeTable info.ParentJobId (fromGuid info.JobId))
 
     [<OnDeserialized>]
     let _onDeserialized (_ : StreamingContext) = init ()
@@ -148,7 +148,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
         member this.DeclareCompleted() : Async<unit> = 
             async {
                 do! JobLeaseMonitor.Complete(info)
-                let record = new JobRecord(info.ParentJobId, info.JobId)
+                let record = new JobRecord(info.ParentJobId, fromGuid info.JobId)
                 record.Status <- nullable(int JobStatus.Completed)
                 record.CompletionTime <- nullable(DateTimeOffset.Now)
                 record.Completed <- nullable true
@@ -160,7 +160,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
         member this.DeclareFaulted(edi : ExceptionDispatchInfo) : Async<unit> = 
             async { 
                 do! JobLeaseMonitor.Abandon(info) // TODO : should this be Abandon or Complete?
-                let record = new JobRecord(info.ParentJobId, info.JobId)
+                let record = new JobRecord(info.ParentJobId, fromGuid info.JobId)
                 record.Status <- nullable(int JobStatus.Faulted)
                 record.Completed <- nullable false
                 record.CompletionTime <- nullableDefault
@@ -184,7 +184,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
                 return Config.Pickler.Deserialize<CloudJob>(stream)
             }
         
-        member this.Id : CloudJobId = Guid.Parse info.JobId
+        member this.Id : CloudJobId = info.JobId
         
         member this.JobType : CloudJobType =
             let jobKind = enum<JobKind>(record.Kind.GetValueOrDefault(-1))
@@ -224,7 +224,7 @@ type internal MessagingClient private () =
                 let streamPos = tryGet Settings.StreamOffsetProperty
                 let lockToken = message.LockToken
                 let body = fromGuid (message.GetBody<Guid>())
-                let jobId = fromGuid (message.Properties.[Settings.JobIdProperty] :?> Guid)
+                let jobId = message.Properties.[Settings.JobIdProperty] :?> Guid
                 let dequeueTime = DateTimeOffset.Now
                 let jobInfo = {
                     JobId = jobId
@@ -241,7 +241,7 @@ type internal MessagingClient private () =
                 JobLeaseMonitor.Start(message, jobInfo, logger)
 
                 logger.Logf LogLevel.Debug "%O : changing status to %A" jobInfo JobStatus.Dequeued
-                let newRecord = new JobRecord(jobInfo.ParentJobId, jobInfo.JobId)
+                let newRecord = new JobRecord(jobInfo.ParentJobId, fromGuid jobInfo.JobId)
                 newRecord.ETag <- "*"
                 newRecord.Completed <- nullable false
                 newRecord.DequeueTime <- nullable jobInfo.DequeueTime
@@ -258,7 +258,7 @@ type internal MessagingClient private () =
                     if faultCount = 0 then
                         return NoFault
                     else
-                        let! oldRecord = Table.read<JobRecord> config config.RuntimeTable jobInfo.ParentJobId jobInfo.JobId
+                        let! oldRecord = Table.read<JobRecord> config config.RuntimeTable jobInfo.ParentJobId (fromGuid jobInfo.JobId)
                         // two cases:
                         match enum<FaultInfo> oldRecord.FaultInfo.Value with
                         // either worker declared job faulted
