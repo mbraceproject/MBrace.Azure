@@ -93,7 +93,7 @@ type Queue<'T> internal (queuePath, connectionString) =
 
         member x.Dispose(): Async<unit> = 
             nsClient.DeleteQueueAsync(queuePath)
-            |> Async.AwaitTask
+            |> Async.AwaitTaskCorrect
 
 
 /// MBrace Channel provider over Azure Service Bus queues

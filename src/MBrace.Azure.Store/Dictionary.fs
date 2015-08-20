@@ -106,7 +106,7 @@ type Dictionary<'T> (tableName : string, connectionString) =
         member this.Dispose(): Async<unit> = 
             async {
                 let! _ = client.GetTableReference(tableName).DeleteAsync()
-                         |> Async.AwaitTask
+                         |> Async.AwaitTaskCorrect
                 return ()
             }
         

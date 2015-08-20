@@ -40,20 +40,21 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.BeginWrite(path: string): Async<Stream> = 
             async {
                 let! blob = getBlobRef acc path
-                let! stream = Async.AwaitTask(blob.OpenWriteAsync())
+                let! stream = blob.OpenWriteAsync()
                 return stream :> Stream
             }
         
         member this.ReadETag(path: string, etag: ETag): Async<Stream option> = 
             async {
                 let! blob = getBlobRef acc path
-                let! stream = Async.AwaitTask(blob.OpenReadAsync(AccessCondition.GenerateIfMatchCondition(etag), BlobRequestOptions(), null))
-                              |> Async.Catch
+                let! stream = async { return! blob.OpenReadAsync(AccessCondition.GenerateIfMatchCondition(etag), BlobRequestOptions(), null) } |> Async.Catch
                 match stream with
                 | Choice1Of2 s -> 
                     return Some s
                 | Choice2Of2 e when PreconditionFailed e -> 
                     return None
+                | Choice2Of2 e when NotFound e ->
+                    return raise <| new FileNotFoundException(path, e)
                 | Choice2Of2 e -> return raise e
             }
 
@@ -93,36 +94,45 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.GetFileSize(path: string) : Async<int64> = 
             async {
                 let! blob = getBlobRef acc path
-                do! blob.FetchAttributesAsync().ContinueWith ignore
-                return blob.Properties.Length
+                do! blob.FetchAttributesAsync()
+                return
+                    if blob.Properties.Length = -1L then
+                        raise <| new FileNotFoundException(path)
+                    else
+                        blob.Properties.Length
             }
+
         member this.FileExists(path: string) : Async<bool> = 
             async {
                 let directory, file = Path.GetDirectoryName path, Path.GetFileName path
                 let container = getContainer acc directory
                 
-                let! b1 = Async.AwaitTask(container.ExistsAsync())
+                let! b1 = container.ExistsAsync()
                 if b1 then
                     let blob = container.GetBlockBlobReference(file)
-                    return! Async.AwaitTask(blob.ExistsAsync())
+                    return! blob.ExistsAsync()
                 else 
                     return false
             }
 
         member this.EnumerateFiles(container : string) : Async<string []> = 
             async {
-                let containerRef = getContainer acc container
-                let blobs = new ResizeArray<string>()
-                let rec aux (token : BlobContinuationToken) = async {
-                    let! (result : BlobResultSegment) = containerRef.ListBlobsSegmentedAsync(token)
-                    for blob in result.Results do
-                        let p = blob.Uri.Segments |> Seq.last
-                        blobs.Add(Path.Combine(container, p))
-                    if result.ContinuationToken = null then return ()
-                    else return! aux result.ContinuationToken
-                }
-                do! aux null
-                return blobs.ToArray()
+                try
+                    let containerRef = getContainer acc container
+                    let blobs = new ResizeArray<string>()
+                    let rec aux (token : BlobContinuationToken) = async {
+                        let! (result : BlobResultSegment) = containerRef.ListBlobsSegmentedAsync(token)
+                        for blob in result.Results do
+                            let p = blob.Uri.Segments |> Array.last
+                            blobs.Add(Path.Combine(container, p))
+                        if result.ContinuationToken = null then return ()
+                        else return! aux result.ContinuationToken
+                    }
+                    do! aux null
+                    return blobs.ToArray()
+
+                with e when NotFound e ->
+                    return raise <| new DirectoryNotFoundException(container, e)
             }
         
         member this.DeleteFile(path: string) : Async<unit> = 
@@ -135,7 +145,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.DirectoryExists(container: string) : Async<bool> = 
             async {
                 let container = getContainer acc container
-                return! Async.AwaitTask <| container.ExistsAsync()
+                return! container.ExistsAsync()
             }
         
         member this.CreateDirectory(container: string) : Async<unit> = 
@@ -153,12 +163,16 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
                 return ()
             }
         
-        member this.EnumerateDirectories(directory) : Async<string []> = 
+        member this.EnumerateDirectories(directory : string) : Async<string []> = 
             async {
-                let client = getBlobClient acc
-                return client.ListContainers(directory) 
-                       |> Seq.map (fun c -> c.Name)
-                       |> Seq.toArray
+                try
+                    let client = getBlobClient acc
+                    return client.ListContainers(directory) 
+                           |> Seq.map (fun c -> c.Name)
+                           |> Seq.toArray
+
+                with e when NotFound e ->
+                    return raise <| new DirectoryNotFoundException(directory, e)
             }
 
         member this.WriteETag(path: string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = 
@@ -175,8 +189,11 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         
         member this.BeginRead(path: string) : Async<Stream> = 
             async {
-                let! blob = getBlobRef acc path
-                return! Async.AwaitTask(blob.OpenReadAsync())
+                try
+                    let! blob = getBlobRef acc path
+                    return! blob.OpenReadAsync()
+                with e when NotFound e ->
+                    return raise <| new FileNotFoundException(path, e)
             }
 
         member this.CopyOfStream(source: Stream, target: string) : Async<unit> = 
@@ -188,6 +205,9 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         
         member this.CopyToStream(sourceFile: string, target: Stream) : Async<unit> = 
             async {
-                let! blob = getBlobRef acc sourceFile
-                do! blob.DownloadToStreamAsync(target).ContinueWith ignore
+                try
+                    let! blob = getBlobRef acc sourceFile
+                    do! blob.DownloadToStreamAsync(target).ContinueWith ignore
+                with e when NotFound e ->
+                    return raise <| new FileNotFoundException(sourceFile, e)
             }

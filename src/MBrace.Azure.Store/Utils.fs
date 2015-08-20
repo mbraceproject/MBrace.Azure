@@ -30,20 +30,38 @@ module internal Utils =
                 chunks.Add <| Array.sub ts s (e - s)
             chunks.ToArray()
 
+        let last (ts : 'T []) = ts.[ts.Length - 1]
+
     type Async with
+        static member Raise(e : exn) = Async.FromContinuations(fun (_,ec,_) -> ec e)
         static member Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
-        static member Sleep(timespan : TimeSpan) = Async.Sleep(int timespan.TotalMilliseconds)
-        static member AwaitTask(task : Task) = Async.AwaitTask(task.ContinueWith ignore)
+
+        /// <summary>
+        ///     Asynchronously awaits a task in a way that correctly exposes user exceptions.
+        /// </summary>
+        /// <param name="task">Task to be awaited.</param>
+        static member AwaitTaskCorrect(task : Task<'T>) = async {
+            try return! Async.AwaitTask task
+            with :? AggregateException as ae -> 
+                return! Async.Raise (ae.InnerExceptions.[0])
+        }
+
+        /// <summary>
+        ///     Asynchronously awaits a task in a way that correctly exposes user exceptions.
+        /// </summary>
+        /// <param name="task">Task to be awaited.</param>
+        static member AwaitTaskCorrect(task : Task) =
+            Async.AwaitTaskCorrect(task.ContinueWith ignore)
 
     type AsyncBuilder with
         member inline __.Bind(f : Task<'T>, g : 'T -> Async<'S>) : Async<'S> = 
-            __.Bind(Async.AwaitTask f, g)
+            __.Bind(Async.AwaitTaskCorrect f, g)
         member inline __.Bind(f : Task, g : unit -> Async<'S>) : Async<'S> =
-            __.Bind(Async.AwaitTask(f.ContinueWith ignore), g)
+            __.Bind(Async.AwaitTaskCorrect (f.ContinueWith ignore), g)
         member inline __.ReturnFrom(f : Task<'T>) : Async<'T> =
-            __.ReturnFrom(Async.AwaitTask f)
+            __.ReturnFrom(Async.AwaitTaskCorrect f)
         member inline __.ReturnFrom(f : Task) : Async<unit> =
-            __.ReturnFrom(Async.AwaitTask f)
+            __.ReturnFrom(Async.AwaitTaskCorrect (f.ContinueWith ignore))
 
     let validateContainerName =
         //https://msdn.microsoft.com/en-us/library/azure/dd135715.aspx
