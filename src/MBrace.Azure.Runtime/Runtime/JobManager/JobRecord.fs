@@ -26,11 +26,11 @@ type internal FaultInfo =
     | IsTargetedJobOfDeadWorker     = 3
 
 [<AllowNullLiteral>]
-type JobRecord(parentTaskId, jobId) = 
+type JobRecord(parentTaskId : string, jobId : string) = 
     inherit TableEntity(parentTaskId, jobId)
     
-    member val Id                 = jobId with get, set
-    member val ParentTaskId       = parentTaskId with get, set
+    member val Id                 = jobId with get
+    member val ParentTaskId       = parentTaskId with get
 
     member val Affinity           = null : string with get, set
     member val Kind               = Nullable<int>() with get, set
@@ -62,7 +62,7 @@ type JobRecord(parentTaskId, jobId) =
         p
 
     static member FromCloudJob(job : CloudJob) =
-        let record = new JobRecord(job.TaskEntry.Id, job.Id.ToString())
+        let record = new JobRecord(job.TaskEntry.Id, fromGuid job.Id)
         
         match job.JobType with
         | TaskRoot -> 
