@@ -14,8 +14,6 @@
 #r @"tools\Microsoft.WindowsAzure.Storage.dll"
 #r @"tools\MBrace.Core.dll"
 #r @"tools\MBrace.Runtime.Core.dll"
-#r @"tools\MBrace.Azure.Store.dll"
-#r @"tools\MBrace.Azure.Runtime.dll"
-#r @"tools\MBrace.Azure.Client.dll"
+#r @"tools\MBrace.Azure.dll"
 
 MBrace.Azure.MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/tools/mbrace.azureworker.exe"

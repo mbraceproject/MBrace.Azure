@@ -24,7 +24,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Standalone.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\mbrace.azureworker.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -35,7 +35,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Standalone.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\mbrace.azureworker.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
@@ -49,7 +49,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Standalone.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\mbrace.azureworker.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
     <OutputPath>..\..\bin\</OutputPath>
   </PropertyGroup>
@@ -60,7 +60,7 @@
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Standalone.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\mbrace.azureworker.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
     <OutputPath>..\..\bin\</OutputPath>
   </PropertyGroup>

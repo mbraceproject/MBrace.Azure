@@ -22,7 +22,7 @@
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Tests.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\MBrace.Azure.Tests.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -31,7 +31,7 @@
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Tests.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\MBrace.Azure.Tests.XML</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -43,7 +43,7 @@
     <Tailcalls>false</Tailcalls>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Tests.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\MBrace.Azure.Tests.XML</DocumentationFile>
     <OutputPath>..\..\bin\</OutputPath>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_AzureSDK|AnyCPU' ">
@@ -52,7 +52,7 @@
     <Tailcalls>true</Tailcalls>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Tests.XML</DocumentationFile>
+    <DocumentationFile>..\..\bin\MBrace.Azure.Tests.XML</DocumentationFile>
     <OutputPath>..\..\bin\</OutputPath>
   </PropertyGroup>
   <Choose>

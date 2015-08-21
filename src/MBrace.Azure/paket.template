@@ -1,0 +1,43 @@
+﻿type project
+id MBrace.Azure
+description
+    MBrace on Windows Azure.
+authors
+    Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis
+copyright
+    Copyright 2015
+summary
+    An MBrace cluster implementation on top of Azure PaaS.
+	Bundles a standalone executable for setup of local worker instances.
+licenseurl https://github.com/mbraceproject/MBrace.Azure/blob/master/License.md
+projecturl http://www.m-brace.net/
+iconurl https://avatars2.githubusercontent.com/u/9674757
+tags
+	F#, cloud, mapreduce, distributed, azure, windowsazure
+references
+	MBrace.Azure.dll
+files
+	../../nuget/MBrace.Azure.fsx ==>
+	../../bin/Newtonsoft.Json.dll ==> tools
+    ../../bin/FsPickler.dll ==> tools
+    ../../bin/FsPickler.Json.dll ==> tools
+	../../bin/Mono.Cecil.dll ==> tools
+	../../bin/Vagabond.AssemblyParser.dll ==> tools
+	../../bin/Vagabond.dll ==> tools
+	../../bin/Microsoft.Data.Edm.dll
+	../../bin/Microsoft.Data.OData.dll
+	../../bin/Microsoft.Data.Services.Client.dll
+	../../bin/Microsoft.ServiceBus.dll
+	../../bin/Microsoft.WindowsAzure.Configuration.dll
+	../../bin/Microsoft.WindowsAzure.Storage.dll
+    ../../bin/MBrace.Core.dll ==> tools
+	../../bin/MBrace.Core.pdb ==> tools
+	../../bin/MBrace.Core.xml ==> tools
+    ../../bin/MBrace.Runtime.dll ==> tools
+	../../bin/MBrace.Runtime.pdb ==> tools
+	../../bin/MBrace.Runtime.xml ==> tools
+    ../../bin/MBrace.Azure.dll ==> tools
+	../../bin/MBrace.Azure.pdb ==> tools
+	../../bin/MBrace.Azure.xml ==> tools
+	../../bin/mbrace.azureworker.exe ==> tools
+	../../bin/mBrace.azureworker.exe.config ==> tools
