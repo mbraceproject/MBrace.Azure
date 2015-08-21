@@ -8,6 +8,7 @@ open MBrace.Azure
 open MBrace.Core.Internals
 open System.IO
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open System.Runtime.Serialization
 open System.Threading.Tasks
 
