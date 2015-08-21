@@ -27,17 +27,17 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Tests", "tests\MBrace.Azure.Runtime.Tests\MBrace.Azure.Tests.fsproj", "{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Tests", "tests\MBrace.Azure.Tests\MBrace.Azure.Tests.fsproj", "{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5F24F335-F43F-4266-B9DD-E5027835DAAB}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.StandaloneWorker", "samples\MBrace.Azure.Worker.Standalone\MBrace.Azure.StandaloneWorker.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.StandaloneWorker", "src\MBrace.Azure.StandaloneWorker\MBrace.Azure.StandaloneWorker.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
 EndProject
 Project("{CC5FD16D-436D-48AD-A40C-5A424C6E3E79}") = "MBrace.Azure.CloudService", "samples\MBrace.Azure.CloudService\MBrace.Azure.CloudService.ccproj", "{BD922B57-1C69-4667-A3C1-B3E114A76ACD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Azure.CloudService.WorkerRole", "samples\MBrace.Azure.CloudService.WorkerRole\MBrace.Azure.CloudService.WorkerRole.csproj", "{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure", "src\MBrace.Azure.Runtime\MBrace.Azure.fsproj", "{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure", "src\MBrace.Azure\MBrace.Azure.fsproj", "{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

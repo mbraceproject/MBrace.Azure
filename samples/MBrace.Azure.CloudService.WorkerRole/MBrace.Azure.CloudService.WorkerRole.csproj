@@ -81,7 +81,7 @@
     <None Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\MBrace.Azure.Runtime\MBrace.Azure.fsproj">
+    <ProjectReference Include="..\..\src\MBrace.Azure\MBrace.Azure.fsproj">
       <Project>{5ed05ec2-a9a0-4247-bb66-4d4c866f43ad}</Project>
       <Name>MBrace.Azure</Name>
     </ProjectReference>
