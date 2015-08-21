@@ -120,6 +120,8 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         let dictionaryProvider = CloudDictionaryProvider.Create(storeConn)
         let queueProvider = QueueProvider.Create(sbusConn)
 
+        // TODO : specify Vagabond and CloudValue containers in Configuration object
+
         let cloudValueProvider =
             let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory "cloudvalue"
             let mkCache () = Config.ObjectCache
