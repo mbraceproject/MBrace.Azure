@@ -121,7 +121,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         let queueProvider = QueueProvider.Create(sbusConn)
 
         let cloudValueProvider =
-            let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory "cloudValue"
+            let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory "cloudvalue"
             let mkCache () = Config.ObjectCache
             let mkLocalCachingStore () = (Config.FileStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
             StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, cacheFactory = mkCache, localFileStore = mkLocalCachingStore, shadowPersistObjects = true)
