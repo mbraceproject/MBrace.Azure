@@ -24,12 +24,12 @@ files
 	../../bin/Mono.Cecil.dll ==> tools
 	../../bin/Vagabond.AssemblyParser.dll ==> tools
 	../../bin/Vagabond.dll ==> tools
-	../../bin/Microsoft.Data.Edm.dll
-	../../bin/Microsoft.Data.OData.dll
-	../../bin/Microsoft.Data.Services.Client.dll
-	../../bin/Microsoft.ServiceBus.dll
-	../../bin/Microsoft.WindowsAzure.Configuration.dll
-	../../bin/Microsoft.WindowsAzure.Storage.dll
+	../../bin/Microsoft.Data.Edm.dll ==> tools
+	../../bin/Microsoft.Data.OData.dll ==> tools
+	../../bin/Microsoft.Data.Services.Client.dll ==> tools
+	../../bin/Microsoft.ServiceBus.dll ==> tools
+	../../bin/Microsoft.WindowsAzure.Configuration.dll ==> tools
+	../../bin/Microsoft.WindowsAzure.Storage.dll ==> tools
     ../../bin/MBrace.Core.dll ==> tools
 	../../bin/MBrace.Core.pdb ==> tools
 	../../bin/MBrace.Core.xml ==> tools
