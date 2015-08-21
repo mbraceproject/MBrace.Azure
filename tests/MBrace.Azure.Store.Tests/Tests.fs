@@ -21,7 +21,7 @@ module private Config =
 
     let remoteBlobStoreConfig = lazy BlobStore.Create(remoteConn.Value, "mbracetests")
 
-    let emulatorBlobStoreConfig = lazy BlobStore.Create(emulatorConn, "mbractests")
+    let emulatorBlobStoreConfig = lazy BlobStore.Create(emulatorConn, "mbracetests")
 
     let remoteAtomStoreConfig = lazy AtomProvider.Create(remoteConn.Value, "mbraceTest")
 

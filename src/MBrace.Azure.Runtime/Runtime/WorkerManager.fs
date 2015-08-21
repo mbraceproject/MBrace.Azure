@@ -80,7 +80,7 @@ type WorkerId internal (workerId) =
 
     override this.GetHashCode() = hash workerId
 
-[<AutoSerializable(true)>]
+[<AutoSerializable(false)>]
 type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
 
     let pickle (value : 'T) = Config.Pickler.Pickle(value)
