@@ -29,7 +29,7 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// Current client instance identifier.
     member this.ClientId = manager.RuntimeManagerId
 
-    /// Sets iff logging in console is enabled for this client.
+    /// Sets whether logging in console is enabled for this client.
     member this.EnableClientConsoleLogger 
         with get () = consoleLogger.IsSome
         and set enable =

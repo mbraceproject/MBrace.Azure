@@ -191,24 +191,6 @@ type CustomLogger (f : Action<string>) =
 
 [<AutoOpen>]
 module LoggerExtensions =
-    type ConsoleLogger with
-        member logger.WithColor () =
-            { new ISystemLogger with
-                member x.LogEntry(entry : SystemLogEntry): unit = 
-                    let current = Console.ForegroundColor
-                    Console.ForegroundColor <-
-                        match entry.LogLevel with
-                        | LogLevel.Critical     -> ConsoleColor.Red
-                        | LogLevel.Error        -> ConsoleColor.Red
-                        | LogLevel.Warning      -> ConsoleColor.Yellow
-                        | LogLevel.Info         -> ConsoleColor.Cyan
-                        | LogLevel.Debug        -> ConsoleColor.White
-                        | LogLevel.Undefined    -> ConsoleColor.Gray
-                        | _                     -> failwithf "Invalid LogLevel %A" entry.LogLevel
-
-                    (logger :> ISystemLogger).LogEntry(entry)
-                    Console.ForegroundColor <- current
-            }
     
     type AttacheableLogger with
         static member FromLoggers(loggers : ISystemLogger seq) = 
