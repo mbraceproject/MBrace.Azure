@@ -1,13 +1,8 @@
-FsPickler
 MBrace.Core
-MBrace.Runtime
-Microsoft.Data.Edm
-Microsoft.Data.OData
-Microsoft.Data.Services.Client
-Microsoft.WindowsAzure.ConfigurationManager
 Newtonsoft.Json
-System.Spatial
+FsPickler
+FsPickler.Json
 Vagabond
+MBrace.Runtime
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
-FsPickler.Json

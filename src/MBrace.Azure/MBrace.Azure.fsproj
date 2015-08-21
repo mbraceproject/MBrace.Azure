@@ -80,6 +80,53 @@
   </Target>
   -->
   <Import Project="..\..\.paket\paket.targets" />
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Common\Exceptions.fs" />
+    <Compile Include="Common\Validation.fs" />
+    <Compile Include="Common\Config.fs" />
+    <Compile Include="Common\Version.fs" />
+    <Compile Include="Utilities\Utils.fs" />
+    <Compile Include="Utilities\Table.fs" />
+    <Compile Include="Utilities\Argument.fs" />
+    <Compile Include="Store\StoreUtils.fs" />
+    <Compile Include="Store\TableEntities.fs" />
+    <Compile Include="Store\BlobStore.fs" />
+    <Compile Include="Store\Atom.fs" />
+    <Compile Include="Store\Queue.fs" />
+    <Compile Include="Store\Dictionary.fs" />
+    <Compile Include="Primitives\Counters.fs" />
+    <Compile Include="Primitives\BlobCells.fs" />
+    <Compile Include="Primitives\CancellationEntry.fs" />
+    <Compile Include="Primitives\ResultAggregator.fs" />
+    <Compile Include="Primitives\Logging.fs" />
+    <Compile Include="Runtime\WorkerManager.fs" />
+    <Compile Include="Runtime\JobManager\JobRecord.fs" />
+    <Compile Include="Runtime\JobManager\TaskManager.fs" />
+    <Compile Include="Runtime\JobManager\Messaging.fs" />
+    <Compile Include="Runtime\JobManager\JobManager.fs" />
+    <Compile Include="Runtime\RuntimeManager.fs" />
+    <Compile Include="Runtime\Init.fs" />
+    <Compile Include="Runtime\Service.fs" />
+    <Compile Include="Client.fs" />
+    <Content Include="paket.references" />
+    <None Include="paket.template" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
   <Choose>
     <When Condition="$(TargetFrameworkIdentifier) == '.NETFramework' And $(TargetFrameworkVersion) == 'v3.5'">
       <ItemGroup>
@@ -546,51 +593,4 @@
       </ItemGroup>
     </When>
   </Choose>
-  <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Common\Exceptions.fs" />
-    <Compile Include="Common\Validation.fs" />
-    <Compile Include="Common\Config.fs" />
-    <Compile Include="Common\Version.fs" />
-    <Compile Include="Utilities\Utils.fs" />
-    <Compile Include="Utilities\Table.fs" />
-    <Compile Include="Utilities\Argument.fs" />
-    <Compile Include="Store\StoreUtils.fs" />
-    <Compile Include="Store\TableEntities.fs" />
-    <Compile Include="Store\BlobStore.fs" />
-    <Compile Include="Store\Atom.fs" />
-    <Compile Include="Store\Queue.fs" />
-    <Compile Include="Store\Dictionary.fs" />
-    <Compile Include="Primitives\Counters.fs" />
-    <Compile Include="Primitives\BlobCells.fs" />
-    <Compile Include="Primitives\CancellationEntry.fs" />
-    <Compile Include="Primitives\ResultAggregator.fs" />
-    <Compile Include="Primitives\Logging.fs" />
-    <Compile Include="Runtime\WorkerManager.fs" />
-    <Compile Include="Runtime\JobManager\JobRecord.fs" />
-    <Compile Include="Runtime\JobManager\TaskManager.fs" />
-    <Compile Include="Runtime\JobManager\Messaging.fs" />
-    <Compile Include="Runtime\JobManager\JobManager.fs" />
-    <Compile Include="Runtime\RuntimeManager.fs" />
-    <Compile Include="Runtime\Init.fs" />
-    <Compile Include="Runtime\Service.fs" />
-    <Compile Include="Client.fs" />
-    <Content Include="paket.references" />
-    <None Include="paket.template" />
-  </ItemGroup>
-  <ItemGroup>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Management" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Runtime.Serialization" />
-    <Reference Include="System.Security" />
-    <Reference Include="System.ServiceModel" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
 </Project>

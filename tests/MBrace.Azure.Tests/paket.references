@@ -4,13 +4,8 @@ FsUnit
 MBrace.Core
 MBrace.Tests
 MBrace.Runtime
-Microsoft.Data.Edm
-Microsoft.Data.OData
-Microsoft.Data.Services.Client
-Microsoft.WindowsAzure.ConfigurationManager
 Newtonsoft.Json
 NUnit
-System.Spatial
 Vagabond
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
