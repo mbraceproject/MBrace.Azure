@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Tests
+﻿namespace MBrace.Azure.Tests.Runtime
 
 open NUnit.Framework
 
@@ -7,8 +7,8 @@ open MBrace.Core.Internals
 open MBrace.Core.Tests
 open MBrace.Runtime
 open MBrace.Azure
-open MBrace.Azure
 open MBrace.Azure.Runtime
+open MBrace.Azure.Tests
 
 #nowarn "445" // 'Reset'
 

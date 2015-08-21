@@ -5,14 +5,13 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>09891260-7d4e-431b-b714-2a13c412fd78</ProjectGuid>
-    <OutputType>Exe</OutputType>
-    <RootNamespace>MBrace.Azure.Runtime.Standalone</RootNamespace>
-    <AssemblyName>mbrace.azureworker</AssemblyName>
+    <ProjectGuid>5ed05ec2-a9a0-4247-bb66-4d4c866f43ad</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>MBrace.Azure.Runtime.Common</RootNamespace>
+    <AssemblyName>MBrace.Azure</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFSharpCoreVersion>4.3.1.0</TargetFSharpCoreVersion>
-    <Name>MBrace.Azure.Worker.Standalone</Name>
+    <Name>MBrace.Azure</Name>
     <SolutionDir Condition="$(SolutionDir) == '' Or $(SolutionDir) == '*Undefined*'">..\..\</SolutionDir>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
@@ -23,9 +22,8 @@
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Standalone.XML</DocumentationFile>
-    <Prefer32Bit>false</Prefer32Bit>
+    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.XML</DocumentationFile>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -34,9 +32,8 @@
     <OutputPath>..\..\bin\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Standalone.XML</DocumentationFile>
-    <Prefer32Bit>false</Prefer32Bit>
+    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.XML</DocumentationFile>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -48,10 +45,9 @@
     <Tailcalls>false</Tailcalls>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Standalone.XML</DocumentationFile>
-    <Prefer32Bit>false</Prefer32Bit>
+    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.XML</DocumentationFile>
     <OutputPath>..\..\bin\</OutputPath>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release_AzureSDK|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -59,10 +55,9 @@
     <Tailcalls>true</Tailcalls>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.Standalone.XML</DocumentationFile>
-    <Prefer32Bit>false</Prefer32Bit>
+    <DocumentationFile>..\..\bin\MBrace.Azure.Runtime.XML</DocumentationFile>
     <OutputPath>..\..\bin\</OutputPath>
+    <OtherFlags>--warnon:1182</OtherFlags>
   </PropertyGroup>
   <Choose>
     <When Condition="'$(VisualStudioVersion)' == '11.0'">
@@ -77,40 +72,6 @@
     </Otherwise>
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
-  <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Program.fs" />
-    <None Include="App.config" />
-    <Content Include="paket.references" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\MBrace.Azure.Runtime\MBrace.Azure.Runtime.fsproj">
-      <Name>MBrace.Azure.Runtime</Name>
-      <Project>{5ed05ec2-a9a0-4247-bb66-4d4c866f43ad}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <ProjectReference Include="..\..\src\MBrace.Azure.Store\MBrace.Azure.Store.fsproj">
-      <Name>MBrace.Azure.Store</Name>
-      <Project>{90db3185-8f34-47e3-84a2-3b385e1a7493}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Numerics" />
-    <ProjectReference Include="..\..\src\MBrace.Azure.Client\MBrace.Azure.Client.fsproj">
-      <Name>MBrace.Azure.Client</Name>
-      <Project>{5aae037c-f0c3-4a04-a5f4-46001ec513bf}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <Reference Include="System.Runtime.Serialization" />
-    <Reference Include="System.ServiceModel" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">
@@ -585,4 +546,50 @@
       </ItemGroup>
     </When>
   </Choose>
+  <ItemGroup>
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Common\Exceptions.fs" />
+    <Compile Include="Common\Validation.fs" />
+    <Compile Include="Common\Config.fs" />
+    <Compile Include="Common\Version.fs" />
+    <Compile Include="Utilities\Utils.fs" />
+    <Compile Include="Utilities\Table.fs" />
+    <Compile Include="Utilities\Argument.fs" />
+    <Compile Include="Store\StoreUtils.fs" />
+    <Compile Include="Store\TableEntities.fs" />
+    <Compile Include="Store\BlobStore.fs" />
+    <Compile Include="Store\Atom.fs" />
+    <Compile Include="Store\Queue.fs" />
+    <Compile Include="Store\Dictionary.fs" />
+    <Compile Include="Primitives\Counters.fs" />
+    <Compile Include="Primitives\BlobCells.fs" />
+    <Compile Include="Primitives\CancellationEntry.fs" />
+    <Compile Include="Primitives\ResultAggregator.fs" />
+    <Compile Include="Primitives\Logging.fs" />
+    <Compile Include="Runtime\WorkerManager.fs" />
+    <Compile Include="Runtime\JobManager\JobRecord.fs" />
+    <Compile Include="Runtime\JobManager\TaskManager.fs" />
+    <Compile Include="Runtime\JobManager\Messaging.fs" />
+    <Compile Include="Runtime\JobManager\JobManager.fs" />
+    <Compile Include="Runtime\RuntimeManager.fs" />
+    <Compile Include="Runtime\Init.fs" />
+    <Compile Include="Runtime\Service.fs" />
+    <Compile Include="Client.fs" />
+    <Content Include="paket.references" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=$(TargetFSharpCoreVersion), Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Management" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Runtime.Serialization" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.ServiceModel" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
 </Project>

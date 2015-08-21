@@ -1,16 +1,17 @@
-﻿namespace MBrace.Azure.Runtime.Tests
+﻿namespace MBrace.Azure.Tests.Runtime
 
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Core.Tests
-open MBrace.Azure
+
 open MBrace.Azure
 open MBrace.Azure.Runtime
+open MBrace.Azure.Tests
 
 open NUnit.Framework
 
 [<AbstractClass; TestFixture>]
-type ``Azure Flow Tests`` (sbus, storage) as self =
+type ``Azure CloudFlow Tests`` (sbus, storage) as self =
     inherit ``CloudFlow tests`` ()
 
     let config = new Configuration(storage, sbus)
@@ -39,16 +40,16 @@ type ``Azure Flow Tests`` (sbus, storage) as self =
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3
 
-type ``Flows Compute - Storage Emulator`` () =
-    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
+type ``CloudFlow Compute - Storage Emulator`` () =
+    inherit ``Azure CloudFlow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         // TODO : Check if emulator is up?
         base.Init()    
 
-type ``Flows Standalone - Storage Emulator`` () =
-    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
+type ``CloudFlow Standalone - Storage Emulator`` () =
+    inherit ``Azure CloudFlow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
 
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
@@ -63,8 +64,8 @@ type ``Flows Standalone - Storage Emulator`` () =
         base.Fini()
 
 
-type ``Flow Standalone`` () =
-    inherit ``Azure Flow Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
+type ``CloudFlow Standalone`` () =
+    inherit ``Azure CloudFlow Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
     
     [<TestFixtureSetUpAttribute>]
     override __.Init() =

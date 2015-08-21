@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Runtime.Tests
+﻿namespace MBrace.Azure.Tests
 
 open System.Threading
 

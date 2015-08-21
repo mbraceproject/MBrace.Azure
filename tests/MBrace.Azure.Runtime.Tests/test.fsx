@@ -3,14 +3,12 @@
 #r "MBrace.Runtime.dll"
 #r "FsPickler.dll"
 #r "Vagabond.dll"
-#r "MBrace.Azure.Runtime.dll"
-#r "MBrace.Azure.Client.dll"
+#r "MBrace.Azure.dll"
 #time "on"
 
 open MBrace.Core
 open MBrace.Azure
 open System
-open MBrace.Store
 
 let config = 
     let selectEnv name = Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User)

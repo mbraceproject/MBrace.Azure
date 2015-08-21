@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.23107.0
+# Visual Studio 2013
+VisualStudioVersion = 12.0.40629.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{8C962C9C-7DF5-430C-8CD4-7C2642F68409}"
 	ProjectSection(SolutionItems) = preProject
@@ -25,25 +25,19 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Client", "src\MBrace.Azure.Client\MBrace.Azure.Client.fsproj", "{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Runtime.Tests", "tests\MBrace.Azure.Runtime.Tests\MBrace.Azure.Runtime.Tests.fsproj", "{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Tests", "tests\MBrace.Azure.Runtime.Tests\MBrace.Azure.Tests.fsproj", "{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5F24F335-F43F-4266-B9DD-E5027835DAAB}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Worker.Standalone", "samples\MBrace.Azure.Worker.Standalone\MBrace.Azure.Worker.Standalone.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.StandaloneWorker", "samples\MBrace.Azure.Worker.Standalone\MBrace.Azure.StandaloneWorker.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
 EndProject
 Project("{CC5FD16D-436D-48AD-A40C-5A424C6E3E79}") = "MBrace.Azure.CloudService", "samples\MBrace.Azure.CloudService\MBrace.Azure.CloudService.ccproj", "{BD922B57-1C69-4667-A3C1-B3E114A76ACD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Azure.CloudService.WorkerRole", "samples\MBrace.Azure.CloudService.WorkerRole\MBrace.Azure.CloudService.WorkerRole.csproj", "{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Store", "src\MBrace.Azure.Store\MBrace.Azure.Store.fsproj", "{90DB3185-8F34-47E3-84A2-3B385E1A7493}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Store.Tests", "tests\MBrace.Azure.Store.Tests\MBrace.Azure.Store.Tests.fsproj", "{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}"
-EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Runtime", "src\MBrace.Azure.Runtime\MBrace.Azure.Runtime.fsproj", "{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure", "src\MBrace.Azure.Runtime\MBrace.Azure.fsproj", "{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -53,14 +47,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug_AzureSDK|Any CPU
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Debug_AzureSDK|Any CPU.Build.0 = Debug_AzureSDK|Any CPU
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Release_AzureSDK|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Release_AzureSDK|Any CPU.Build.0 = Release_AzureSDK|Any CPU
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug_AzureSDK|Any CPU
 		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Debug_AzureSDK|Any CPU.Build.0 = Debug_AzureSDK|Any CPU
 		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -89,22 +75,6 @@ Global
 		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}.Release_AzureSDK|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
 		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}.Release_AzureSDK|Any CPU.Build.0 = Release_AzureSDK|Any CPU
 		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug_AzureSDK|Any CPU
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Debug_AzureSDK|Any CPU.Build.0 = Debug_AzureSDK|Any CPU
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Release_AzureSDK|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Release_AzureSDK|Any CPU.Build.0 = Release_AzureSDK|Any CPU
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493}.Release|Any CPU.Build.0 = Release|Any CPU
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug_AzureSDK|Any CPU
 		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Debug_AzureSDK|Any CPU.Build.0 = Debug_AzureSDK|Any CPU
 		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -118,13 +88,10 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{5AAE037C-F0C3-4A04-A5F4-46001EC513BF} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5} = {3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}
-		{09891260-7D4E-431B-B714-2A13C412FD78} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
+		{09891260-7D4E-431B-B714-2A13C412FD78} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 		{BD922B57-1C69-4667-A3C1-B3E114A76ACD} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
-		{90DB3185-8F34-47E3-84A2-3B385E1A7493} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
-		{81431BD3-1D02-4CBD-BDED-0A8DD7ABF804} = {3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}
 		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 	EndGlobalSection
 EndGlobal
