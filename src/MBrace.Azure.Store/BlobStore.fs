@@ -82,7 +82,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
 
         member this.GetRandomDirectoryName() : string = Guid.NewGuid().ToString()
 
-        member this.IsPathRooted(_ : string) = true // ??????
+        member this.IsPathRooted(path : string) = path.Contains("/")
 
         member this.GetDirectoryName(path : string) = Path.GetDirectoryName(path)
 
@@ -104,7 +104,8 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
 
         member this.FileExists(path: string) : Async<bool> = 
             async {
-                let directory, file = Path.GetDirectoryName path, Path.GetFileName path
+                let directory = Path.GetDirectoryName path 
+                let file = Path.GetFileName path
                 let container = getContainer acc directory
                 
                 let! b1 = container.ExistsAsync()
