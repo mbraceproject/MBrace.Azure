@@ -9,3 +9,4 @@ NUnit
 Vagabond
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
+FSharp.Compiler.Service

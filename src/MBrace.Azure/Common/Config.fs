@@ -26,6 +26,10 @@ type ConfigurationId =
         RuntimeLogsTable : string
         /// User data container.
         UserDataContainer : string
+        /// Vagabond Assembly Container.
+        VagabondContainer : string
+        /// CloudValue Persist Container.
+        CloudValueContainer : string
         /// User data table.
         UserDataTable : string }
     with
@@ -94,6 +98,12 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     /// Azure Storage container used for user data.
     member val UserDataContainer          = "mbraceuserdata" with get, set
 
+    /// Azure Storage container used for Vagabond assembly dependencies.
+    member val AssemblyContainer          = "vagabond" with get, set
+
+    /// Azure Storage container used for CloudValue persistence.
+    member val CloudValueContainer        = "cloudvalue" with get, set
+
     /// Azure Storage table used for user data.
     member val UserDataTable              = "MBraceUserData" with get, set
     
@@ -135,13 +145,15 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
             Version                        = versionNormalized
             StorageConnectionStringHash    = getHash store
             ServiceBusConnectionStringHash = getHash sbus
-            RuntimeQueue                   = (appendVersionAndId this.RuntimeQueue    ).ToLower() |> Validate.queueName
-            RuntimeTopic                   = (appendVersionAndId this.RuntimeTopic    ).ToLower() |> Validate.queueName
-            RuntimeContainer               = (appendVersionAndId this.RuntimeContainer).ToLower() |> Validate.containerName
-            RuntimeTable                   = (appendVersionAndId this.RuntimeTable    ).ToLower() |> Validate.tableName
-            RuntimeLogsTable               = (appendVersionAndId this.RuntimeLogsTable).ToLower() |> Validate.tableName
-            UserDataContainer              = (appendId this.UserDataContainer         ).ToLower() |> Validate.containerName
-            UserDataTable                  = (appendId this.UserDataTable             ).ToLower() |> Validate.tableName
+            RuntimeQueue                   = (appendVersionAndId this.RuntimeQueue       ).ToLower() |> Validate.queueName
+            RuntimeTopic                   = (appendVersionAndId this.RuntimeTopic       ).ToLower() |> Validate.queueName
+            RuntimeContainer               = (appendVersionAndId this.RuntimeContainer   ).ToLower() |> Validate.containerName
+            RuntimeTable                   = (appendVersionAndId this.RuntimeTable       ).ToLower() |> Validate.tableName
+            RuntimeLogsTable               = (appendVersionAndId this.RuntimeLogsTable   ).ToLower() |> Validate.tableName
+            VagabondContainer              = (appendVersionAndId this.AssemblyContainer  ).ToLower() |> Validate.containerName
+            CloudValueContainer            = (appendVersionAndId this.CloudValueContainer).ToLower() |> Validate.containerName
+            UserDataContainer              = (appendId this.UserDataContainer            ).ToLower() |> Validate.containerName
+            UserDataTable                  = (appendId this.UserDataTable                ).ToLower() |> Validate.tableName
         }
 
 namespace MBrace.Azure.Runtime

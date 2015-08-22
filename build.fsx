@@ -83,8 +83,7 @@ Target "Build" (fun _ ->
 
 let testAssemblies = 
     [
-        "bin/MBrace.Azure.Runtime.Tests.dll"
-        "bin/MBrace.Azure.Store.Tests.dll"
+        "bin/MBrace.Azure.Tests.dll"
     ]
 
 Target "RunTests" (fun _ ->
