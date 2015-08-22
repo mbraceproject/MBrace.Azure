@@ -18,7 +18,7 @@ open MBrace.Runtime
 /// Windows Azure Runtime client.
 /// </summary>
 [<AutoSerializable(false)>]
-type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSystemLogger) =
+type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger) =
     inherit MBraceClient(manager)
 
     static let lockObj = obj()
@@ -46,60 +46,14 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
                 | _ -> ())
 
     /// <summary>
-    /// Fetch cloud logs for given task.
-    /// </summary>
-    /// <param name="taskId">Task Id.</param>
-    /// <param name="fromDate">Get logs starting from this date.</param>
-    /// <param name="toDate">Get logs until this date.</param>
-    member this.GetCloudLogs(taskId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : seq<LogRecord> =
-        let emptyWorkerId = { new IWorkerId with
-                                  member x.CompareTo(obj: obj): int = -1
-                                  member x.Id: string = String.Empty
-                            }
-        let logger = CloudStorageLogger(manager.ConfigurationId, emptyWorkerId , taskId)
-        Async.RunSync(logger.GetLogs(?fromDate = fromDate, ?toDate = toDate)) :> _
-
-    /// <summary>
-    /// Fetch cloud logs for given task.
-    /// </summary>
-    /// <param name="taskId">CloudTask.</param>
-    /// <param name="fromDate">Get logs starting from this date.</param>
-    /// <param name="toDate">Get logs until this date.</param>
-    member this.GetCloudLogs(task : CloudTask, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
-        this.GetCloudLogs(task.Id, ?fromDate = fromDate, ?toDate = toDate)
-
-    /// <summary>
-    /// Print cloud logs for given task.
-    /// </summary>
-    /// <param name="taskId">Task Id.</param>
-    /// <param name="fromDate">Get logs starting from this date.</param>
-    /// <param name="toDate">Get logs until this date.</param>
-    member this.ShowCloudLogs(taskId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
-        let emptyWorkerId = { new IWorkerId with
-                                member x.CompareTo(obj: obj): int = -1
-                                member x.Id: string = String.Empty
-                            }
-        let logger = CloudStorageLogger(manager.ConfigurationId, emptyWorkerId, taskId)
-        logger.ShowLogs(?fromDate = fromDate, ?toDate = toDate) 
-        
-    /// <summary>
-    /// Show cloud logs for given task.
-    /// </summary>
-    /// <param name="taskId">CloudTask.</param>
-    /// <param name="fromDate">Get logs starting from this date.</param>
-    /// <param name="toDate">Get logs until this date.</param>
-    member this.ShowCloudLogs(task : CloudTask, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
-        this.ShowCloudLogs(task.Id, ?fromDate = fromDate, ?toDate = toDate) 
-
-    /// <summary>
     /// Get runtime logs.
     /// </summary>
     /// <param name="worker">Get logs from specific worker.</param>
     /// <param name="fromDate">Get logs from this date.</param>
     /// <param name="toDate">Get logs until this date.</param>
     member this.GetSystemLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : seq<_> = 
-        let loggerType = worker |> Option.map (fun w -> System w.Id)
-        defaultLogger.GetLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
+        let loggerId = worker |> Option.map (fun w -> w.Id)
+        defaultLogger.GetLogs(?loggerId = loggerId, ?fromDate = fromDate, ?toDate = toDate)
 
     /// <summary>
     /// Print runtime logs.
@@ -108,8 +62,8 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     /// <param name="fromDate">Get logs from this date.</param>
     /// <param name="toDate">Get logs until this date.</param>
     member this.ShowSystemLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
-        let loggerType = worker |> Option.map (fun w -> System w.Id)
-        defaultLogger.ShowLogs(?loggerType = loggerType, ?fromDate = fromDate, ?toDate = toDate)
+        let loggerId = worker |> Option.map (fun w -> w.Id)
+        defaultLogger.ShowLogs(?loggerId = loggerId, ?fromDate = fromDate, ?toDate = toDate)
 
     /// <summary>
     /// Print runtime logs.
@@ -185,6 +139,7 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
 
     /// Delete and reactivate runtime state (queues, containers, tables and logs but not user folders).
     /// Using 'Reset' may cause unexpected behavior in clients and workers.
+    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
     member this.Reset () = 
         (manager :> IRuntimeManager).ResetClusterState()
         |> Async.RunSync
@@ -220,7 +175,7 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : StorageSyste
     static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger) : MBraceAzure = 
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
-        let storageLogger = StorageSystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, clientId)
+        let storageLogger = SystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, clientId)
         let logger = match logger with Some l -> l | None -> new NullLogger() :> _
         let manager = RuntimeManager.CreateForClient(config, clientId, logger, ResourceRegistry.Empty)
         let runtime = new MBraceAzure(manager, storageLogger)

@@ -23,46 +23,17 @@ runtime.Workers
 runtime.ShowWorkerInfo()
 runtime.ShowSystemLogs()
 
-let workflow =
-    cloud {
-        do! Cloud.Sleep 30000
-        return 42
-    }
-
-let task = runtime.CreateProcess(workflow, faultPolicy = FaultPolicy.NoRetry)
-task.Result
-
-let t = runtime.CreateProcess(Cloud.Log "foobar")
-
-runtime.ShowCloudLogs(t)
-t.Id
-t.ShowInfo()
-
-
-runtime.ShowSystemLogs()
-
-
-
-
-
-
-
-
-
-
-
-
-
-let task = runtime.CreateProcess(cloud { return 42 }, faultPolicy = FaultPolicy.NoRetry)
+let task = runtime.CreateCloudTask(cloud { return 42 }, faultPolicy = FaultPolicy.NoRetry)
 task.ShowInfo()
 
 task.Result
 
-runtime.ShowProcessInfo()
+task.ShowLogs()
+runtime.KillLocalWorker()
 
 
 let task =
-    runtime.CreateProcess(
+    runtime.CreateCloudTask(
         Cloud.ParallelEverywhere(cloud { return! Cloud.Sleep(20000) }), 
         faultPolicy = FaultPolicy.NoRetry,
         taskName = "foobar")
