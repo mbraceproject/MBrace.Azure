@@ -10,10 +10,10 @@ open Microsoft.WindowsAzure.Storage.Table
 [<AutoOpen>]
 module Utils =
 
-    let guid() = Guid.NewGuid().ToString("N")
+    let guid() = Guid.NewGuid().ToString()
 
     let toGuid guid = Guid.Parse(guid)
-    let fromGuid(guid : Guid) = guid.ToString("N")
+    let fromGuid(guid : Guid) = guid.ToString()
 
     let uri fmt = Printf.ksprintf (fun s -> new Uri(s)) fmt
 
