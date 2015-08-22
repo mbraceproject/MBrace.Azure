@@ -227,17 +227,14 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
         member this.Clear(taskId: string): Async<unit> = 
             async {
                 let record = new TaskRecord(taskId)
+                record.ETag <- "*"
                 return! Table.delete config config.RuntimeTable record // TODO : perform full cleanup?
             }
         
         member this.ClearAllTasks(): Async<unit> = 
             async {
-                let taskManager = this :> ICloudTaskManager
-                let! tasks = taskManager.GetAllTasks()
-                return! tasks
-                        |> Seq.map (fun t -> taskManager.Clear(t.Id))
-                        |> Async.Parallel
-                        |> Async.Ignore
+                let! records = Table.queryPK<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey
+                return! Table.deleteBatch config config.RuntimeTable records
             }
         
         member this.CreateTask(info: CloudTaskInfo): Async<ICloudTaskCompletionSource> = 
