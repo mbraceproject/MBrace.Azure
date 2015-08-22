@@ -177,10 +177,12 @@ type CloudLogReader (config : ConfigurationId, taskId : string) =
                         lastDate
                     | Choice1Of2 logs ->
                         let log = logs |> Seq.maxBy (fun l -> l.DateTime)
-                        observers |> Seq.iter (fun o -> logs |> Seq.iter o.OnNext)
+                        lock syncRoot (fun _ ->
+                            observers |> Seq.iter (fun o -> logs |> Seq.iter o.OnNext))
                         Some <| DateTimeOffset(log.DateTime)
                     | Choice2Of2 ex ->
-                        observers |> Seq.iter (fun o -> o.OnError ex)
+                        lock syncRoot (fun _ ->
+                            observers |> Seq.iter (fun o -> o.OnError ex))
                         lastDate
                 do! Async.Sleep 500
                 return! pollLoop date
@@ -225,9 +227,7 @@ type CloudLogReader (config : ConfigurationId, taskId : string) =
                 | Some f -> query.Where(f) 
             let! logs = Table.query config config.UserDataTable query
             return logs
-                   |> Seq.map (fun log ->
-                        CloudLogEntry(log.TaskId, log.WorkerId, log.JobId, log.Time.Date, log.Message)
-                   )
+                   |> Seq.map (fun log -> CloudLogEntry(log.TaskId, log.WorkerId, log.JobId, log.Time.Date, log.Message))
         }
 
 [<Sealed; AutoSerializable(false)>]

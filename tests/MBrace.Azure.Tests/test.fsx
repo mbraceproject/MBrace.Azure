@@ -33,6 +33,24 @@ runtime.KillLocalWorker()
 
 
 let task =
+    runtime.CreateCloudTask<unit>((cloud {
+        let rec l i = cloud {
+            do! Cloud.Logf "Log %d" i
+            do! Cloud.Sleep 1000
+            if i < 10 then return! l (i+1)
+        }
+        return! l 0
+    }), faultPolicy = FaultPolicy.NoRetry)
+
+let d = task.Logs.Subscribe(fun l -> Console.WriteLine(MBrace.Runtime.CloudLogEntry.Format(l, true)))
+
+d.Dispose()
+
+
+runtime.ShowSystemLogs(600.)
+
+
+let task =
     runtime.CreateCloudTask(
         Cloud.ParallelEverywhere(cloud { return! Cloud.Sleep(20000) }), 
         faultPolicy = FaultPolicy.NoRetry,
