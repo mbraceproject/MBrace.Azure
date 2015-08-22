@@ -11,6 +11,7 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open System.Runtime.Serialization
 open System.Threading.Tasks
+open MBrace.Runtime.Utils.Retry
 
 /// Common settings for queue, topic and messages.
 type internal Settings private () = 
@@ -376,7 +377,11 @@ type internal Subscription (config : ConfigurationId, localWorkerId : IWorkerId,
             sd.LockDuration <- Settings.MaxLockDuration
             sd.AutoDeleteOnIdle <- Settings.SubscriptionAutoDeleteInterval
             let filter = new SqlFilter(sprintf "%s = '%s'" Settings.AffinityProperty affinity)
-            ns.CreateSubscription(sd, filter) |> ignore
+            let _description = 
+                retry (RetryPolicy.ExponentialDelay(3, 1.<sec>)) 
+                      (fun () -> ns.CreateSubscription(sd, filter))
+            ()
+            
 
     let sub = cp.SubscriptionClient(config.RuntimeTopic, targetWorkerId.Id)
 
