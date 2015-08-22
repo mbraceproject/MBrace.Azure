@@ -25,8 +25,9 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
 
     let assemblyManager =
         let serializer = resources.Resolve<ISerializer>()
-        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = "vagabond")
+        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = config.VagabondContainer)
         StoreAssemblyManager.Create(config)
+
     do logger.LogInfo "Creating CloudLog manager"
     let cloudLogManager = CloudLogManager.Create(config)
 
@@ -117,7 +118,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         // TODO : specify Vagabond and CloudValue containers in Configuration object
 
         let cloudValueProvider =
-            let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory "cloudvalue"
+            let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory config.CloudValueContainer
             let mkCache () = Config.ObjectCache
             let mkLocalCachingStore () = (Config.FileStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
             StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, cacheFactory = mkCache, localFileStore = mkLocalCachingStore, shadowPersistObjects = true)
