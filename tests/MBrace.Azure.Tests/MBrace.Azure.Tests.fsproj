@@ -77,7 +77,7 @@
     <None Include="resources.fsx" />
     <None Include="azure.fsx" />
     <Content Include="paket.references" />
-    <Content Include="app.config" />
+    <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
