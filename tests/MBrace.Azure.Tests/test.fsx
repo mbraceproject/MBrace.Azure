@@ -15,20 +15,20 @@ let config =
     new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
 
 MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-let runtime = MBraceAzure.InitLocal(config, 4)
+let runtime = MBraceAzure.InitLocal(config, 1)
 //let runtime = MBraceAzure.GetHandle(config)
 runtime.EnableClientConsoleLogger <- true
 runtime.Workers
 
-runtime.ShowWorkerInfo()
-runtime.ShowSystemLogs()
-
-let task = runtime.CreateCloudTask(cloud { return 42 }, faultPolicy = FaultPolicy.NoRetry)
+let task = runtime.CreateCloudTask(cloud { return! Cloud.Log "Hello" }, faultPolicy = FaultPolicy.NoRetry)
 task.ShowInfo()
-
 task.Result
-
 task.ShowLogs()
+
+let d = task.Logs.Subscribe(fun l -> printfn "%s" l.Message)
+d.Dispose()
+
+
 runtime.KillLocalWorker()
 
 
@@ -42,12 +42,11 @@ let task =
         return! l 0
     }), faultPolicy = FaultPolicy.NoRetry)
 
-let d = task.Logs.Subscribe(fun l -> Console.WriteLine(MBrace.Runtime.CloudLogEntry.Format(l, true)))
-
+let d = task.Logs.Subscribe(fun l -> Console.WriteLine(l.Message))
+task.ShowLogs()
 d.Dispose()
 
-
-runtime.ShowSystemLogs(600.)
+task.ShowLogs()
 
 
 let task =

@@ -17,7 +17,7 @@ type private LogLevel = MBrace.Runtime.LogLevel
 module private Logger =
     let mkSystemLogPartitionKey (loggerId : string) = sprintf "systemlog:%s" loggerId
     let mkCloudLogPartitionKey  (taskId : string) = sprintf "cloudlog:%s" taskId
-    let timeToRowKey (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
+    let timeToRowKey (time : DateTimeOffset) unique = sprintf "%020d%s" (time.UtcDateTime.Ticks) unique
 
 
 type SystemLogRecord(pk, rk, message, time, level, loggerId) =
@@ -59,8 +59,6 @@ type private StorageLoggerMessage =
 
 [<Sealed; DataContract>]
 type SystemLogger private (storageConn : string, table : string, loggerId : string) =
-    static let timeToRK (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
-    
     let [<DataMember(Name = "storageConn")>] storageConn = storageConn
     let [<DataMember(Name = "table")>] table = table
     let [<DataMember(Name = "loggerId")>] loggerId = loggerId
@@ -108,7 +106,7 @@ type SystemLogger private (storageConn : string, table : string, loggerId : stri
     let _onDeserialized (_ : StreamingContext) = init ()
 
     let log msg time level = 
-        let e = new SystemLogRecord(Logger.mkSystemLogPartitionKey loggerId, timeToRK time (guid()), msg, time, int level, loggerId)
+        let e = new SystemLogRecord(Logger.mkSystemLogPartitionKey loggerId, Logger.timeToRowKey time (guid()), msg, time, int level, loggerId)
         agent.Post(Log e)
 
     interface ISystemLogger with
@@ -126,8 +124,8 @@ type SystemLogger private (storageConn : string, table : string, loggerId : stri
         let upper = lower.Replace('0','f')
         let filters = 
             [ loggerId  |> Option.map (fun pk -> TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, Logger.mkSystemLogPartitionKey pk))
-              fromDate  |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, timeToRK t lower))
-              toDate    |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, timeToRK t upper)) ]
+              fromDate  |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.GreaterThanOrEqual, Logger.timeToRowKey t lower))
+              toDate    |> Option.map (fun t ->  TableQuery.GenerateFilterCondition("RowKey", QueryComparisons.LessThanOrEqual, Logger.timeToRowKey t upper)) ]
         let filter = 
             filters 
             |> List.fold (fun state filter -> 
@@ -176,10 +174,11 @@ type CloudLogReader (config : ConfigurationId, taskId : string) =
                     | Choice1Of2 logs when Seq.isEmpty logs ->
                         lastDate
                     | Choice1Of2 logs ->
-                        let log = logs |> Seq.maxBy (fun l -> l.DateTime)
+                        let lastLog = logs |> Seq.maxBy (fun l -> l.DateTime)
                         lock syncRoot (fun _ ->
                             observers |> Seq.iter (fun o -> logs |> Seq.iter o.OnNext))
-                        Some <| DateTimeOffset(log.DateTime)
+                        let dto = lastLog.DateTime.AddTicks(1L)
+                        Some <| DateTimeOffset(dto.ToUniversalTime())
                     | Choice2Of2 ex ->
                         lock syncRoot (fun _ ->
                             observers |> Seq.iter (fun o -> o.OnError ex))
@@ -227,7 +226,7 @@ type CloudLogReader (config : ConfigurationId, taskId : string) =
                 | Some f -> query.Where(f) 
             let! logs = Table.query config config.UserDataTable query
             return logs
-                   |> Seq.map (fun log -> CloudLogEntry(log.TaskId, log.WorkerId, log.JobId, log.Time.Date, log.Message))
+                   |> Seq.map (fun log -> CloudLogEntry(log.TaskId, log.WorkerId, log.JobId, log.Time.UtcDateTime, log.Message))
         }
 
 [<Sealed; AutoSerializable(false)>]
