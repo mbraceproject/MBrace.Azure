@@ -74,10 +74,9 @@
     <Compile Include="CloudTests.fs" />
     <Compile Include="FlowTests.fs" />
     <Compile Include="VagabondTests.fs" />
-    <None Include="test.fsx" />
-    <None Include="resources.fsx" />
-    <None Include="azure.fsx" />
     <Content Include="paket.references" />
+    <None Include="test.fsx" />
+    <None Include="azure.fsx" />
     <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>

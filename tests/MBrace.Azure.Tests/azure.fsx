@@ -48,22 +48,8 @@ let table = client.GetTableReference(name)
 table.CreateIfNotExists()
 
 
-(table.CreateIfNotExistsAsync()).ContinueWith(fun _ -> ())
-|> Async.AwaitTask
-|> Async.RunSynchronously
-
-
-
-
 let p = new System.Net.NetworkInformation.Ping()
 p.Send("google.com")
-
-
-
-
-
-
-
 
 
 
@@ -182,29 +168,10 @@ for i = 0 to niter do // 34
     b.FetchAttributes()
 
 b.Properties
-b.DownloadToStream()
+
 let s = b.OpenWrite()
 s.Write([|1uy..10uy|],0, 10)
 s.Dispose()
 
 b.UploadText("Hello world")
-
-
-
-[ 1..10 ]
-|> List.map (fun i -> container.GetBlockBlobReference("foo.txt"))
-|> List.mapi (fun b i -> async { return i.UploadText(String.init (1024 * 10) (fun _ ->string b)) } )
-|> Async.Parallel
-|> Async.Ignore
-|> Async.RunSynchronously
-
-
-
-blob1.DownloadText()
-blob2.DownloadText()
-blob1.Delete()
-let ac1 = AccessCondition.GenerateEmptyCondition()
-
-blob1.UploadText()
-let l1 = new AutoRenewLease(blob1)
 
