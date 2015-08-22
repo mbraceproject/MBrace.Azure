@@ -20,6 +20,8 @@ let runtime = MBraceAzure.InitLocal(config, 4)
 runtime.EnableClientConsoleLogger <- true
 runtime.Workers
 
+runtime.Reset(true,true,true,true,true,false)
+
 let task = runtime.CreateCloudTask(cloud { return! Cloud.Log "Hello" }, faultPolicy = FaultPolicy.NoRetry)
 task.ShowInfo()
 task.Result
