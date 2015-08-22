@@ -26,7 +26,7 @@ module Utils =
            | s, _, _ when not <| String.IsNullOrEmpty(s) -> s
            | _, s, _ when not <| String.IsNullOrEmpty(s) -> s
            | _, _, s when not <| String.IsNullOrEmpty(s) -> s
-           | _ -> failwith "Variable not found"
+           | _ -> failwithf "Variable %A not found" name
 
 module Choice =
 

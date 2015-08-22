@@ -14,7 +14,7 @@ open MBrace.Azure.Tests
 
 [<AbstractClass; TestFixture>]
 type ``Azure Cloud Tests`` (sbus, storage) as self =
-    inherit ``Cloud Tests`` (parallelismFactor = 4, delayFactor = 10000)
+    inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 15000)
     
     let config = new Configuration(storage, sbus)
 
@@ -93,7 +93,7 @@ type ``Standalone - Storage Emulator`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        MBraceAzure.SpawnLocal(base.Configuration, 4, 16) 
+        MBraceAzure.SpawnLocal(base.Configuration, 4, 32) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -109,7 +109,7 @@ type ``Standalone`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        MBraceAzure.SpawnLocal(base.Configuration, 4, 16) 
+        MBraceAzure.SpawnLocal(base.Configuration, 4, 32) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
