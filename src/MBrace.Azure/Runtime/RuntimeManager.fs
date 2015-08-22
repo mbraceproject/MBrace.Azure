@@ -27,13 +27,14 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         let serializer = resources.Resolve<ISerializer>()
         let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = "vagabond")
         StoreAssemblyManager.Create(config)
-
-    // This implementation will currently create a separate log container per task; need to fix this.
-    let taskLogger = StoreCloudLogManager.Create(store, new DefaultStoreLogSchema(store), sysLogger = logger)
+    do logger.LogInfo "Creating CloudLog manager"
+    let cloudLogManager = CloudLogManager.Create(config)
 
     let cancellationEntryFactory = CancellationTokenFactory.Create(config)
     let int32CounterFactory = Int32CounterFactory.Create(config)
     let resultAggregatorFactory = ResultAggregatorFactory.Create(config)
+
+    do logger.LogInfo "RuntimeManager initialization complete"
 
     member this.RuntimeManagerId = uuid
     member this.Resources = resources
@@ -99,17 +100,10 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false, true)
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
-        member this.CloudLogManager          = taskLogger :> _
+        member this.CloudLogManager          = cloudLogManager :> _
         member this.LogLevel                 = logger.LogLevel
         member this.LogLevel with set l      = logger.LogLevel <- l
-//        member this.GetCloudLogger(worker : IWorkerId, job : CloudJob) = 
-//            let cloudLogger = CloudStorageLogger(config, worker, job.TaskEntry.Id)
-//            let consoleLogger = new ConsoleLogger(showDate = true)
-//            
-//            { new ICloudLogger with
-//                  member x.Log(entry : string) : unit = 
-//                      consoleLogger.Log LogLevel.None entry
-//                      (cloudLogger :> ICloudLogger).Log(entry) }
+
 
     static member private GetDefaultResources(config : Configuration, customResources : ResourceRegistry) =
         let storeConn = config.StorageConnectionString

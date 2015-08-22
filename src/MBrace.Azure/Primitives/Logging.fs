@@ -20,14 +20,14 @@ module private Logger =
     let timeToRowKey (time : DateTimeOffset) unique = sprintf "%020d%s" (time.ToUniversalTime().Ticks) unique
 
 
-type SystemLogRecord(pk, rk, message, time, level, loggerId, isSysLog) =
+type SystemLogRecord(pk, rk, message, time, level, loggerId) =
     inherit TableEntity(pk, rk)
     
     member val Level : int = level with get, set 
     member val Message : string = message with get, set
     member val Time : DateTimeOffset = time with get, set
     member val LoggerId : string = loggerId with get, set
-    new () = new SystemLogRecord(null, null, null, Unchecked.defaultof<_>, -1, null, true)  
+    new () = new SystemLogRecord(null, null, null, Unchecked.defaultof<_>, -1, null)  
 
 type CloudLogRecord(pk, rk, message, time, workerId, taskId, jobId) =
     inherit TableEntity(pk, rk)
@@ -108,7 +108,7 @@ type SystemLogger private (storageConn : string, table : string, loggerId : stri
     let _onDeserialized (_ : StreamingContext) = init ()
 
     let log msg time level = 
-        let e = new SystemLogRecord(Logger.mkSystemLogPartitionKey loggerId, timeToRK time (guid()), msg, time, int level, loggerId, true)
+        let e = new SystemLogRecord(Logger.mkSystemLogPartitionKey loggerId, timeToRK time (guid()), msg, time, int level, loggerId)
         agent.Post(Log e)
 
     interface ISystemLogger with
