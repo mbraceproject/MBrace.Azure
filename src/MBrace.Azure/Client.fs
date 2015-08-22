@@ -14,6 +14,8 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Arguments
 open MBrace.Runtime
 
+type ConsoleLogger = MBrace.Runtime.ConsoleLogger
+
 /// <summary>
 /// Windows Azure Runtime client.
 /// </summary>
