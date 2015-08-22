@@ -26,7 +26,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
     let assemblyManager =
         let serializer = resources.Resolve<ISerializer>()
         let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = config.VagabondContainer)
-        StoreAssemblyManager.Create(config)
+        StoreAssemblyManager.Create(config, localLogger = logger)
 
     do logger.LogInfo "Creating CloudLog manager"
     let cloudLogManager = CloudLogManager.Create(config)
