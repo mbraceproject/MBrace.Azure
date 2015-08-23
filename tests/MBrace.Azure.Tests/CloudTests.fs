@@ -63,6 +63,12 @@ type ``Azure Cloud Tests`` (sbus, storage) as self =
     override __.UsesSerialization = true
 
     [<Test>]
+    member __.``Z4. Runtime : CloudValue`` () =
+        let input = [|1 .. 400000|]
+        let cloudValue = CloudValue.New(input, storageLevel = StorageLevel.Disk) |> session.Runtime.RunOnCloud
+        cloudValue.Value |> shouldEqual input
+
+    [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
         run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers |> Seq.length)
 

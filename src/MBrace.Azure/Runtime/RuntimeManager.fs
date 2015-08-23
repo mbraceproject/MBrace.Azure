@@ -41,7 +41,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
     member this.Resources = resources
     member this.ConfigurationId = config
 
-    member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, force, reactivate) =
+    member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
         async {
             if not force then
                 let! workers = (workerManager :> IWorkerManager).GetAvailableWorkers()
@@ -66,6 +66,10 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
             if deleteUserData then 
                 logger.LogWarningf "Deleting UserData Container %A and Table %A." config.UserDataContainer config.UserDataTable
                 do! Config.DeleteUserData(config)
+
+            if deleteVagabondData then
+                logger.LogWarningf "Deleting Vagadbond Container %A." config.VagabondContainer
+                do! Config.DeleteVagabondData(config)
     
             if reactivate then        
                 logger.LogInfo "Reactivating configuration."
@@ -98,7 +102,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         member this.AttachSystemLogger l     = logger.AttachLogger l
         member this.CancellationEntryFactory = cancellationEntryFactory
         member this.CounterFactory           = int32CounterFactory
-        member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false, true)
+        member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false, false, true)
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
         member this.CloudLogManager          = cloudLogManager :> _

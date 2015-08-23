@@ -6,6 +6,7 @@ open MBrace.Core
 open MBrace.Core.Tests
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Components
 open MBrace.ThreadPool
 open MBrace.Azure.Store
 open MBrace.Azure.Tests
@@ -20,25 +21,29 @@ module private Config =
     let emulatorConn = "UseDevelopmentStorage=true"
     let remoteConn = lazy Utils.selectEnv "azurestorageconn"
 
-    let remoteBlobStoreConfig = lazy BlobStore.Create(remoteConn.Value, "mbracetests")
+    let remoteBlobStore = lazy BlobStore.Create(remoteConn.Value, "mbracetests")
 
-    let emulatorBlobStoreConfig = lazy BlobStore.Create(emulatorConn, "mbracetests")
+    let emulatorBlobStore = lazy BlobStore.Create(emulatorConn, "mbracetests")
 
-    let remoteAtomStoreConfig = lazy AtomProvider.Create(remoteConn.Value, "mbraceTest")
+    let remoteAtomStoreProvider = lazy AtomProvider.Create(remoteConn.Value, "mbraceTest")
 
-    let emulatorAtomStoreConfig = lazy AtomProvider.Create(emulatorConn, "mbraceTest")
+    let emulatorAtomStoreProvider = lazy AtomProvider.Create(emulatorConn, "mbraceTest")
 
-    let remoteChannelStoreConfig = lazy QueueProvider.Create(Utils.selectEnv "azureservicebusconn")
+    let remoteChannelStoreProvider = lazy QueueProvider.Create(Utils.selectEnv "azureservicebusconn")
 
     let emulatorDictionaryProvider = lazy CloudDictionaryProvider.Create(emulatorConn)
 
     let remoteDictionaryProvider = lazy CloudDictionaryProvider.Create(remoteConn.Value)
 
+    let emulatorCloudValueProvider = lazy StoreCloudValueProvider.InitCloudValueProvider(emulatorBlobStore.Value)
+
+    let remoteCloudValueProvider = lazy StoreCloudValueProvider.InitCloudValueProvider(remoteBlobStore.Value)
+
 [<TestFixture>]
 type ``Remote - BlobStore Tests`` () =
     inherit  ``CloudFileStore Tests``(parallelismFactor = 20)
 
-    let store = remoteBlobStoreConfig.Value
+    let store = remoteBlobStore.Value
     let runtime = ThreadPoolRuntime.Create(fileStore = store, serializer = serializer)
 
     override __.FileStore = store :> _
@@ -50,7 +55,7 @@ type ``Remote - BlobStore Tests`` () =
 type ``Emulator - BlobStore Tests`` () =
     inherit  ``CloudFileStore Tests``(parallelismFactor = 20)
 
-    let store = emulatorBlobStoreConfig.Value
+    let store = emulatorBlobStore.Value
     let runtime = ThreadPoolRuntime.Create(fileStore = store, serializer = serializer)
 
     override __.FileStore = store :> _
@@ -63,7 +68,7 @@ type ``Emulator - BlobStore Tests`` () =
 type ``Remote - Atom Tests`` () =
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
 
-    let imem = ThreadPoolRuntime.Create(atomProvider = remoteAtomStoreConfig.Value)
+    let imem = ThreadPoolRuntime.Create(atomProvider = remoteAtomStoreProvider.Value)
 
     override __.RunOnCloud wf = imem.RunSynchronously wf
     override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
@@ -73,7 +78,7 @@ type ``Remote - Atom Tests`` () =
 type ``Emulator - Atom Tests`` () =
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
 
-    let imem = ThreadPoolRuntime.Create(atomProvider = emulatorAtomStoreConfig.Value)
+    let imem = ThreadPoolRuntime.Create(atomProvider = emulatorAtomStoreProvider.Value)
 
     override __.RunOnCloud wf = imem.RunSynchronously wf
     override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
@@ -85,7 +90,7 @@ type ``Emulator - Atom Tests`` () =
 type ``Remote - Queue Tests`` () =
     inherit ``CloudQueue Tests``(parallelismFactor = 10) 
     
-    let imem = ThreadPoolRuntime.Create(queueProvider = remoteChannelStoreConfig.Value)
+    let imem = ThreadPoolRuntime.Create(queueProvider = remoteChannelStoreProvider.Value)
 
     override __.RunOnCloud wf = imem.RunSynchronously wf
     override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
@@ -111,3 +116,24 @@ type ``Remote - Dictionary Tests`` () =
     override __.RunOnCloud wf = imem.RunSynchronously wf
     override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
     override __.IsInMemoryFixture = false
+
+[<TestFixture>]
+type ``Emulator - CloudValue Tests`` () =
+    inherit ``CloudValue Tests``(parallelismFactor = 5)
+
+    let imem = ThreadPoolRuntime.Create(dictionaryProvider = emulatorDictionaryProvider.Value)
+
+    override __.RunOnCloud wf = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
+    override __.IsSupportedLevel _ = true
+
+
+[<TestFixture>]
+type ``Remote - CloudValue Tests`` () =
+    inherit ``CloudValue Tests``(parallelismFactor = 5) 
+    
+    let imem = ThreadPoolRuntime.Create(valueProvider = remoteCloudValueProvider.Value)
+
+    override __.RunOnCloud wf = imem.RunSynchronously wf
+    override __.RunOnCurrentProcess wf = imem.RunSynchronously wf
+    override __.IsSupportedLevel _ = true

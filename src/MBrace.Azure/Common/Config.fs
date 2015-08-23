@@ -205,7 +205,13 @@ type StoreClientProvider (config : Configuration) =
         async {
             let! _ = Async.AwaitTask <| this.TableClient.GetTableReference(config.UserDataTable).DeleteIfExistsAsync()
             let! _ = Async.AwaitTask <| this.BlobClient.GetContainerReference(config.UserDataContainer).DeleteIfExistsAsync()
+            do! this.BlobClient.GetContainerReference(config.CloudValueContainer).DeleteIfExistsAsync()
             ()
+        }
+
+    member this.ClearVagabondData() =
+        async {
+            do! this.BlobClient.GetContainerReference(config.VagabondContainer).DeleteIfExistsAsync()
         }
 
     member this.ClearRuntimeState() =
@@ -342,6 +348,13 @@ type Config private () =
             checkInitialized()
             let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
             do! cp.ClearUserData()
+        }
+
+    static member DeleteVagabondData (config : ConfigurationId) =
+        async {
+            checkInitialized()
+            let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+            do! cp.ClearVagabondData()
         }
 
     /// Delete RuntimeLogs table.

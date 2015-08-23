@@ -154,11 +154,12 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
     /// <param name="deleteState">Delete Configuration table and containers.</param>
     /// <param name="deleteLogs">Delete Configuration logs table.</param>
     /// <param name="deleteUserData">Delete Configuration UserData table and container.</param>
+    /// <param name="deleteVagabondData">Delete Vagabond assembly data container.</param>
     /// <param name="force">Ignore active workers.</param>
     /// <param name="reactivate">Reactivate configuration.</param>
     [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.Reset(deleteQueues, deleteState, deleteLogs, deleteUserData, force, reactivate) =
-        manager.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, force, reactivate)
+    member this.Reset(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
+        manager.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate)
         |> Async.RunSync
 
     /// <summary>
