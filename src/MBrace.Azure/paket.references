@@ -1,5 +1,8 @@
 MBrace.Core
-MBrace.Runtime
 Newtonsoft.Json
+FsPickler
+FsPickler.Json
+Vagabond
+MBrace.Runtime
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
