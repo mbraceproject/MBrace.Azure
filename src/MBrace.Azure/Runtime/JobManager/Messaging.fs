@@ -1,17 +1,19 @@
 ﻿namespace MBrace.Azure.Runtime
 
 open System
-open Microsoft.ServiceBus.Messaging
-open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure
-open MBrace.Core.Internals
 open System.IO
+open System.Threading.Tasks
+
+open Microsoft.ServiceBus.Messaging
+
+open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open System.Runtime.Serialization
-open System.Threading.Tasks
 open MBrace.Runtime.Utils.Retry
+open MBrace.Runtime.Components
+open System.Runtime.Serialization
+
+open MBrace.Azure.Runtime.Utilities
 
 /// Common settings for queue, topic and messages.
 type internal Settings private () = 
@@ -181,10 +183,12 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
                 use! stream = blob.OpenRead()
                 match info.BatchIndex with
                 | Some i -> 
-                    let jobs = Config.Pickler.Deserialize<CloudJob []>(stream)
+                    let sifted = Config.Pickler.Deserialize<SiftedClosure<CloudJob []>>(stream)
+                    let! jobs = ClosureSifter.UnSiftClosure(info.ConfigurationId, sifted)
                     return jobs.[i]
                 | _ ->
-                    return Config.Pickler.Deserialize<CloudJob>(stream)
+                    let sifted = Config.Pickler.Deserialize<SiftedClosure<CloudJob>>(stream)
+                    return! ClosureSifter.UnSiftClosure(info.ConfigurationId, sifted)
             }
         
         member this.Id : CloudJobId = info.JobId
@@ -210,7 +214,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
 
 [<Sealed; AbstractClass>]
 type internal MessagingClient private () =
-    static member inline TryDequeue (config : ConfigurationId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
+    static member TryDequeue (config : ConfigurationId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
         async { 
             let! (message : BrokeredMessage) = dequeueF()
             if message = null then 
@@ -290,12 +294,13 @@ type internal MessagingClient private () =
                 return Some(JobLeaseToken(jobInfo, faultInfo))
         }
 
-    static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
+    static member Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, allowNewSifts : bool, sendF : BrokeredMessage -> Task) =
         async { 
             logger.Logf LogLevel.Debug "job:%O : enqueue" job.Id
             let record = JobRecord.FromCloudJob(job)
+            let! sift = ClosureSifter.SiftClosure(config, job, allowNewSifts)
             do! Table.insert config config.RuntimeTable record
-            let! blob = Blob.Create(config, job.TaskEntry.Id, fromGuid job.Id, fun () -> job)
+            let! blob = Blob<SiftedClosure<CloudJob>>.Create(config, job.TaskEntry.Id, fromGuid job.Id, fun () -> sift)
             let msg = new BrokeredMessage(job.Id)
             msg.Properties.Add(Settings.JobIdProperty, job.Id)
             msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
@@ -318,10 +323,11 @@ type internal MessagingClient private () =
             if jobs.Length = 0 then return () else
             let taskId = jobs.[0].TaskEntry.Id // this is a valid assumption for all uses
             let records = jobs |> Seq.map JobRecord.FromCloudJob
+            let! sifted = ClosureSifter.SiftClosure(config, jobs, allowNewSifts = false)
             do! Table.insertBatch config config.RuntimeTable records
 
             let blobName = guid()
-            let! blob = Blob.Create(config, taskId, blobName, fun () -> jobs)
+            let! blob = Blob<SiftedClosure<CloudJob []>>.Create(config, taskId, blobName, fun () -> sifted)
             let size = blob.Size
 
             let mkJobMessage (i : int) (job : CloudJob) =
@@ -396,8 +402,8 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
     member this.EnqueueBatch(jobs : CloudJob []) : Async<unit> = 
         MessagingClient.EnqueueBatch(config, logger, jobs, topic.SendBatchAsync)
     
-    member this.Enqueue(job : CloudJob) = 
-        MessagingClient.Enqueue(config, logger, job, topic.SendAsync)
+    member this.Enqueue(job : CloudJob, allowNewSifts : bool) = 
+        MessagingClient.Enqueue(config, logger, job, allowNewSifts, topic.SendAsync)
 
     static member Create(config, logger : ISystemLogger) = 
         async { 
@@ -426,8 +432,8 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
     member this.EnqueueBatch(jobs : CloudJob []) = 
         MessagingClient.EnqueueBatch(config, logger, jobs, queue.SendBatchAsync)
     
-    member this.Enqueue(job : CloudJob) = 
-        MessagingClient.Enqueue(config, logger, job, queue.SendAsync)
+    member this.Enqueue(job : CloudJob, allowNewSifts : bool) = 
+        MessagingClient.Enqueue(config, logger, job, allowNewSifts, queue.SendAsync)
     
     member this.TryDequeue() : Async<JobLeaseToken option> = 
         MessagingClient.TryDequeue(config, logger, this.LocalWorkerId, fun () -> queue.ReceiveAsync(Settings.ServerWaitTime))

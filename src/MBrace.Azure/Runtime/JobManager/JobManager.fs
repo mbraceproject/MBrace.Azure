@@ -78,7 +78,6 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
             }
 
         member this.BatchEnqueue(jobs: CloudJob []): Async<unit> = 
-            // TODO: sifting
             async {
                 if jobs.Length > 1024 then 
                     raise(NotSupportedException(sprintf "Max batch size reached : %d/1024" jobs.Length))
@@ -97,12 +96,11 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                     return! topic.EnqueueBatch(jobs)
             }
 
-        member this.Enqueue(job: CloudJob, _isClientSideEnqueue : bool): Async<unit> = 
-            // TODO: sifting
+        member this.Enqueue(job: CloudJob, isClientSideEnqueue : bool): Async<unit> = 
             async {
                 match job.TargetWorker with
-                | Some _ -> return! topic.Enqueue(job)
-                | None   -> return! queue.Enqueue(job)
+                | Some _ -> return! topic.Enqueue(job, allowNewSifts = isClientSideEnqueue)
+                | None   -> return! queue.Enqueue(job, allowNewSifts = isClientSideEnqueue)
             }
 
     static member Create(config : ConfigurationId, logger) = new JobManager(config, logger)
