@@ -15,7 +15,7 @@ let config =
     new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
 
 MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-let runtime = MBraceAzure.InitLocal(config, 4)
+let runtime = MBraceAzure.InitLocal(config, 8)
 //let runtime = MBraceAzure.GetHandle(config)
 runtime.EnableClientConsoleLogger <- true
 runtime.Workers

@@ -113,12 +113,13 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
         async {
             logger.Logf LogLevel.Info "Unsubscribing worker %O" id
             let record = new WorkerRecord(id.Id)
-            return! Table.delete config config.RuntimeTable record
+            return! Table.delete config config.RuntimeTable record // TODO : should this be delete or set status to Stopped?
         }
 
     interface IWorkerManager with
         member this.DeclareWorkerStatus(id: IWorkerId, status: WorkerJobExecutionStatus): Async<unit> = 
             async {
+                logger.LogInfof "Changing worker %O status to %A" id status
                 let record = new WorkerRecord(id.Id)
                 record.ETag <- "*"
                 record.Status <- pickle status

@@ -27,6 +27,7 @@ module Utils =
         if value.HasValue then Nullable(value.Value) else Null
 
     type Async with
+        static member Sleep(time : TimeSpan) = Async.Sleep(int time.TotalMilliseconds)
         static member Raise(e : exn) = Async.FromContinuations(fun (_,ec,_) -> ec e)
         static member Cast<'U>(task : Async<obj>) = async { let! t = task in return box t :?> 'U }
 

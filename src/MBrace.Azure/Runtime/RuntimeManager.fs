@@ -22,6 +22,8 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
     let taskManager   = TaskManager.Create(config, logger)
     do logger.LogInfo "Creating assembly manager"
     let store = resources.Resolve<ICloudFileStore>()
+    do logger.LogInfo "Creating maintenance manager"
+    let maintenanceManager = MaintenanceManager.Create(config, uuid, jobManager, taskManager, workerManager, logger)    
 
     let assemblyManager =
         let serializer = resources.Resolve<ISerializer>()
@@ -40,6 +42,8 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
     member this.RuntimeManagerId = uuid
     member this.Resources = resources
     member this.ConfigurationId = config
+
+    member this.MaintenanceManager = maintenanceManager
 
     member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
         async {
@@ -145,6 +149,8 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         customLogger.LogInfof "Creating RuntimeManager for Worker %A" workerId
         let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, customLogger, resources)
         runtime.SetLocalWorkerId(workerId)
+        customLogger.LogInfof "Starting maintenance manager"
+        runtime.MaintenanceManager.Start()
         runtime
 
     static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, customLogger : ISystemLogger, customResources) =

@@ -105,6 +105,7 @@
     <Compile Include="Runtime\JobManager\TaskManager.fs" />
     <Compile Include="Runtime\JobManager\Messaging.fs" />
     <Compile Include="Runtime\JobManager\JobManager.fs" />
+    <Compile Include="Runtime\Maintenance.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
     <Compile Include="Runtime\Init.fs" />
     <Compile Include="Runtime\Service.fs" />
