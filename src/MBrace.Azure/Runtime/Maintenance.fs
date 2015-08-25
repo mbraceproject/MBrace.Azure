@@ -14,13 +14,13 @@ open MBrace.Core.Internals
 [<Sealed; AutoSerializable(false)>]
 type MaintenanceManager private (config : ConfigurationId, uuid : string, jobManager : JobManager, taskManager : TaskManager, workerManager : WorkerManager, logger : ISystemLogger) =
 
-    let getSleepInterval (time : TimeSpan, dev : TimeSpan) : TimeSpan =
-        let add = Random(hash uuid).NextDouble() * dev.TotalSeconds
+    let getSleepInterval (time : TimeSpan) : TimeSpan =
+        let add = Random(hash uuid).NextDouble() * 0.20 * time.TotalSeconds
                   |> TimeSpan.FromSeconds
         time + add
 
     let checkWorkerStatus () = async {
-        let sleep () = getSleepInterval(WorkerManager.MaxHeartbeatTimespan, TimeSpan.FromMilliseconds(WorkerManager.MaxHeartbeatTimespan.TotalMilliseconds / 5.) )
+        let getSleepTime () = getSleepInterval WorkerManager.MaxHeartbeatTimespan
         
         let rec checkWorkerStatusAux () = async {
             try
@@ -55,13 +55,13 @@ type MaintenanceManager private (config : ConfigurationId, uuid : string, jobMan
             with ex ->
                 logger.LogWarningf "Maintenance : failed with %A" ex
 
-            let sleepTime = sleep()
+            let sleepTime = getSleepTime()
             logger.LogInfof "Maintenance : worker status maintenance complete, sleep for %O" sleepTime
             do! Async.Sleep(sleepTime)
             return! checkWorkerStatusAux ()
         }
 
-        do! Async.Sleep(sleep())
+        do! Async.Sleep(getSleepTime())
         return! checkWorkerStatusAux()
     }
 

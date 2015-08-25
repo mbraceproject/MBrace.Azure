@@ -43,7 +43,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
     member this.Resources = resources
     member this.ConfigurationId = config
 
-    member this.MaintenanceManager = maintenanceManager
+    member this.StartMaintenanceManager() = maintenanceManager.Start()
 
     member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
         async {
@@ -150,7 +150,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, customLogger, resources)
         runtime.SetLocalWorkerId(workerId)
         customLogger.LogInfof "Starting maintenance manager"
-        runtime.MaintenanceManager.Start()
+        runtime.StartMaintenanceManager()
         runtime
 
     static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, customLogger : ISystemLogger, customResources) =
