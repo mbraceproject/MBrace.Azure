@@ -33,7 +33,7 @@ type ``Azure Cloud Tests`` (sbus, storage) as self =
     default __.Fini () = session.Stop()
 
     override __.IsTargetWorkerSupported = true
-    override __.IsSiftedWorkflowSupported = false // TODO: update
+    override __.IsSiftedWorkflowSupported = true
 
     override __.RunOnCloud (workflow : Cloud<'T>) = 
         session.Runtime.RunOnCloudAsync(workflow)

@@ -7,6 +7,7 @@ open Microsoft.WindowsAzure.Storage.Table
 open System
 open System.Runtime.Serialization
 open MBrace.Runtime.Utils
+open MBrace.Runtime.Components
 
 // TODO
 // Add Posting status.
@@ -199,8 +200,9 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                 if record.ResultUri = null then
                     return None
                 else
-                    let blob = Blob<TaskResult>.FromPath(config, TaskRecord.DefaultPartitionKey, record.ResultUri)
-                    let! result = blob.GetValue()
+                    let blob = Blob<SiftedClosure<TaskResult>>.FromPath(config, TaskRecord.DefaultPartitionKey, record.ResultUri)
+                    let! sifted = blob.GetValue()
+                    let! result = ClosureSifter.UnSiftClosure(config, sifted)
                     return Some result
             }
 
@@ -208,7 +210,8 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
             async {
                 let record = new TaskRecord(taskId)
                 let blobId = guid()
-                let! _blob = Blob.Create(config, TaskRecord.DefaultPartitionKey, blobId, fun () -> result)
+                let! sifted = ClosureSifter.SiftClosure(config, result, allowNewSifts = false)
+                let! _blob = Blob.Create(config, TaskRecord.DefaultPartitionKey, blobId, fun () -> sifted)
                 record.ResultUri <- blobId
                 record.ETag <- "*"
                 let! _record = Table.merge config config.RuntimeTable record

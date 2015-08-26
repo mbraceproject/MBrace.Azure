@@ -7,6 +7,7 @@ open MBrace.Core.Internals
 open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
+open MBrace.Runtime.Components
 
 (*
  * A ResultAggregator of length N consists of N indexed entries and 1 guard entry.
@@ -87,7 +88,8 @@ type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : str
         
         member this.SetResult(index: int, value: 'T, _ : IWorkerId): Async<bool> = 
             async { 
-                let! bc = Blob.Create(config, partitionKey, IndexedReferenceEntity.MakeRowKey(index), fun () -> value)
+                let! sifted = ClosureSifter.SiftClosure(config, value, allowNewSifts = false)
+                let! bc = Blob.Create(config, partitionKey, IndexedReferenceEntity.MakeRowKey(index), fun () -> sifted)
                 let rec loop(guard : IndexedReferenceEntity, record : IndexedReferenceEntity) = async {
                     if enableOverWrite = false && record.Uri <> null then
                             return guard.Counter.Value = size
@@ -116,9 +118,14 @@ type ResultAggregator<'T> internal (config : ConfigurationId, partitionKey : str
                 if guard.Counter.Value <> size then
                     return! Async.Raise <| new InvalidOperationException(sprintf "Result aggregator incomplete (%d/%d)." guard.Counter.Value size)
                 else
+                    let loadResult (e : IndexedReferenceEntity) = async {
+                        let! sifted = Blob<SiftedClosure<'T>>.FromPath(config, e.Uri).GetValue()
+                        return! ClosureSifter.UnSiftClosure(config, sifted)
+                    }
+
                     return!
                         entities
-                        |> Seq.map (fun x -> Blob<'T>.FromPath(config, x.Uri).GetValue())
+                        |> Seq.map loadResult
                         |> Async.Parallel
             }
 

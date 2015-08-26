@@ -95,6 +95,7 @@
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Queue.fs" />
     <Compile Include="Store\Dictionary.fs" />
+    <Compile Include="Primitives\ClosureSifter.fs" />
     <Compile Include="Primitives\Counters.fs" />
     <Compile Include="Primitives\BlobCells.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
