@@ -6,6 +6,7 @@ open Microsoft.WindowsAzure.Storage.Table
 open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
+open MBrace.Core.Internals
 
 [<AllowNullLiteral>]
 type WorkerRecord(id) =
@@ -100,7 +101,42 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 ProcessorCount = record.ProcessorCount.GetValueOrDefault(-1)
                 MaxJobCount = record.MaxJobs.GetValueOrDefault(-1) } } 
 
+    /// Max interval between heartbeats, used to determine if a worker is alive.
     static member MaxHeartbeatTimespan = TimeSpan.FromMinutes(5.)
+
+    /// Attempts to find non-responsive workers and fix their status. Returns whether any non-responsive workers were found.
+    member this.FixWorkerState () : Async<unit> =
+        async { 
+            logger.LogInfo "Checking worker status"
+            let! workers = this.GetAllWorkers()
+            let now = DateTime.UtcNow
+            
+            let nonResponsiveWorkers = 
+                workers |> Array.filter (fun w -> 
+                               match w.ExecutionStatus with
+                               | WorkerJobExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> 
+                                   true
+                               | _ -> false)
+            logger.LogInfof "Found %d non-responsive workers" nonResponsiveWorkers.Length
+            // TODO : Should we set status to Stopped, or add an extra faulted status?
+            // Using QueueFault for now.
+            let mkFault worker = 
+                let e = RuntimeException(sprintf "Worker %O failed to give heartbeat." worker)
+                let edi = ExceptionDispatchInfo.Capture e
+                QueueFault edi
+
+            do! nonResponsiveWorkers
+                |> Array.map (fun w -> 
+                    async { 
+                        try 
+                            do! (this :> IWorkerManager).DeclareWorkerStatus(w.Id, mkFault w.Id)
+                        with ex -> 
+                            logger.LogWarningf "Failed to change status for worker %O : %A" w.Id ex
+                            return ()
+                    })
+                |> Async.Parallel
+                |> Async.Ignore
+        }
 
     member this.GetAllWorkers(): Async<WorkerState []> = 
         async { 

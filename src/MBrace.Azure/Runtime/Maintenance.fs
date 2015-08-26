@@ -5,7 +5,7 @@ open MBrace.Azure.Runtime.Utilities
 open System
 open MBrace.Core.Internals
 
-(* Periodically performs the following tasks
+(* Periodically performs the following tasks:
  * - Apply FaultException for jobs with affinity when worker is faulted.
  * - Set WorkerStatus to Stopped for workers that fail to give heartbeats.
  * - Set JobStatus for jobs that fail to give heartbeats.
@@ -15,59 +15,31 @@ open MBrace.Core.Internals
 type MaintenanceManager private (config : ConfigurationId, uuid : string, jobManager : JobManager, taskManager : TaskManager, workerManager : WorkerManager, logger : ISystemLogger) =
 
     let getSleepInterval (time : TimeSpan) : TimeSpan =
-        let add = Random(hash uuid).NextDouble() * 0.20 * time.TotalSeconds
+        let add = Random(hash uuid + int DateTime.UtcNow.Ticks).NextDouble() * 0.20 * time.TotalSeconds
                   |> TimeSpan.FromSeconds
         time + add
 
-    let checkWorkerStatus () = async {
-        let getSleepTime () = getSleepInterval WorkerManager.MaxHeartbeatTimespan
-        
-        let rec checkWorkerStatusAux () = async {
+    let exec (task : Async<unit>) (sleepF : unit -> TimeSpan) (message : string) =
+        let rec exec () = async {
             try
-                logger.LogInfo "Starting maintenance task : checking worker status"
-                let! workers = workerManager.GetAllWorkers()
-                let now = DateTime.UtcNow
-                let nonResponsiveWorkers = 
-                    workers 
-                    |> Seq.filter (fun w -> 
-                        match w.ExecutionStatus with
-                        | WorkerJobExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> true
-                        | _ -> false)
-        
-                logger.LogInfof "Maintenance : found %d non-responsive workers, changing status" (Seq.length nonResponsiveWorkers)
-        
-                // TODO : Should we set status to Stopped, or add an extra faulted status?
-                // Using QueueFault for now.
-                let mkFault worker = 
-                    QueueFault <| ExceptionDispatchInfo.Capture(RuntimeException(sprintf "Worker %O failed to give heartbeat." worker))
-
-                do! nonResponsiveWorkers
-                    |> Seq.map (fun w -> async {
-                        try 
-                            do! (workerManager :> IWorkerManager).DeclareWorkerStatus(w.Id, mkFault w.Id) 
-                        with
-                        | ex -> 
-                            logger.LogWarningf "Maintenance : failed to change status for worker %O : %A" w.Id ex
-                            return ()
-                        })
-                    |> Async.Parallel
-                    |> Async.Ignore
+                logger.LogInfof "Starting maintenance task %A" message
+                do! task
+                logger.LogInfof "Maintenance %A complete" message
             with ex ->
-                logger.LogWarningf "Maintenance : failed with %A" ex
-
-            let sleepTime = getSleepTime()
-            logger.LogInfof "Maintenance : worker status maintenance complete, sleep for %O" sleepTime
-            do! Async.Sleep(sleepTime)
-            return! checkWorkerStatusAux ()
+                logger.LogWarningf "Maintenance %A failed with %A" message ex
+            let sleep = sleepF()
+            logger.LogInfof "Maintenance %A sleeping for %O" message sleep
+            do! Async.Sleep(sleep)
+            return! exec ()
         }
 
-        do! Async.Sleep(getSleepTime())
-        return! checkWorkerStatusAux()
-    }
+        Async.Start(async { 
+                        do! Async.Sleep(sleepF())
+                        do! exec()
+                    })
 
     member this.Start () =
-        logger.LogInfo "Maintenance : starting worker maintenance loop"
-        Async.Start(checkWorkerStatus())
+        exec (workerManager.FixWorkerState()) (fun () -> getSleepInterval WorkerManager.MaxHeartbeatTimespan) "Worker Status"
 
     static member Create(config, uuid, jobManager, taskManager, workerManager, logger) =
         new MaintenanceManager(config, uuid, jobManager, taskManager, workerManager, logger)
