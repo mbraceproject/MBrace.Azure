@@ -30,6 +30,12 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, customLogg
         let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = config.VagabondContainer)
         StoreAssemblyManager.Create(config, localLogger = logger)
 
+    do
+        let cloudValueProvider = resources.Resolve<ICloudValueProvider>()
+        let csc = ClosureSiftConfiguration.Create(cloudValueProvider, siftThreshold = 5L * 1024L * 1024L)
+        let manager = ClosureSiftManager.Create(csc, localLogger = logger)
+        ConfigurationRegistry.Register<ClosureSiftManager>(config, manager)
+
     do logger.LogInfo "Creating CloudLog manager"
     let cloudLogManager = CloudLogManager.Create(config)
 

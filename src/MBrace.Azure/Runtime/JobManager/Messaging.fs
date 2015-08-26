@@ -1,17 +1,19 @@
 ﻿namespace MBrace.Azure.Runtime
 
 open System
-open Microsoft.ServiceBus.Messaging
-open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure
-open MBrace.Core.Internals
 open System.IO
+open System.Threading.Tasks
+
+open Microsoft.ServiceBus.Messaging
+
+open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open System.Runtime.Serialization
-open System.Threading.Tasks
 open MBrace.Runtime.Utils.Retry
+open MBrace.Runtime.Components
+open System.Runtime.Serialization
+
+open MBrace.Azure.Runtime.Utilities
 
 /// Common settings for queue, topic and messages.
 type internal Settings private () = 
@@ -29,8 +31,8 @@ type internal Settings private () =
     static member AffinityProperty = "worker"
     /// ParentTaskId.
     static member ParentTaskIdProperty = "parentId"
-    /// Stream offset.
-    static member StreamOffsetProperty = "offset"
+    /// BatchIndex.
+    static member BatchIndexProperty = "batchIndex"
     /// JobId.
     static member JobIdProperty = "uuid"
     /// SUbscription queue auto delete interval.
@@ -44,7 +46,7 @@ type internal JobLeaseTokenInfo =
         ContentId : string
         MessageLockId : Guid
         ParentJobId : string
-        Offset : int64 option 
+        BatchIndex : int option
         TargetWorker : string option
         DeliveryCount : int
         DequeueTime : DateTimeOffset
@@ -179,11 +181,14 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
             async { 
                 let blob = Blob.FromPath(info.ConfigurationId, info.ParentJobId, info.ContentId)
                 use! stream = blob.OpenRead()
-                let _pos = 
-                    match info.Offset with
-                    | Some pos -> stream.Seek(pos, SeekOrigin.Begin)
-                    | _ -> 0L
-                return Config.Pickler.Deserialize<CloudJob>(stream)
+                match info.BatchIndex with
+                | Some i -> 
+                    let sifted = Config.Pickler.Deserialize<SiftedClosure<CloudJob []>>(stream)
+                    let! jobs = ClosureSifter.UnSiftClosure(info.ConfigurationId, sifted)
+                    return jobs.[i]
+                | _ ->
+                    let sifted = Config.Pickler.Deserialize<SiftedClosure<CloudJob>>(stream)
+                    return! ClosureSifter.UnSiftClosure(info.ConfigurationId, sifted)
             }
         
         member this.Id : CloudJobId = info.JobId
@@ -209,7 +214,7 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
 
 [<Sealed; AbstractClass>]
 type internal MessagingClient private () =
-    static member inline TryDequeue (config : ConfigurationId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
+    static member TryDequeue (config : ConfigurationId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
         async { 
             let! (message : BrokeredMessage) = dequeueF()
             if message = null then 
@@ -223,7 +228,7 @@ type internal MessagingClient private () =
                 let affinity = tryGet Settings.AffinityProperty
                 let deliveryCount = message.DeliveryCount
                 let parentId = fromGuid (message.Properties.[Settings.ParentTaskIdProperty] :?> Guid)
-                let streamPos = tryGet Settings.StreamOffsetProperty
+                let batchIndex = tryGet Settings.BatchIndexProperty
                 let lockToken = message.LockToken
                 let body = fromGuid (message.GetBody<Guid>())
                 let jobId = message.Properties.[Settings.JobIdProperty] :?> Guid
@@ -234,7 +239,7 @@ type internal MessagingClient private () =
                     ConfigurationId = config
                     MessageLockId = lockToken
                     ParentJobId = parentId
-                    Offset = streamPos
+                    BatchIndex = batchIndex
                     TargetWorker = affinity
                     DeliveryCount = deliveryCount
                     DequeueTime = dequeueTime
@@ -289,12 +294,13 @@ type internal MessagingClient private () =
                 return Some(JobLeaseToken(jobInfo, faultInfo))
         }
 
-    static member inline Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, sendF : BrokeredMessage -> Task) =
+    static member Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, allowNewSifts : bool, sendF : BrokeredMessage -> Task) =
         async { 
             logger.Logf LogLevel.Debug "job:%O : enqueue" job.Id
             let record = JobRecord.FromCloudJob(job)
+            let! sift = ClosureSifter.SiftClosure(config, job, allowNewSifts)
             do! Table.insert config config.RuntimeTable record
-            let! blob = Blob.Create(config, job.TaskEntry.Id, fromGuid job.Id, fun () -> job)
+            let! blob = Blob<SiftedClosure<CloudJob>>.Create(config, job.TaskEntry.Id, fromGuid job.Id, fun () -> sift)
             let msg = new BrokeredMessage(job.Id)
             msg.Properties.Add(Settings.JobIdProperty, job.Id)
             msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
@@ -309,55 +315,47 @@ type internal MessagingClient private () =
             newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
             newRecord.ETag <- "*"
             let! _record = Table.merge config config.RuntimeTable newRecord
-            logger.Logf LogLevel.Debug "job:%A : enqueue completed, size %s" job.Id (getHumanReadableByteSize blob.Size)
+            logger.Logf LogLevel.Debug "job:%O : enqueue completed, size %s" job.Id (getHumanReadableByteSize blob.Size)
         }
 
-    static member inline EnqueueBatch(config : ConfigurationId, logger : ISystemLogger, jobs : CloudJob [], sendF : BrokeredMessage seq -> Task) =
+    static member EnqueueBatch(config : ConfigurationId, logger : ISystemLogger, jobs : CloudJob [], sendF : BrokeredMessage seq -> Task) =
         async { 
+            if jobs.Length = 0 then return () else
+            let taskId = jobs.[0].TaskEntry.Id // this is a valid assumption for all uses
             let records = jobs |> Seq.map JobRecord.FromCloudJob
+            let! sifted = ClosureSifter.SiftClosure(config, jobs, allowNewSifts = false)
             do! Table.insertBatch config config.RuntimeTable records
 
-            let ys = new ResizeArray<BrokeredMessage>(jobs.Length)
-            let sizes = new ResizeArray<int64>(jobs.Length)
-            for parentId, jobs in Seq.groupBy (fun j -> j.TaskEntry.Id) jobs do
-                let temp = Path.GetTempFileName()
-                logger.Logf LogLevel.Info "Creating common job file %A for %d jobs, parent id:%A" temp (Seq.length jobs) parentId
-                let fileStream = File.OpenWrite(temp)
-                let blobName = guid()
-                let lastPosition = ref 0L
-                for job in jobs do
-                    Config.Pickler.Serialize(fileStream, job, leaveOpen = true)
-                    let msg = new BrokeredMessage(toGuid blobName)
-                    msg.Properties.Add(Settings.JobIdProperty, job.Id)
-                    msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
-                    msg.Properties.Add(Settings.StreamOffsetProperty, lastPosition.Value)
-                    match job.TargetWorker with
-                    | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
-                    | _ -> ()
-                    ys.Add(msg)
-                    sizes.Add(fileStream.Position - lastPosition.Value)
-                    lastPosition := fileStream.Position
-                fileStream.Flush()
-                fileStream.Dispose()
+            let blobName = guid()
+            let! blob = Blob<SiftedClosure<CloudJob []>>.Create(config, taskId, blobName, fun () -> sifted)
+            let size = blob.Size
 
-                logger.Logf LogLevel.Info "Uploading job file to %A for parent id = %O, %s." blobName parentId (getHumanReadableByteSize lastPosition.Value)
-                do! Blob.UploadFromFile(config, parentId, blobName, temp)
-                    |> Async.Ignore
-                File.Delete(temp)
+            let mkJobMessage (i : int) (job : CloudJob) =
+                let msg = new BrokeredMessage(toGuid blobName)
+                msg.Properties.Add(Settings.JobIdProperty, job.Id)
+                msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
+                msg.Properties.Add(Settings.BatchIndexProperty, i)
+                match job.TargetWorker with
+                | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
+                | _ -> ()
+                msg
 
-            do! sendF ys
+            let messages = jobs |> Array.mapi mkJobMessage
+            do! sendF messages
 
             let now = DateTimeOffset.Now
             let newRecords = 
-                records |> Seq.mapi (fun i r -> 
+                records |> Seq.map (fun r -> 
                     let newRec = r.CloneDefault()
                     newRec.ETag <- "*"
                     newRec.Status <- nullable(int JobStatus.Enqueued)
                     newRec.EnqueueTime <- nullable now
                     newRec.FaultInfo <- nullable(int FaultInfo.NoFault)
-                    newRec.Size <- nullable(sizes.[i])
+                    newRec.Size <- nullable(size)
                     newRec)
+
             return! Table.mergeBatch config config.RuntimeTable newRecords
+            logger.Logf LogLevel.Info "Enqueued batched jobs of %d items for task %s, total size %s." jobs.Length taskId (getHumanReadableByteSize size)
         }
     
 
@@ -404,8 +402,8 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
     member this.EnqueueBatch(jobs : CloudJob []) : Async<unit> = 
         MessagingClient.EnqueueBatch(config, logger, jobs, topic.SendBatchAsync)
     
-    member this.Enqueue(job : CloudJob) = 
-        MessagingClient.Enqueue(config, logger, job, topic.SendAsync)
+    member this.Enqueue(job : CloudJob, allowNewSifts : bool) = 
+        MessagingClient.Enqueue(config, logger, job, allowNewSifts, topic.SendAsync)
 
     static member Create(config, logger : ISystemLogger) = 
         async { 
@@ -434,8 +432,8 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
     member this.EnqueueBatch(jobs : CloudJob []) = 
         MessagingClient.EnqueueBatch(config, logger, jobs, queue.SendBatchAsync)
     
-    member this.Enqueue(job : CloudJob) = 
-        MessagingClient.Enqueue(config, logger, job, queue.SendAsync)
+    member this.Enqueue(job : CloudJob, allowNewSifts : bool) = 
+        MessagingClient.Enqueue(config, logger, job, allowNewSifts, queue.SendAsync)
     
     member this.TryDequeue() : Async<JobLeaseToken option> = 
         MessagingClient.TryDequeue(config, logger, this.LocalWorkerId, fun () -> queue.ReceiveAsync(Settings.ServerWaitTime))
