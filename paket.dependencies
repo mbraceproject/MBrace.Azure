@@ -1,9 +1,9 @@
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget MBrace.Core 0.10.2-alpha
-nuget MBrace.Runtime 0.10.2-alpha
-nuget MBrace.Tests 0.10.2-alpha
+nuget MBrace.Core 0.10.3-alpha
+nuget MBrace.Runtime 0.10.3-alpha
+nuget MBrace.Tests 0.10.3-alpha
 nuget WindowsAzure.ServiceBus ~> 2.5.2
 nuget WindowsAzure.Storage ~> 4.3.0
 nuget Nuget.CommandLine 2.8.3
@@ -14,4 +14,3 @@ nuget FSharp.Compiler.Service 1.3.1.2
 nuget MathNet.Numerics
 nuget MathNet.Numerics.FSharp
 nuget MathNet.Numerics.MKL.Win-x64
-nuget FsPickler ~> 1.3.7
