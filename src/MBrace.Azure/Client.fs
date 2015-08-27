@@ -26,26 +26,8 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
 
-    let mutable consoleLogger = None : IDisposable option
-
     /// Current client instance identifier.
-    member this.ClientId = manager.RuntimeManagerId
-
-    /// Sets whether logging in console is enabled for this client.
-    member this.EnableClientConsoleLogger 
-        with get () = consoleLogger.IsSome
-        and set enable =
-            lock lockObj (fun () ->
-                match enable, consoleLogger with
-                | true, None ->
-                    match (manager :> IRuntimeManager).SystemLogger with
-                    | :? AttacheableLogger as l -> 
-                        consoleLogger <- Some(l.AttachLogger(new ConsoleLogger(true)))
-                    | _ as l -> failwithf "Not supported client logger %A" l
-                | false, Some(logger) -> 
-                    logger.Dispose()
-                    consoleLogger <- None
-                | _ -> ())
+    member this.UUID = manager.RuntimeManagerId
 
     /// <summary>
     /// Get runtime logs.
@@ -167,19 +149,27 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
     /// </summary>
     /// <param name="storageConnectionString">Azure Storage connection string.</param>
     /// <param name="serviceBusConnectionString">Azure Service Bus connection string.</param>
-    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string) : MBraceAzure = 
-        MBraceAzure.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString))
+    /// <param name="clientId">Custom client id for this instance.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceAzure = 
+        MBraceAzure.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
     /// Gets a handle for a remote runtime.
     /// </summary>
     /// <param name="config">Runtime configuration.</param>
     /// <param name="clientId">Client identifier.</param>
-    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger) : MBraceAzure = 
+    /// <param name="clientId">Custom client id for this instance.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceAzure = 
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
+        let attachableLogger = AttacheableLogger.Create(makeAsynchronous = true, ?logLevel = logLevel)
         let storageLogger = SystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, clientId)
-        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-        let manager = RuntimeManager.CreateForClient(config, clientId, logger, ResourceRegistry.Empty)
+        let _ = attachableLogger.AttachLogger(storageLogger)
+        let _ = logger |> Option.map attachableLogger.AttachLogger
+        let manager = RuntimeManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)
         let runtime = new MBraceAzure(manager, storageLogger)
         runtime

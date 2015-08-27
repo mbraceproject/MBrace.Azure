@@ -59,8 +59,8 @@ type private StorageLoggerMessage =
 
 [<Sealed; DataContract>]
 type SystemLogger private (storageConn : string, table : string, loggerId : string) =
-    let [<DataMember(Name = "storageConn")>] storageConn = storageConn
-    let [<DataMember(Name = "table")>] table = table
+    let [<DataMember(Name = "storageConn")>] storageConn = Validate.storageConn storageConn
+    let [<DataMember(Name = "table")>] table = Validate.tableName table
     let [<DataMember(Name = "loggerId")>] loggerId = loggerId
 
     let [<IgnoreDataMember>] mutable agent = Unchecked.defaultof<MailboxProcessor<StorageLoggerMessage>>
