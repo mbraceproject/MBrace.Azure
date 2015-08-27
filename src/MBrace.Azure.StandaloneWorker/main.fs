@@ -18,10 +18,10 @@ let main (args : string []) =
             | None -> sprintf "%s-%05d" <| System.Net.Dns.GetHostName() <| ps.Id
             | Some n -> n
         let svc = new Service(config, workerId)
-        svc.MaxConcurrentJobs <- cfg.MaxTasks
+        svc.MaxConcurrentJobs <- cfg.MaxJobs
         Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
-
-        svc.AttachLogger(ConsoleLogger(showDate = true, useColors = true))
+        cfg.LogLevel |> Option.iter (fun l -> svc.LogLevel <- l)
+        let _ = svc.AttachLogger(ConsoleLogger(showDate = true, useColors = true))
         svc.Run()
         0
     with e ->

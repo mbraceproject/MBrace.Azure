@@ -14,38 +14,23 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Arguments
 open MBrace.Runtime
 
+/// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
+/// Log level used by the MBrace runtime implementation
+type LogLevel = MBrace.Runtime.LogLevel
 
 /// <summary>
 /// Windows Azure Runtime client.
 /// </summary>
 [<AutoSerializable(false)>]
-type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger) =
+type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogger) =
     inherit MBraceClient(manager)
 
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
 
-    let mutable consoleLogger = None : IDisposable option
-
     /// Current client instance identifier.
-    member this.ClientId = manager.RuntimeManagerId
-
-    /// Sets whether logging in console is enabled for this client.
-    member this.EnableClientConsoleLogger 
-        with get () = consoleLogger.IsSome
-        and set enable =
-            lock lockObj (fun () ->
-                match enable, consoleLogger with
-                | true, None ->
-                    match (manager :> IRuntimeManager).SystemLogger with
-                    | :? AttacheableLogger as l -> 
-                        consoleLogger <- Some(l.AttachLogger(new ConsoleLogger(true)))
-                    | _ as l -> failwithf "Not supported client logger %A" l
-                | false, Some(logger) -> 
-                    logger.Dispose()
-                    consoleLogger <- None
-                | _ -> ())
+    member this.UUID = manager.RuntimeManagerId
 
     /// <summary>
     /// Get runtime logs.
@@ -79,7 +64,7 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
     /// <summary>
     /// Kill all local worker processes.
     /// </summary>
-    member this.KillLocalWorker() =
+    member this.KillAllLocalWorkers() =
         let workers = this.Workers
         let exists id hostname =
             if Net.Dns.GetHostName() = hostname then
@@ -116,11 +101,18 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
                 if File.Exists path then localWorkerExecutable <- Some path
                 else raise <| FileNotFoundException(path))
 
-    /// Initialize a new local runtime instance with supplied worker count.
-    static member SpawnLocal(config, workerCount, ?maxTasks : int, ?workerNameF : int -> string) =
-        let exe = MBraceAzure.LocalWorkerExecutable
+    /// <summary>
+    /// Initialize a new local runtime instance with supplied worker count and return a handle.
+    /// </summary>
+    /// <param name="config">Azure runtime configuration.</param>
+    /// <param name="workerCount">Number of local workers to spawn.</param>
+    /// <param name="maxJobs">Maximum number of concurrent jobs per worker.</param>
+    /// <param name="workerNameF">Worker name factory.</param>
+    /// <param name="logLevel">Client and local worker logger verbosity level.</param>
+    static member SpawnOnCurrentMachine(config, workerCount, ?maxJobs : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
+        let exe = MBraceCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
-        let cfg = { Arguments.Configuration = config; Arguments.MaxTasks = defaultArg maxTasks Environment.ProcessorCount; Name = None}
+        let cfg = { Arguments.Configuration = config; Arguments.MaxJobs = defaultArg maxJobs Environment.ProcessorCount; Name = None; LogLevel = logLevel }
         do Async.RunSync(Config.ActivateAsync(config, true))
         let _ = Array.Parallel.init workerCount (fun i -> 
             let conf =
@@ -134,10 +126,19 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
             Process.Start psi)
         ()
 
+    /// <summary>
     /// Initialize a new local runtime instance with supplied worker count and return a handle.
-    static member InitLocal(config, workerCount : int, ?maxTasks : int, ?workerNameF) : MBraceAzure =
-        MBraceAzure.SpawnLocal(config, workerCount, ?maxTasks = maxTasks, ?workerNameF = workerNameF)
-        MBraceAzure.GetHandle(config)
+    /// </summary>
+    /// <param name="config">Azure runtime configuration.</param>
+    /// <param name="workerCount">Number of local workers to spawn.</param>
+    /// <param name="maxJobs">Maximum number of concurrent jobs per worker.</param>
+    /// <param name="workerNameF">Worker name factory.</param>
+    /// <param name="clientId">Client instance identifier.</param>
+    /// <param name="logger">Client logger to attach.</param>
+    /// <param name="logLevel">Client and local worker logger verbosity level.</param>
+    static member InitOnCurrentMachine(config, workerCount : int, ?maxJobs : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
+        MBraceCluster.SpawnOnCurrentMachine(config, workerCount, ?maxJobs = maxJobs, ?workerNameF = workerNameF, ?logLevel = logLevel)
+        MBraceCluster.GetHandle(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// Delete and reactivate runtime state (queues, containers, tables and logs but not user folders).
     /// Using 'Reset' may cause unexpected behavior in clients and workers.
@@ -167,19 +168,27 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
     /// </summary>
     /// <param name="storageConnectionString">Azure Storage connection string.</param>
     /// <param name="serviceBusConnectionString">Azure Service Bus connection string.</param>
-    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string) : MBraceAzure = 
-        MBraceAzure.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString))
+    /// <param name="clientId">Custom client id for this instance.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster = 
+        MBraceCluster.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
     /// Gets a handle for a remote runtime.
     /// </summary>
     /// <param name="config">Runtime configuration.</param>
     /// <param name="clientId">Client identifier.</param>
-    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger) : MBraceAzure = 
+    /// <param name="clientId">Custom client id for this instance.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster = 
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
+        let attachableLogger = AttacheableLogger.Create(makeAsynchronous = true, ?logLevel = logLevel)
         let storageLogger = SystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, clientId)
-        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-        let manager = RuntimeManager.CreateForClient(config, clientId, logger, ResourceRegistry.Empty)
-        let runtime = new MBraceAzure(manager, storageLogger)
+        let _ = attachableLogger.AttachLogger(storageLogger)
+        let _ = logger |> Option.map attachableLogger.AttachLogger
+        let manager = RuntimeManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)
+        let runtime = new MBraceCluster(manager, storageLogger)
         runtime
