@@ -14,12 +14,12 @@ let config =
     let selectEnv name = Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User)
     new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
 
-MBraceAzure.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-let runtime = MBraceAzure.InitLocal(config, 4)
-//let runtime = MBraceAzure.GetHandle(config)
-runtime.EnableClientConsoleLogger <- true
+MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+let runtime = MBraceCluster.InitOnCurrentMachine(config, 8, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
+
 runtime.Workers
 
+runtime.KillAllLocalWorkers()
 runtime.Reset(true,true,true,true,true,true,false)
 
 let task = runtime.CreateCloudTask(cloud { return! Cloud.Log "Hello" }, faultPolicy = FaultPolicy.NoRetry)
@@ -30,8 +30,6 @@ task.ShowLogs()
 let d = task.Logs.Subscribe(fun l -> printfn "%s" l.Message)
 d.Dispose()
 
-
-runtime.KillLocalWorker()
 
 
 let task =
