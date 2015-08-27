@@ -64,7 +64,7 @@ type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogg
     /// <summary>
     /// Kill all local worker processes.
     /// </summary>
-    member this.KillLocalWorker() =
+    member this.KillAllLocalWorkers() =
         let workers = this.Workers
         let exists id hostname =
             if Net.Dns.GetHostName() = hostname then
