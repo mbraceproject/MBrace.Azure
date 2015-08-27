@@ -101,11 +101,18 @@ type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogg
                 if File.Exists path then localWorkerExecutable <- Some path
                 else raise <| FileNotFoundException(path))
 
-    /// Initialize a new local runtime instance with supplied worker count.
-    static member SpawnLocal(config, workerCount, ?maxTasks : int, ?workerNameF : int -> string) =
+    /// <summary>
+    /// Initialize a new local runtime instance with supplied worker count and return a handle.
+    /// </summary>
+    /// <param name="config">Azure runtime configuration.</param>
+    /// <param name="workerCount">Number of local workers to spawn.</param>
+    /// <param name="maxJobs">Maximum number of concurrent jobs per worker.</param>
+    /// <param name="workerNameF">Worker name factory.</param>
+    /// <param name="logLevel">Client and local worker logger verbosity level.</param>
+    static member SpawnOnCurrentMachine(config, workerCount, ?maxJobs : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
         let exe = MBraceCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
-        let cfg = { Arguments.Configuration = config; Arguments.MaxTasks = defaultArg maxTasks Environment.ProcessorCount; Name = None}
+        let cfg = { Arguments.Configuration = config; Arguments.MaxJobs = defaultArg maxJobs Environment.ProcessorCount; Name = None; LogLevel = logLevel }
         do Async.RunSync(Config.ActivateAsync(config, true))
         let _ = Array.Parallel.init workerCount (fun i -> 
             let conf =
@@ -119,10 +126,19 @@ type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogg
             Process.Start psi)
         ()
 
+    /// <summary>
     /// Initialize a new local runtime instance with supplied worker count and return a handle.
-    static member InitLocal(config, workerCount : int, ?maxTasks : int, ?workerNameF) : MBraceCluster =
-        MBraceCluster.SpawnLocal(config, workerCount, ?maxTasks = maxTasks, ?workerNameF = workerNameF)
-        MBraceCluster.GetHandle(config)
+    /// </summary>
+    /// <param name="config">Azure runtime configuration.</param>
+    /// <param name="workerCount">Number of local workers to spawn.</param>
+    /// <param name="maxJobs">Maximum number of concurrent jobs per worker.</param>
+    /// <param name="workerNameF">Worker name factory.</param>
+    /// <param name="clientId">Client instance identifier.</param>
+    /// <param name="logger">Client logger to attach.</param>
+    /// <param name="logLevel">Client and local worker logger verbosity level.</param>
+    static member InitOnCurrentMachine(config, workerCount : int, ?maxJobs : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
+        MBraceCluster.SpawnOnCurrentMachine(config, workerCount, ?maxJobs = maxJobs, ?workerNameF = workerNameF, ?logLevel = logLevel)
+        MBraceCluster.GetHandle(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// Delete and reactivate runtime state (queues, containers, tables and logs but not user folders).
     /// Using 'Reset' may cause unexpected behavior in clients and workers.

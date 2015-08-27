@@ -54,7 +54,7 @@ type ``CloudFlow Standalone - Storage Emulator`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        MBraceCluster.SpawnLocal(base.Configuration, 4, 16) 
+        MBraceCluster.SpawnOnCurrentMachine(base.Configuration, 4, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -70,7 +70,7 @@ type ``CloudFlow Standalone`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        MBraceCluster.SpawnLocal(base.Configuration, 4, 16) 
+        MBraceCluster.SpawnOnCurrentMachine(base.Configuration, 4, 16) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]

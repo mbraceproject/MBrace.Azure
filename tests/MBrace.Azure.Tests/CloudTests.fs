@@ -99,7 +99,7 @@ type ``Standalone - Storage Emulator`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        MBraceCluster.SpawnLocal(base.Configuration, 4, 32) 
+        MBraceCluster.SpawnOnCurrentMachine(base.Configuration, 4, 32) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
@@ -115,7 +115,7 @@ type ``Standalone`` () =
     [<TestFixtureSetUpAttribute>]
     override __.Init() =
         MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        MBraceCluster.SpawnLocal(base.Configuration, 4, 32) 
+        MBraceCluster.SpawnOnCurrentMachine(base.Configuration, 4, 32) 
         base.Init()
         
     [<TestFixtureTearDownAttribute>]
