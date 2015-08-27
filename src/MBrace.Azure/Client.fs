@@ -14,7 +14,10 @@ open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Arguments
 open MBrace.Runtime
 
+/// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
+/// Log level used by the MBrace runtime implementation
+type LogLevel = MBrace.Runtime.LogLevel
 
 /// <summary>
 /// Windows Azure Runtime client.
