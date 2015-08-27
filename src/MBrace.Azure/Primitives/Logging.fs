@@ -257,14 +257,6 @@ type CustomLogger (f : Action<string>) =
 
 [<AutoOpen>]
 module LoggerExtensions =
-    
-    type AttacheableLogger with
-        static member FromLoggers(loggers : ISystemLogger seq) = 
-            let logger = AttacheableLogger.Create(makeAsynchronous = false)
-            for l in loggers do
-                ignore(logger.AttachLogger(l))
-            logger
-
     type ISystemLogger with
         member this.LogInfof fmt = Printf.ksprintf (fun s -> this.LogInfo s) fmt
         member this.LogErrorf fmt = Printf.ksprintf (fun s -> this.LogError s) fmt
