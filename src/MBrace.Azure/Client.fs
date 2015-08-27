@@ -23,7 +23,7 @@ type LogLevel = MBrace.Runtime.LogLevel
 /// Windows Azure Runtime client.
 /// </summary>
 [<AutoSerializable(false)>]
-type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger) =
+type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogger) =
     inherit MBraceClient(manager)
 
     static let lockObj = obj()
@@ -103,7 +103,7 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
 
     /// Initialize a new local runtime instance with supplied worker count.
     static member SpawnLocal(config, workerCount, ?maxTasks : int, ?workerNameF : int -> string) =
-        let exe = MBraceAzure.LocalWorkerExecutable
+        let exe = MBraceCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
         let cfg = { Arguments.Configuration = config; Arguments.MaxTasks = defaultArg maxTasks Environment.ProcessorCount; Name = None}
         do Async.RunSync(Config.ActivateAsync(config, true))
@@ -120,9 +120,9 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
         ()
 
     /// Initialize a new local runtime instance with supplied worker count and return a handle.
-    static member InitLocal(config, workerCount : int, ?maxTasks : int, ?workerNameF) : MBraceAzure =
-        MBraceAzure.SpawnLocal(config, workerCount, ?maxTasks = maxTasks, ?workerNameF = workerNameF)
-        MBraceAzure.GetHandle(config)
+    static member InitLocal(config, workerCount : int, ?maxTasks : int, ?workerNameF) : MBraceCluster =
+        MBraceCluster.SpawnLocal(config, workerCount, ?maxTasks = maxTasks, ?workerNameF = workerNameF)
+        MBraceCluster.GetHandle(config)
 
     /// Delete and reactivate runtime state (queues, containers, tables and logs but not user folders).
     /// Using 'Reset' may cause unexpected behavior in clients and workers.
@@ -155,8 +155,8 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
     /// <param name="clientId">Custom client id for this instance.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceAzure = 
-        MBraceAzure.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
+    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster = 
+        MBraceCluster.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
     /// Gets a handle for a remote runtime.
@@ -166,7 +166,7 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
     /// <param name="clientId">Custom client id for this instance.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceAzure = 
+    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster = 
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         let attachableLogger = AttacheableLogger.Create(makeAsynchronous = true, ?logLevel = logLevel)
@@ -174,5 +174,5 @@ type MBraceAzure private (manager : RuntimeManager, defaultLogger : SystemLogger
         let _ = attachableLogger.AttachLogger(storageLogger)
         let _ = logger |> Option.map attachableLogger.AttachLogger
         let manager = RuntimeManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)
-        let runtime = new MBraceAzure(manager, storageLogger)
+        let runtime = new MBraceCluster(manager, storageLogger)
         runtime

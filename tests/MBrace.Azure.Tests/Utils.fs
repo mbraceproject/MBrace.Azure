@@ -52,7 +52,7 @@ type RuntimeSession(config : MBrace.Azure.Configuration) =
     let mutable state = None
 
     member __.Start () = 
-        let runtime = MBraceAzure.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+        let runtime = MBraceCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
         state <- Some runtime
 
     member __.Stop () =
