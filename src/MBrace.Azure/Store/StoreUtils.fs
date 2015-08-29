@@ -8,8 +8,44 @@ open Microsoft.WindowsAzure.Storage
 
 open MBrace.Azure.Runtime.Utilities
 
+
+
 [<AutoOpen>]
 module internal Utils =
+    
+    /// Azure blob container.
+    type Container =
+        | Root
+        | Container of string
+    
+    /// Represents a 'directory' in blob storage.
+    type StoreDirectory =
+        {
+            Container : Container
+            SubDirectory : string option
+        }
+
+        static member Parse(path : string) =
+            let xs = path.Split([| '/'; '\\' |], 2)
+            match xs with
+            | [|c|] when c = "" -> { Container = Root; SubDirectory = None }
+            | [|c|] -> { Container = Container c; SubDirectory = None }
+            | [|c; x|] -> { Container = Container c; SubDirectory = Some x }
+            | _ -> failwith "Invalid store path %A" path
+
+    /// Represents a full path to a blob.
+    type StorePath =
+        {
+            Container : Container
+            RelativePath : string 
+        }
+
+        static member Parse(path : string) =
+            let xs = path.Split([| '/'; '\\' |], 2)
+            match xs with
+            | [|x|] -> { Container = Root; RelativePath = x }
+            | [|c; x|] -> { Container = Container c; RelativePath = x }
+            | _ -> failwith "Invalid store path %A" path
 
     // TODO : merge with global runtime utils file
 
@@ -20,10 +56,11 @@ module internal Utils =
         let valid = letters + nums + Set.singleton '-'
         fun (container : string) ->
             let isValid =
-                container.Length >= 3 
-                && container.Length <= 63
-                && container |> Seq.forall valid.Contains
-                && container |> Seq.head <> '-'
+                container = ""
+                || (container.Length >= 3 
+                    && container.Length <= 63
+                    && container |> Seq.forall valid.Contains
+                    && container |> Seq.head <> '-')
             if not isValid then failwithf "Invalid container '%s'" container
             
 
@@ -41,23 +78,22 @@ module internal Utils =
     /// </summary>
     /// <param name="account">Storage account instance.</param>
     /// <param name="container">Container name</param>
-    let getContainer (account : CloudStorageAccount) (container : string) = 
-        validateContainerName container
+    let getContainerReference (account : CloudStorageAccount) (container : Container) = 
         let client = getBlobClient account
-        client.GetContainerReference container
+        match container with
+        | Root -> client.GetRootContainerReference()
+        | Container c ->
+            validateContainerName c
+            client.GetContainerReference c
 
     /// <summary>
     ///     Creates a blob reference given account and full path.
     /// </summary>
     /// <param name="account">Cloud storage account.</param>
     /// <param name="path">Path to blob.</param>
-    let getBlobRef account (path : string) = async {
-        let container, blob = 
-            match path.Split([|'/'; '\\'|], 2) with
-            | [|c; b |] -> c, b
-            | [|_|] -> failwithf "Invalid path '%s'. Top level files not allowed." path
-            | _ -> failwithf "Invalid path '%s'." path
-        let container = getContainer account container
-        let! _ = container.CreateIfNotExistsAsync()
-        return container.GetBlockBlobReference(blob)
+    let getBlobReference account (fullPath : string) = async {
+        let path = StorePath.Parse fullPath
+        let container = getContainerReference account path.Container
+        let _ = container.CreateIfNotExists()
+        return container.GetBlockBlobReference(path.RelativePath)
     }
