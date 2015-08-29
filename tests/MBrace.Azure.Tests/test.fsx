@@ -16,7 +16,7 @@ let config =
 
 MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 let runtime = MBraceCluster.InitOnCurrentMachine(config, 8, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
-
+//let runtime = MBraceCluster.GetHandle(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
 runtime.Workers
 
 runtime.KillAllLocalWorkers()
@@ -31,6 +31,29 @@ let d = task.Logs.Subscribe(fun l -> printfn "%s" l.Message)
 d.Dispose()
 
 
+let value = [1 .. 1000000] 
+
+let cv = runtime.Store.CloudValue.New([1..1000000], StorageLevel.Disk)
+cv.StorageLevel
+
+let cv' = CloudValue.TryGetValueById(cv.Id) |> runtime.RunOnCurrentProcess
+
+CloudValue.GetAllValues()
+|> runtime.RunOnCurrentProcess
+
+let wf = cloud {
+    let! cv = CloudValue.New([1 .. 1000001] , StorageLevel.Disk)
+    return cv
+}
+
+let cv = runtime.RunOnCloud(wf) // Disk
+
+let cvs = runtime.RunOnCloud(CloudValue.GetAllValues()) // [||]
+
+cv
+cv.Id
+cv.Size
+vcs
 
 let task =
     runtime.CreateCloudTask<unit>((cloud {

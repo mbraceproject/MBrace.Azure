@@ -13,16 +13,14 @@ open MBrace.Azure.Tests
 #nowarn "445" // 'Reset'
 
 [<AbstractClass; TestFixture>]
-type ``Azure Cloud Tests`` (sbus, storage) as self =
+type ``Azure Cloud Tests`` (sbus, storage, localWorkers) as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 15000)
     
     let config = new Configuration(storage, sbus)
 
-    let session = new RuntimeSession(config)
+    let session = new RuntimeSession(config, localWorkers)
 
     let run (wf : Cloud<'T>) = self.RunOnCloud wf
-
-    member __.Configuration = config
 
     [<TestFixtureSetUp>]
     abstract Init : unit -> unit
@@ -86,40 +84,10 @@ type ``Azure Cloud Tests`` (sbus, storage) as self =
 
 
 type ``Compute - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
+    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true", 0)
     
-    [<TestFixtureSetUpAttribute>]
-    override __.Init() =
-        // TODO : Check if emulator is up?
-        base.Init()    
-
 type ``Standalone - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true")
-
-    [<TestFixtureSetUpAttribute>]
-    override __.Init() =
-        MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        MBraceCluster.SpawnOnCurrentMachine(base.Configuration, 4, 32) 
-        base.Init()
-        
-    [<TestFixtureTearDownAttribute>]
-    override __.Fini() =
-        System.Diagnostics.Process.GetProcessesByName "MBrace.Azure.Runtime.Standalone"
-        |> Seq.iter (fun ps -> ps.Kill())
-        base.Fini()
-
+    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true", 4)
 
 type ``Standalone`` () =
-    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn")
-    
-    [<TestFixtureSetUpAttribute>]
-    override __.Init() =
-        MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-        MBraceCluster.SpawnOnCurrentMachine(base.Configuration, 4, 32) 
-        base.Init()
-        
-    [<TestFixtureTearDownAttribute>]
-    override __.Fini() =
-        System.Diagnostics.Process.GetProcessesByName "MBrace.Azure.Runtime.Standalone"
-        |> Seq.iter (fun ps -> ps.Kill())
-        base.Fini()
+    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn", 4)

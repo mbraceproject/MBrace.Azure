@@ -47,12 +47,18 @@ module Choice =
         | Choice2Of2 e -> should be instanceOfType<'Exn> e
 
 
-type RuntimeSession(config : MBrace.Azure.Configuration) =
+type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
 
+    static do MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+    
     let mutable state = None
 
     member __.Start () = 
-        let runtime = MBraceCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+        let runtime = 
+            if localWorkers < 1 then
+                MBraceCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+            else
+                MBraceCluster.InitOnCurrentMachine(config, localWorkers, maxJobs = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
         state <- Some runtime
 
     member __.Stop () =
