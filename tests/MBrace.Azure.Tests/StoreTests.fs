@@ -14,9 +14,7 @@ open MBrace.Azure.Tests
 module private Config = 
     open MBrace.Azure
     
-    let remoteConfig = new Configuration(Utils.selectEnv "azurestorageconn", Utils.selectEnv "azureservicebusconn")
-    let emulatorConfig = new Configuration("UseDevelopmentStorage=true", Utils.selectEnv "azureservicebusconn")
-
+    
 [<TestFixture>]
 type ``Remote - BlobStore Tests``() = 
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)

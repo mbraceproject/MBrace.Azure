@@ -15,10 +15,11 @@ open MBrace.Azure
 
 open MBrace.Core.Tests
 
+[<AutoOpenAttribute>]
 module Utils =
     open System
 
-    let selectEnv name =
+    let private selectEnv name =
         (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
           Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
             Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Process))
@@ -27,6 +28,10 @@ module Utils =
            | _, s, _ when not <| String.IsNullOrEmpty(s) -> s
            | _, _, s when not <| String.IsNullOrEmpty(s) -> s
            | _ -> failwithf "Variable %A not found" name
+
+    let remoteConfig = new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
+    let emulatorConfig = new Configuration("UseDevelopmentStorage=true", selectEnv "azureservicebusconn")
+
 
 module Choice =
 

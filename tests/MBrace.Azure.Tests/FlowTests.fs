@@ -11,16 +11,14 @@ open MBrace.Azure.Tests
 open NUnit.Framework
 
 [<AbstractClass; TestFixture>]
-type ``Azure CloudFlow Tests`` (sbus, storage, localWorkers) as self =
+type ``Azure CloudFlow Tests`` (session : RuntimeSession) as self =
     inherit ``CloudFlow tests`` ()
 
-    let config = new Configuration(storage, sbus)
-
-    let session = new RuntimeSession(config, localWorkers)
+    let session = session
 
     let run (wf : Cloud<'T>) = self.RunOnCloud wf
 
-    member __.Configuration = config
+    member __.Session = session
 
     [<TestFixtureSetUp>]
     abstract Init : unit -> unit
@@ -41,10 +39,25 @@ type ``Azure CloudFlow Tests`` (sbus, storage, localWorkers) as self =
     override __.FsCheckMaxNumberOfIOBoundTests = 3
 
 type ``CloudFlow Compute - Storage Emulator`` () =
-    inherit ``Azure CloudFlow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true", 0)
+    inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 0))
     
-type ``CloudFlow Standalone - Storage Emulator`` () =
-    inherit ``Azure CloudFlow Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true", 4)
+    [<TestFixtureSetUp>]
+    override __.Init () = base.Init()
+    [<TestFixtureTearDown>]
+    override __.Fini () = base.Fini()
 
+type ``CloudFlow Standalone - Storage Emulator`` () =
+    inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 4))
+
+    [<TestFixtureSetUp>]
+    override __.Init () = base.Init()
+    [<TestFixtureTearDown>]
+    override __.Fini () = base.Fini()
+        
 type ``CloudFlow Standalone`` () =
-    inherit ``Azure CloudFlow Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn", 4)
+    inherit ``Azure CloudFlow Tests``(RuntimeSession(remoteConfig, 0))
+    
+    [<TestFixtureSetUp>]
+    override __.Init () = base.Init()
+    [<TestFixtureTearDown>]
+    override __.Fini () = base.Fini()

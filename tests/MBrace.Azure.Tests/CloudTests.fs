@@ -13,28 +13,23 @@ open MBrace.Azure.Tests
 #nowarn "445" // 'Reset'
 
 [<AbstractClass; TestFixture>]
-type ``Azure Cloud Tests`` (sbus, storage, localWorkers) as self =
+type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 15000)
     
-    let config = new Configuration(storage, sbus)
-
-    let session = new RuntimeSession(config, localWorkers)
+    let session = session 
 
     let run (wf : Cloud<'T>) = self.RunOnCloud wf
 
+    member this.Session = session
+
     [<TestFixtureSetUp>]
-    abstract Init : unit -> unit
-    default __.Init () = session.Start()
+    member __.Init () = session.Start()
 
     [<TestFixtureTearDown>]
-    abstract Fini : unit -> unit
-    default __.Fini () = session.Stop()
-
-    override __.IsTargetWorkerSupported = true
-    override __.IsSiftedWorkflowSupported = true
+    member __.Fini () = session.Stop()
 
     override __.RunOnCloud (workflow : Cloud<'T>) = 
-        session.Runtime.RunOnCloudAsync(workflow)
+        session.Runtime.RunOnCloudAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
@@ -42,20 +37,19 @@ type ``Azure Cloud Tests`` (sbus, storage, localWorkers) as self =
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
-            let! ps = runtime.CreateCloudTaskAsync(workflow cts, cancellationToken = cts.Token)
-            return! Async.Catch <| ps.AwaitResult()
+            try return! runtime.RunOnCloudAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            finally cts.Cancel()
         } |> Async.RunSync
 
-    override __.RunOnCloudWithLogs (workflow : Cloud<unit>) : string [] =
-        async {
-            let runtime = session.Runtime
-            let! t = runtime.CreateCloudTaskAsync(workflow)
-            do! t.AwaitResult()
-            return t.GetLogs () |> Array.map CloudLogEntry.Format
-        } |> Async.RunSync
+    override __.RunOnCloudWithLogs(workflow : Cloud<unit>) =
+        let task = session.Runtime.CreateCloudTask(workflow)
+        do task.Result
+        task.GetLogs () |> Array.map CloudLogEntry.Format
 
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
 
+    override __.IsTargetWorkerSupported = true
+    override __.IsSiftedWorkflowSupported = true
     override __.FsCheckMaxTests = 4
     override __.Repeats = 1
     override __.UsesSerialization = true
@@ -84,10 +78,26 @@ type ``Azure Cloud Tests`` (sbus, storage, localWorkers) as self =
 
 
 type ``Compute - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true", 0)
+    inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 0))
     
+    [<TestFixtureSetUp>]
+    member __.Init () = base.Init()
+    [<TestFixtureTearDown>]
+    member __.Fini () = base.Fini()
+
 type ``Standalone - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", "UseDevelopmentStorage=true", 4)
+    inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 4))
+
+    [<TestFixtureSetUp>]
+    member __.Init () = base.Init()
+    [<TestFixtureTearDown>]
+    member __.Fini () = base.Fini()
+
 
 type ``Standalone`` () =
-    inherit ``Azure Cloud Tests``(Utils.selectEnv "azureservicebusconn", Utils.selectEnv "azurestorageconn", 4)
+    inherit ``Azure Cloud Tests``(RuntimeSession(remoteConfig, 4))
+
+    [<TestFixtureSetUp>]
+    member __.Init () = base.Init()
+    [<TestFixtureTearDown>]
+    member __.Fini () = base.Fini()
