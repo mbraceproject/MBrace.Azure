@@ -21,27 +21,6 @@ runtime.Workers
 
 
 
-open MBrace.Core.Internals
-
-let store = runtime.GetResource<ICloudFileStore>()
-let run = Async.RunSync
-
-store.EnumerateRootDirectories() |> run
-store.EnumerateFiles "$root" |> run
-store.EnumerateFiles "4cf8ccb-83a2-4824-99e7-114778770a24" |> run
-
-store.DirectoryExists "mbraceruntimedata0x10x00000" |> run
-
-store.DeleteDirectory("4cf8ccb-83a2-4824-99e7-114778770a24", true) |> run
-
-
-let stream = store.BeginWrite("foo.txt") |> run
-stream.WriteByte(0uy)
-stream.WriteByte(1uy)
-stream.Flush()
-stream.Dispose()
-
-
 
 
 

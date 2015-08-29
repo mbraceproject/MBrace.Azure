@@ -154,16 +154,24 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.DirectoryExists(container: string) : Async<bool> = 
             async {
                 let path = StoreDirectory.Parse container
-                let container = getContainerReference acc path.Container
-                return! container.ExistsAsync()
+                match path.Container with
+                | Container _ as c ->
+                    let container = getContainerReference acc c
+                    return! container.ExistsAsync()
+                | Root ->
+                    return true
             }
         
         member this.CreateDirectory(container: string) : Async<unit> = 
             async {
                 let path = StoreDirectory.Parse container
-                let container = getContainerReference acc path.Container
-                let! _ =  container.CreateIfNotExistsAsync()
-                return ()
+                match path.Container with
+                | Container _ as c ->
+                    let container = getContainerReference acc c
+                    let! _ =  container.CreateIfNotExistsAsync()
+                    return ()
+                | Root -> 
+                    return ()
             }
 
         member this.DeleteDirectory(container: string, recursiveDelete : bool) : Async<unit> = 

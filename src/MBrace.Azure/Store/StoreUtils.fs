@@ -83,7 +83,10 @@ module internal Utils =
     let getContainerReference (account : CloudStorageAccount) (container : Container) = 
         let client = getBlobClient account
         match container with
-        | Root -> client.GetRootContainerReference()
+        | Root -> 
+            let root = client.GetRootContainerReference()
+            let _ = root.CreateIfNotExists()
+            root
         | Container c ->
             validateContainerName c
             client.GetContainerReference c
@@ -96,6 +99,9 @@ module internal Utils =
     let getBlobReference account (fullPath : string) = async {
         let path = StorePath.Parse fullPath
         let container = getContainerReference account path.Container
-        let _ = container.CreateIfNotExists()
+        let _ =
+            match path.Container with
+            | Container _ -> container.CreateIfNotExists()
+            | Root -> true
         return container.GetBlockBlobReference(path.RelativePath)
     }
