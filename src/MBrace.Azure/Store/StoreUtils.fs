@@ -28,7 +28,7 @@ module internal Utils =
         static member Parse(path : string) =
             let xs = path.Split([| '/'; '\\' |], 2)
             match xs with
-            | [|c|] when c = "" -> { Container = Root; SubDirectory = None }
+            | [|c|] when c = "" || c = "$root" -> { Container = Root; SubDirectory = None }
             | [|c|] -> { Container = Container c; SubDirectory = None }
             | [|c; x|] -> { Container = Container c; SubDirectory = Some x }
             | _ -> failwith "Invalid store path %A" path
@@ -44,6 +44,7 @@ module internal Utils =
             let xs = path.Split([| '/'; '\\' |], 2)
             match xs with
             | [|x|] -> { Container = Root; RelativePath = x }
+            | [|"$root"; x|] -> { Container = Root; RelativePath = x }
             | [|c; x|] -> { Container = Container c; RelativePath = x }
             | _ -> failwith "Invalid store path %A" path
 
@@ -57,6 +58,7 @@ module internal Utils =
         fun (container : string) ->
             let isValid =
                 container = ""
+                || container = "$root"
                 || (container.Length >= 3 
                     && container.Length <= 63
                     && container |> Seq.forall valid.Contains

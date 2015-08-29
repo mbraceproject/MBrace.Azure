@@ -197,7 +197,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
                     match path with
                     | { Container = Root; SubDirectory = _ } ->
                         let client = getBlobClient acc
-                        return client.ListContainers(directory) 
+                        return client.ListContainers() 
                                |> Seq.map (fun c -> c.Name)
                                |> Seq.toArray
                     | { Container = _; SubDirectory = _ } -> return! Async.Raise <| NotImplementedException()
