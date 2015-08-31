@@ -117,8 +117,8 @@ module ``MBrace Azure Vagabond Tests (FSI)`` =
                 let selectEnv name = System.Environment.GetEnvironmentVariable(name, System.EnvironmentVariableTarget.User)
                 new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
         """
-        fsi.EvalInteraction <| "MBraceAzure.LocalWorkerExecutable <- @\"" + workerExe + "\""
-        fsi.EvalInteraction <| sprintf "let cluster = MBraceAzure.InitLocal(config, %d)" clusterSize
+        fsi.EvalInteraction <| "MBraceCluster.LocalWorkerExecutable <- @\"" + workerExe + "\""
+        fsi.EvalInteraction <| sprintf "let cluster = MBraceCluster.InitOnCurrentMachine(config, %d)" clusterSize
         fsi.EvalInteraction "cluster.AttachLogger(new ConsoleLogger())"
 
 
