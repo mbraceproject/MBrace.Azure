@@ -242,6 +242,8 @@ type StoreClientProvider (config : Configuration) =
                         Async.AwaitTask <| this.TableClient.GetTableReference(config.UserDataTable).CreateIfNotExistsAsync()
                         Async.AwaitTask <| this.BlobClient.GetContainerReference(config.RuntimeContainer).CreateIfNotExistsAsync()
                         Async.AwaitTask <| this.BlobClient.GetContainerReference(config.UserDataContainer).CreateIfNotExistsAsync()
+                        Async.AwaitTask <| this.BlobClient.GetContainerReference(config.CloudValueContainer).CreateIfNotExistsAsync()
+                        Async.AwaitTask <| this.BlobClient.GetContainerReference(config.VagabondContainer).CreateIfNotExistsAsync()
                     |] |> Async.Ignore
             with e ->
                 raise <| InvalidConfigurationException("Invalid Storage Account Configuration", e)

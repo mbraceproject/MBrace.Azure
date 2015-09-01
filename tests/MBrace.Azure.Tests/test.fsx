@@ -14,6 +14,7 @@ let config =
     let selectEnv name = Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User)
     new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
 
+
 MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 let runtime = MBraceCluster.InitOnCurrentMachine(config, 8, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
 //let runtime = MBraceCluster.GetHandle(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
@@ -21,20 +22,37 @@ runtime.Workers
 
 
 
+let cv = runtime.Store.CloudValue.New([1..1000001], StorageLevel.Disk)
+cv.StorageLevel
+cv.Size
+cv.Value
+cv.Id
+cv.Dispose() |> Async.RunSynchronously
 
 
+let cvs = runtime.RunOnCurrentProcess(CloudValue.TryGetValueById cv.Id)
+let cvs = runtime.RunOnCurrentProcess(CloudValue.GetAllValues())
+
+let v = cvs.[0]
+v.StorageLevel
+
+let xs = runtime.Store.File.Enumerate "cloudvalue0x10x00000"
+
+runtime.Store.File.GetSize(xs.[0].Path)
 
 
+let c, cs =
+    runtime.RunOnCloud(cloud {
+        let! cv = CloudValue.New([|1..1000000|], StorageLevel.Disk)
+        let! cvs = CloudValue.GetAllValues()
+        return cv, cvs
+    })
 
-
-
-
-
-
-
-
-
-
+Array.isEmpty cs // true
+c.Size           // 4000117L
+c.StorageLevel   // Disk
+c.IsCachedLocally// false
+c.GetBoxedValue()
 
 
 runtime.KillAllLocalWorkers()

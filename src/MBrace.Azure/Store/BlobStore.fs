@@ -15,8 +15,7 @@ open MBrace.Azure.Store.TableEntities.Table
 ///  MBrace File Store implementation that uses Azure Blob Storage as backend.
 [<Sealed; DataContract>]
 type BlobStore private (connectionString : string, defaultContainer : string) =
-    // TODO: validate defaultContainer input
-
+    
     [<DataMember(Name = "ConnectionString")>]
     let connectionString = connectionString
 
@@ -40,6 +39,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
     interface ICloudFileStore with
         member this.BeginWrite(path: string): Async<Stream> = 
             async {
+                let path = normalizePath path
                 let! blob = getBlobReference acc path
                 let! stream = blob.OpenWriteAsync()
                 return stream :> Stream
@@ -47,6 +47,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         
         member this.ReadETag(path: string, etag: ETag): Async<Stream option> = 
             async {
+                let path = normalizePath path
                 let! blob = getBlobReference acc path
                 let! stream = async { return! blob.OpenReadAsync(AccessCondition.GenerateIfMatchCondition(etag), BlobRequestOptions(), null) } |> Async.Catch
                 match stream with
@@ -61,6 +62,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
 
         member this.TryGetETag(path: string): Async<ETag option> = 
             async {
+                let path = normalizePath path
                 let! blob = getBlobReference acc path
                 try
                     do! blob.FetchAttributesAsync()
@@ -77,25 +79,26 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.Id : string = acc.BlobStorageUri.PrimaryUri.ToString()
 
         member this.DefaultDirectory = defaultContainer
-        member this.WithDefaultDirectory container = new BlobStore(connectionString, container) :> _
+        member this.WithDefaultDirectory container = 
+            validateContainerName container
+            let cont = normalizePath container
+            new BlobStore(connectionString, cont) :> _
 
-        member this.GetRootDirectory () = String.Empty
+        member this.GetRootDirectory () = rootPath
 
         member this.GetRandomDirectoryName() : string = Guid.NewGuid().ToString()
 
-        member this.IsPathRooted(path : string) = 
-            let dir = StoreDirectory.Parse path
-            dir.Container <> Root
-
+        member this.IsPathRooted(path : string) = isPathRooted path
+            
         member this.GetDirectoryName(path : string) = Path.GetDirectoryName(path)
 
         member this.GetFileName(path : string) = Path.GetFileName(path)
 
-        member this.Combine(paths : string []) : string = 
-            Path.Combine(paths)
+        member this.Combine(paths : string []) : string = Path.Combine(paths)
 
         member this.GetFileSize(path: string) : Async<int64> = 
             async {
+                let path = normalizePath path
                 let! blob = getBlobReference acc path
                 let! result = Async.Catch <| Async.AwaitTaskCorrect(blob.FetchAttributesAsync())
                 match result with
@@ -107,6 +110,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
 
         member this.FileExists(path: string) : Async<bool> = 
             async {
+                let path = normalizePath path
                 let storePath = StorePath.Parse path
                 let container = getContainerReference acc storePath.Container
 
@@ -121,6 +125,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.EnumerateFiles(container : string) : Async<string []> = 
             async {
                 try
+                    let container = normalizePath container
                     let path = StoreDirectory.Parse container
                     let containerRef = getContainerReference acc path.Container
                     let blobs = new ResizeArray<string>()
@@ -130,13 +135,15 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
                             | None -> containerRef.ListBlobsSegmentedAsync(token)
                             | Some prefix -> containerRef.ListBlobsSegmentedAsync(prefix, token)
                         for blob in result.Results do
-                            let p = blob.Uri.Segments |> Array.last
-                            blobs.Add(Path.Combine(container, p))
+                            match blob with
+                            | :? ICloudBlob as icb -> blobs.Add(icb.Name)
+                            | _ -> ()
                         if result.ContinuationToken = null then return ()
                         else return! aux result.ContinuationToken
                     }
                     do! aux null
-                    return blobs.ToArray()
+                    return this.Combine(container, blobs)
+                           |> Seq.toArray
 
                 with e when NotFound e ->
                     return raise <| new DirectoryNotFoundException(container, e)
@@ -145,6 +152,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.DeleteFile(path: string) : Async<unit> = 
             async {
                 try
+                    let path = normalizePath path
                     let! blob = getBlobReference acc path
                     do! blob.DeleteAsync()
                 with e when NotFound e ->
@@ -153,6 +161,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
 
         member this.DirectoryExists(container: string) : Async<bool> = 
             async {
+                let container = normalizePath container
                 let path = StoreDirectory.Parse container
                 match path.Container with
                 | Container _ as c ->
@@ -164,6 +173,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         
         member this.CreateDirectory(container: string) : Async<unit> = 
             async {
+                let container = normalizePath container
                 let path = StoreDirectory.Parse container
                 match path.Container with
                 | Container _ as c ->
@@ -176,7 +186,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
 
         member this.DeleteDirectory(container: string, recursiveDelete : bool) : Async<unit> = 
             async {
-                ignore recursiveDelete
+                let container = normalizePath container
                 let path = StoreDirectory.Parse container
                 match path with
                 | { Container = Root; SubDirectory = _ } -> failwith "Deleting root directory not supported."
@@ -201,6 +211,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.EnumerateDirectories(directory : string) : Async<string []> = 
             async {
                 try
+                    let directory = normalizePath directory
                     let path = StoreDirectory.Parse directory
                     match path with
                     | { Container = Root; SubDirectory = _ } ->
@@ -215,6 +226,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
 
         member this.WriteETag(path: string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = 
             async {
+                let path = normalizePath path
                 let! blob = getBlobReference acc path
                 // http://msdn.microsoft.com/en-us/library/azure/dd179431.aspx
                 let! result = async {
@@ -228,24 +240,27 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
         member this.BeginRead(path: string) : Async<Stream> = 
             async {
                 try
+                    let path = normalizePath path
                     let! blob = getBlobReference acc path
                     return! blob.OpenReadAsync()
                 with e when NotFound e ->
                     return raise <| new FileNotFoundException(path, e)
             }
 
-        member this.CopyOfStream(source: Stream, target: string) : Async<unit> = 
+        member this.CopyOfStream(source: Stream, path: string) : Async<unit> = 
             async {
-                let! blob = getBlobReference acc target
+                let path = normalizePath path
+                let! blob = getBlobReference acc path
                 let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
                 do! blob.UploadFromStreamAsync(source, null, options, OperationContext()).ContinueWith ignore
             }
         
-        member this.CopyToStream(sourceFile: string, target: Stream) : Async<unit> = 
+        member this.CopyToStream(path: string, target: Stream) : Async<unit> = 
             async {
                 try
-                    let! blob = getBlobReference acc sourceFile
+                    let path = normalizePath path
+                    let! blob = getBlobReference acc path
                     do! blob.DownloadToStreamAsync(target).ContinueWith ignore
                 with e when NotFound e ->
-                    return raise <| new FileNotFoundException(sourceFile, e)
+                    return raise <| new FileNotFoundException(path, e)
             }

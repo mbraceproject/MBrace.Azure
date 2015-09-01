@@ -41,7 +41,37 @@ let getRandomName () =
 
 open Microsoft.WindowsAzure.Storage.Table
 
+//cloudvalue0x10x00000/FSharpList`1[Int32]-f5zm2-npqhxd3us7tn3czma7rlmr6vgq.cv
+
 let acc = CloudStorageAccount.Parse(store)
+let client = acc.CreateCloudBlobClient()
+let containerRef = client.GetContainerReference("cloudvalue0x10x00000")
+
+for b  in containerRef.ListBlobs() do
+    match b with
+    | :? ICloudBlob as icb ->
+        printfn "%A"  icb.Name
+    | _ -> ()
+
+
+let blob = containerRef.GetBlockBlobReference("FSharpList`1[Int32]-f5zm2-npqhxd3us7tn3czma7rlmr6vgq.cv")
+blob.Exists()
+blob.FetchAttributes()
+blob.Properties.Length
+let stream = blob.OpenRead()
+stream.Length
+while stream.ReadByte() <> -1 do ()
+
+blob.Name
+blob.Uri
+
+
+
+
+
+
+
+
 let client = acc.CreateCloudTableClient()
 let name = getRandomName()
 let table = client.GetTableReference(name)

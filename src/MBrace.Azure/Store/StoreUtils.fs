@@ -8,11 +8,24 @@ open Microsoft.WindowsAzure.Storage
 
 open MBrace.Azure.Runtime.Utilities
 
-
+// TODO : merge with global runtime utils file
 
 [<AutoOpen>]
 module internal Utils =
     
+    let rootPath = "/"
+    let rootPathAlt = @"\"
+    let delims = [|'/'; '\\'|]
+
+    let isPathRooted (path : string) =
+        path.StartsWith rootPath || path.StartsWith rootPathAlt
+
+    let normalizePath (path : string) =
+        if isPathRooted path then path else Path.Combine(rootPath, path)
+
+    let ensureRooted (path : string) =
+        if isPathRooted path then path else raise <| FormatException(sprintf "Invalid path %A. Paths should start with '/' or '\\'." path)
+
     /// Azure blob container.
     type Container =
         | Root
@@ -26,9 +39,10 @@ module internal Utils =
         }
 
         static member Parse(path : string) =
-            let xs = path.Split([| '/'; '\\' |], 2)
+            let path = ensureRooted path    
+            let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
             match xs with
-            | [|c|] when c = "" || c = "$root" -> { Container = Root; SubDirectory = None }
+            | [||] -> { Container = Root; SubDirectory = None }
             | [|c|] -> { Container = Container c; SubDirectory = None }
             | [|c; x|] -> { Container = Container c; SubDirectory = Some x }
             | _ -> failwith "Invalid store path %A" path
@@ -37,18 +51,17 @@ module internal Utils =
     type StorePath =
         {
             Container : Container
-            RelativePath : string 
+            BlobName : string 
         }
 
         static member Parse(path : string) =
-            let xs = path.Split([| '/'; '\\' |], 2)
+            let path = ensureRooted path    
+            let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
             match xs with
-            | [|x|] -> { Container = Root; RelativePath = x }
-            | [|"$root"; x|] -> { Container = Root; RelativePath = x }
-            | [|c; x|] -> { Container = Container c; RelativePath = x }
+            | [|x|] -> { Container = Root; BlobName = x }
+            | [|c; x|] -> { Container = Container c; BlobName = x }
             | _ -> failwith "Invalid store path %A" path
 
-    // TODO : merge with global runtime utils file
 
     let validateContainerName =
         //https://msdn.microsoft.com/en-us/library/azure/dd135715.aspx
@@ -103,5 +116,5 @@ module internal Utils =
             match path.Container with
             | Container _ -> container.CreateIfNotExists()
             | Root -> true
-        return container.GetBlockBlobReference(path.RelativePath)
+        return container.GetBlockBlobReference(path.BlobName)
     }
