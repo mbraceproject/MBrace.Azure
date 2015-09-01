@@ -21,12 +21,10 @@ type ``Azure CloudFlow Tests`` (session : RuntimeSession) as self =
     member __.Session = session
 
     [<TestFixtureSetUp>]
-    abstract Init : unit -> unit
-    default __.Init () = session.Start()
+    member __.Init () = session.Start()
 
     [<TestFixtureTearDown>]
-    abstract Fini : unit -> unit
-    default __.Fini () = session.Stop()
+    member __.Fini () = session.Stop()
 
     override __.IsSupportedStorageLevel _ = true
 
@@ -45,4 +43,4 @@ type ``CloudFlow Standalone - Storage Emulator`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 4))
         
 type ``CloudFlow Standalone`` () =
-    inherit ``Azure CloudFlow Tests``(RuntimeSession(remoteConfig, 0))
+    inherit ``Azure CloudFlow Tests``(RuntimeSession(remoteConfig, 4))
