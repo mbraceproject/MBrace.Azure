@@ -9,10 +9,6 @@ open MBrace.Runtime.Components
 open MBrace.ThreadPool
 open MBrace.Azure.Store
 open MBrace.Azure.Tests
-
-[<AutoOpen>]
-module private Config = 
-    open MBrace.Azure
     
     
 [<TestFixture>]

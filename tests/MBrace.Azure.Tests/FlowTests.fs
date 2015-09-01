@@ -40,24 +40,9 @@ type ``Azure CloudFlow Tests`` (session : RuntimeSession) as self =
 
 type ``CloudFlow Compute - Storage Emulator`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 0))
-    
-    [<TestFixtureSetUp>]
-    override __.Init () = base.Init()
-    [<TestFixtureTearDown>]
-    override __.Fini () = base.Fini()
 
 type ``CloudFlow Standalone - Storage Emulator`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 4))
-
-    [<TestFixtureSetUp>]
-    override __.Init () = base.Init()
-    [<TestFixtureTearDown>]
-    override __.Fini () = base.Fini()
         
 type ``CloudFlow Standalone`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(remoteConfig, 0))
-    
-    [<TestFixtureSetUp>]
-    override __.Init () = base.Init()
-    [<TestFixtureTearDown>]
-    override __.Fini () = base.Fini()

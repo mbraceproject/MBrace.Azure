@@ -79,25 +79,9 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
 
 type ``Compute - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 0))
-    
-    [<TestFixtureSetUp>]
-    member __.Init () = base.Init()
-    [<TestFixtureTearDown>]
-    member __.Fini () = base.Fini()
 
 type ``Standalone - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 4))
 
-    [<TestFixtureSetUp>]
-    member __.Init () = base.Init()
-    [<TestFixtureTearDown>]
-    member __.Fini () = base.Fini()
-
-
 type ``Standalone`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(remoteConfig, 4))
-
-    [<TestFixtureSetUp>]
-    member __.Init () = base.Init()
-    [<TestFixtureTearDown>]
-    member __.Fini () = base.Fini()

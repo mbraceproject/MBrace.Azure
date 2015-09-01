@@ -58,13 +58,16 @@ type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
     
     let mutable state = None
 
-    member __.Start () = 
-        let runtime = 
-            if localWorkers < 1 then
-                MBraceCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
-            else
-                MBraceCluster.InitOnCurrentMachine(config, localWorkers, maxJobs = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
-        state <- Some runtime
+    member __.Start () =
+        match state with
+        | Some _ -> invalidOp "MBrace runtime already initialized."
+        | None -> 
+            let runtime = 
+                if localWorkers < 1 then
+                    MBraceCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+                else
+                    MBraceCluster.InitOnCurrentMachine(config, localWorkers, maxJobs = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+            state <- Some runtime
 
     member __.Stop () =
         state |> Option.iter (fun r -> (r.KillAllLocalWorkers() ; r.Reset(true, true, true, true, true, true, false)))
