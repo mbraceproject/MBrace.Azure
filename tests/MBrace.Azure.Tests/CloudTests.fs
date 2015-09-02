@@ -64,7 +64,7 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
 
     [<Test>]
     member __.``Z4. Runtime : Get process id`` () =
-        run (Cloud.GetProcessId()) |> Choice.shouldBe (fun _ -> true)
+        run (Cloud.GetCloudTaskId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z4. Runtime : Get task id`` () =
