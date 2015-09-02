@@ -55,12 +55,6 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
     override __.UsesSerialization = true
 
     [<Test>]
-    member __.``Z4. Runtime : CloudValue`` () =
-        let input = [|1 .. 400000|]
-        let cloudValue = CloudValue.New(input, storageLevel = StorageLevel.Disk) |> session.Runtime.RunOnCloud
-        cloudValue.Value |> shouldEqual input
-
-    [<Test>]
     member __.``Z4. Runtime : Get worker count`` () =
         run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers |> Seq.length)
 
@@ -77,11 +71,11 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
         run (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
 
 
-type ``Compute - Storage Emulator`` () =
+type ``Cloud Tests - Compute Emulator`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 0))
 
-type ``Standalone - Storage Emulator`` () =
+type ``Cloud Tests - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 4))
 
-type ``Standalone`` () =
+type ``Cloud Tests - Standalone`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(remoteConfig, 4))

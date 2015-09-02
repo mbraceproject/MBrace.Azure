@@ -31,16 +31,17 @@ type ``Azure CloudFlow Tests`` (session : RuntimeSession) as self =
     override __.RunOnCloud (workflow : Cloud<'T>) = 
         session.Runtime.RunOnCloud(workflow)
 
-    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
+    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = 
+        session.Runtime.RunOnCurrentProcess(workflow)
 
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3
 
-type ``CloudFlow Compute - Storage Emulator`` () =
+type ``CloudFlow Tests - Compute Emulator`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 0))
 
-type ``CloudFlow Standalone - Storage Emulator`` () =
+type ``CloudFlow Tests - Storage Emulator`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 4))
         
-type ``CloudFlow Standalone`` () =
+type ``CloudFlow Tests - Standalone`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(remoteConfig, 4))
