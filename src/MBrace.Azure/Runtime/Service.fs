@@ -18,7 +18,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable configuration         = config
     let mutable maxJobs               = Environment.ProcessorCount
     let mutable workerAgent           = None : WorkerAgent option
-    let loggers                       = new ResizeArray<ISystemLogger>()
+    let attachableLogger              = AttacheableLogger.Create(makeAsynchronous = true)
     
     let check () = 
         match workerAgent with
@@ -31,9 +31,14 @@ type Service (config : Configuration, serviceId : string) =
     /// Get service's unique identifier.
     member this.Id = serviceId
     
-    /// Attach logger to worker.
-    member this.AttachLogger(logger) = check(); loggers.Add(logger)
+    /// Attach logger to worker. Return an unsubscribe token.
+    member this.AttachLogger(logger : ISystemLogger) = check(); attachableLogger.AttachLogger(logger)
     
+    /// Get or set the logger verbosity.
+    member this.LogLevel
+        with get () = attachableLogger.LogLevel
+        and  set l = check (); attachableLogger.LogLevel <- l
+
     /// Get or set service configuration.
     member this.Configuration  
         with get () = configuration
@@ -89,21 +94,19 @@ type Service (config : Configuration, serviceId : string) =
     /// Asynchronously start Service and worker loop.
     member this.StartAsync() : Async<unit> =
         async {
-            // TODO : Add Configuration check.
-            loggers.Add(SystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, serviceId))
-            let logger = AttacheableLogger.FromLoggers(loggers)
             try
                 let sw = Stopwatch.StartNew()
+                let _ = attachableLogger.AttachLogger(SystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, serviceId))
 
-                logger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
+                attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
 
-                let! agent = Initializer.Init(config, this.Id, logger, this.UseAppDomainIsolation, this.MaxConcurrentJobs, customResources)
+                let! agent = Initializer.Init(config, this.Id, attachableLogger, this.UseAppDomainIsolation, this.MaxConcurrentJobs, customResources)
                 workerAgent <- Some agent
                 sw.Stop()
-                logger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
+                attachableLogger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
                 return ()
             with ex ->
-                logger.LogErrorf "Service Start for %A failed with %A" this.Id ex
+                attachableLogger.LogErrorf "Service Start for %A failed with %A" this.Id ex
                 // TODO : finalize
                 return! Async.Raise ex
         }
@@ -122,14 +125,13 @@ type Service (config : Configuration, serviceId : string) =
     /// Stop Service and worker loop. Wait for any pending jobs.
     member this.StopAsync () =
         async {
-            let logger = AttacheableLogger.FromLoggers(loggers)
             try
-                logger.LogInfof "Stopping Service %A." serviceId
+                attachableLogger.LogInfof "Stopping Service %A." serviceId
                 do! workerAgent.Value.Stop()
-                logger.LogInfof "Service %A stopped." serviceId
+                attachableLogger.LogInfof "Service %A stopped." serviceId
             with ex ->
                 // TODO : Handle error
-                logger.LogErrorf "Service Stop for %A failed with %A" this.Id ex
+                attachableLogger.LogErrorf "Service Stop for %A failed with %A" this.Id ex
                 return! Async.Raise ex
         }
 

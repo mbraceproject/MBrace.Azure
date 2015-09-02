@@ -4,13 +4,14 @@ open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Runtime
 
-// TODO replace with UnionArgParser
+// TODO replace with Argu
 /// BASE64 serialized argument parsing schema
     
 type Config = { 
     Configuration : Configuration
-    MaxTasks : int
+    MaxJobs : int
     Name : string option
+    LogLevel : LogLevel option
 }
 with
     static member ToBase64Pickle (config : Config) =

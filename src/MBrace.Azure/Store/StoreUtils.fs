@@ -8,10 +8,60 @@ open Microsoft.WindowsAzure.Storage
 
 open MBrace.Azure.Runtime.Utilities
 
+// TODO : merge with global runtime utils file
+
 [<AutoOpen>]
 module internal Utils =
+    
+    let rootPath = "/"
+    let rootPathAlt = @"\"
+    let delims = [|'/'; '\\'|]
 
-    // TODO : merge with global runtime utils file
+    let isPathRooted (path : string) =
+        path.StartsWith rootPath || path.StartsWith rootPathAlt
+
+    let normalizePath (path : string) =
+        if isPathRooted path then path else Path.Combine(rootPath, path)
+
+    let ensureRooted (path : string) =
+        if isPathRooted path then path else raise <| FormatException(sprintf "Invalid path %A. Paths should start with '/' or '\\'." path)
+
+    /// Azure blob container.
+    type Container =
+        | Root
+        | Container of string
+    
+    /// Represents a 'directory' in blob storage.
+    type StoreDirectory =
+        {
+            Container : Container
+            SubDirectory : string option
+        }
+
+        static member Parse(path : string) =
+            let path = ensureRooted path    
+            let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
+            match xs with
+            | [||] -> { Container = Root; SubDirectory = None }
+            | [|c|] -> { Container = Container c; SubDirectory = None }
+            | [|c; x|] -> { Container = Container c; SubDirectory = Some x }
+            | _ -> failwith "Invalid store path %A" path
+
+    /// Represents a full path to a blob.
+    type StorePath =
+        {
+            Container : Container
+            BlobName : string 
+        }
+
+        static member Parse(path : string) =
+            let path = ensureRooted path    
+            let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
+            match xs with
+            | [|x|] -> { Container = Root; BlobName = x }
+            | [|c; x|] -> { Container = Container c; BlobName = x }
+            | _ -> failwith "Invalid store path %A" path
+
 
     let validateContainerName =
         //https://msdn.microsoft.com/en-us/library/azure/dd135715.aspx
@@ -20,10 +70,12 @@ module internal Utils =
         let valid = letters + nums + Set.singleton '-'
         fun (container : string) ->
             let isValid =
-                container.Length >= 3 
-                && container.Length <= 63
-                && container |> Seq.forall valid.Contains
-                && container |> Seq.head <> '-'
+                container = ""
+                || container = "$root"
+                || (container.Length >= 3 
+                    && container.Length <= 63
+                    && container |> Seq.forall valid.Contains
+                    && container |> Seq.head <> '-')
             if not isValid then failwithf "Invalid container '%s'" container
             
 
@@ -41,23 +93,28 @@ module internal Utils =
     /// </summary>
     /// <param name="account">Storage account instance.</param>
     /// <param name="container">Container name</param>
-    let getContainer (account : CloudStorageAccount) (container : string) = 
-        validateContainerName container
+    let getContainerReference (account : CloudStorageAccount) (container : Container) = 
         let client = getBlobClient account
-        client.GetContainerReference container
+        match container with
+        | Root -> 
+            let root = client.GetRootContainerReference()
+            let _ = root.CreateIfNotExists()
+            root
+        | Container c ->
+            validateContainerName c
+            client.GetContainerReference c
 
     /// <summary>
     ///     Creates a blob reference given account and full path.
     /// </summary>
     /// <param name="account">Cloud storage account.</param>
     /// <param name="path">Path to blob.</param>
-    let getBlobRef account (path : string) = async {
-        let container, blob = 
-            match path.Split([|'/'; '\\'|], 2) with
-            | [|c; b |] -> c, b
-            | [|_|] -> failwithf "Invalid path '%s'. Top level files not allowed." path
-            | _ -> failwithf "Invalid path '%s'." path
-        let container = getContainer account container
-        let! _ = container.CreateIfNotExistsAsync()
-        return container.GetBlockBlobReference(blob)
+    let getBlobReference account (fullPath : string) = async {
+        let path = StorePath.Parse fullPath
+        let container = getContainerReference account path.Container
+        let _ =
+            match path.Container with
+            | Container _ -> container.CreateIfNotExists()
+            | Root -> true
+        return container.GetBlockBlobReference(path.BlobName)
     }

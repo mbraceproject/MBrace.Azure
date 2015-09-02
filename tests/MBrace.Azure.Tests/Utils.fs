@@ -15,10 +15,11 @@ open MBrace.Azure
 
 open MBrace.Core.Tests
 
+[<AutoOpenAttribute>]
 module Utils =
     open System
 
-    let selectEnv name =
+    let private selectEnv name =
         (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
           Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
             Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Process))
@@ -27,6 +28,10 @@ module Utils =
            | _, s, _ when not <| String.IsNullOrEmpty(s) -> s
            | _, _, s when not <| String.IsNullOrEmpty(s) -> s
            | _ -> failwithf "Variable %A not found" name
+
+    let remoteConfig = new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
+    let emulatorConfig = new Configuration("UseDevelopmentStorage=true", selectEnv "azureservicebusconn")
+
 
 module Choice =
 
@@ -47,17 +52,25 @@ module Choice =
         | Choice2Of2 e -> should be instanceOfType<'Exn> e
 
 
-type RuntimeSession(config : MBrace.Azure.Configuration) =
+type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
 
+    static do MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+    
     let mutable state = None
 
-    member __.Start () = 
-        let runtime = MBraceAzure.GetHandle(config)
-        runtime.EnableClientConsoleLogger <- true
-        state <- Some runtime
+    member __.Start () =
+        match state with
+        | Some _ -> invalidOp "MBrace runtime already initialized."
+        | None -> 
+            let runtime = 
+                if localWorkers < 1 then
+                    MBraceCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+                else
+                    MBraceCluster.InitOnCurrentMachine(config, localWorkers, maxJobs = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+            state <- Some runtime
 
     member __.Stop () =
-        state |> Option.iter (fun r -> (r.KillLocalWorker() ; r.Reset(true, true, true, true, true, true, false)))
+        state |> Option.iter (fun r -> (r.KillAllLocalWorkers() ; r.Reset(true, true, true, true, true, true, false)))
         state <- None
 
     member __.Runtime =

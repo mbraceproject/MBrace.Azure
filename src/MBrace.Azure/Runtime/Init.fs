@@ -9,7 +9,7 @@ open MBrace.Core
 type internal Initializer =
     static member Init(config : Configuration,
                         workerId : string, 
-                        logger : ISystemLogger, 
+                        logger : AttacheableLogger, 
                         useAppDomainIsolation : bool,
                         maxConcurrentJobs : int, 
                         customResources : ResourceRegistry) =
