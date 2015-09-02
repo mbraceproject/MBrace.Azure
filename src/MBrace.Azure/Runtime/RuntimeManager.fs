@@ -20,8 +20,8 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
     let taskManager   = TaskManager.Create(config, systemLogger)
     do systemLogger.LogInfo "Creating assembly manager"
     let store = resources.Resolve<ICloudFileStore>()
-    do logger.LogInfo "Creating maintenance manager"
-    let maintenanceManager = MaintenanceManager.Create(config, uuid, jobManager, taskManager, workerManager, logger)    
+    do systemLogger.LogInfo "Creating maintenance manager"
+    let maintenanceManager = MaintenanceManager.Create(config, uuid, jobManager, taskManager, workerManager, systemLogger)    
 
     let assemblyManager =
         let serializer = resources.Resolve<ISerializer>()
@@ -153,7 +153,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
         logger.LogInfof "Creating RuntimeManager for Worker %A" workerId
         let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, logger, resources)
         runtime.SetLocalWorkerId(workerId)
-        customLogger.LogInfof "Starting maintenance manager"
+        logger.LogInfof "Starting maintenance manager"
         runtime.StartMaintenanceManager()
         runtime
 
