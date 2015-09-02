@@ -40,6 +40,7 @@ type JobManager private (config : ConfigurationId, logger : ISystemLogger) =
                     | Choice1Of2 m -> return m
                     | Choice2Of2 e -> 
                         logger.Logf LogLevel.Error "Async receive loop error %A" e
+                        do! Async.Sleep 1000
                         return None
             }
             match newMessage with
