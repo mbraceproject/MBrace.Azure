@@ -56,29 +56,34 @@ type JobManager private (config : ConfigurationId, workerManager : WorkerManager
     let rec cleanup () = async {
         do! Async.Sleep(int(0.5 * WorkerManager.MaxHeartbeatTimespan.TotalMilliseconds))
         let! result = Async.Catch <| async {
-            logger.LogInfof "JobManager : performing cleanup"
+            logger.LogInfof "JobManager : performing maintenance."
             let! workersToCheck = workerManager.GetInactiveWorkers()
+            let workersToCheck =
+                workersToCheck
+                |> Array.sortBy (fun w -> w.LastHeartbeat)
+                |> Array.rev
             let level = if workersToCheck.Length > 0 then LogLevel.Warning else LogLevel.Info
             logger.Logf level "JobManager : found %d inactive workers." workersToCheck.Length
             for worker in workersToCheck do
                 let workerSubscription = topic.GetSubscription(worker.Id)
                 logger.LogInfof "JobManager : checking worker %A queue." worker.Id
-                // process at most 'messageCount' messages.
-                // spin until maintainance message slot is free
-                let rec loop flag = async {
-                    if flag then
+                let rec loop flag retry = async {
+                    if flag || retry < 20 then
                         match maintenanceMessage.Value with
                         | Some _ ->
                             do! Async.Sleep 20
-                            return! loop flag
+                            return! loop flag retry
                         | None ->
                             let! message = workerSubscription.TryDequeue()
-                            if message.IsSome then logger.LogInfof "JobManager : dequeued message for worker %A" worker.Id
                             maintenanceMessage := message
-                            return! loop message.IsSome
+                            if message.IsSome then 
+                                logger.LogInfof "JobManager : dequeued message for worker %A" worker.Id
+                                return! loop true 0
+                            else
+                                return! loop false (retry + 1)
                 }
 
-                do! loop true
+                do! loop true 0
             }
 
         match result with

@@ -82,7 +82,7 @@ type WorkerId internal (workerId) =
     override this.GetHashCode() = hash workerId
 
 [<AutoSerializable(false)>]
-type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) as this =
+type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
 
     let pickle (value : 'T) = Config.Pickler.Pickle(value)
     let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
@@ -101,50 +101,50 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) as
                 ProcessorCount = record.ProcessorCount.GetValueOrDefault(-1)
                 MaxJobCount = record.MaxJobs.GetValueOrDefault(-1) } } 
 
-    /// Attempts to find non-responsive workers and fix their status. Returns whether any non-responsive workers were found.
-    let rec cleanup () : Async<unit> =
-        async { 
-            do! Async.Sleep(int(0.2 * WorkerManager.MaxHeartbeatTimespan.TotalMilliseconds))
-            let! result = Async.Catch <| async {
-                logger.LogInfo "WorkerManager : checking worker status"
-
-                let! nonResponsiveWorkers = this.GetNonResponsiveWorkers()
-
-                let level = if nonResponsiveWorkers.Length > 0 then LogLevel.Warning else LogLevel.Info
-                logger.Logf level "WorkerManager : found %d non-responsive workers" nonResponsiveWorkers.Length
-                // TODO : Should we set status to Stopped, or add an extra faulted status?
-                // Using QueueFault for now.
-                let mkFault worker = 
-                    let e = RuntimeException(sprintf "Worker %O failed to give heartbeat." worker)
-                    let edi = ExceptionDispatchInfo.Capture e
-                    QueueFault edi
-
-                do! nonResponsiveWorkers
-                    |> Array.map (fun w -> 
-                        async { 
-                            try 
-                                do! (this :> IWorkerManager).DeclareWorkerStatus(w.Id, mkFault w.Id)
-                            with ex -> 
-                                logger.LogWarningf "WorkerManager : failed to change status for worker %O : %A" w.Id ex
-                                return ()
-                        })
-                    |> Async.Parallel
-                    |> Async.Ignore
-            }
-
-            match result with
-            | Choice1Of2 () -> logger.LogInfo "WorkerManager : maintenance complete."
-            | Choice2Of2 ex -> logger.LogWarningf "WorkerManager : maintenance failed with : %A" ex
-
-            return! cleanup ()
-        }
+//    /// Attempts to find non-responsive workers and fix their status. Returns whether any non-responsive workers were found.
+//    let rec cleanup () : Async<unit> =
+//        async { 
+//            do! Async.Sleep(int(0.2 * WorkerManager.MaxHeartbeatTimespan.TotalMilliseconds))
+//            let! result = Async.Catch <| async {
+//                logger.LogInfo "WorkerManager : checking worker status"
+//
+//                let! nonResponsiveWorkers = this.GetNonResponsiveWorkers()
+//
+//                let level = if nonResponsiveWorkers.Length > 0 then LogLevel.Warning else LogLevel.Info
+//                logger.Logf level "WorkerManager : found %d non-responsive workers" nonResponsiveWorkers.Length
+//                // TODO : Should we set status to Stopped, or add an extra faulted status?
+//                // Using QueueFault for now.
+//                let mkFault worker = 
+//                    let e = RuntimeException(sprintf "Worker %O failed to give heartbeat." worker)
+//                    let edi = ExceptionDispatchInfo.Capture e
+//                    QueueFault edi
+//
+//                do! nonResponsiveWorkers
+//                    |> Array.map (fun w -> 
+//                        async { 
+//                            try 
+//                                do! (this :> IWorkerManager).DeclareWorkerStatus(w.Id, mkFault w.Id)
+//                            with ex -> 
+//                                logger.LogWarningf "WorkerManager : failed to change status for worker %O : %A" w.Id ex
+//                                return ()
+//                        })
+//                    |> Async.Parallel
+//                    |> Async.Ignore
+//            }
+//
+//            match result with
+//            | Choice1Of2 () -> logger.LogInfo "WorkerManager : maintenance complete."
+//            | Choice2Of2 ex -> logger.LogWarningf "WorkerManager : maintenance failed with : %A" ex
+//
+//            return! cleanup ()
+//        }
 
 
     /// Max interval between heartbeats, used to determine if a worker is alive.
     static member MaxHeartbeatTimespan : TimeSpan = TimeSpan.FromMinutes(5.)
 
-    /// Start worker maintenance service.
-    member this.EnableMaintenance () = Async.Start(cleanup())
+    ///// Start worker maintenance service.
+    //member this.EnableMaintenance () = Async.Start(cleanup())
 
     /// 'Running' workers that fail to give heartbeats.
     member this.GetNonResponsiveWorkers () : Async<WorkerState []> =
@@ -158,16 +158,12 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) as
                                 | _ -> false)
         }
 
-    /// 'Stopped' or faulted workers.
+    /// Workers that fail to give heartbeats.
     member this.GetInactiveWorkers () : Async<WorkerState []> =
         async {
             let! workers = this.GetAllWorkers()
             let now = DateTime.UtcNow
-            return workers |> Array.filter (fun w -> 
-                                match w.ExecutionStatus with
-                                | WorkerJobExecutionStatus.Running when now - w.LastHeartbeat <= WorkerManager.MaxHeartbeatTimespan -> 
-                                    false
-                                | _ -> true)
+            return workers |> Array.filter (fun w -> now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan)
         }
 
     member this.GetAllWorkers(): Async<WorkerState []> = 

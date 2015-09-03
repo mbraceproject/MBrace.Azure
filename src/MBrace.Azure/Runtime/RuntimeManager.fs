@@ -95,9 +95,6 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
     member private this.SetLocalWorkerId(workerId : IWorkerId) =
         jobManager.SetLocalWorkerId(workerId)
 
-    member private this.EnableWorkerMaintenance () =
-        workerManager.EnableMaintenance()
-
     interface IRuntimeManager with
         member this.Id                       = config :> _
         member this.Serializer               = Config.Pickler :> _
@@ -152,7 +149,6 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
         logger.LogInfof "Creating RuntimeManager for Worker %A" workerId
         let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, logger, resources)
         runtime.SetLocalWorkerId(workerId)
-        runtime.EnableWorkerMaintenance()
         runtime
 
     static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) =
