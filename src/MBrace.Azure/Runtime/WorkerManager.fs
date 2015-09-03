@@ -148,8 +148,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
     member this.UnsubscribeWorker(id : IWorkerId) =
         async {
             logger.Logf LogLevel.Info "Unsubscribing worker %O" id
-            let record = new WorkerRecord(id.Id)
-            return! Table.delete config config.RuntimeTable record // TODO : should this be delete or set status to Stopped?
+            return! (this :> IWorkerManager).DeclareWorkerStatus(id, WorkerJobExecutionStatus.Stopped)
         }
 
     interface IWorkerManager with
