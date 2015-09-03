@@ -15,14 +15,12 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
     do systemLogger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(config, systemLogger)
     do systemLogger.LogInfo "Creating job manager"
-    let jobManager    = JobManager.Create(config, systemLogger)
+    let jobManager    = JobManager.Create(config, workerManager, systemLogger)
     do systemLogger.LogInfo "Creating task manager"
     let taskManager   = TaskManager.Create(config, systemLogger)
     do systemLogger.LogInfo "Creating assembly manager"
     let store = resources.Resolve<ICloudFileStore>()
-    do systemLogger.LogInfo "Creating maintenance manager"
-    let maintenanceManager = MaintenanceManager.Create(config, uuid, jobManager, taskManager, workerManager, systemLogger)    
-
+    
     let assemblyManager =
         let serializer = resources.Resolve<ISerializer>()
         let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = config.VagabondContainer)
@@ -46,8 +44,6 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
     member this.RuntimeManagerId = uuid
     member this.Resources = resources
     member this.ConfigurationId = config
-
-    member this.StartMaintenanceManager() = maintenanceManager.Start()
 
     member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
         async {
@@ -98,6 +94,9 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
 
     member private this.SetLocalWorkerId(workerId : IWorkerId) =
         jobManager.SetLocalWorkerId(workerId)
+
+    member private this.EnableWorkerMaintenance () =
+        workerManager.EnableMaintenance()
 
     interface IRuntimeManager with
         member this.Id                       = config :> _
@@ -153,8 +152,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
         logger.LogInfof "Creating RuntimeManager for Worker %A" workerId
         let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, logger, resources)
         runtime.SetLocalWorkerId(workerId)
-        logger.LogInfof "Starting maintenance manager"
-        runtime.StartMaintenanceManager()
+        runtime.EnableWorkerMaintenance()
         runtime
 
     static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) =

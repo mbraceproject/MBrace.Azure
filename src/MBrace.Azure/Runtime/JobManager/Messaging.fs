@@ -261,9 +261,14 @@ type internal MessagingClient private () =
                 let! faultInfo = async {
                     logger.Logf LogLevel.Debug "%O : delivery count = %d" jobInfo jobInfo.DeliveryCount
                     let faultCount = jobInfo.DeliveryCount - 1
-                    // On first delivery no fault
+
                     if faultCount = 0 then
-                        return NoFault
+                        match jobInfo.TargetWorker with
+                        | None -> return NoFault
+                        | Some target when target = localWorkerId.Id -> return NoFault
+                        | Some target ->
+                            newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedJobOfDeadWorker)
+                            return IsTargetedJobOfDeadWorker(faultCount, new WorkerId(target))
                     else
                         let! oldRecord = Table.read<JobRecord> config config.RuntimeTable jobInfo.ParentJobId (fromGuid jobInfo.JobId)
                         // two cases:
@@ -362,13 +367,13 @@ type internal MessagingClient private () =
 /// Local queue subscription client
 [<AutoSerializable(false)>]
 type internal Subscription (config : ConfigurationId, localWorkerId : IWorkerId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
-    let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+    let clientFactory = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
 
     do 
-        let ns = cp.NamespaceClient
+        let nsClient = clientFactory.NamespaceClient
         let topic = config.RuntimeTopic
         let affinity = targetWorkerId.Id
-        if not <| ns.SubscriptionExists(topic, affinity) then 
+        if not <| nsClient.SubscriptionExists(topic, affinity) then 
             logger.Logf LogLevel.Info "Creating new subscription for %A" affinity
             let sd = new SubscriptionDescription(topic, affinity)
             sd.DefaultMessageTimeToLive <- Settings.MaxTTL
@@ -377,25 +382,29 @@ type internal Subscription (config : ConfigurationId, localWorkerId : IWorkerId,
             let filter = new SqlFilter(sprintf "%s = '%s'" Settings.AffinityProperty affinity)
             let _description = 
                 retry (RetryPolicy.ExponentialDelay(3, 1.<sec>)) 
-                      (fun () -> ns.CreateSubscription(sd, filter))
+                      (fun () -> nsClient.CreateSubscription(sd, filter))
             ()
             
 
-    let sub = cp.SubscriptionClient(config.RuntimeTopic, targetWorkerId.Id)
+    let subscription = clientFactory.SubscriptionClient(config.RuntimeTopic, targetWorkerId.Id)
 
     member this.TargetWorkerId = targetWorkerId
 
+    member this.MessageCount = SubscriptionDescription(config.RuntimeTopic, targetWorkerId.Id).MessageCount
+
     member this.TryDequeue() : Async<JobLeaseToken option> = 
-        MessagingClient.TryDequeue(config, logger, localWorkerId, fun () -> sub.ReceiveAsync(Settings.ServerWaitTime))
+        MessagingClient.TryDequeue(config, logger, localWorkerId, fun () -> subscription.ReceiveAsync(Settings.ServerWaitTime))
         
 
 /// Local queue topic client
 [<AutoSerializable(false)>]
 type internal Topic (config : ConfigurationId, logger : ISystemLogger) = 
-    let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
-    let topic = cp.TopicClient(config.RuntimeTopic)
+    let clientFactory = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
+    let topic = clientFactory.TopicClient(config.RuntimeTopic)
     
     member val LocalWorkerId = Unchecked.defaultof<_> with get, set
+
+    member this.MessageCount = TopicDescription(config.RuntimeTopic).MessageCountDetails.ActiveMessageCount
 
     member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, this.LocalWorkerId, workerId, logger)
     
@@ -428,6 +437,8 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
     let queue = ConfigurationRegistry.Resolve<StoreClientProvider>(config).QueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
 
     member val LocalWorkerId = Unchecked.defaultof<_> with get, set
+
+    member this.MessageCount = QueueDescription(config.RuntimeQueue).MessageCount
 
     member this.EnqueueBatch(jobs : CloudJob []) = 
         MessagingClient.EnqueueBatch(config, logger, jobs, queue.SendBatchAsync)
