@@ -9,41 +9,43 @@ open MBrace.Azure
 open MBrace.Azure.Store
 
 [<AutoSerializable(false)>]
-type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogger : AttacheableLogger, resources : ResourceRegistry) =
-    do systemLogger.LogInfof "RuntimeManager Id = %A" (config :> IRuntimeId).Id
+type ClusterManager private (config : Configuration, uuid : string, systemLogger : AttacheableLogger, resources : ResourceRegistry) =
+    let configId = config.GetConfigurationId()
+    do systemLogger.LogInfof "RuntimeManager Id = %A" (configId :> IRuntimeId).Id
 
     do systemLogger.LogInfo "Creating worker manager"
-    let workerManager = WorkerManager.Create(config, systemLogger)
+    let workerManager = WorkerManager.Create(configId, systemLogger)
     do systemLogger.LogInfo "Creating job manager"
-    let jobManager    = JobManager.Create(config, systemLogger)
+    let jobManager    = JobManager.Create(configId, systemLogger)
     do systemLogger.LogInfo "Creating task manager"
-    let taskManager   = TaskManager.Create(config, systemLogger)
+    let taskManager   = TaskManager.Create(configId, systemLogger)
     do systemLogger.LogInfo "Creating assembly manager"
     let store = resources.Resolve<ICloudFileStore>()
 
     let assemblyManager =
         let serializer = resources.Resolve<ISerializer>()
-        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = config.VagabondContainer)
+        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = configId.VagabondContainer)
         StoreAssemblyManager.Create(config, localLogger = systemLogger)
 
     do
         let cloudValueProvider = resources.Resolve<ICloudValueProvider>()
         let csc = ClosureSiftConfiguration.Create(cloudValueProvider, siftThreshold = 5L * 1024L * 1024L)
         let manager = ClosureSiftManager.Create(csc, localLogger = systemLogger)
-        ConfigurationRegistry.Register<ClosureSiftManager>(config, manager)
+        ConfigurationRegistry.Register<ClosureSiftManager>(configId, manager)
 
     do systemLogger.LogInfo "Creating CloudLog manager"
-    let cloudLogManager = CloudLogManager.Create(config)
+    let cloudLogManager = CloudLogManager.Create(configId)
 
-    let cancellationEntryFactory = CancellationTokenFactory.Create(config)
-    let int32CounterFactory = Int32CounterFactory.Create(config)
-    let resultAggregatorFactory = ResultAggregatorFactory.Create(config)
+    let cancellationEntryFactory = CancellationTokenFactory.Create(configId)
+    let int32CounterFactory = Int32CounterFactory.Create(configId)
+    let resultAggregatorFactory = ResultAggregatorFactory.Create(configId)
 
     do systemLogger.LogInfo "RuntimeManager initialization complete"
 
     member this.RuntimeManagerId = uuid
     member this.Resources = resources
-    member this.ConfigurationId = config
+    member this.ConfigurationId = configId
+    member this.Configuration = config
 
     member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
         async {
@@ -56,30 +58,30 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
              
             
             if deleteQueues then 
-                systemLogger.LogWarningf "Deleting Queues %A, %A." config.RuntimeQueue config.RuntimeTable
-                do! Config.DeleteRuntimeQueues(config)
+                systemLogger.LogWarningf "Deleting Queues %A, %A." configId.RuntimeQueue configId.RuntimeTable
+                do! Config.DeleteRuntimeQueues(configId)
             
             if deleteState then 
-                systemLogger.LogWarningf "Deleting Container %A and Table %A." config.RuntimeContainer config.RuntimeTable
-                do! Config.DeleteRuntimeState(config)
+                systemLogger.LogWarningf "Deleting Container %A and Table %A." configId.RuntimeContainer configId.RuntimeTable
+                do! Config.DeleteRuntimeState(configId)
             
             if deleteLogs then 
-                systemLogger.LogWarningf "Deleting Logs Table %A." config.RuntimeLogsTable
-                do! Config.DeleteRuntimeLogs(config)
+                systemLogger.LogWarningf "Deleting Logs Table %A." configId.RuntimeLogsTable
+                do! Config.DeleteRuntimeLogs(configId)
 
             if deleteUserData then 
-                systemLogger.LogWarningf "Deleting UserData Container %A and Table %A." config.UserDataContainer config.UserDataTable
-                do! Config.DeleteUserData(config)
+                systemLogger.LogWarningf "Deleting UserData Container %A and Table %A." configId.UserDataContainer configId.UserDataTable
+                do! Config.DeleteUserData(configId)
 
             if deleteVagabondData then
-                systemLogger.LogWarningf "Deleting Vagadbond Container %A." config.VagabondContainer
-                do! Config.DeleteVagabondData(config)
+                systemLogger.LogWarningf "Deleting Vagadbond Container %A." configId.VagabondContainer
+                do! Config.DeleteVagabondData(configId)
     
             if reactivate then        
                 systemLogger.LogInfo "Reactivating configuration."
                 let rec loop retryCount = async {
                     systemLogger.LogInfof "RetryCount %d." retryCount
-                    let! step2 = Async.Catch <| Config.ReactivateAsync(config)
+                    let! step2 = Async.Catch <| Config.ReactivateAsync(configId)
                     match step2 with
                     | Choice1Of2 _ -> ()
                     | Choice2Of2 ex ->
@@ -96,7 +98,7 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
         jobManager.SetLocalWorkerId(workerId)
 
     interface IRuntimeManager with
-        member this.Id                       = config :> _
+        member this.Id                       = configId :> _
         member this.Serializer               = Config.Pickler :> _
         member this.WorkerManager            = workerManager :> _
         member this.TaskManager              = taskManager :> _
@@ -145,9 +147,9 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
         logger.LogInfof "Activating configuration with Id %A" config.Id
         Config.Activate(config, true)
         logger.LogInfof "Creating resources"
-        let resources = RuntimeManager.GetDefaultResources(config, customResources)
+        let resources = ClusterManager.GetDefaultResources(config, customResources)
         logger.LogInfof "Creating RuntimeManager for Worker %A" workerId
-        let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, logger, resources)
+        let runtime = new ClusterManager(config, workerId.Id, logger, resources)
         runtime.SetLocalWorkerId(workerId)
         runtime
 
@@ -157,16 +159,16 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
         logger.LogInfof "Activating configuration with Id %A" config.Id
         Config.Activate(config, false)
         logger.LogInfof "Creating resources"
-        let resources = RuntimeManager.GetDefaultResources(config, customResources)
+        let resources = ClusterManager.GetDefaultResources(config, customResources)
         logger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
-        let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, logger, resources)
+        let runtime = new ClusterManager(config, workerId.Id, logger, resources)
         runtime
 
     static member CreateForClient(config : Configuration, clientId : string, logger : AttacheableLogger, customResources) =
         logger.LogInfof "Activating configuration with Id %A" config.Id
         Config.Activate(config, true)
         logger.LogInfof "Creating resources"        
-        let resources = RuntimeManager.GetDefaultResources(config, customResources)
+        let resources = ClusterManager.GetDefaultResources(config, customResources)
         logger.LogInfof "Creating RuntimeManager for Client %A" clientId
-        let runtime = new RuntimeManager(config.GetConfigurationId(), clientId, logger, resources)
+        let runtime = new ClusterManager(config, clientId, logger, resources)
         runtime

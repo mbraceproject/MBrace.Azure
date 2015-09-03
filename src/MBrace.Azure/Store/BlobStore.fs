@@ -184,7 +184,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
                     return ()
             }
 
-        member this.DeleteDirectory(container: string, recursiveDelete : bool) : Async<unit> = 
+        member this.DeleteDirectory(container: string, _recursiveDelete : bool) : Async<unit> = 
             async {
                 let container = normalizePath container
                 let path = StoreDirectory.Parse container
