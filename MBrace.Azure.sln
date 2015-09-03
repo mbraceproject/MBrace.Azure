@@ -38,6 +38,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Azure.CloudService.W
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure", "src\MBrace.Azure\MBrace.Azure.fsproj", "{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "resource", "resource", "{744148AA-63A4-4E46-B782-7D9A9B7DC4A5}"
+	ProjectSection(SolutionItems) = preProject
+		resource\Mblue.res = resource\Mblue.res
+		resource\Mgrey.res = resource\Mgrey.res
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_AzureSDK|Any CPU = Debug_AzureSDK|Any CPU
@@ -92,5 +98,6 @@ Global
 		{BD922B57-1C69-4667-A3C1-B3E114A76ACD} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 		{82CE59AF-DC27-4A9E-AE5D-4D26C29CA056} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
+		{744148AA-63A4-4E46-B782-7D9A9B7DC4A5} = {BC64BD78-3886-4FC5-A6F9-2A71A99769B9}
 	EndGlobalSection
 EndGlobal

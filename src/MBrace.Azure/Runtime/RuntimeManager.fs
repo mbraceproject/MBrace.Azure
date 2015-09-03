@@ -157,14 +157,14 @@ type RuntimeManager private (config : ConfigurationId, uuid : string, systemLogg
         runtime.StartMaintenanceManager()
         runtime
 
-    static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, logger : MarshaledLogger, customResources) =
+    static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) =
+        let logger = AttacheableLogger.Create(makeAsynchronous = true)
+        let _ = logger.AttachLogger(mlogger)
         logger.LogInfof "Activating configuration with Id %A" config.Id
         Config.Activate(config, false)
         logger.LogInfof "Creating resources"
         let resources = RuntimeManager.GetDefaultResources(config, customResources)
         logger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
-        let logger = AttacheableLogger.Create(makeAsynchronous = true)
-        let _ = logger.AttachLogger(logger)
         let runtime = new RuntimeManager(config.GetConfigurationId(), workerId.Id, logger, resources)
         runtime
 

@@ -12,7 +12,7 @@ open MBrace.Azure.Tests
     
     
 [<TestFixture>]
-type ``Remote - BlobStore Tests``() = 
+type ``BlobStore Tests - Remote``() = 
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
     let session = new RuntimeSession(remoteConfig, 4)
     
@@ -28,7 +28,7 @@ type ``Remote - BlobStore Tests``() =
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 [<TestFixture>]
-type ``Storage Emulator - BlobStore Tests``() = 
+type ``BlobStore Tests - Storage Emulator``() = 
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
     let session = new RuntimeSession(emulatorConfig, 4)
     
@@ -44,7 +44,7 @@ type ``Storage Emulator - BlobStore Tests``() =
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 [<TestFixture>]
-type ``Remote - Atom Tests``() = 
+type ``Atom Tests - Remote``() = 
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(remoteConfig, 4)
     
@@ -59,7 +59,7 @@ type ``Remote - Atom Tests``() =
     override __.Repeats = 1
 
 [<TestFixture>]
-type ``Storage Emulator - Atom Tests``() = 
+type ``Atom Tests - Storage Emulator``() = 
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(emulatorConfig, 4)
     
@@ -74,7 +74,7 @@ type ``Storage Emulator - Atom Tests``() =
     override __.Repeats = 3
 
 [<TestFixture>]
-type ``Remote - Queue Tests``() = 
+type ``Queue Tests - Remote``() = 
     inherit ``CloudQueue Tests``(parallelismFactor = 10)
     let session = new RuntimeSession(remoteConfig, 4)
     
@@ -88,7 +88,7 @@ type ``Remote - Queue Tests``() =
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
 
 [<TestFixture>]
-type ``Storage Emulator - Dictionary Tests``() = 
+type ``Dictionary Tests - Storage Emulator``() = 
     inherit ``CloudDictionary Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(emulatorConfig, 4)
     
@@ -103,7 +103,7 @@ type ``Storage Emulator - Dictionary Tests``() =
     override __.IsInMemoryFixture = false
 
 [<TestFixture>]
-type ``Remote - Dictionary Tests``() = 
+type ``Dictionary Tests - Remote``() = 
     inherit ``CloudDictionary Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(remoteConfig, 4)
     
@@ -118,7 +118,7 @@ type ``Remote - Dictionary Tests``() =
     override __.IsInMemoryFixture = false
 
 [<TestFixture>]
-type ``Storage Emulator - CloudValue Tests``() = 
+type ``CloudValue Tests - Storage Emulator``() = 
     inherit ``CloudValue Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(emulatorConfig, 4)
     
@@ -133,7 +133,7 @@ type ``Storage Emulator - CloudValue Tests``() =
     override __.IsSupportedLevel _ = true
 
 [<TestFixture>]
-type ``Remote - CloudValue Tests``() = 
+type ``CloudValue Tests - Remote``() = 
     inherit ``CloudValue Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(remoteConfig, 4)
     
