@@ -23,7 +23,7 @@ type LogLevel = MBrace.Runtime.LogLevel
 /// Windows Azure Runtime client.
 /// </summary>
 [<AutoSerializable(false)>]
-type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogger) =
+type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogger) =
     inherit MBraceClient(manager)
 
     static let lockObj = obj()
@@ -92,6 +92,37 @@ type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogg
             | _ ->
                 failwithf "No local process with Id = %d found." worker.ProcessId
 
+    /// Delete and reactivate runtime state (queues, containers, tables and logs but not user folders).
+    /// Using 'Reset' may cause unexpected behavior in clients and workers.
+    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
+    member this.Reset () = 
+        (manager :> IRuntimeManager).ResetClusterState()
+        |> Async.RunSync
+
+    /// <summary>
+    /// Delete and re-activate runtime state.
+    /// Using 'Reset' may cause unexpected behavior in clients and workers.
+    /// Workers should be restarted manually.</summary>
+    /// <param name="deleteQueues">Delete Configuration queue and topic.</param>
+    /// <param name="deleteState">Delete Configuration table and containers.</param>
+    /// <param name="deleteLogs">Delete Configuration logs table.</param>
+    /// <param name="deleteUserData">Delete Configuration UserData table and container.</param>
+    /// <param name="deleteVagabondData">Delete Vagabond assembly data container.</param>
+    /// <param name="force">Ignore active workers.</param>
+    /// <param name="reactivate">Reactivate configuration.</param>
+    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
+    member this.Reset(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
+        manager.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate)
+        |> Async.RunSync
+
+    /// <summary>
+    ///     Spawns a worker instance in the local machine, subscribed to the current cluster configuration.
+    /// </summary>
+    /// <param name="maxJobs">Maximum number of concurrent jobs in the spawned worker.</param>
+    /// <param name="logLevel">LogLevel used by the worker.</param>
+    member this.AttachLocalWorker(?maxJobs:int, ?logLevel:LogLevel) =
+        MBraceCluster.SpawnOnCurrentMachine(manager.Configuration, 1, ?maxJobs = maxJobs, ?logLevel = logLevel)
+
     /// Gets or sets the path for a local standalone worker executable.
     static member LocalWorkerExecutable
         with get () = match localWorkerExecutable with None -> invalidOp "unset executable path." | Some e -> e
@@ -109,7 +140,7 @@ type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogg
     /// <param name="maxJobs">Maximum number of concurrent jobs per worker.</param>
     /// <param name="workerNameF">Worker name factory.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
-    static member SpawnOnCurrentMachine(config, workerCount, ?maxJobs : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
+    static member SpawnOnCurrentMachine(config : Configuration, workerCount, ?maxJobs : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
         let exe = MBraceCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
         let cfg = { Arguments.Configuration = config; Arguments.MaxJobs = defaultArg maxJobs Environment.ProcessorCount; Name = None; LogLevel = logLevel }
@@ -136,32 +167,9 @@ type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogg
     /// <param name="clientId">Client instance identifier.</param>
     /// <param name="logger">Client logger to attach.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
-    static member InitOnCurrentMachine(config, workerCount : int, ?maxJobs : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
+    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?maxJobs : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
         MBraceCluster.SpawnOnCurrentMachine(config, workerCount, ?maxJobs = maxJobs, ?workerNameF = workerNameF, ?logLevel = logLevel)
         MBraceCluster.GetHandle(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
-
-    /// Delete and reactivate runtime state (queues, containers, tables and logs but not user folders).
-    /// Using 'Reset' may cause unexpected behavior in clients and workers.
-    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.Reset () = 
-        (manager :> IRuntimeManager).ResetClusterState()
-        |> Async.RunSync
-
-    /// <summary>
-    /// Delete and re-activate runtime state.
-    /// Using 'Reset' may cause unexpected behavior in clients and workers.
-    /// Workers should be restarted manually.</summary>
-    /// <param name="deleteQueues">Delete Configuration queue and topic.</param>
-    /// <param name="deleteState">Delete Configuration table and containers.</param>
-    /// <param name="deleteLogs">Delete Configuration logs table.</param>
-    /// <param name="deleteUserData">Delete Configuration UserData table and container.</param>
-    /// <param name="deleteVagabondData">Delete Vagabond assembly data container.</param>
-    /// <param name="force">Ignore active workers.</param>
-    /// <param name="reactivate">Reactivate configuration.</param>
-    [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.Reset(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
-        manager.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate)
-        |> Async.RunSync
 
     /// <summary>
     /// Gets a handle for a remote runtime.
@@ -189,6 +197,6 @@ type MBraceCluster private (manager : RuntimeManager, defaultLogger : SystemLogg
         let storageLogger = SystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, clientId)
         let _ = attachableLogger.AttachLogger(storageLogger)
         let _ = logger |> Option.map attachableLogger.AttachLogger
-        let manager = RuntimeManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)
-        let runtime = new MBraceCluster(manager, storageLogger)
-        runtime
+        let manager = ClusterManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)
+        let cluster = new MBraceCluster(manager, storageLogger)
+        cluster

@@ -18,7 +18,7 @@ type internal Initializer =
             let workerId = new WorkerId(workerId) :> IWorkerId
 
             logger.LogInfof "Creating RuntimeManager"
-            let runtimeManager = RuntimeManager.CreateForWorker(config, workerId, logger, customResources)
+            let runtimeManager = ClusterManager.CreateForWorker(config, workerId, logger, customResources)
 
             let jobEvaluator = 
                 if useAppDomainIsolation then
@@ -30,7 +30,7 @@ type internal Initializer =
                         Config.Activate(config, false)
                         marshalledLogger.LogInfof "Configuration activated in AppDomain %A" domainName
                     let managerF () =
-                        RuntimeManager.CreateForAppDomain(config, workerId, marshalledLogger, customResources) :> IRuntimeManager , workerId
+                        ClusterManager.CreateForAppDomain(config, workerId, marshalledLogger, customResources) :> IRuntimeManager , workerId
 
                     AppDomainJobEvaluator.Create(managerF, init) :> ICloudJobEvaluator
                 else
