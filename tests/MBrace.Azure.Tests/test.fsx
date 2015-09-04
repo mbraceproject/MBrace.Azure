@@ -22,4 +22,8 @@ runtime.Reset(true,true,true,true,true,true,false)
 runtime.KillAllLocalWorkers()
 runtime.Workers
 
-runtime.RunOnCloud(Cloud.ParallelEverywhere(Cloud.CurrentWorker))
+let ct = runtime.CreateCloudTask(Cloud.ParallelEverywhere(Cloud.CurrentWorker))
+
+ct.ShowInfo()
+ct.Result
+runtime.ShowWorkerInfo()

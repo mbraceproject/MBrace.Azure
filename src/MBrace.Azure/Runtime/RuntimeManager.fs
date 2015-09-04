@@ -16,7 +16,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
     do systemLogger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(configId, systemLogger)
     do systemLogger.LogInfo "Creating job manager"
-    let jobManager    = JobManager.Create(configId, systemLogger)
+    let jobManager    = JobManager.Create(configId, workerManager, systemLogger)
     do systemLogger.LogInfo "Creating task manager"
     let taskManager   = TaskManager.Create(configId, systemLogger)
     do systemLogger.LogInfo "Creating assembly manager"

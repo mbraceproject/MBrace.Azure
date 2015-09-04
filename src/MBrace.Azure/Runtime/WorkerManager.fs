@@ -6,6 +6,7 @@ open Microsoft.WindowsAzure.Storage.Table
 open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 open MBrace.Runtime
+open MBrace.Core.Internals
 
 [<AllowNullLiteral>]
 type WorkerRecord(id) =
@@ -100,7 +101,70 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 ProcessorCount = record.ProcessorCount.GetValueOrDefault(-1)
                 MaxJobCount = record.MaxJobs.GetValueOrDefault(-1) } } 
 
-    static member MaxHeartbeatTimespan = TimeSpan.FromMinutes(5.)
+//    /// Attempts to find non-responsive workers and fix their status. Returns whether any non-responsive workers were found.
+//    let rec cleanup () : Async<unit> =
+//        async { 
+//            do! Async.Sleep(int(0.2 * WorkerManager.MaxHeartbeatTimespan.TotalMilliseconds))
+//            let! result = Async.Catch <| async {
+//                logger.LogInfo "WorkerManager : checking worker status"
+//
+//                let! nonResponsiveWorkers = this.GetNonResponsiveWorkers()
+//
+//                let level = if nonResponsiveWorkers.Length > 0 then LogLevel.Warning else LogLevel.Info
+//                logger.Logf level "WorkerManager : found %d non-responsive workers" nonResponsiveWorkers.Length
+//                // TODO : Should we set status to Stopped, or add an extra faulted status?
+//                // Using QueueFault for now.
+//                let mkFault worker = 
+//                    let e = RuntimeException(sprintf "Worker %O failed to give heartbeat." worker)
+//                    let edi = ExceptionDispatchInfo.Capture e
+//                    QueueFault edi
+//
+//                do! nonResponsiveWorkers
+//                    |> Array.map (fun w -> 
+//                        async { 
+//                            try 
+//                                do! (this :> IWorkerManager).DeclareWorkerStatus(w.Id, mkFault w.Id)
+//                            with ex -> 
+//                                logger.LogWarningf "WorkerManager : failed to change status for worker %O : %A" w.Id ex
+//                                return ()
+//                        })
+//                    |> Async.Parallel
+//                    |> Async.Ignore
+//            }
+//
+//            match result with
+//            | Choice1Of2 () -> logger.LogInfo "WorkerManager : maintenance complete."
+//            | Choice2Of2 ex -> logger.LogWarningf "WorkerManager : maintenance failed with : %A" ex
+//
+//            return! cleanup ()
+//        }
+
+
+    /// Max interval between heartbeats, used to determine if a worker is alive.
+    static member MaxHeartbeatTimespan : TimeSpan = TimeSpan.FromMinutes(5.)
+
+    ///// Start worker maintenance service.
+    //member this.EnableMaintenance () = Async.Start(cleanup())
+
+    /// 'Running' workers that fail to give heartbeats.
+    member this.GetNonResponsiveWorkers () : Async<WorkerState []> =
+        async {
+            let! workers = this.GetAllWorkers()
+            let now = DateTime.UtcNow
+            return workers |> Array.filter (fun w -> 
+                                match w.ExecutionStatus with
+                                | WorkerJobExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> 
+                                    true
+                                | _ -> false)
+        }
+
+    /// Workers that fail to give heartbeats.
+    member this.GetInactiveWorkers () : Async<WorkerState []> =
+        async {
+            let! workers = this.GetAllWorkers()
+            let now = DateTime.UtcNow
+            return workers |> Array.filter (fun w -> now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan)
+        }
 
     member this.GetAllWorkers(): Async<WorkerState []> = 
         async { 
@@ -112,13 +176,13 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
     member this.UnsubscribeWorker(id : IWorkerId) =
         async {
             logger.Logf LogLevel.Info "Unsubscribing worker %O" id
-            let record = new WorkerRecord(id.Id)
-            return! Table.delete config config.RuntimeTable record
+            return! (this :> IWorkerManager).DeclareWorkerStatus(id, WorkerJobExecutionStatus.Stopped)
         }
 
     interface IWorkerManager with
         member this.DeclareWorkerStatus(id: IWorkerId, status: WorkerJobExecutionStatus): Async<unit> = 
             async {
+                logger.LogInfof "Changing worker %O status to %A" id status
                 let record = new WorkerRecord(id.Id)
                 record.ETag <- "*"
                 record.Status <- pickle status
