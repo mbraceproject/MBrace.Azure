@@ -274,22 +274,30 @@ type Config private () =
     static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
     static let mutable localFileStore = Unchecked.defaultof<FileSystemStore>
 
-    static let initVagabond populateDirs (path:string) =
+    static let initVagabond isClient populateDirs (path:string) =
         if populateDirs then ignore <| Directory.CreateDirectory path
-        let policy = AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| AssemblyLookupPolicy.ResolveVagabondCache
+        let policy = 
+            if isClient then 
+                AssemblyLookupPolicy.ResolveRuntime ||| 
+                AssemblyLookupPolicy.ResolveVagabondCache ||| 
+                AssemblyLookupPolicy.RequireLocalDependenciesLoadedInAppDomain
+            else
+                AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| 
+                AssemblyLookupPolicy.ResolveVagabondCache
+
         Vagabond.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], cacheDirectory = path, lookupPolicy = policy)
 
     static let checkInitialized () =
         if not isInitialized.Value then
             invalidOp "Runtime configuration has not been initialized."
 
-    static let initialize (populateDirs : bool) =
+    static let initialize isClientInstance (populateDirs : bool) =
         lock isInitialized (fun () ->
             if not isInitialized.Value then
                 let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
                 let workingDirectory = WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
                 let vagabondDir = Path.Combine(workingDirectory, "vagabond")
-                VagabondRegistry.Initialize(fun () -> initVagabond populateDirs vagabondDir)
+                VagabondRegistry.Initialize(fun () -> initVagabond isClientInstance populateDirs vagabondDir)
                 objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
                 localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
                 isInitialized := true
@@ -307,7 +315,7 @@ type Config private () =
     /// Local file system store
     static member FileStore = checkInitialized(); localFileStore
 
-    static member Initialize(populateDirs) = initialize populateDirs
+    static member Initialize(populateDirs : bool, isClientInstance : bool) = initialize isClientInstance populateDirs
 
     static member ReactivateAsync(config : ConfigurationId) =
         async {
@@ -317,16 +325,17 @@ type Config private () =
         }
 
     /// Activates the given configuration.
-    static member ActivateAsync(config : Configuration, populateDirs) : Async<unit> =
+    static member ActivateAsync(config : Configuration, isClientInstance : bool, populateDirs : bool) : Async<unit> =
       async {
-        initialize populateDirs
+        initialize isClientInstance populateDirs
         let cp = new StoreClientProvider(config)
         do! cp.InitAll()
         ConfigurationRegistry.Register<StoreClientProvider>(config.GetConfigurationId(), cp)
     }
 
     /// Activates the given configuration.
-    static member Activate(config) = Async.RunSynchronously(Config.ActivateAsync(config))
+    static member Activate(config : Configuration, isClientInstance : bool, populateDirs : bool) =
+        Async.RunSync(Config.ActivateAsync(config, isClientInstance, populateDirs))
 
     /// Delete Runtime Queue and Topic.
     static member DeleteRuntimeQueues (config : ConfigurationId) =

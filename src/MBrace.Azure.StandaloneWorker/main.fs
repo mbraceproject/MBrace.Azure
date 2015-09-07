@@ -11,7 +11,7 @@ open MBrace.Runtime
 let main (args : string []) =
     try
         let ps = Process.GetCurrentProcess()
-        let cfg = Arguments.Config.OfBase64Pickle args
+        let cfg = Arguments.Config.OfBase64Pickle(args, false)
         let config = cfg.Configuration
         let workerId = 
             match cfg.Name with

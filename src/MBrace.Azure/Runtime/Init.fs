@@ -27,8 +27,9 @@ type internal Initializer =
                     let init () =
                         let domainName = System.AppDomain.CurrentDomain.FriendlyName
                         marshalledLogger.LogInfof "Initializing Application Domain %A" domainName
-                        Config.Activate(config, false)
+                        Config.Activate(config, isClientInstance = false, populateDirs = false)
                         marshalledLogger.LogInfof "Configuration activated in AppDomain %A" domainName
+
                     let managerF () =
                         ClusterManager.CreateForAppDomain(config, workerId, marshalledLogger, customResources) :> IRuntimeManager , workerId
 

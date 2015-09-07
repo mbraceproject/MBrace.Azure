@@ -16,14 +16,14 @@ let config =
 
 
 MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-let runtime = MBraceCluster.InitOnCurrentMachine(config, 8, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
-//let runtime = MBraceCluster.GetHandle(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
-runtime.Reset(true,true,true,true,true,true,false)
-runtime.KillAllLocalWorkers()
-runtime.Workers
+let cluster = MBraceCluster.InitOnCurrentMachine(config, 8, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
+//let cluster = MBraceCluster.GetHandle(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
+cluster.Reset(true,true,true,true,true,true,false)
+cluster.KillAllLocalWorkers()
+cluster.Workers
 
-let ct = runtime.CreateCloudTask(Cloud.ParallelEverywhere(Cloud.CurrentWorker))
+let ct = cluster.CreateCloudTask(Cloud.ParallelEverywhere(Cloud.CurrentWorker))
 
 ct.ShowInfo()
 ct.Result
-runtime.ShowWorkerInfo()
+cluster.ShowWorkerInfo()
