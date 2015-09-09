@@ -1,6 +1,7 @@
 ﻿namespace MBrace.Azure.Runtime
 
 open System
+open System.Reflection
 
 open MBrace.Core.Internals
 open MBrace.Runtime
@@ -24,7 +25,8 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
 
     let assemblyManager =
         let serializer = resources.Resolve<ISerializer>()
-        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = configId.VagabondContainer)
+        let ignoredAssemblies = [| Assembly.GetExecutingAssembly() |]
+        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = configId.VagabondContainer, ignoredAssemblies = ignoredAssemblies)
         StoreAssemblyManager.Create(config, localLogger = systemLogger)
 
     do
