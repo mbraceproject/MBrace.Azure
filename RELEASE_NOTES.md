@@ -1,3 +1,6 @@
+### 0.10.1-alpha
+* Fix issue #107.
+
 ### 0.10.0-alpha
 * Migrate to MBrace.Core 0.10 APIs
 * Fix MBraceAzure.ClearAllCloudTasks bug.

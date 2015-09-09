@@ -86,15 +86,15 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
 
         member this.GetRootDirectory () = rootPath
 
-        member this.GetRandomDirectoryName() : string = Guid.NewGuid().ToString()
+        member this.GetRandomDirectoryName() : string = normalizePath <| Guid.NewGuid().ToString()
 
         member this.IsPathRooted(path : string) = isPathRooted path
             
-        member this.GetDirectoryName(path : string) = Path.GetDirectoryName(path)
+        member this.GetDirectoryName(path : string) = normalizePath <| Path.GetDirectoryName path
 
         member this.GetFileName(path : string) = Path.GetFileName(path)
 
-        member this.Combine(paths : string []) : string = Path.Combine(paths)
+        member this.Combine(paths : string []) : string = normalizePath <| Path.Combine paths
 
         member this.GetFileSize(path: string) : Async<int64> = 
             async {
@@ -106,6 +106,34 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
                 | Choice1Of2 () -> return blob.Properties.Length
                 | Choice2Of2 ex when NotFound ex -> return! Async.Raise <| FileNotFoundException(path)
                 | Choice2Of2 ex -> return! Async.Raise ex
+            }
+
+        member this.GetLastModifiedTime (path: string, isDirectory : bool) : Async<DateTimeOffset> = 
+            async {
+                let path = normalizePath path
+                if isDirectory then
+                    let storeDir = StoreDirectory.Parse path
+                    let containerRef = getContainerReference acc storeDir.Container
+                    let! result = Async.Catch <| Async.AwaitTaskCorrect(containerRef.FetchAttributesAsync())
+                    match result with
+                    | Choice1Of2 () ->
+                        let lm = containerRef.Properties.LastModified
+                        if lm.HasValue then return lm.Value
+                        else return! Async.Raise <| DirectoryNotFoundException(path)
+
+                    | Choice2Of2 ex when NotFound ex -> return! Async.Raise <| DirectoryNotFoundException(path)
+                    | Choice2Of2 ex -> return! Async.Raise ex
+                else
+                    let! blob = getBlobReference acc path
+                    let! result = Async.Catch <| Async.AwaitTaskCorrect(blob.FetchAttributesAsync())
+                    match result with
+                    | Choice1Of2 () -> 
+                        let lm = blob.Properties.LastModified
+                        if lm.HasValue then return lm.Value
+                        else return! Async.Raise <| FileNotFoundException(path)
+
+                    | Choice2Of2 ex when NotFound ex -> return! Async.Raise <| FileNotFoundException(path)
+                    | Choice2Of2 ex -> return! Async.Raise ex
             }
 
         member this.FileExists(path: string) : Async<bool> = 
@@ -142,8 +170,10 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
                         else return! aux result.ContinuationToken
                     }
                     do! aux null
-                    return this.Combine(container, blobs)
-                           |> Seq.toArray
+                    return 
+                        this.Combine(container, blobs)
+                        |> Seq.map normalizePath
+                        |> Seq.toArray
 
                 with e when NotFound e ->
                     return raise <| new DirectoryNotFoundException(container, e)
@@ -217,7 +247,7 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
                     | { Container = Root; SubDirectory = _ } ->
                         let client = getBlobClient acc
                         return client.ListContainers() 
-                               |> Seq.map (fun c -> c.Name)
+                               |> Seq.map (fun c -> normalizePath c.Name)
                                |> Seq.toArray
                     | { Container = _; SubDirectory = _ } -> return! Async.Raise <| NotImplementedException()
                 with e when NotFound e ->

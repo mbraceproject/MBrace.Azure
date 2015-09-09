@@ -21,7 +21,8 @@ module internal Utils =
         path.StartsWith rootPath || path.StartsWith rootPathAlt
 
     let normalizePath (path : string) =
-        if isPathRooted path then path else Path.Combine(rootPath, path)
+        let path = if isPathRooted path then path else Path.Combine(rootPath, path)
+        path.Replace('\\', '/')
 
     let ensureRooted (path : string) =
         if isPathRooted path then path else raise <| FormatException(sprintf "Invalid path %A. Paths should start with '/' or '\\'." path)

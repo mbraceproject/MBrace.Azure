@@ -274,19 +274,6 @@ type Config private () =
     static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
     static let mutable localFileStore = Unchecked.defaultof<FileSystemStore>
 
-    static let initVagabond isClient populateDirs (path:string) =
-        if populateDirs then ignore <| Directory.CreateDirectory path
-        let policy = 
-            if isClient then 
-                AssemblyLookupPolicy.ResolveRuntime ||| 
-                AssemblyLookupPolicy.ResolveVagabondCache ||| 
-                AssemblyLookupPolicy.RequireLocalDependenciesLoadedInAppDomain
-            else
-                AssemblyLookupPolicy.ResolveRuntimeStrongNames ||| 
-                AssemblyLookupPolicy.ResolveVagabondCache
-
-        Vagabond.Initialize(ignoredAssemblies = [Assembly.GetExecutingAssembly()], cacheDirectory = path, lookupPolicy = policy)
-
     static let checkInitialized () =
         if not isInitialized.Value then
             invalidOp "Runtime configuration has not been initialized."
@@ -297,7 +284,8 @@ type Config private () =
                 let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
                 let workingDirectory = WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
                 let vagabondDir = Path.Combine(workingDirectory, "vagabond")
-                VagabondRegistry.Initialize(fun () -> initVagabond isClientInstance populateDirs vagabondDir)
+                if populateDirs then ignore <| Directory.CreateDirectory vagabondDir
+                VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance)
                 objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
                 localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
                 isInitialized := true
