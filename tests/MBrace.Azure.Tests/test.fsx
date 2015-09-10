@@ -16,7 +16,7 @@ let config =
 
 
 MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-let cluster = MBraceCluster.InitOnCurrentMachine(config, 8, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
+let cluster = MBraceCluster.InitOnCurrentMachine(config, 4, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
 //let cluster = MBraceCluster.GetHandle(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
 cluster.Reset(true,true,true,true,true,true,false)
 cluster.KillAllLocalWorkers()

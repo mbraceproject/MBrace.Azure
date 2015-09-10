@@ -147,7 +147,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
 
     static member CreateForWorker(config : Configuration, workerId : IWorkerId, logger : AttacheableLogger, customResources) =
         logger.LogInfof "Activating configuration with Id %A" config.Id
-        Config.Activate(config, isClientInstance = false, populateDirs = true)
+        Config.Activate(config)
         logger.LogInfof "Creating resources"
         let resources = ClusterManager.GetDefaultResources(config, customResources)
         logger.LogInfof "Creating RuntimeManager for Worker %A" workerId
@@ -159,7 +159,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         let logger = AttacheableLogger.Create(makeAsynchronous = true)
         let _ = logger.AttachLogger(mlogger)
         logger.LogInfof "Activating configuration with Id %A" config.Id
-        Config.Activate(config, isClientInstance = false, populateDirs = false)
+        Config.Activate(config)
         logger.LogInfof "Creating resources"
         let resources = ClusterManager.GetDefaultResources(config, customResources)
         logger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
@@ -168,7 +168,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
 
     static member CreateForClient(config : Configuration, clientId : string, logger : AttacheableLogger, customResources) =
         logger.LogInfof "Activating configuration with Id %A" config.Id
-        Config.Activate(config, isClientInstance = true, populateDirs = false)
+        Config.Activate(config)
         logger.LogInfof "Creating resources"        
         let resources = ClusterManager.GetDefaultResources(config, customResources)
         logger.LogInfof "Creating RuntimeManager for Client %A" clientId

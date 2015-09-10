@@ -28,6 +28,7 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
 
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
+    static do Config.InitGlobalState(populateDirs = true, isClientInstance = true)
 
     /// Current client instance identifier.
     member this.UUID = manager.RuntimeManagerId
@@ -144,13 +145,13 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
         let exe = MBraceCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
         let cfg = { Arguments.Configuration = config; Arguments.MaxJobs = defaultArg maxJobs Environment.ProcessorCount; Name = None; LogLevel = logLevel }
-        do Async.RunSync(Config.ActivateAsync(config, populateDirs = true, isClientInstance = true))
+        do Config.Activate config
         let _ = Array.Parallel.init workerCount (fun i -> 
             let conf =
                 match workerNameF with
                 | None -> cfg
                 | Some f -> {cfg with Name = Some(f(i)) }
-            let args = Config.ToBase64Pickle(conf, isClientInstance = false)
+            let args = Config.ToBase64Pickle conf
             let psi = new ProcessStartInfo(exe, args)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
             psi.UseShellExecute <- true

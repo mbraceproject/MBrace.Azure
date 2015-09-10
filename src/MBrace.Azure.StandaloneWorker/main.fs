@@ -10,13 +10,15 @@ open MBrace.Runtime
 [<EntryPoint>]
 let main (args : string []) =
     try
+        Config.InitGlobalState(populateDirs = true, isClientInstance = false)
         let ps = Process.GetCurrentProcess()
-        let cfg = Arguments.Config.OfBase64Pickle(args, false)
+        let cfg = Arguments.Config.OfBase64Pickle args
         let config = cfg.Configuration
         let workerId = 
             match cfg.Name with
             | None -> sprintf "%s-%05d" <| System.Net.Dns.GetHostName() <| ps.Id
             | Some n -> n
+
         let svc = new Service(config, workerId)
         svc.MaxConcurrentJobs <- cfg.MaxJobs
         Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id

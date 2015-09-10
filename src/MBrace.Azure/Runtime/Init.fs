@@ -22,13 +22,13 @@ type internal Initializer =
 
             let jobEvaluator = 
                 if useAppDomainIsolation then
-                    logger.LogInfof "Initializing AppDomainpool evaluator"
+                    logger.LogInfof "Initializing AppDomain pool evaluator"
                     let marshalledLogger = new MarshaledLogger(logger)
                     let init () =
                         let domainName = System.AppDomain.CurrentDomain.FriendlyName
                         marshalledLogger.LogInfof "Initializing Application Domain %A" domainName
-                        Config.Activate(config, isClientInstance = false, populateDirs = false)
-                        marshalledLogger.LogInfof "Configuration activated in AppDomain %A" domainName
+                        Config.InitGlobalState(populateDirs = false, isClientInstance = false)
+                        Config.Activate(config)
 
                     let managerF () =
                         ClusterManager.CreateForAppDomain(config, workerId, marshalledLogger, customResources) :> IRuntimeManager , workerId

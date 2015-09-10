@@ -278,19 +278,6 @@ type Config private () =
         if not isInitialized.Value then
             invalidOp "Runtime configuration has not been initialized."
 
-    static let initialize isClientInstance (populateDirs : bool) =
-        lock isInitialized (fun () ->
-            if not isInitialized.Value then
-                let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
-                let workingDirectory = WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
-                let vagabondDir = Path.Combine(workingDirectory, "vagabond")
-                if populateDirs then ignore <| Directory.CreateDirectory vagabondDir
-                VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance)
-                objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
-                localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
-                isInitialized := true
-        )
-
     /// Default FsPicklerSerializer instance.
     static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Serializer
 
@@ -303,7 +290,23 @@ type Config private () =
     /// Local file system store
     static member FileStore = checkInitialized(); localFileStore
 
-    static member Initialize(populateDirs : bool, isClientInstance : bool) = initialize isClientInstance populateDirs
+    /// <summary>
+    ///     Initialize global Azure state.
+    /// </summary>
+    /// <param name="populateDirs">Create or clear working directory if it already exists.</param>
+    /// <param name="isClientInstance">Declare as client instance.</param>
+    static member InitGlobalState(populateDirs : bool, isClientInstance : bool) =
+        lock isInitialized (fun () ->
+            if not isInitialized.Value then
+                let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
+                let workingDirectory = WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
+                let vagabondDir = Path.Combine(workingDirectory, "vagabond")
+                if populateDirs then ignore <| Directory.CreateDirectory vagabondDir
+                VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance)
+                objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
+                localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
+                isInitialized := true
+        )
 
     static member ReactivateAsync(config : ConfigurationId) =
         async {
@@ -313,17 +316,17 @@ type Config private () =
         }
 
     /// Activates the given configuration.
-    static member ActivateAsync(config : Configuration, isClientInstance : bool, populateDirs : bool) : Async<unit> =
+    static member ActivateAsync(config : Configuration) : Async<unit> =
       async {
-        initialize isClientInstance populateDirs
+        checkInitialized()
         let cp = new StoreClientProvider(config)
         do! cp.InitAll()
         ConfigurationRegistry.Register<StoreClientProvider>(config.GetConfigurationId(), cp)
     }
 
     /// Activates the given configuration.
-    static member Activate(config : Configuration, isClientInstance : bool, populateDirs : bool) =
-        Async.RunSync(Config.ActivateAsync(config, isClientInstance, populateDirs))
+    static member Activate(config : Configuration) =
+        Async.RunSync(Config.ActivateAsync(config))
 
     /// Delete Runtime Queue and Topic.
     static member DeleteRuntimeQueues (config : ConfigurationId) =
