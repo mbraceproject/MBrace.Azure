@@ -134,7 +134,7 @@ module ``MBrace Azure Vagabond Tests (FSI)`` =
     [<TestFixtureTearDown>]
     let stopFsiSession () =
         FsiSession.Value.Interrupt()
-        FsiSession.Value.EvalInteraction "cluster.KillLocalWorker()"
+        FsiSession.Value.EvalInteraction "cluster.KillAllLocalWorkers()"
         FsiSession.Value.EvalInteraction "cluster.Reset(true,true,true,true,true,true,false)"
         FsiSession.Stop()
 
