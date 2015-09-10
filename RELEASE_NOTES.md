@@ -1,3 +1,6 @@
+### 0.10.2-alpha
+* Improve support for multiple client sessions in single process.
+
 ### 0.10.1-alpha
 * Fix issue #107.
 
