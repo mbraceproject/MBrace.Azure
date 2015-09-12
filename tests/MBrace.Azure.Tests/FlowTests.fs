@@ -16,7 +16,7 @@ type ``Azure CloudFlow Tests`` (session : RuntimeSession) as self =
 
     let session = session
 
-    let run (wf : Cloud<'T>) = self.RunOnCloud wf
+    let run (wf : Cloud<'T>) = self.Run wf
 
     member __.Session = session
 
@@ -28,8 +28,8 @@ type ``Azure CloudFlow Tests`` (session : RuntimeSession) as self =
 
     override __.IsSupportedStorageLevel _ = true
 
-    override __.RunOnCloud (workflow : Cloud<'T>) = 
-        session.Runtime.RunOnCloud(workflow)
+    override __.Run (workflow : Cloud<'T>) = 
+        session.Runtime.Run(workflow)
 
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = 
         session.Runtime.RunOnCurrentProcess(workflow)

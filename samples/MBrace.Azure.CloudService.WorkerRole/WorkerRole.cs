@@ -45,7 +45,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
                 RoleEnvironment.IsEmulated ? 
                 new Service(_config) : // Avoid long service names when using emulator
                 new Service(_config, serviceId: RoleEnvironment.CurrentRoleInstance.Id.Split('.').Last());
-            _svc.MaxConcurrentJobs = Environment.ProcessorCount * 8;
+            _svc.MaxConcurrentWorkItems = Environment.ProcessorCount * 8;
 
             RoleEnvironment.Changed += RoleEnvironment_Changed;
 

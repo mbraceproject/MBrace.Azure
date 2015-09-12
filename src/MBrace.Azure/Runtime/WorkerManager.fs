@@ -18,8 +18,8 @@ type WorkerRecord(id) =
     member val ProcessName        = Unchecked.defaultof<string> with get, set
     member val InitializationTime = Nullable<DateTimeOffset>() with get, set
     member val ConfigurationId    = Unchecked.defaultof<byte []> with get, set
-    member val MaxJobs            = Nullable<int>()   with get, set
-    member val ActiveJobs         = Nullable<int>()   with get, set
+    member val MaxWorkItems            = Nullable<int>()   with get, set
+    member val ActiveWorkItems         = Nullable<int>()   with get, set
     member val ProcessorCount     = Nullable<int>()   with get, set
     member val MaxClockSpeed      = Nullable<double>() with get, set
     member val CPU                = Nullable<double>() with get, set
@@ -72,6 +72,7 @@ type WorkerId internal (workerId) =
             | _ -> invalidArg "obj" "invalid comparand."
         
         member this.Id: string = this.Id
+        member this.SessionId = Guid.Empty
 
     override this.ToString() = this.Id
     override this.Equals(other:obj) =
@@ -89,7 +90,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
 
     let mkWorkerState (record : WorkerRecord) = 
         { Id = new WorkerId(record.Id)
-          CurrentJobCount = record.ActiveJobs.GetValueOrDefault(-1)
+          CurrentWorkItemCount = record.ActiveWorkItems.GetValueOrDefault(-1)
           LastHeartbeat = record.Timestamp.DateTime
           HeartbeatRate = TimeSpan.MinValue // TODO : Implement
           InitializationTime = record.InitializationTime.Value.DateTime
@@ -99,7 +100,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
               { Hostname = record.Hostname
                 ProcessId = record.ProcessId.GetValueOrDefault(-1)
                 ProcessorCount = record.ProcessorCount.GetValueOrDefault(-1)
-                MaxJobCount = record.MaxJobs.GetValueOrDefault(-1) } } 
+                MaxWorkItemCount = record.MaxWorkItems.GetValueOrDefault(-1) } } 
 
 //    /// Attempts to find non-responsive workers and fix their status. Returns whether any non-responsive workers were found.
 //    let rec cleanup () : Async<unit> =
@@ -153,7 +154,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
             let now = DateTime.UtcNow
             return workers |> Array.filter (fun w -> 
                                 match w.ExecutionStatus with
-                                | WorkerJobExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> 
+                                | WorkerItemExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> 
                                     true
                                 | _ -> false)
         }
@@ -176,11 +177,11 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
     member this.UnsubscribeWorker(id : IWorkerId) =
         async {
             logger.Logf LogLevel.Info "Unsubscribing worker %O" id
-            return! (this :> IWorkerManager).DeclareWorkerStatus(id, WorkerJobExecutionStatus.Stopped)
+            return! (this :> IWorkerManager).DeclareWorkerStatus(id, WorkerItemExecutionStatus.Stopped)
         }
 
     interface IWorkerManager with
-        member this.DeclareWorkerStatus(id: IWorkerId, status: WorkerJobExecutionStatus): Async<unit> = 
+        member this.DeclareWorkerStatus(id: IWorkerId, status: WorkerItemExecutionStatus): Async<unit> = 
             async {
                 logger.LogInfof "Changing worker %O status to %A" id status
                 let record = new WorkerRecord(id.Id)
@@ -190,22 +191,22 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 return ()
             }
         
-        member this.IncrementJobCount(id: IWorkerId): Async<unit> = 
+        member this.IncrementWorkItemCount(id: IWorkerId): Async<unit> = 
             async {
                 let! _ = Table.transact2<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
                             (fun e -> 
                                 let ec = e.CloneDefault()
-                                ec.ActiveJobs <- e.ActiveJobs ?+ 1
+                                ec.ActiveWorkItems <- e.ActiveWorkItems ?+ 1
                                 ec)
                 return ()            
             }
 
-        member this.DecrementJobCount(id: IWorkerId): Async<unit> = 
+        member this.DecrementWorkItemCount(id: IWorkerId): Async<unit> = 
             async {
                 let! _ = Table.transact2<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
                             (fun e -> 
                                 let ec = e.CloneDefault()
-                                ec.ActiveJobs <- e.ActiveJobs ?- 1
+                                ec.ActiveWorkItems <- e.ActiveWorkItems ?- 1
                                 ec)
                 return ()            
             }
@@ -216,7 +217,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 return workers 
                        |> Seq.filter (fun w -> DateTime.UtcNow - w.LastHeartbeat <= WorkerManager.MaxHeartbeatTimespan)
                        |> Seq.filter (fun w -> match w.ExecutionStatus with
-                                               | WorkerJobExecutionStatus.Running -> true
+                                               | WorkerItemExecutionStatus.Running -> true
                                                | _ -> false)
                        |> Seq.toArray
             }
@@ -239,10 +240,10 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 record.ProcessName <- Diagnostics.Process.GetCurrentProcess().ProcessName
                 record.ProcessId <- nullable info.ProcessId
                 record.InitializationTime <- nullable joined
-                record.ActiveJobs <- nullable 0
-                record.Status <- pickle WorkerJobExecutionStatus.Running
+                record.ActiveWorkItems <- nullable 0
+                record.Status <- pickle WorkerItemExecutionStatus.Running
                 record.Version <- ReleaseInfo.localVersion.ToString(4)
-                record.MaxJobs <- nullable info.MaxJobCount
+                record.MaxWorkItems <- nullable info.MaxWorkItemCount
                 record.ProcessorCount <- nullable info.ProcessorCount
                 record.ConfigurationId <- pickle config
                 do! Table.insertOrReplace<WorkerRecord> config config.RuntimeTable record //Worker might restart but keep id.
@@ -250,7 +251,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                     { new IDisposable with
                           member x.Dispose(): unit = 
                             this.UnsubscribeWorker(id)
-                            |> Async.RunSynchronously
+                            |> Async.RunSync
                     }
                 return unsubscriber
             }
@@ -261,6 +262,14 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 if record = null then return None
                 else return Some(mkWorkerState record)
             }
+
+        member this.GetWorkerLogObservable(id : IWorkerId) : Async<IObservable<SystemLogEntry>> = async {
+            return raise <| new NotImplementedException()
+        }
+
+        member this.GetWorkerLogs(id : IWorkerId) : Async<SystemLogEntry []> = async {
+            return raise <| new NotImplementedException()
+        }
         
 
     static member Create(config : ConfigurationId, logger) =

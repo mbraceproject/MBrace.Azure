@@ -24,7 +24,7 @@ type ``BlobStore Tests - Remote``() =
     
     override __.FileStore = session.Runtime.GetResource<ICloudFileStore>()
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
-    override __.RunOnCloud(workflow : Cloud<'T>) = session.Runtime.RunOnCloud workflow
+    override __.Run(workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 [<TestFixture>]
@@ -40,7 +40,7 @@ type ``BlobStore Tests - Storage Emulator``() =
     
     override __.FileStore = session.Runtime.GetResource<ICloudFileStore>()
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
-    override __.RunOnCloud(workflow : Cloud<'T>) = session.Runtime.RunOnCloud workflow
+    override __.Run(workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 [<TestFixture>]
@@ -54,7 +54,7 @@ type ``Atom Tests - Remote``() =
     [<TestFixtureTearDown>]
     member __.Fini() = session.Stop()
     
-    override __.RunOnCloud wf = session.Runtime.RunOnCloud wf
+    override __.Run wf = session.Runtime.Run wf
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
     override __.Repeats = 1
 
@@ -69,7 +69,7 @@ type ``Atom Tests - Storage Emulator``() =
     [<TestFixtureTearDown>]
     member __.Fini() = session.Stop()
     
-    override __.RunOnCloud wf = session.Runtime.RunOnCloud wf
+    override __.Run wf = session.Runtime.Run wf
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
     override __.Repeats = 3
 
@@ -84,7 +84,7 @@ type ``Queue Tests - Remote``() =
     [<TestFixtureTearDown>]
     member __.Fini() = session.Stop()
     
-    override __.RunOnCloud wf = session.Runtime.RunOnCloud wf
+    override __.Run wf = session.Runtime.Run wf
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
 
 [<TestFixture>]
@@ -98,7 +98,7 @@ type ``Dictionary Tests - Storage Emulator``() =
     [<TestFixtureTearDown>]
     member __.Fini() = session.Stop()
     
-    override __.RunOnCloud wf = session.Runtime.RunOnCloud wf
+    override __.Run wf = session.Runtime.Run wf
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
     override __.IsInMemoryFixture = false
 
@@ -113,7 +113,7 @@ type ``Dictionary Tests - Remote``() =
     [<TestFixtureTearDown>]
     member __.Fini() = session.Stop()
     
-    override __.RunOnCloud wf = session.Runtime.RunOnCloud wf
+    override __.Run wf = session.Runtime.Run wf
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
     override __.IsInMemoryFixture = false
 
@@ -128,7 +128,7 @@ type ``CloudValue Tests - Storage Emulator``() =
     [<TestFixtureTearDown>]
     member __.Fini() = session.Stop()
     
-    override __.RunOnCloud wf = session.Runtime.RunOnCloud wf
+    override __.Run wf = session.Runtime.Run wf
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
     override __.IsSupportedLevel _ = true
 
@@ -143,6 +143,6 @@ type ``CloudValue Tests - Remote``() =
     [<TestFixtureTearDown>]
     member __.Fini() = session.Stop()
     
-    override __.RunOnCloud wf = session.Runtime.RunOnCloud wf
+    override __.Run wf = session.Runtime.Run wf
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
     override __.IsSupportedLevel _ = true

@@ -33,44 +33,44 @@ type internal Settings private () =
     static member ParentTaskIdProperty = "parentId"
     /// BatchIndex.
     static member BatchIndexProperty = "batchIndex"
-    /// JobId.
-    static member JobIdProperty = "uuid"
+    /// WorkItemId.
+    static member WorkItemIdProperty = "uuid"
     /// SUbscription queue auto delete interval.
     static member SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
 
 /// Info stored in BrokeredMessage.
-type internal JobLeaseTokenInfo =
+type internal WorkItemLeaseTokenInfo =
     {
         ConfigurationId : ConfigurationId
-        JobId : Guid
+        WorkItemId : Guid
         ContentId : string
         MessageLockId : Guid
-        ParentJobId : string
+        ParentWorkItemId : string
         BatchIndex : int option
         TargetWorker : string option
         DeliveryCount : int
         DequeueTime : DateTimeOffset
     }
 
-    override this.ToString() = sprintf "leaseinfo:%A" this.JobId
+    override this.ToString() = sprintf "leaseinfo:%A" this.WorkItemId
 
 [<Sealed; AbstractClass>]
-type internal JobLeaseMonitor private () = 
+type internal WorkItemLeaseMonitor private () = 
     
-    static member Start(message : BrokeredMessage, token : JobLeaseTokenInfo, logger : ISystemLogger) = 
+    static member Start(message : BrokeredMessage, token : WorkItemLeaseTokenInfo, logger : ISystemLogger) = 
         Async.Start(
             let rec renewLoop() = 
                 async { 
-                    // NOTE : JobLeaseMonitor Complete/Abandon should
+                    // NOTE : WorkItemLeaseMonitor Complete/Abandon should
                     // cause RenewLock to raise a MessageLostException, but this doesn't happen.
                     // As a workaround we stop the renewLoop when the table storage record .Complete is true.
                     let! tryRenew = 
                         async {
                             do! message.RenewLockAsync()
                             let now = DateTimeOffset.Now
-                            let! record = Table.read<JobRecord> token.ConfigurationId token.ConfigurationId.RuntimeTable token.ParentJobId (fromGuid token.JobId)
+                            let! record = Table.read<WorkItemRecord> token.ConfigurationId token.ConfigurationId.RuntimeTable token.ParentWorkItemId (fromGuid token.WorkItemId)
                             match record.Completed, record.Status with
-                            | Nullable true, Nullable status when status = int JobStatus.Completed || status = int JobStatus.Faulted ->
+                            | Nullable true, Nullable status when status = int WorkItemStatus.Completed || status = int WorkItemStatus.Faulted ->
                                 return true
                             | _ ->
                                 let updated = record.CloneDefault()
@@ -98,7 +98,7 @@ type internal JobLeaseMonitor private () =
                 }
             renewLoop())
     
-    static member Complete(token : JobLeaseTokenInfo) : Async<unit> = 
+    static member Complete(token : WorkItemLeaseTokenInfo) : Async<unit> = 
         async { 
             let config = token.ConfigurationId
             match token.TargetWorker with
@@ -114,7 +114,7 @@ type internal JobLeaseMonitor private () =
                 return! subscription.CompleteAsync(token.MessageLockId)
         }
 
-    static member Abandon(token : JobLeaseTokenInfo) : Async<unit> = 
+    static member Abandon(token : WorkItemLeaseTokenInfo) : Async<unit> = 
         async { 
             let config = token.ConfigurationId
             match token.TargetWorker with
@@ -131,13 +131,13 @@ type internal JobLeaseMonitor private () =
         }
 
 [<AutoSerializable(true); DataContract>]
-type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFaultInfo)  = 
+type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : CloudWorkItemFaultInfo)  = 
     let [<DataMember(Name="info")>] info = info
     let [<DataMember(Name="faultInfo")>] faultInfo = faultInfo
-    let [<IgnoreDataMember>] mutable record : JobRecord = null
+    let [<IgnoreDataMember>] mutable record : WorkItemRecord = null
         
     let init () =
-        record <- Async.RunSync(Table.read info.ConfigurationId info.ConfigurationId.RuntimeTable info.ParentJobId (fromGuid info.JobId))
+        record <- Async.RunSync(Table.read info.ConfigurationId info.ConfigurationId.RuntimeTable info.ParentWorkItemId (fromGuid info.WorkItemId))
 
     [<OnDeserialized>]
     let _onDeserialized (_ : StreamingContext) = init ()
@@ -146,14 +146,14 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
 
     member internal this.Info = info
 
-    override this.ToString () = sprintf "lease:%A" info.JobId
+    override this.ToString () = sprintf "lease:%A" info.WorkItemId
 
-    interface ICloudJobLeaseToken with
+    interface ICloudWorkItemLeaseToken with
         member this.DeclareCompleted() : Async<unit> = 
             async {
-                do! JobLeaseMonitor.Complete(info)
-                let record = new JobRecord(info.ParentJobId, fromGuid info.JobId)
-                record.Status <- nullable(int JobStatus.Completed)
+                do! WorkItemLeaseMonitor.Complete(info)
+                let record = new WorkItemRecord(info.ParentWorkItemId, fromGuid info.WorkItemId)
+                record.Status <- nullable(int WorkItemStatus.Completed)
                 record.CompletionTime <- nullable(DateTimeOffset.Now)
                 record.Completed <- nullable true
                 record.ETag <- "*" 
@@ -163,9 +163,9 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
         
         member this.DeclareFaulted(edi : ExceptionDispatchInfo) : Async<unit> = 
             async { 
-                do! JobLeaseMonitor.Abandon(info) // TODO : should this be Abandon or Complete?
-                let record = new JobRecord(info.ParentJobId, fromGuid info.JobId)
-                record.Status <- nullable(int JobStatus.Faulted)
+                do! WorkItemLeaseMonitor.Abandon(info) // TODO : should this be Abandon or Complete?
+                let record = new WorkItemRecord(info.ParentWorkItemId, fromGuid info.WorkItemId)
+                record.Status <- nullable(int WorkItemStatus.Faulted)
                 record.Completed <- nullable false
                 record.CompletionTime <- nullableDefault
                 record.LastException <- Config.Pickler.Pickle edi
@@ -175,31 +175,31 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
                 return () 
             }
         
-        member this.FaultInfo : CloudJobFaultInfo = faultInfo
+        member this.FaultInfo : CloudWorkItemFaultInfo = faultInfo
         
-        member this.GetJob() : Async<CloudJob> = 
+        member this.GetWorkItem() : Async<CloudWorkItem> = 
             async { 
-                let blob = Blob.FromPath(info.ConfigurationId, info.ParentJobId, info.ContentId)
+                let blob = Blob.FromPath(info.ConfigurationId, info.ParentWorkItemId, info.ContentId)
                 use! stream = blob.OpenRead()
                 match info.BatchIndex with
                 | Some i -> 
-                    let sifted = Config.Pickler.Deserialize<SiftedClosure<CloudJob []>>(stream)
+                    let sifted = Config.Pickler.Deserialize<SiftedClosure<CloudWorkItem []>>(stream)
                     let! jobs = ClosureSifter.UnSiftClosure(info.ConfigurationId, sifted)
                     return jobs.[i]
                 | _ ->
-                    let sifted = Config.Pickler.Deserialize<SiftedClosure<CloudJob>>(stream)
+                    let sifted = Config.Pickler.Deserialize<SiftedClosure<CloudWorkItem>>(stream)
                     return! ClosureSifter.UnSiftClosure(info.ConfigurationId, sifted)
             }
         
-        member this.Id : CloudJobId = info.JobId
+        member this.Id : CloudWorkItemId = info.WorkItemId
         
-        member this.JobType : CloudJobType =
-            let jobKind = enum<JobKind>(record.Kind.GetValueOrDefault(-1))
+        member this.WorkItemType : CloudWorkItemType =
+            let jobKind = enum<WorkItemKind>(record.Kind.GetValueOrDefault(-1))
             match jobKind with
-            | JobKind.TaskRoot -> TaskRoot
-            | JobKind.Choice   -> ChoiceChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
-            | JobKind.Parallel -> ParallelChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
-            | _ -> failwithf "Invalid JobKind %d" <| int jobKind
+            | WorkItemKind.TaskRoot -> TaskRoot
+            | WorkItemKind.Choice   -> ChoiceChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
+            | WorkItemKind.Parallel -> ParallelChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
+            | _ -> failwithf "Invalid WorkItemKind %d" <| int jobKind
         
         member this.Size : int64 = record.Size.GetValueOrDefault(-1L)
         
@@ -208,13 +208,13 @@ type JobLeaseToken internal (info : JobLeaseTokenInfo, faultInfo : CloudJobFault
             | None -> None
             | Some w -> Some(WorkerId(w) :> _)
         
-        member this.TaskEntry : ICloudTaskCompletionSource = TaskCompletionSource(info.ConfigurationId, info.ParentJobId) :> _
+        member this.TaskEntry : ICloudTaskCompletionSource = TaskCompletionSource(info.ConfigurationId, info.ParentWorkItemId) :> _
         
         member this.Type : string = record.Type
 
 [<Sealed; AbstractClass>]
 type internal MessagingClient private () =
-    static member TryDequeue (config : ConfigurationId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<JobLeaseToken option> =
+    static member TryDequeue (config : ConfigurationId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<WorkItemLeaseToken option> =
         async { 
             let! (message : BrokeredMessage) = dequeueF()
             if message = null then 
@@ -231,28 +231,28 @@ type internal MessagingClient private () =
                 let batchIndex = tryGet Settings.BatchIndexProperty
                 let lockToken = message.LockToken
                 let body = fromGuid (message.GetBody<Guid>())
-                let jobId = message.Properties.[Settings.JobIdProperty] :?> Guid
+                let jobId = message.Properties.[Settings.WorkItemIdProperty] :?> Guid
                 let dequeueTime = DateTimeOffset.Now
                 let jobInfo = {
-                    JobId = jobId
+                    WorkItemId = jobId
                     ContentId = body
                     ConfigurationId = config
                     MessageLockId = lockToken
-                    ParentJobId = parentId
+                    ParentWorkItemId = parentId
                     BatchIndex = batchIndex
                     TargetWorker = affinity
                     DeliveryCount = deliveryCount
                     DequeueTime = dequeueTime
                 }
                 logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" jobInfo
-                JobLeaseMonitor.Start(message, jobInfo, logger)
+                WorkItemLeaseMonitor.Start(message, jobInfo, logger)
 
-                logger.Logf LogLevel.Debug "%O : changing status to %A" jobInfo JobStatus.Dequeued
-                let newRecord = new JobRecord(jobInfo.ParentJobId, fromGuid jobInfo.JobId)
+                logger.Logf LogLevel.Debug "%O : changing status to %A" jobInfo WorkItemStatus.Dequeued
+                let newRecord = new WorkItemRecord(jobInfo.ParentWorkItemId, fromGuid jobInfo.WorkItemId)
                 newRecord.ETag <- "*"
                 newRecord.Completed <- nullable false
                 newRecord.DequeueTime <- nullable jobInfo.DequeueTime
-                newRecord.Status <- nullable(int JobStatus.Dequeued)
+                newRecord.Status <- nullable(int WorkItemStatus.Dequeued)
                 newRecord.CurrentWorker <- localWorkerId.Id
                 newRecord.DeliveryCount <- nullable jobInfo.DeliveryCount
                 newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
@@ -267,13 +267,13 @@ type internal MessagingClient private () =
                         | None -> return NoFault
                         | Some target when target = localWorkerId.Id -> return NoFault
                         | Some target ->
-                            newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedJobOfDeadWorker)
-                            return IsTargetedJobOfDeadWorker(faultCount, new WorkerId(target))
+                            newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
+                            return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
                     else
-                        let! oldRecord = Table.read<JobRecord> config config.RuntimeTable jobInfo.ParentJobId (fromGuid jobInfo.JobId)
+                        let! oldRecord = Table.read<WorkItemRecord> config config.RuntimeTable jobInfo.ParentWorkItemId (fromGuid jobInfo.WorkItemId)
                         // two cases:
                         match enum<FaultInfo> oldRecord.FaultInfo.Value with
-                        // either worker declared job faulted
+                        // either worker declared workItem faulted
                         | FaultInfo.FaultDeclaredByWorker ->
                             let lastExc =
                                 if oldRecord.LastException = null then Unchecked.defaultof<_>
@@ -284,68 +284,68 @@ type internal MessagingClient private () =
                         | _ ->
                             match jobInfo.TargetWorker with
                             | None ->
-                                return WorkerDeathWhileProcessingJob(faultCount, new WorkerId(oldRecord.CurrentWorker))
+                                return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(oldRecord.CurrentWorker))
                             | Some target when target = localWorkerId.Id ->
-                                newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingJob)
-                                return WorkerDeathWhileProcessingJob(faultCount, new WorkerId(oldRecord.CurrentWorker))
+                                newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingWorkItem)
+                                return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(oldRecord.CurrentWorker))
                             | Some target ->
-                                newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedJobOfDeadWorker)
-                                return IsTargetedJobOfDeadWorker(faultCount, new WorkerId(target))
+                                newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
+                                return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
                 }
 
                 logger.Logf LogLevel.Debug "%O : extracted fault info %A" jobInfo faultInfo
                 let! _record = Table.merge config config.RuntimeTable newRecord
                 logger.Logf LogLevel.Debug "%O : changed status successfully" jobInfo
-                return Some(JobLeaseToken(jobInfo, faultInfo))
+                return Some(WorkItemLeaseToken(jobInfo, faultInfo))
         }
 
-    static member Enqueue (config : ConfigurationId, logger : ISystemLogger, job : CloudJob, allowNewSifts : bool, sendF : BrokeredMessage -> Task) =
+    static member Enqueue (config : ConfigurationId, logger : ISystemLogger, workItem : CloudWorkItem, allowNewSifts : bool, sendF : BrokeredMessage -> Task) =
         async { 
-            logger.Logf LogLevel.Debug "job:%O : enqueue" job.Id
-            let record = JobRecord.FromCloudJob(job)
-            let! sift = ClosureSifter.SiftClosure(config, job, allowNewSifts)
+            logger.Logf LogLevel.Debug "workItem:%O : enqueue" workItem.Id
+            let record = WorkItemRecord.FromCloudWorkItem(workItem)
+            let! sift = ClosureSifter.SiftClosure(config, workItem, allowNewSifts)
             do! Table.insert config config.RuntimeTable record
-            let! blob = Blob<SiftedClosure<CloudJob>>.Create(config, job.TaskEntry.Id, fromGuid job.Id, fun () -> sift)
-            let msg = new BrokeredMessage(job.Id)
-            msg.Properties.Add(Settings.JobIdProperty, job.Id)
-            msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
-            match job.TargetWorker with
+            let! blob = Blob<SiftedClosure<CloudWorkItem>>.Create(config, workItem.TaskEntry.Id, fromGuid workItem.Id, fun () -> sift)
+            let msg = new BrokeredMessage(workItem.Id)
+            msg.Properties.Add(Settings.WorkItemIdProperty, workItem.Id)
+            msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid workItem.TaskEntry.Id)
+            match workItem.TargetWorker with
             | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
             | _ -> ()
             do! sendF msg
             let newRecord = record.CloneDefault()
-            newRecord.Status <- nullable(int JobStatus.Enqueued)
+            newRecord.Status <- nullable(int WorkItemStatus.Enqueued)
             newRecord.EnqueueTime <- nullable record.Timestamp
             newRecord.Size <- nullable blob.Size
             newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
             newRecord.ETag <- "*"
             let! _record = Table.merge config config.RuntimeTable newRecord
-            logger.Logf LogLevel.Debug "job:%O : enqueue completed, size %s" job.Id (getHumanReadableByteSize blob.Size)
+            logger.Logf LogLevel.Debug "workItem:%O : enqueue completed, size %s" workItem.Id (getHumanReadableByteSize blob.Size)
         }
 
-    static member EnqueueBatch(config : ConfigurationId, logger : ISystemLogger, jobs : CloudJob [], sendF : BrokeredMessage seq -> Task) =
+    static member EnqueueBatch(config : ConfigurationId, logger : ISystemLogger, jobs : CloudWorkItem [], sendF : BrokeredMessage seq -> Task) =
         async { 
             if jobs.Length = 0 then return () else
             let taskId = jobs.[0].TaskEntry.Id // this is a valid assumption for all uses
-            let records = jobs |> Seq.map JobRecord.FromCloudJob
+            let records = jobs |> Seq.map WorkItemRecord.FromCloudWorkItem
             let! sifted = ClosureSifter.SiftClosure(config, jobs, allowNewSifts = false)
             do! Table.insertBatch config config.RuntimeTable records
 
             let blobName = guid()
-            let! blob = Blob<SiftedClosure<CloudJob []>>.Create(config, taskId, blobName, fun () -> sifted)
+            let! blob = Blob<SiftedClosure<CloudWorkItem []>>.Create(config, taskId, blobName, fun () -> sifted)
             let size = blob.Size
 
-            let mkJobMessage (i : int) (job : CloudJob) =
+            let mkWorkItemMessage (i : int) (workItem : CloudWorkItem) =
                 let msg = new BrokeredMessage(toGuid blobName)
-                msg.Properties.Add(Settings.JobIdProperty, job.Id)
-                msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid job.TaskEntry.Id)
+                msg.Properties.Add(Settings.WorkItemIdProperty, workItem.Id)
+                msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid workItem.TaskEntry.Id)
                 msg.Properties.Add(Settings.BatchIndexProperty, i)
-                match job.TargetWorker with
+                match workItem.TargetWorker with
                 | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
                 | _ -> ()
                 msg
 
-            let messages = jobs |> Array.mapi mkJobMessage
+            let messages = jobs |> Array.mapi mkWorkItemMessage
             do! sendF messages
 
             let now = DateTimeOffset.Now
@@ -353,7 +353,7 @@ type internal MessagingClient private () =
                 records |> Seq.map (fun r -> 
                     let newRec = r.CloneDefault()
                     newRec.ETag <- "*"
-                    newRec.Status <- nullable(int JobStatus.Enqueued)
+                    newRec.Status <- nullable(int WorkItemStatus.Enqueued)
                     newRec.EnqueueTime <- nullable now
                     newRec.FaultInfo <- nullable(int FaultInfo.NoFault)
                     newRec.Size <- nullable(size)
@@ -392,7 +392,7 @@ type internal Subscription (config : ConfigurationId, localWorkerId : IWorkerId,
 
     member this.MessageCount = SubscriptionDescription(config.RuntimeTopic, targetWorkerId.Id).MessageCount
 
-    member this.TryDequeue() : Async<JobLeaseToken option> = 
+    member this.TryDequeue() : Async<WorkItemLeaseToken option> = 
         MessagingClient.TryDequeue(config, logger, localWorkerId, fun () -> subscription.ReceiveAsync(Settings.ServerWaitTime))
         
 
@@ -408,11 +408,11 @@ type internal Topic (config : ConfigurationId, logger : ISystemLogger) =
 
     member this.GetSubscription(workerId : IWorkerId) : Subscription = new Subscription(config, this.LocalWorkerId, workerId, logger)
     
-    member this.EnqueueBatch(jobs : CloudJob []) : Async<unit> = 
+    member this.EnqueueBatch(jobs : CloudWorkItem []) : Async<unit> = 
         MessagingClient.EnqueueBatch(config, logger, jobs, topic.SendBatchAsync)
     
-    member this.Enqueue(job : CloudJob, allowNewSifts : bool) = 
-        MessagingClient.Enqueue(config, logger, job, allowNewSifts, topic.SendAsync)
+    member this.Enqueue(workItem : CloudWorkItem, allowNewSifts : bool) = 
+        MessagingClient.Enqueue(config, logger, workItem, allowNewSifts, topic.SendAsync)
 
     static member Create(config, logger : ISystemLogger) = 
         async { 
@@ -440,13 +440,13 @@ type internal Queue (config : ConfigurationId, logger : ISystemLogger) =
 
     member this.MessageCount = QueueDescription(config.RuntimeQueue).MessageCount
 
-    member this.EnqueueBatch(jobs : CloudJob []) = 
+    member this.EnqueueBatch(jobs : CloudWorkItem []) = 
         MessagingClient.EnqueueBatch(config, logger, jobs, queue.SendBatchAsync)
     
-    member this.Enqueue(job : CloudJob, allowNewSifts : bool) = 
-        MessagingClient.Enqueue(config, logger, job, allowNewSifts, queue.SendAsync)
+    member this.Enqueue(workItem : CloudWorkItem, allowNewSifts : bool) = 
+        MessagingClient.Enqueue(config, logger, workItem, allowNewSifts, queue.SendAsync)
     
-    member this.TryDequeue() : Async<JobLeaseToken option> = 
+    member this.TryDequeue() : Async<WorkItemLeaseToken option> = 
         MessagingClient.TryDequeue(config, logger, this.LocalWorkerId, fun () -> queue.ReceiveAsync(Settings.ServerWaitTime))
         
     static member Create(config : ConfigurationId, logger : ISystemLogger) = 

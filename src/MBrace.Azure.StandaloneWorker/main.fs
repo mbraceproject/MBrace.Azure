@@ -20,7 +20,7 @@ let main (args : string []) =
             | Some n -> n
 
         let svc = new Service(config, workerId)
-        svc.MaxConcurrentJobs <- cfg.MaxJobs
+        svc.MaxConcurrentWorkItems <- cfg.MaxWorkItems
         Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
         cfg.LogLevel |> Option.iter (fun l -> svc.LogLevel <- l)
         let _ = svc.AttachLogger(ConsoleLogger(showDate = true, useColors = true))

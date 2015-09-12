@@ -16,7 +16,7 @@ type Service (config : Configuration, serviceId : string) =
     let mutable ignoreVersion         = true
     let mutable customResources       = ResourceRegistry.Empty
     let mutable configuration         = config
-    let mutable maxJobs               = Environment.ProcessorCount
+    let mutable maxWorkItems               = Environment.ProcessorCount
     let mutable workerAgent           = None : WorkerAgent option
     let attachableLogger              = AttacheableLogger.Create(makeAsynchronous = true)
     
@@ -55,9 +55,9 @@ type Service (config : Configuration, serviceId : string) =
         and set c = check (); ignoreVersion <- c
 
     /// Get or set the maximum number of jobs that this worker may execute concurrently.
-    member this.MaxConcurrentJobs 
-        with get () = maxJobs
-        and set c = check (); maxJobs <- c
+    member this.MaxConcurrentWorkItems 
+        with get () = maxWorkItems
+        and set c = check (); maxWorkItems <- c
     
     member this.IsRunning 
         with get () =
@@ -100,7 +100,7 @@ type Service (config : Configuration, serviceId : string) =
 
                 attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
 
-                let! agent = Initializer.Init(config, this.Id, attachableLogger, this.UseAppDomainIsolation, this.MaxConcurrentJobs, customResources)
+                let! agent = Initializer.Init(config, this.Id, attachableLogger, this.UseAppDomainIsolation, this.MaxConcurrentWorkItems, customResources)
                 workerAgent <- Some agent
                 sw.Stop()
                 attachableLogger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds

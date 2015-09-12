@@ -102,10 +102,10 @@
     <Compile Include="Primitives\ResultAggregator.fs" />
     <Compile Include="Primitives\Logging.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
-    <Compile Include="Runtime\JobManager\JobRecord.fs" />
-    <Compile Include="Runtime\JobManager\TaskManager.fs" />
-    <Compile Include="Runtime\JobManager\Messaging.fs" />
-    <Compile Include="Runtime\JobManager\JobManager.fs" />
+    <Compile Include="Runtime\WorkItemManager\WorkItemRecord.fs" />
+    <Compile Include="Runtime\WorkItemManager\TaskManager.fs" />
+    <Compile Include="Runtime\WorkItemManager\Messaging.fs" />
+    <Compile Include="Runtime\WorkItemManager\WorkItemManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />
     <Compile Include="Runtime\Init.fs" />
     <Compile Include="Runtime\Service.fs" />

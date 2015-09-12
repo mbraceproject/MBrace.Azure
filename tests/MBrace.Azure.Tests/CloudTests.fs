@@ -18,7 +18,7 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
     
     let session = session 
 
-    let run (wf : Cloud<'T>) = self.RunOnCloud wf
+    let run (wf : Cloud<'T>) = self.Run wf
 
     member this.Session = session
 
@@ -28,21 +28,21 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
     [<TestFixtureTearDown>]
     member __.Fini () = session.Stop()
 
-    override __.RunOnCloud (workflow : Cloud<'T>) = 
-        session.Runtime.RunOnCloudAsync (workflow)
+    override __.Run (workflow : Cloud<'T>) = 
+        session.Runtime.RunAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
-    override __.RunOnCloud (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
+    override __.Run (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
             let runtime = session.Runtime
             let cts = runtime.CreateCancellationTokenSource()
-            try return! runtime.RunOnCloudAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            try return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
             finally cts.Cancel()
         } |> Async.RunSync
 
-    override __.RunOnCloudWithLogs(workflow : Cloud<unit>) =
-        let task = session.Runtime.CreateCloudTask(workflow)
+    override __.RunWithLogs(workflow : Cloud<unit>) =
+        let task = session.Runtime.CreateTask(workflow)
         do task.Result
         task.GetLogs () |> Array.map CloudLogEntry.Format
 
@@ -63,12 +63,12 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
         run Cloud.CurrentWorker |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``Z4. Runtime : Get process id`` () =
-        run (Cloud.GetCloudTaskId()) |> Choice.shouldBe (fun _ -> true)
+    member __.``Z4. Runtime : Get task id`` () =
+        run (Cloud.GetTaskId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``Z4. Runtime : Get task id`` () =
-        run (Cloud.GetJobId()) |> Choice.shouldBe (fun _ -> true)
+    member __.``Z4. Runtime : Get work item id`` () =
+        run (Cloud.GetWorkItemId()) |> Choice.shouldBe (fun _ -> true)
 
 
 type ``Cloud Tests - Compute Emulator`` () =

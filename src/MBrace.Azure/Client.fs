@@ -87,7 +87,7 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
             let ps = try Some <| Process.GetProcessById(worker.ProcessId) with :? ArgumentException -> None
             match ps with
             | Some p ->
-                (manager :> IRuntimeManager).WorkerManager.DeclareWorkerStatus(worker.WorkerId, WorkerJobExecutionStatus.Stopped)
+                (manager :> IRuntimeManager).WorkerManager.DeclareWorkerStatus(worker.WorkerId, WorkerItemExecutionStatus.Stopped)
                 |> Async.RunSync
                 p.Kill()
             | _ ->
@@ -119,10 +119,10 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
     /// <summary>
     ///     Spawns a worker instance in the local machine, subscribed to the current cluster configuration.
     /// </summary>
-    /// <param name="maxJobs">Maximum number of concurrent jobs in the spawned worker.</param>
+    /// <param name="maxWorkItems">Maximum number of concurrent jobs in the spawned worker.</param>
     /// <param name="logLevel">LogLevel used by the worker.</param>
-    member this.AttachLocalWorker(?maxJobs:int, ?logLevel:LogLevel) =
-        MBraceCluster.SpawnOnCurrentMachine(manager.Configuration, 1, ?maxJobs = maxJobs, ?logLevel = logLevel)
+    member this.AttachLocalWorker(?maxWorkItems:int, ?logLevel:LogLevel) =
+        MBraceCluster.SpawnOnCurrentMachine(manager.Configuration, 1, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel)
 
     /// Gets or sets the path for a local standalone worker executable.
     static member LocalWorkerExecutable
@@ -138,13 +138,13 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
     /// </summary>
     /// <param name="config">Azure runtime configuration.</param>
     /// <param name="workerCount">Number of local workers to spawn.</param>
-    /// <param name="maxJobs">Maximum number of concurrent jobs per worker.</param>
+    /// <param name="maxWorkItems">Maximum number of concurrent jobs per worker.</param>
     /// <param name="workerNameF">Worker name factory.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
-    static member SpawnOnCurrentMachine(config : Configuration, workerCount, ?maxJobs : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
+    static member SpawnOnCurrentMachine(config : Configuration, workerCount, ?maxWorkItems : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
         let exe = MBraceCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
-        let cfg = { Arguments.Configuration = config; Arguments.MaxJobs = defaultArg maxJobs Environment.ProcessorCount; Name = None; LogLevel = logLevel }
+        let cfg = { Arguments.Configuration = config; Arguments.MaxWorkItems = defaultArg maxWorkItems Environment.ProcessorCount; Name = None; LogLevel = logLevel }
         do Config.Activate config
         let _ = Array.Parallel.init workerCount (fun i -> 
             let conf =
@@ -163,13 +163,13 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
     /// </summary>
     /// <param name="config">Azure runtime configuration.</param>
     /// <param name="workerCount">Number of local workers to spawn.</param>
-    /// <param name="maxJobs">Maximum number of concurrent jobs per worker.</param>
+    /// <param name="maxWorkItems">Maximum number of concurrent jobs per worker.</param>
     /// <param name="workerNameF">Worker name factory.</param>
     /// <param name="clientId">Client instance identifier.</param>
     /// <param name="logger">Client logger to attach.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
-    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?maxJobs : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
-        MBraceCluster.SpawnOnCurrentMachine(config, workerCount, ?maxJobs = maxJobs, ?workerNameF = workerNameF, ?logLevel = logLevel)
+    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?maxWorkItems : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
+        MBraceCluster.SpawnOnCurrentMachine(config, workerCount, ?maxWorkItems = maxWorkItems, ?workerNameF = workerNameF, ?logLevel = logLevel)
         MBraceCluster.GetHandle(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>

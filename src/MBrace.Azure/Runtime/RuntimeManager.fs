@@ -16,8 +16,8 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
 
     do systemLogger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(configId, systemLogger)
-    do systemLogger.LogInfo "Creating job manager"
-    let jobManager    = JobManager.Create(configId, workerManager, systemLogger)
+    do systemLogger.LogInfo "Creating workItem manager"
+    let jobManager    = WorkItemManager.Create(configId, workerManager, systemLogger)
     do systemLogger.LogInfo "Creating task manager"
     let taskManager   = TaskManager.Create(configId, systemLogger)
     do systemLogger.LogInfo "Creating assembly manager"
@@ -104,7 +104,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         member this.Serializer               = Config.Pickler :> _
         member this.WorkerManager            = workerManager :> _
         member this.TaskManager              = taskManager :> _
-        member this.JobQueue                 = jobManager :> _
+        member this.WorkItemQueue                 = jobManager :> _
         member this.AssemblyManager          = assemblyManager :> _
         member this.SystemLogger             = systemLogger :> _
         member this.AttachSystemLogger l     = systemLogger.AttachLogger l

@@ -22,8 +22,8 @@ cluster.Reset(true,true,true,true,true,true,false)
 cluster.KillAllLocalWorkers()
 cluster.Workers
 
-let ct = cluster.CreateCloudTask(Cloud.ParallelEverywhere(Cloud.CurrentWorker))
+let ct = cluster.CreateTask(cloud { return! Cloud.ParallelEverywhere(Cloud.CurrentWorker) })
 
 ct.ShowInfo()
 ct.Result
-cluster.ShowWorkerInfo()
+cluster.ShowWorkers()

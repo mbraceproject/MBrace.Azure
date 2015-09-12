@@ -6,12 +6,12 @@ open Microsoft.WindowsAzure.Storage.Table
 open System
 open MBrace.Runtime.Utils
 
-type internal JobKind =
+type internal WorkItemKind =
     | TaskRoot = 1
     | Parallel = 2
     | Choice   = 3
 
-type internal JobStatus =
+type internal WorkItemStatus =
     | Preparing = 0
     | Enqueued  = 1
     | Dequeued  = 2
@@ -22,11 +22,11 @@ type internal JobStatus =
 type internal FaultInfo =
     | NoFault                       = 0
     | FaultDeclaredByWorker         = 1
-    | WorkerDeathWhileProcessingJob = 2
-    | IsTargetedJobOfDeadWorker     = 3
+    | WorkerDeathWhileProcessingWorkItem = 2
+    | IsTargetedWorkItemOfDeadWorker     = 3
 
 [<AllowNullLiteral>]
-type JobRecord(parentTaskId : string, jobId : string) = 
+type WorkItemRecord(parentTaskId : string, jobId : string) = 
     inherit TableEntity(parentTaskId, jobId)
     
     member val Id                 = jobId with get
@@ -52,37 +52,37 @@ type JobRecord(parentTaskId : string, jobId : string) =
     member val LastException      = null : byte [] with get, set
     member val FaultInfo          = Nullable<int>() with get, set
 
-    new () = new JobRecord(null, null)
+    new () = new WorkItemRecord(null, null)
 
-    override this.ToString() = sprintf "job:%A" jobId
+    override this.ToString() = sprintf "workItem:%A" jobId
 
     member this.CloneDefault() =
-        let p = new JobRecord(this.PartitionKey, this.RowKey)
+        let p = new WorkItemRecord(this.PartitionKey, this.RowKey)
         p.ETag <- this.ETag
         p
 
-    static member FromCloudJob(job : CloudJob) =
-        let record = new JobRecord(job.TaskEntry.Id, fromGuid job.Id)
+    static member FromCloudWorkItem(workItem : CloudWorkItem) =
+        let record = new WorkItemRecord(workItem.TaskEntry.Id, fromGuid workItem.Id)
         
-        match job.JobType with
+        match workItem.WorkItemType with
         | TaskRoot -> 
-            record.Kind <- nullable(int JobKind.TaskRoot)
+            record.Kind <- nullable(int WorkItemKind.TaskRoot)
         | ParallelChild(i,m) ->
-            record.Kind <- nullable(int JobKind.Parallel)
+            record.Kind <- nullable(int WorkItemKind.Parallel)
             record.Index <- nullable i
             record.MaxIndex <- nullable m
         | ChoiceChild(i,m) ->
-            record.Kind <- nullable(int JobKind.Choice)
+            record.Kind <- nullable(int WorkItemKind.Choice)
             record.Index <- nullable i
             record.MaxIndex <- nullable m
         
-        match job.TargetWorker with
+        match workItem.TargetWorker with
         | Some worker -> record.Affinity <- worker.Id
         | _ -> ()
 
-        record.Status <- nullable(int JobStatus.Preparing)
+        record.Status <- nullable(int WorkItemStatus.Preparing)
         record.DeliveryCount <- nullable 0
         record.Completed <- nullable false
-        record.Type <- PrettyPrinters.Type.prettyPrintUntyped job.Type
+        record.Type <- PrettyPrinters.Type.prettyPrintUntyped workItem.Type
         record.FaultInfo <- nullable(int FaultInfo.NoFault)
         record

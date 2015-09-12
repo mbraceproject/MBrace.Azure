@@ -1,13 +1,16 @@
 ﻿namespace MBrace.Azure.Runtime
 
-open MBrace.Runtime
-open MBrace.Azure
-open MBrace.Azure.Runtime.Utilities
-open Microsoft.WindowsAzure.Storage.Table
 open System
 open System.Runtime.Serialization
+
+open Microsoft.WindowsAzure.Storage.Table
+
+open MBrace.Core.Internals
+open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Components
+open MBrace.Azure
+open MBrace.Azure.Runtime.Utilities
 
 // TODO
 // Add Posting status.
@@ -85,7 +88,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
         record <- lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId, intervalMilliseconds = 200)
         info <-
             lazy
-                let record = Async.RunSynchronously(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
+                let record = Async.RunSync(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
                 { 
                     Name = if record.Name = null then None else Some record.Name
                     CancellationTokenSource = unpickle record.CancellationTokenSource
@@ -115,9 +118,9 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                     return! tcs.AwaitResult()
             }
         
-        member this.IncrementCompletedJobCount(): Async<unit> = async { return () }
-        member this.IncrementFaultedJobCount(): Async<unit> = async { return () }
-        member this.IncrementJobCount(): Async<unit> = async { return () }
+        member this.IncrementCompletedWorkItemCount(): Async<unit> = async { return () }
+        member this.IncrementFaultedWorkItemCount(): Async<unit> = async { return () }
+        member this.IncrementWorkItemCount(): Async<unit> = async { return () }
         
         member this.DeclareStatus(status: CloudTaskStatus): Async<unit> = 
             async {
@@ -149,9 +152,9 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
             async {
                 // Fetch all jobRecord for with this taskId as a parent and
                 // do all the active/completed, etc calculations.
-                // TODO : use JobManager.
+                // TODO : use WorkItemManager.
                 let! recordHandle = Async.StartChild(getRecord())
-                let! jobsHandle = Async.StartChild(Table.queryPK<JobRecord> config config.RuntimeTable taskId)
+                let! jobsHandle = Async.StartChild(Table.queryPK<WorkItemRecord> config config.RuntimeTable taskId)
 
                 let! record = recordHandle
                 let! jobs = jobsHandle
@@ -172,24 +175,24 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                 let total = jobs.Length
                 let active, completed, faulted =
                     jobs
-                    |> Array.fold (fun ((a,c,f) as state) job ->
-                        match enum<JobStatus> job.Status.Value with
-                        | JobStatus.Preparing 
-                        | JobStatus.Enqueued  -> state
-                        | JobStatus.Faulted   -> (a, c, f + 1)
-                        | JobStatus.Dequeued
-                        | JobStatus.Started   -> (a + 1, c, f)
-                        | JobStatus.Completed -> (a, c+1, f)
-                        | _ as s -> failwith "Invalid JobStatus %A" s) (0, 0, 0)
+                    |> Array.fold (fun ((a,c,f) as state) workItem ->
+                        match enum<WorkItemStatus> workItem.Status.Value with
+                        | WorkItemStatus.Preparing 
+                        | WorkItemStatus.Enqueued  -> state
+                        | WorkItemStatus.Faulted   -> (a, c, f + 1)
+                        | WorkItemStatus.Dequeued
+                        | WorkItemStatus.Started   -> (a + 1, c, f)
+                        | WorkItemStatus.Completed -> (a, c+1, f)
+                        | _ as s -> failwith "Invalid WorkItemStatus %A" s) (0, 0, 0)
 
                 return { Status = TaskStatus.ofInt(record.Status.GetValueOrDefault(-1))
                          Info = (this :> ICloudTaskCompletionSource).Info
                          ExecutionTime = execTime // TODO : dequeued vs running time?
-                         MaxActiveJobCount = -1
-                         ActiveJobCount = active
-                         CompletedJobCount = completed
-                         FaultedJobCount = faulted
-                         TotalJobCount = total }
+                         MaxActiveWorkItemCount = -1
+                         ActiveWorkItemCount = active
+                         CompletedWorkItemCount = completed
+                         FaultedWorkItemCount = faulted
+                         TotalWorkItemCount = total }
             }
 
         member this.Info: CloudTaskInfo = info.Value
@@ -267,7 +270,7 @@ type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
                 return records |> Array.map(fun r -> new TaskCompletionSource(config, r.Id) :> ICloudTaskCompletionSource)
             }
         
-        member this.TryGetTaskById(taskId: string): Async<ICloudTaskCompletionSource option> = 
+        member this.TryGetTask(taskId: string): Async<ICloudTaskCompletionSource option> = 
             async {
                 let! record = Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId
                 if record = null then return None else return Some(new TaskCompletionSource(config, taskId) :> ICloudTaskCompletionSource)

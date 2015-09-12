@@ -9,7 +9,7 @@ open MBrace.Runtime
     
 type Config = { 
     Configuration : Configuration
-    MaxJobs : int
+    MaxWorkItems : int
     Name : string option
     LogLevel : LogLevel option
 }

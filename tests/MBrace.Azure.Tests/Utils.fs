@@ -66,7 +66,7 @@ type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
                 if localWorkers < 1 then
                     MBraceCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
                 else
-                    MBraceCluster.InitOnCurrentMachine(config, localWorkers, maxJobs = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+                    MBraceCluster.InitOnCurrentMachine(config, localWorkers, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
             state <- Some runtime
 
     member __.Stop () =

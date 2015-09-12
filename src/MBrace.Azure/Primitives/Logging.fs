@@ -36,7 +36,7 @@ type CloudLogRecord(pk, rk, message, time, workerId, taskId, jobId) =
     member val Time : DateTimeOffset = time with get, set
     member val WorkerId : string = workerId with get, set
     member val TaskId : string = taskId with get, set
-    member val JobId : Guid = jobId with get, set
+    member val WorkItemId : Guid = jobId with get, set
     new () = new CloudLogRecord(null, null, null, Unchecked.defaultof<_>, null, null, Unchecked.defaultof<_>)  
 
 
@@ -149,8 +149,8 @@ type SystemLogger private (storageConn : string, table : string, loggerId : stri
     static member Create(storageConn, table, uuid) = new SystemLogger(storageConn, table, uuid)
       
 /// CloudLogger implementation over Table storage.
-type CloudLogWriter (config : ConfigurationId, workerId : IWorkerId, taskId : string, jobId : CloudJobId) =
-    interface ICloudJobLogger with
+type CloudLogWriter (config : ConfigurationId, workerId : IWorkerId, taskId : string, jobId : CloudWorkItemId) =
+    interface ICloudWorkItemLogger with
         member this.Dispose(): unit = ()
 
     interface ICloudLogger with
@@ -226,15 +226,15 @@ type CloudLogReader (config : ConfigurationId, taskId : string) =
                 | Some f -> query.Where(f) 
             let! logs = Table.query config config.UserDataTable query
             return logs
-                   |> Seq.map (fun log -> CloudLogEntry(log.TaskId, log.WorkerId, log.JobId, log.Time.UtcDateTime, log.Message))
+                   |> Seq.map (fun log -> CloudLogEntry(log.TaskId, log.WorkerId, log.WorkItemId, log.Time.UtcDateTime, log.Message))
         }
 
 [<Sealed; AutoSerializable(false)>]
 type CloudLogManager private (config : ConfigurationId) =
     interface ICloudLogManager with
-        member this.CreateJobLogger(worker: IWorkerId, job: CloudJob): Async<ICloudJobLogger> = 
+        member this.CreateWorkItemLogger(worker: IWorkerId, workItem: CloudWorkItem): Async<ICloudWorkItemLogger> = 
             async {
-                return new CloudLogWriter(config, worker, job.TaskEntry.Id, job.Id) :> _
+                return new CloudLogWriter(config, worker, workItem.TaskEntry.Id, workItem.Id) :> _
             }
         
         member this.GetAllCloudLogsByTask(taskId: string): Async<seq<CloudLogEntry>> = 

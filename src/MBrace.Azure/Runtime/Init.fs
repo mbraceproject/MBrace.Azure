@@ -11,7 +11,7 @@ type internal Initializer =
                         workerId : string, 
                         logger : AttacheableLogger, 
                         useAppDomainIsolation : bool,
-                        maxConcurrentJobs : int, 
+                        maxConcurrentWorkItems : int, 
                         customResources : ResourceRegistry) =
         async {
             logger.LogInfof "Initializing worker %A" workerId
@@ -33,13 +33,13 @@ type internal Initializer =
                     let managerF () =
                         ClusterManager.CreateForAppDomain(config, workerId, marshalledLogger, customResources) :> IRuntimeManager , workerId
 
-                    AppDomainJobEvaluator.Create(managerF, init) :> ICloudJobEvaluator
+                    AppDomainWorkItemEvaluator.Create(managerF, init) :> ICloudWorkItemEvaluator
                 else
-                    logger.LogInfo "Initializing local job evaluator"
-                    LocalJobEvaluator.Create(runtimeManager, workerId) :> ICloudJobEvaluator
+                    logger.LogInfo "Initializing local workItem evaluator"
+                    LocalWorkItemEvaluator.Create(runtimeManager, workerId) :> ICloudWorkItemEvaluator
 
             logger.LogInfo "Creating worker agent"
-            let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentJobs, submitPerformanceMetrics = true)
+            let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentWorkItems, submitPerformanceMetrics = true)
             logger.LogInfo "Starting worker agent"
             do! agent.Start()
             logger.LogInfo "Worker agent started"
