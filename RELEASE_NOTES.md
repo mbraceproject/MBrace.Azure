@@ -1,3 +1,8 @@
+### 0.10.3-alpha
+* Upgrade to lastest MBrace.Core.
+* Fix Vagabond initialization issue in worker roles.
+* Implement worker-based logging.
+
 ### 0.10.2-alpha
 * Improve support for multiple client sessions in single process.
 
