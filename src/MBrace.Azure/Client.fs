@@ -28,7 +28,7 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
 
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
-    static do Config.InitGlobalState(populateDirs = true, isClientInstance = true)
+    static do Config.InitClientGlobalState()
 
     /// Current client instance identifier.
     member this.UUID = manager.RuntimeManagerId

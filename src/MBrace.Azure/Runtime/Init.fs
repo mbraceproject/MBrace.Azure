@@ -24,10 +24,11 @@ type internal Initializer =
                 if useAppDomainIsolation then
                     logger.LogInfof "Initializing AppDomain pool evaluator"
                     let marshalledLogger = new MarshaledLogger(logger)
+                    let workingDirectory = Config.WorkingDirectory
                     let init () =
                         let domainName = System.AppDomain.CurrentDomain.FriendlyName
                         marshalledLogger.LogInfof "Initializing Application Domain %A" domainName
-                        Config.InitGlobalState(populateDirs = false, isClientInstance = false)
+                        Config.InitAppDomainGlobalState(workingDirectory)
                         Config.Activate(config)
 
                     let managerF () =

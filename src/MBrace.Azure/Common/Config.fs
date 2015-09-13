@@ -273,10 +273,24 @@ type Config private () =
     static let isInitialized = ref false
     static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
     static let mutable localFileStore = Unchecked.defaultof<FileSystemStore>
+    static let mutable workingDirectory = Unchecked.defaultof<string>
 
     static let checkInitialized () =
         if not isInitialized.Value then
             invalidOp "Runtime configuration has not been initialized."
+
+    static let initGlobalState path populateDirs isClientInstance =
+        lock isInitialized (fun () ->
+            if not isInitialized.Value then
+                let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
+                workingDirectory <- WorkingDirectory.CreateWorkingDirectory(?path = path, cleanup = populateDirs)
+                let vagabondDir = Path.Combine(workingDirectory, "vagabond")
+                if populateDirs then ignore <| WorkingDirectory.CreateWorkingDirectory(vagabondDir, cleanup = false)
+                VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance)
+                objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
+                localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
+                isInitialized := true
+        )
 
     /// Default FsPicklerSerializer instance.
     static member Pickler = checkInitialized() ; VagabondRegistry.Instance.Serializer
@@ -284,35 +298,33 @@ type Config private () =
     /// Default ISerializer
     static member Serializer = checkInitialized(); new VagabondFsPicklerBinarySerializer() :> ISerializer
 
+    /// Working Directory used by current global state.
+    static member WorkingDirectory = checkInitialized(); workingDirectory
+
     /// In-Memory cache
     static member ObjectCache = checkInitialized(); objectCache
 
     /// Local file system store
     static member FileStore = checkInitialized(); localFileStore
 
-    /// <summary>
-    ///     Initialize global Azure state.
-    /// </summary>
-    /// <param name="populateDirs">Create or clear working directory if it already exists.</param>
-    /// <param name="isClientInstance">Declare as client instance.</param>
-    static member InitGlobalState(populateDirs : bool, isClientInstance : bool) =
-        lock isInitialized (fun () ->
-            if not isInitialized.Value then
-                let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
-                let workingDirectory = WorkingDirectory.CreateWorkingDirectory(cleanup = populateDirs)
-                let vagabondDir = Path.Combine(workingDirectory, "vagabond")
-                if populateDirs then ignore <| Directory.CreateDirectory vagabondDir
-                VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance)
-                objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
-                localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
-                isInitialized := true
-        )
+//    /// <summary>
+//    ///     Initialize global Azure state.
+//    /// </summary>
+//    /// <param name="populateDirs">Create or clear working directory if it already exists.</param>
+//    /// <param name="isClientInstance">Declare as client instance.</param>
+//    static member InitGlobalState(populateDirs : bool, isClientInstance : bool) =
+
+    static member InitClientGlobalState() = initGlobalState None true true
+
+    static member InitWorkerGlobalState() = initGlobalState None true false
+    static member InitAppDomainGlobalState(workingDirectory) = initGlobalState (Some workingDirectory) false false
+        
 
     static member ReactivateAsync(config : ConfigurationId) =
         async {
             checkInitialized()
             let cp = ConfigurationRegistry.Resolve<StoreClientProvider>(config)
-            do! cp.InitAll()        
+            do! cp.InitAll()
         }
 
     /// Activates the given configuration.

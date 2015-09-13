@@ -10,7 +10,7 @@ open MBrace.Runtime
 [<EntryPoint>]
 let main (args : string []) =
     try
-        Config.InitGlobalState(populateDirs = true, isClientInstance = false)
+        Config.InitWorkerGlobalState()
         let ps = Process.GetCurrentProcess()
         let cfg = Arguments.Config.OfBase64Pickle args
         let config = cfg.Configuration
