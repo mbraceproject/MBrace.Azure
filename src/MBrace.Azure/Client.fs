@@ -134,7 +134,7 @@ type AzureCluster private (manager : ClusterManager, defaultLogger : SystemLogge
                 else raise <| FileNotFoundException(path))
 
     /// <summary>
-    /// Initialize a new local runtime instance with supplied worker count and return a handle.
+    ///     Initialize a new local runtime instance with supplied worker count and return a handle.
     /// </summary>
     /// <param name="config">Azure runtime configuration.</param>
     /// <param name="workerCount">Number of local workers to spawn.</param>
@@ -159,7 +159,7 @@ type AzureCluster private (manager : ClusterManager, defaultLogger : SystemLogge
         ()
 
     /// <summary>
-    /// Initialize a new local runtime instance with supplied worker count and return a handle.
+    ///     Initialize a new local runtime instance with supplied worker count and return a handle.
     /// </summary>
     /// <param name="config">Azure runtime configuration.</param>
     /// <param name="workerCount">Number of local workers to spawn.</param>
@@ -170,28 +170,30 @@ type AzureCluster private (manager : ClusterManager, defaultLogger : SystemLogge
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
     static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?maxWorkItems : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster =
         AzureCluster.SpawnOnCurrentMachine(config, workerCount, ?maxWorkItems = maxWorkItems, ?workerNameF = workerNameF, ?logLevel = logLevel)
-        AzureCluster.GetHandle(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
+        AzureCluster.Connect(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
-    /// Gets a handle for a remote runtime.
+    ///     Connects to an MBrace-on-Azure cluster as identified by provided store and service bus connection strings.
+    ///     If successful returns a management handle object to the cluster.
     /// </summary>
     /// <param name="storageConnectionString">Azure Storage connection string.</param>
     /// <param name="serviceBusConnectionString">Azure Service Bus connection string.</param>
     /// <param name="clientId">Custom client id for this instance.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
-        AzureCluster.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
+    static member Connect(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
+        AzureCluster.Connect(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
-    /// Gets a handle for a remote runtime.
+    ///     Connects to an MBrace-on-Azure cluster as identified by provided configuration object.
+    ///     If successful returns a management handle object to the cluster.
     /// </summary>
     /// <param name="config">Runtime configuration.</param>
     /// <param name="clientId">Client identifier.</param>
     /// <param name="clientId">Custom client id for this instance.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
+    static member Connect(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         let attachableLogger = AttacheableLogger.Create(makeAsynchronous = true, ?logLevel = logLevel)

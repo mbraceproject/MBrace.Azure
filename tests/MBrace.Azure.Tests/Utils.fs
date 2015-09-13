@@ -64,7 +64,7 @@ type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
         | None -> 
             let runtime = 
                 if localWorkers < 1 then
-                    AzureCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+                    AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
                 else
                     AzureCluster.InitOnCurrentMachine(config, localWorkers, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
             state <- Some runtime
