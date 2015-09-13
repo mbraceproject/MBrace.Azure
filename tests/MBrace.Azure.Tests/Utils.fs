@@ -54,7 +54,7 @@ module Choice =
 
 type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
 
-    static do MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+    static do AzureCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
     
     let mutable state = None
 
@@ -64,9 +64,9 @@ type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
         | None -> 
             let runtime = 
                 if localWorkers < 1 then
-                    MBraceCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+                    AzureCluster.GetHandle(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
                 else
-                    MBraceCluster.InitOnCurrentMachine(config, localWorkers, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+                    AzureCluster.InitOnCurrentMachine(config, localWorkers, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
             state <- Some runtime
 
     member __.Stop () =

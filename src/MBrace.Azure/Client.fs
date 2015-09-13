@@ -20,10 +20,10 @@ type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 type LogLevel = MBrace.Runtime.LogLevel
 
 /// <summary>
-/// Windows Azure Runtime client.
+///     Windows Azure Cluster management client. Provides methods for management, execution and debugging of MBrace tasks in Azure.
 /// </summary>
 [<AutoSerializable(false)>]
-type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogger) =
+type AzureCluster private (manager : ClusterManager, defaultLogger : SystemLogger) =
     inherit MBraceClient(manager)
 
     static let lockObj = obj()
@@ -122,7 +122,7 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
     /// <param name="maxWorkItems">Maximum number of concurrent jobs in the spawned worker.</param>
     /// <param name="logLevel">LogLevel used by the worker.</param>
     member this.AttachLocalWorker(?maxWorkItems:int, ?logLevel:LogLevel) =
-        MBraceCluster.SpawnOnCurrentMachine(manager.Configuration, 1, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel)
+        AzureCluster.SpawnOnCurrentMachine(manager.Configuration, 1, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel)
 
     /// Gets or sets the path for a local standalone worker executable.
     static member LocalWorkerExecutable
@@ -142,7 +142,7 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
     /// <param name="workerNameF">Worker name factory.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
     static member SpawnOnCurrentMachine(config : Configuration, workerCount, ?maxWorkItems : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
-        let exe = MBraceCluster.LocalWorkerExecutable
+        let exe = AzureCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."  
         let cfg = { Arguments.Configuration = config; Arguments.MaxWorkItems = defaultArg maxWorkItems Environment.ProcessorCount; Name = None; LogLevel = logLevel }
         do Config.Activate config
@@ -168,9 +168,9 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
     /// <param name="clientId">Client instance identifier.</param>
     /// <param name="logger">Client logger to attach.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
-    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?maxWorkItems : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster =
-        MBraceCluster.SpawnOnCurrentMachine(config, workerCount, ?maxWorkItems = maxWorkItems, ?workerNameF = workerNameF, ?logLevel = logLevel)
-        MBraceCluster.GetHandle(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
+    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?maxWorkItems : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster =
+        AzureCluster.SpawnOnCurrentMachine(config, workerCount, ?maxWorkItems = maxWorkItems, ?workerNameF = workerNameF, ?logLevel = logLevel)
+        AzureCluster.GetHandle(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
     /// Gets a handle for a remote runtime.
@@ -180,8 +180,8 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
     /// <param name="clientId">Custom client id for this instance.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster = 
-        MBraceCluster.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
+    static member GetHandle(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
+        AzureCluster.GetHandle(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
     /// Gets a handle for a remote runtime.
@@ -191,7 +191,7 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
     /// <param name="clientId">Custom client id for this instance.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : MBraceCluster = 
+    static member GetHandle(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         let attachableLogger = AttacheableLogger.Create(makeAsynchronous = true, ?logLevel = logLevel)
@@ -199,5 +199,5 @@ type MBraceCluster private (manager : ClusterManager, defaultLogger : SystemLogg
         let _ = attachableLogger.AttachLogger(storageLogger)
         let _ = logger |> Option.map attachableLogger.AttachLogger
         let manager = ClusterManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)
-        let cluster = new MBraceCluster(manager, storageLogger)
+        let cluster = new AzureCluster(manager, storageLogger)
         cluster

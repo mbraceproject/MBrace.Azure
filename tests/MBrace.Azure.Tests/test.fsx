@@ -27,3 +27,11 @@ let ct = cluster.CreateTask(cloud { return! Cloud.ParallelEverywhere(Cloud.Curre
 ct.ShowInfo()
 ct.Result
 cluster.ShowWorkers()
+
+cluster.ShowSystemLogs()
+
+cluster.Run(cloud { return 42})
+let t = cluster.CreateTask(cloud { return 42})
+t
+
+cluster.ShowTasks()
