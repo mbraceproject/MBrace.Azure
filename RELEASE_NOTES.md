@@ -1,3 +1,6 @@
+### 0.10.4-alpha
+* Fix packaging issue.
+
 ### 0.10.3-alpha
 * Upgrade to lastest MBrace.Core.
 * Fix Vagabond initialization issue in worker roles.
