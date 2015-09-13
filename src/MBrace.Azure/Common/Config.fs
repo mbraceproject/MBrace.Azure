@@ -307,16 +307,11 @@ type Config private () =
     /// Local file system store
     static member FileStore = checkInitialized(); localFileStore
 
-//    /// <summary>
-//    ///     Initialize global Azure state.
-//    /// </summary>
-//    /// <param name="populateDirs">Create or clear working directory if it already exists.</param>
-//    /// <param name="isClientInstance">Declare as client instance.</param>
-//    static member InitGlobalState(populateDirs : bool, isClientInstance : bool) =
-
+    /// Initializes MBrace.Azure global state for client process.
     static member InitClientGlobalState() = initGlobalState None true true
-
+    /// Initializes MBrace.Azure global state for worker process, master AppDomain.
     static member InitWorkerGlobalState() = initGlobalState None true false
+    /// Initializes MBrace.Azure global state for worker AppDomain.
     static member InitAppDomainGlobalState(workingDirectory) = initGlobalState (Some workingDirectory) false false
         
 
