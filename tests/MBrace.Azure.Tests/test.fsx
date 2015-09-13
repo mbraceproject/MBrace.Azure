@@ -15,9 +15,9 @@ let config =
     new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
 
 
-MBraceCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-let cluster = MBraceCluster.InitOnCurrentMachine(config, 4, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
-//let cluster = MBraceCluster.GetHandle(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
+AzureCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+let cluster = AzureCluster.InitOnCurrentMachine(config, 4, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
+//let cluster = AzureCluster.Connect(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
 cluster.Reset(true,true,true,true,true,true,false)
 cluster.KillAllLocalWorkers()
 cluster.Workers
@@ -27,11 +27,3 @@ let ct = cluster.CreateTask(cloud { return! Cloud.ParallelEverywhere(Cloud.Curre
 ct.ShowInfo()
 ct.Result
 cluster.ShowWorkers()
-
-cluster.ShowSystemLogs()
-
-cluster.Run(cloud { return 42})
-let t = cluster.CreateTask(cloud { return 42})
-t
-
-cluster.ShowTasks()

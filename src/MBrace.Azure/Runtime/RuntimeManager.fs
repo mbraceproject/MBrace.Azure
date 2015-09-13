@@ -14,8 +14,11 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
     let configId = config.GetConfigurationId()
     do systemLogger.LogInfof "RuntimeManager Id = %A" (configId :> IRuntimeId).Id
 
+    // only needed when used by client-oriented features of WorkerManager
+    let tableLogger = lazy(TableStorageSystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, uuid))
+
     do systemLogger.LogInfo "Creating worker manager"
-    let workerManager = WorkerManager.Create(configId, systemLogger)
+    let workerManager = WorkerManager.Create(configId, systemLogger, tableLogger)
     do systemLogger.LogInfo "Creating workItem manager"
     let jobManager    = WorkItemManager.Create(configId, workerManager, systemLogger)
     do systemLogger.LogInfo "Creating task manager"
@@ -45,6 +48,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
     do systemLogger.LogInfo "RuntimeManager initialization complete"
 
     member this.RuntimeManagerId = uuid
+    member this.TableLogger = tableLogger
     member this.Resources = resources
     member this.ConfigurationId = configId
     member this.Configuration = config

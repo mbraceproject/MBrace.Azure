@@ -58,7 +58,7 @@ type private StorageLoggerMessage =
     | Log of SystemLogRecord
 
 [<Sealed; DataContract>]
-type SystemLogger private (storageConn : string, table : string, loggerId : string) =
+type TableStorageSystemLogger private (storageConn : string, table : string, loggerId : string) =
     let [<DataMember(Name = "storageConn")>] storageConn = Validate.storageConn storageConn
     let [<DataMember(Name = "table")>] table = Validate.tableName table
     let [<DataMember(Name = "loggerId")>] loggerId = loggerId
@@ -145,8 +145,51 @@ type SystemLogger private (storageConn : string, table : string, loggerId : stri
         let _ = tableRef.CreateIfNotExists()
         tableRef.ExecuteQuery(query)
 
+    member this.GetObservable (?loggerId : string) : Async<IObservable<SystemLogEntry>> =
+        async {
+            let syncRoot = new obj()
+            let observers = new ResizeArray<IObserver<SystemLogEntry>>()
+            let rec pollLoop (lastDate : DateTimeOffset option) = async {
+                let logs = 
+                    try this.GetLogs(?fromDate = lastDate, ?loggerId = loggerId) |> Choice1Of2
+                    with e -> Choice2Of2 e
 
-    static member Create(storageConn, table, uuid) = new SystemLogger(storageConn, table, uuid)
+                let date =
+                    match logs with
+                    | Choice1Of2 logs when Seq.isEmpty logs ->
+                        lastDate
+                    | Choice1Of2 logs ->
+                        let lastLog = logs |> Seq.maxBy (fun l -> l.Time)
+                        lock syncRoot (fun _ ->
+                            observers |> Seq.iter (fun o -> logs |> Seq.iter (fun slr -> o.OnNext(new SystemLogEntry(enum slr.Level, slr.Message, slr.Time.UtcDateTime)))))
+                        let dto = lastLog.Time.AddTicks(1L)
+                        Some <| dto.ToUniversalTime()
+                    | Choice2Of2 ex ->
+                        lock syncRoot (fun _ ->
+                            observers |> Seq.iter (fun o -> o.OnError ex))
+                        lastDate
+                do! Async.Sleep 500
+                return! pollLoop date
+
+            }
+
+            let! _ = Async.StartChild(pollLoop None)
+
+            let observable = 
+                { new IObservable<SystemLogEntry> with
+                      member this.Subscribe(observer: IObserver<SystemLogEntry>): IDisposable = 
+                          lock syncRoot (fun _ -> observers.Add(observer))
+                          { new IDisposable with
+                            member this.Dispose () =
+                                lock syncRoot (fun _ -> 
+                                    if not <| observers.Remove(observer) then
+                                        raise <| ObjectDisposedException(string observer) ) }
+                       }
+            return observable
+        }
+
+
+    static member Create(storageConn, table, uuid) = new TableStorageSystemLogger(storageConn, table, uuid)
       
 /// CloudLogger implementation over Table storage.
 type CloudLogWriter (config : ConfigurationId, workerId : IWorkerId, taskId : string, jobId : CloudWorkItemId) =

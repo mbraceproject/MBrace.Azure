@@ -83,7 +83,7 @@ type WorkerId internal (workerId) =
     override this.GetHashCode() = hash workerId
 
 [<AutoSerializable(false)>]
-type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
+type WorkerManager private (config : ConfigurationId, logger : ISystemLogger, tableLogger : Lazy<TableStorageSystemLogger>) =
 
     let pickle (value : 'T) = Config.Pickler.Pickle(value)
     let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
@@ -264,13 +264,14 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
             }
 
         member this.GetWorkerLogObservable(id : IWorkerId) : Async<IObservable<SystemLogEntry>> = async {
-            return raise <| new NotImplementedException()
+            return! tableLogger.Value.GetObservable(loggerId = id.Id)
         }
 
         member this.GetWorkerLogs(id : IWorkerId) : Async<SystemLogEntry []> = async {
-            return raise <| new NotImplementedException()
+            let logs = tableLogger.Value.GetLogs(loggerId = id.Id)
+            return logs |> Seq.map (fun slr -> new SystemLogEntry(enum slr.Level, slr.Message, slr.Time.UtcDateTime)) |> Seq.toArray
         }
         
 
-    static member Create(config : ConfigurationId, logger) =
-        new WorkerManager(config, logger)
+    static member Create(config : ConfigurationId, logger : ISystemLogger, tableLogger : Lazy<TableStorageSystemLogger>) =
+        new WorkerManager(config, logger, tableLogger)
