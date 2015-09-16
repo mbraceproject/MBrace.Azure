@@ -72,7 +72,6 @@ type WorkerId internal (workerId) =
             | _ -> invalidArg "obj" "invalid comparand."
         
         member this.Id: string = this.Id
-        member this.SessionId = Guid.Empty
 
     override this.ToString() = this.Id
     override this.Equals(other:obj) =
@@ -83,7 +82,7 @@ type WorkerId internal (workerId) =
     override this.GetHashCode() = hash workerId
 
 [<AutoSerializable(false)>]
-type WorkerManager private (config : ConfigurationId, logger : ISystemLogger, tableLogger : Lazy<TableStorageSystemLogger>) =
+type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
 
     let pickle (value : 'T) = Config.Pickler.Pickle(value)
     let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
@@ -154,7 +153,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger, ta
             let now = DateTime.UtcNow
             return workers |> Array.filter (fun w -> 
                                 match w.ExecutionStatus with
-                                | WorkerItemExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> 
+                                | CloudWorkItemExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> 
                                     true
                                 | _ -> false)
         }
@@ -177,11 +176,11 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger, ta
     member this.UnsubscribeWorker(id : IWorkerId) =
         async {
             logger.Logf LogLevel.Info "Unsubscribing worker %O" id
-            return! (this :> IWorkerManager).DeclareWorkerStatus(id, WorkerItemExecutionStatus.Stopped)
+            return! (this :> IWorkerManager).DeclareWorkerStatus(id, CloudWorkItemExecutionStatus.Stopped)
         }
 
     interface IWorkerManager with
-        member this.DeclareWorkerStatus(id: IWorkerId, status: WorkerItemExecutionStatus): Async<unit> = 
+        member this.DeclareWorkerStatus(id: IWorkerId, status: CloudWorkItemExecutionStatus): Async<unit> = 
             async {
                 logger.LogInfof "Changing worker %O status to %A" id status
                 let record = new WorkerRecord(id.Id)
@@ -217,7 +216,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger, ta
                 return workers 
                        |> Seq.filter (fun w -> DateTime.UtcNow - w.LastHeartbeat <= WorkerManager.MaxHeartbeatTimespan)
                        |> Seq.filter (fun w -> match w.ExecutionStatus with
-                                               | WorkerItemExecutionStatus.Running -> true
+                                               | CloudWorkItemExecutionStatus.Running -> true
                                                | _ -> false)
                        |> Seq.toArray
             }
@@ -241,7 +240,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger, ta
                 record.ProcessId <- nullable info.ProcessId
                 record.InitializationTime <- nullable joined
                 record.ActiveWorkItems <- nullable 0
-                record.Status <- pickle WorkerItemExecutionStatus.Running
+                record.Status <- pickle CloudWorkItemExecutionStatus.Running
                 record.Version <- ReleaseInfo.localVersion.ToString(4)
                 record.MaxWorkItems <- nullable info.MaxWorkItemCount
                 record.ProcessorCount <- nullable info.ProcessorCount
@@ -263,15 +262,5 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger, ta
                 else return Some(mkWorkerState record)
             }
 
-        member this.GetWorkerLogObservable(id : IWorkerId) : Async<IObservable<SystemLogEntry>> = async {
-            return! tableLogger.Value.GetObservable(loggerId = id.Id)
-        }
-
-        member this.GetWorkerLogs(id : IWorkerId) : Async<SystemLogEntry []> = async {
-            let logs = tableLogger.Value.GetLogs(loggerId = id.Id)
-            return logs |> Seq.map (fun slr -> new SystemLogEntry(enum slr.Level, slr.Message, slr.Time.UtcDateTime)) |> Seq.toArray
-        }
-        
-
-    static member Create(config : ConfigurationId, logger : ISystemLogger, tableLogger : Lazy<TableStorageSystemLogger>) =
-        new WorkerManager(config, logger, tableLogger)
+    static member Create(config : ConfigurationId, logger : ISystemLogger) =
+        new WorkerManager(config, logger)

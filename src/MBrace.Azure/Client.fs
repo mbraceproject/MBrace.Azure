@@ -25,7 +25,7 @@ type LogLevel = MBrace.Runtime.LogLevel
 ///     Windows Azure Cluster management client. Provides methods for management, execution and debugging of MBrace tasks in Azure.
 /// </summary>
 [<AutoSerializable(false)>]
-type AzureCluster private (manager : ClusterManager, defaultLogger : TableStorageSystemLogger) =
+type AzureCluster private (manager : ClusterManager) =
     inherit MBraceClient(manager)
 
     static let lockObj = obj()
@@ -34,35 +34,6 @@ type AzureCluster private (manager : ClusterManager, defaultLogger : TableStorag
 
     /// Current client instance identifier.
     member this.UUID = manager.RuntimeManagerId
-
-    /// <summary>
-    /// Get runtime logs.
-    /// </summary>
-    /// <param name="worker">Get logs from specific worker.</param>
-    /// <param name="fromDate">Get logs from this date.</param>
-    /// <param name="toDate">Get logs until this date.</param>
-    member this.GetSystemLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : seq<_> = 
-        let loggerId = worker |> Option.map (fun w -> w.Id)
-        defaultLogger.GetLogs(?loggerId = loggerId, ?fromDate = fromDate, ?toDate = toDate)
-
-    /// <summary>
-    /// Print runtime logs.
-    /// </summary>
-    /// <param name="fromDate">Get logs from this date.</param>
-    /// <param name="toDate">Get logs until this date.</param>
-    /// <param name="worker">Get logs from specific worker.</param>
-    member this.ShowSystemLogs(?worker : IWorkerRef, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
-        let loggerId = worker |> Option.map (fun w -> w.Id)
-        defaultLogger.ShowLogs(?loggerId = loggerId, ?fromDate = fromDate, ?toDate = toDate)
-
-    /// <summary>
-    /// Print runtime logs.
-    /// </summary>
-    /// <param name="lastSeconds">Get logs written in the last number of given seconds.</param>
-    /// <param name="worker">Get logs from specific worker. Defaults to all workers.</param>
-    member this.ShowSystemLogs(lastSeconds : float, ?worker : IWorkerRef) =
-        let fromDate = DateTimeOffset.Now - (TimeSpan.FromSeconds lastSeconds)
-        this.ShowSystemLogs(?worker = worker, fromDate = fromDate)
 
     /// <summary>
     /// Kill all local worker processes.
@@ -89,7 +60,7 @@ type AzureCluster private (manager : ClusterManager, defaultLogger : TableStorag
             let ps = try Some <| Process.GetProcessById(worker.ProcessId) with :? ArgumentException -> None
             match ps with
             | Some p ->
-                (manager :> IRuntimeManager).WorkerManager.DeclareWorkerStatus(worker.WorkerId, WorkerItemExecutionStatus.Stopped)
+                (manager :> IRuntimeManager).WorkerManager.DeclareWorkerStatus(worker.WorkerId, CloudWorkItemExecutionStatus.Stopped)
                 |> Async.RunSync
                 p.Kill()
             | _ ->
@@ -203,5 +174,5 @@ type AzureCluster private (manager : ClusterManager, defaultLogger : TableStorag
         let _ = attachableLogger.AttachLogger(storageLogger)
         let _ = logger |> Option.map attachableLogger.AttachLogger
         let manager = ClusterManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)
-        let cluster = new AzureCluster(manager, storageLogger)
+        let cluster = new AzureCluster(manager)
         cluster

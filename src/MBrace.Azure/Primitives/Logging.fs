@@ -2,6 +2,7 @@
 
 open System
 open System.Collections.Concurrent
+open System.Threading
 open Microsoft.WindowsAzure.Storage.Table
 open MBrace.Core
 open MBrace.Core.Internals
@@ -27,7 +28,11 @@ type SystemLogRecord(pk, rk, message, time, level, loggerId) =
     member val Message : string = message with get, set
     member val Time : DateTimeOffset = time with get, set
     member val LoggerId : string = loggerId with get, set
-    new () = new SystemLogRecord(null, null, null, Unchecked.defaultof<_>, -1, null)  
+
+    new () = new SystemLogRecord(null, null, null, Unchecked.defaultof<_>, -1, null)
+
+    member slr.ToLogEntry() =
+        new SystemLogEntry(enum slr.Level, slr.Message, slr.Time, slr.LoggerId)
 
 type CloudLogRecord(pk, rk, message, time, workerId, taskId, jobId) =
     inherit TableEntity(pk, rk)
@@ -37,26 +42,17 @@ type CloudLogRecord(pk, rk, message, time, workerId, taskId, jobId) =
     member val WorkerId : string = workerId with get, set
     member val TaskId : string = taskId with get, set
     member val WorkItemId : Guid = jobId with get, set
-    new () = new CloudLogRecord(null, null, null, Unchecked.defaultof<_>, null, null, Unchecked.defaultof<_>)  
 
+    new () = new CloudLogRecord(null, null, null, Unchecked.defaultof<_>, null, null, Unchecked.defaultof<_>)
 
-type internal LogReporter() = 
-    static let template : Field<SystemLogRecord> list = 
-        [ Field.create "Source" Left (fun p -> p.LoggerId)
-          Field.create "Message" Left (fun p -> p.Message)
-          Field.create "Level" Left (fun p -> enum<LogLevel> p.Level)
-          Field.create "Timestamp" Right (fun p -> let pt = p.Time in pt.ToString("ddMMyyyy HH:mm:ss.fff zzz")) ]
-    
-    static member Report(logs : SystemLogRecord seq) = 
-        let ls = logs 
-                 |> Seq.sortBy (fun l -> l.Time, l.PartitionKey)
-                 |> Seq.toList
-        Record.PrettyPrint(template, ls, "Logs", false)
+    member clr.ToLogEntry() =
+        new CloudLogEntry(clr.TaskId, clr.WorkerId, clr.WorkItemId, clr.Time, clr.Message)
 
 type private StorageLoggerMessage =
     | Flush of AsyncReplyChannel<unit>
     | Log of SystemLogRecord
 
+// TODO: refactor
 [<Sealed; DataContract>]
 type TableStorageSystemLogger private (storageConn : string, table : string, loggerId : string) =
     let [<DataMember(Name = "storageConn")>] storageConn = Validate.storageConn storageConn
@@ -111,14 +107,9 @@ type TableStorageSystemLogger private (storageConn : string, table : string, log
 
     interface ISystemLogger with
         member x.LogEntry(entry : SystemLogEntry) =
-            log entry.Message (DateTimeOffset(entry.DateTime)) entry.LogLevel
+            log entry.Message entry.DateTime entry.LogLevel
 
-    member this.ShowLogs(?loggerId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
-        this.GetLogs(?loggerId = loggerId, ?fromDate = fromDate, ?toDate = toDate)
-        |> LogReporter.Report
-        |> Console.WriteLine
-
-    member __.GetLogs(?loggerId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) =
+    member __.GetLogs(?loggerId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<SystemLogEntry []> = async {
         let query = new TableQuery<SystemLogRecord>()
         let lower = Guid.Empty.ToString "N"
         let upper = lower.Replace('0','f')
@@ -134,6 +125,7 @@ type TableStorageSystemLogger private (storageConn : string, table : string, log
                 | Some f, None 
                 | None, Some f -> Some f
                 | Some f1, Some f2 -> Some <| TableQuery.CombineFilters(f1, TableOperators.And, f2) ) None
+
         let query =
             match filter with
             | None -> query
@@ -142,52 +134,47 @@ type TableStorageSystemLogger private (storageConn : string, table : string, log
         let acc = CloudStorageAccount.Parse(storageConn)
         tableClient <- acc.CreateCloudTableClient()
         let tableRef = tableClient.GetTableReference(table)
-        let _ = tableRef.CreateIfNotExists()
-        tableRef.ExecuteQuery(query)
+        let! _ = tableRef.CreateIfNotExistsAsync()
+        // TODO : make asynchronous
+        let result = tableRef.ExecuteQuery(query)
+        return result |> Seq.map (fun r -> r.ToLogEntry()) |> Seq.toArray
+    }
 
-    member this.GetObservable (?loggerId : string) : Async<IObservable<SystemLogEntry>> =
-        async {
-            let syncRoot = new obj()
-            let observers = new ResizeArray<IObserver<SystemLogEntry>>()
-            let rec pollLoop (lastDate : DateTimeOffset option) = async {
-                let logs = 
-                    try this.GetLogs(?fromDate = lastDate, ?loggerId = loggerId) |> Choice1Of2
-                    with e -> Choice2Of2 e
+    member this.GetSystemLogPoller (?loggerId : string) : ILogPoller<SystemLogEntry> =
+        let event = new Event<SystemLogEntry> ()
+        let rec pollLoop (lastDate : DateTimeOffset option) = async {
+            let! logs = this.GetLogs(?fromDate = lastDate, ?loggerId = loggerId) |> Async.Catch
 
-                let date =
-                    match logs with
-                    | Choice1Of2 logs when Seq.isEmpty logs ->
-                        lastDate
-                    | Choice1Of2 logs ->
-                        let lastLog = logs |> Seq.maxBy (fun l -> l.Time)
-                        lock syncRoot (fun _ ->
-                            observers |> Seq.iter (fun o -> logs |> Seq.iter (fun slr -> o.OnNext(new SystemLogEntry(enum slr.Level, slr.Message, slr.Time.UtcDateTime)))))
-                        let dto = lastLog.Time.AddTicks(1L)
-                        Some <| dto.ToUniversalTime()
-                    | Choice2Of2 ex ->
-                        lock syncRoot (fun _ ->
-                            observers |> Seq.iter (fun o -> o.OnError ex))
-                        lastDate
-                do! Async.Sleep 500
-                return! pollLoop date
-
+            let! date = async {
+                match logs with
+                | Choice2Of2 _ -> return lastDate
+                | Choice1Of2 logs when Seq.isEmpty logs -> return lastDate
+                | Choice1Of2 logs ->
+                    let lastLog = logs |> Array.maxBy (fun l -> l.DateTime)
+                    let! _ = Async.StartChild(async {do for l in logs do event.Trigger l})
+                    let dto = lastLog.DateTime.AddTicks(1L)
+                    return Some dto
             }
 
-            let! _ = Async.StartChild(pollLoop None)
-
-            let observable = 
-                { new IObservable<SystemLogEntry> with
-                      member this.Subscribe(observer: IObserver<SystemLogEntry>): IDisposable = 
-                          lock syncRoot (fun _ -> observers.Add(observer))
-                          { new IDisposable with
-                            member this.Dispose () =
-                                lock syncRoot (fun _ -> 
-                                    if not <| observers.Remove(observer) then
-                                        raise <| ObjectDisposedException(string observer) ) }
-                       }
-            return observable
+            do! Async.Sleep 500
+            return! pollLoop date
         }
 
+        let cts = new CancellationTokenSource()
+        let _ = Async.StartAsTask(pollLoop None, cancellationToken = cts.Token)
+
+        { new ILogPoller<SystemLogEntry> with
+            member x.AddHandler(handler: Handler<SystemLogEntry>): unit = 
+                event.Publish.AddHandler handler
+              
+            member x.Dispose(): unit = cts.Cancel()
+              
+            member x.RemoveHandler(handler: Handler<SystemLogEntry>): unit = 
+                event.Publish.RemoveHandler handler
+              
+            member x.Subscribe(observer: IObserver<SystemLogEntry>): IDisposable = 
+                event.Publish.Subscribe observer
+        }
 
     static member Create(storageConn, table, uuid) = new TableStorageSystemLogger(storageConn, table, uuid)
       
@@ -206,47 +193,7 @@ type CloudLogWriter (config : ConfigurationId, workerId : IWorkerId, taskId : st
 [<Sealed; AutoSerializable(false)>]
 type CloudLogReader (config : ConfigurationId, taskId : string) =
 
-    member this.GetObservable () : Async<IObservable<CloudLogEntry>> =
-        async {
-            let syncRoot = new obj()
-            let observers = new ResizeArray<IObserver<CloudLogEntry>>()
-            let rec pollLoop (lastDate : DateTimeOffset option) = async {
-                let! logs = Async.Catch <| this.GetLogs(?fromDate = lastDate)
-                let date =
-                    match logs with
-                    | Choice1Of2 logs when Seq.isEmpty logs ->
-                        lastDate
-                    | Choice1Of2 logs ->
-                        let lastLog = logs |> Seq.maxBy (fun l -> l.DateTime)
-                        lock syncRoot (fun _ ->
-                            observers |> Seq.iter (fun o -> logs |> Seq.iter o.OnNext))
-                        let dto = lastLog.DateTime.AddTicks(1L)
-                        Some <| DateTimeOffset(dto.ToUniversalTime())
-                    | Choice2Of2 ex ->
-                        lock syncRoot (fun _ ->
-                            observers |> Seq.iter (fun o -> o.OnError ex))
-                        lastDate
-                do! Async.Sleep 500
-                return! pollLoop date
-
-            }
-
-            let! _ = Async.StartChild(pollLoop None)
-
-            let observable = 
-                { new IObservable<CloudLogEntry> with
-                      member this.Subscribe(observer: IObserver<CloudLogEntry>): IDisposable = 
-                          lock syncRoot (fun _ -> observers.Add(observer))
-                          { new IDisposable with
-                            member this.Dispose () =
-                                lock syncRoot (fun _ -> 
-                                    if not <| observers.Remove(observer) then
-                                        raise <| ObjectDisposedException(string observer) ) }
-                       }
-            return observable
-        }
-
-    member this.GetLogs (?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<CloudLogEntry seq> =
+    member this.GetLogs (?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<CloudLogEntry []> =
         async {
             let query = new TableQuery<CloudLogRecord>()
             let lower = Guid.Empty.ToString "N"
@@ -268,30 +215,97 @@ type CloudLogReader (config : ConfigurationId, taskId : string) =
                 | None -> query
                 | Some f -> query.Where(f) 
             let! logs = Table.query config config.UserDataTable query
-            return logs
-                   |> Seq.map (fun log -> CloudLogEntry(log.TaskId, log.WorkerId, log.WorkItemId, log.Time.UtcDateTime, log.Message))
+            return logs |> Array.map (fun l -> l.ToLogEntry())
+        }
+
+    member this.GetLogPoller () : ILogPoller<CloudLogEntry> =
+        let event = new Event<CloudLogEntry>()
+        let rec pollLoop (lastDate : DateTimeOffset option) = async {
+            let! logs = Async.Catch <| this.GetLogs(?fromDate = lastDate)
+            let! date = async {
+                match logs with
+                | Choice2Of2 _ -> return lastDate
+                | Choice1Of2 logs when Array.isEmpty logs -> return lastDate
+                | Choice1Of2 logs ->
+                    let lastLog = logs |> Array.maxBy (fun l -> l.DateTime)
+                    let! _ = Async.StartChild(async { do for l in logs do event.Trigger l })
+                    let dto = lastLog.DateTime.AddTicks(1L)
+                    return Some dto
+            }
+
+            do! Async.Sleep 500
+            return! pollLoop date
+        }
+
+        let cts = new CancellationTokenSource()
+        let _ = Async.StartAsTask(pollLoop None, cancellationToken = cts.Token)
+
+        { new ILogPoller<CloudLogEntry> with
+            member x.AddHandler(handler: Handler<CloudLogEntry>): unit = 
+                event.Publish.AddHandler handler
+                      
+            member x.Dispose(): unit = cts.Cancel()
+                      
+            member x.RemoveHandler(handler: Handler<CloudLogEntry>): unit = 
+                event.Publish.RemoveHandler handler
+                      
+            member x.Subscribe(observer: IObserver<CloudLogEntry>): IDisposable = 
+                event.Publish.Subscribe observer }
+
+[<Sealed; AutoSerializable(false)>]
+type CloudLogManager (config : ConfigurationId) =
+    interface ICloudLogManager with
+        member this.CreateWorkItemLogger(worker: IWorkerId, workItem: CloudWorkItem): Async<ICloudWorkItemLogger> = async {
+            return new CloudLogWriter(config, worker, workItem.TaskEntry.Id, workItem.Id) :> _
+        }
+        
+        member this.GetAllCloudLogsByTask(taskId: string): Async<seq<CloudLogEntry>> = async {
+            let! logs = CloudLogReader(config, taskId).GetLogs()
+            return logs :> seq<_>
+        }
+        
+        member this.GetCloudLogPollerByTask(taskId: string): Async<ILogPoller<CloudLogEntry>> = async {
+            return CloudLogReader(config, taskId).GetLogPoller()
         }
 
 [<Sealed; AutoSerializable(false)>]
-type CloudLogManager private (config : ConfigurationId) =
-    interface ICloudLogManager with
-        member this.CreateWorkItemLogger(worker: IWorkerId, workItem: CloudWorkItem): Async<ICloudWorkItemLogger> = 
-            async {
-                return new CloudLogWriter(config, worker, workItem.TaskEntry.Id, workItem.Id) :> _
-            }
-        
-        member this.GetAllCloudLogsByTask(taskId: string): Async<seq<CloudLogEntry>> = 
-            async {
-                return! CloudLogReader(config, taskId).GetLogs()
-            }
-        
-        member this.GetCloudLogObservableByTask(taskId: string): Async<IObservable<CloudLogEntry>> = 
-            async {
-                return! CloudLogReader(config, taskId).GetObservable()
-            }
+type SystemLogManager (config : Configuration) =
+    let mkTableLogger (loggerId : string) =
+        TableStorageSystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, loggerId)
 
-    static member Create(config : ConfigurationId) = new CloudLogManager(config)
+    let defaultLogger = lazy(mkTableLogger (mkUUID())) // dummy assignment; provisional.
+
+    interface IRuntimeSystemLogManager with        
+        member x.GetRuntimeLogs(): Async<seq<SystemLogEntry>> = async {
+            let! logs = defaultLogger.Value.GetLogs()
+            return logs :> seq<_>
+        }
         
+        member x.GetWorkerLogs(id: IWorkerId): Async<seq<SystemLogEntry>> = async {
+            let! logs = defaultLogger.Value.GetLogs(loggerId = id.Id)
+            return logs :> seq<_>
+        }
+
+        member x.ClearLogs(): Async<unit> = async {
+            return raise <| NotImplementedException()
+        }
+        
+        member x.ClearLogs(_: IWorkerId): Async<unit> = async {
+            return raise <| NotImplementedException()
+        }
+        
+        member x.CreateLogPoller(): Async<ILogPoller<SystemLogEntry>> = async {
+            return defaultLogger.Value.GetSystemLogPoller()
+        }
+        
+        member x.CreateLogWriter(id: IWorkerId): Async<ISystemLogger> = async {
+//            return mkTableLogger id.Id :> _
+            return raise <| NotImplementedException()
+        }
+        
+        member x.CreateWorkerLogPoller(id: IWorkerId): Async<ILogPoller<SystemLogEntry>> = async {
+            return defaultLogger.Value.GetSystemLogPoller(loggerId = id.Id)
+        }
 
 type CustomLogger (f : Action<string>) =
     interface ISystemLogger with

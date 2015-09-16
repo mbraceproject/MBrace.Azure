@@ -14,11 +14,8 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
     let configId = config.GetConfigurationId()
     do systemLogger.LogInfof "RuntimeManager Id = %A" (configId :> IRuntimeId).Id
 
-    // only needed when used by client-oriented features of WorkerManager
-    let tableLogger = lazy(TableStorageSystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, uuid))
-
     do systemLogger.LogInfo "Creating worker manager"
-    let workerManager = WorkerManager.Create(configId, systemLogger, tableLogger)
+    let workerManager = WorkerManager.Create(configId, systemLogger)
     do systemLogger.LogInfo "Creating workItem manager"
     let jobManager    = WorkItemManager.Create(configId, workerManager, systemLogger)
     do systemLogger.LogInfo "Creating task manager"
@@ -38,8 +35,12 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         let manager = ClosureSiftManager.Create(csc, localLogger = systemLogger)
         ConfigurationRegistry.Register<ClosureSiftManager>(configId, manager)
 
+    do systemLogger.LogInfo "Creating SystemLog manager"
+    let systemLogManager = new SystemLogManager(config)
     do systemLogger.LogInfo "Creating CloudLog manager"
-    let cloudLogManager = CloudLogManager.Create(configId)
+    let cloudLogManager = new CloudLogManager(configId)
+
+    let localSystemLogger = new AttacheableLoggerManager(systemLogger)
 
     let cancellationEntryFactory = CancellationTokenFactory.Create(configId)
     let int32CounterFactory = Int32CounterFactory.Create(configId)
@@ -48,7 +49,6 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
     do systemLogger.LogInfo "RuntimeManager initialization complete"
 
     member this.RuntimeManagerId = uuid
-    member this.TableLogger = tableLogger
     member this.Resources = resources
     member this.ConfigurationId = configId
     member this.Configuration = config
@@ -108,18 +108,16 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         member this.Serializer               = Config.Pickler :> _
         member this.WorkerManager            = workerManager :> _
         member this.TaskManager              = taskManager :> _
-        member this.WorkItemQueue                 = jobManager :> _
+        member this.WorkItemQueue            = jobManager :> _
         member this.AssemblyManager          = assemblyManager :> _
-        member this.SystemLogger             = systemLogger :> _
-        member this.AttachSystemLogger l     = systemLogger.AttachLogger l
         member this.CancellationEntryFactory = cancellationEntryFactory
         member this.CounterFactory           = int32CounterFactory
         member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false, false, true)
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
         member this.CloudLogManager          = cloudLogManager :> _
-        member this.LogLevel                 = systemLogger.LogLevel
-        member this.LogLevel with set l      = systemLogger.LogLevel <- l
+        member this.RuntimeSystemLogManager  = systemLogManager :> _
+        member this.LocalSystemLogManager    = localSystemLogger :> _
 
 
     static member private GetDefaultResources(config : Configuration, customResources : ResourceRegistry) =
