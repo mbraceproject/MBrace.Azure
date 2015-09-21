@@ -312,7 +312,6 @@ type internal MessagingClient private () =
             match workItem.TargetWorker with
             | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
             | _ -> ()
-            do! sendF msg
             let newRecord = record.CloneDefault()
             newRecord.Status <- nullable(int WorkItemStatus.Enqueued)
             newRecord.EnqueueTime <- nullable record.Timestamp
@@ -320,6 +319,7 @@ type internal MessagingClient private () =
             newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
             newRecord.ETag <- "*"
             let! _record = Table.merge config config.RuntimeTable newRecord
+            do! sendF msg
             logger.Logf LogLevel.Debug "workItem:%O : enqueue completed, size %s" workItem.Id (getHumanReadableByteSize blob.Size)
         }
 
@@ -346,7 +346,7 @@ type internal MessagingClient private () =
                 msg
 
             let messages = jobs |> Array.mapi mkWorkItemMessage
-            do! sendF messages
+            
 
             let now = DateTimeOffset.Now
             let newRecords = 
@@ -359,7 +359,8 @@ type internal MessagingClient private () =
                     newRec.Size <- nullable(size)
                     newRec)
 
-            return! Table.mergeBatch config config.RuntimeTable newRecords
+            do! Table.mergeBatch config config.RuntimeTable newRecords
+            do! sendF messages
             logger.Logf LogLevel.Info "Enqueued batched jobs of %d items for task %s, total size %s." jobs.Length taskId (getHumanReadableByteSize size)
         }
     
