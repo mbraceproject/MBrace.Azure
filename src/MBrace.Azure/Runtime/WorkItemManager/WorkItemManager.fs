@@ -141,9 +141,9 @@ type WorkItemManager private (config : ConfigurationId, workerManager : WorkerMa
                 let nQueue = jobs |> Seq.sumBy (fun j -> Convert.ToInt32 j.TargetWorker.IsNone)
                 if nQueue <> jobs.Length && nQueue <> 0 then
                     raise(NotSupportedException("WorkItems with mixed TargetWorker are not supported."))
-                let parentId = (Seq.head jobs).TaskEntry.Id
-                if jobs |> Seq.exists(fun j -> j.TaskEntry.Id <> parentId) then
-                    raise(NotSupportedException("WorkItems with different parent TaskEntry not supported."))
+                let parentId = (Seq.head jobs).Process.Id
+                if jobs |> Seq.exists(fun j -> j.Process.Id <> parentId) then
+                    raise(NotSupportedException("WorkItems with different parent Process not supported."))
 
                 if jobs.Length = 0 then
                     return ()

@@ -62,10 +62,10 @@ type WorkItemRecord(parentTaskId : string, jobId : string) =
         p
 
     static member FromCloudWorkItem(workItem : CloudWorkItem) =
-        let record = new WorkItemRecord(workItem.TaskEntry.Id, fromGuid workItem.Id)
+        let record = new WorkItemRecord(workItem.Process.Id, fromGuid workItem.Id)
         
         match workItem.WorkItemType with
-        | TaskRoot -> 
+        | ProcRoot -> 
             record.Kind <- nullable(int WorkItemKind.TaskRoot)
         | ParallelChild(i,m) ->
             record.Kind <- nullable(int WorkItemKind.Parallel)

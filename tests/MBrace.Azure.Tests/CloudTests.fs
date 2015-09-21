@@ -42,9 +42,9 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
         } |> Async.RunSync
 
     override __.RunWithLogs(workflow : Cloud<unit>) =
-        let task = session.Runtime.CreateTask(workflow)
-        do task.Result
-        task.GetLogs () |> Array.map CloudLogEntry.Format
+        let cloudProcess = session.Runtime.Submit workflow
+        do cloudProcess.Result
+        cloudProcess.GetLogs () |> Array.map CloudLogEntry.Format
 
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
 
@@ -64,7 +64,7 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
 
     [<Test>]
     member __.``Z4. Runtime : Get task id`` () =
-        run (Cloud.GetTaskId()) |> Choice.shouldBe (fun _ -> true)
+        run (Cloud.GetCloudProcessId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
     member __.``Z4. Runtime : Get work item id`` () =

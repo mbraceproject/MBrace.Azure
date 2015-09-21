@@ -16,33 +16,33 @@ open MBrace.Azure.Runtime.Utilities
 // Add Posting status.
 // Use dynamic query when fetching task completion source?
 
-module TaskStatus =
+module ProcessStatus =
     open MBrace.Runtime
-    let ofInt status : CloudTaskStatus =
+    let ofInt status : CloudProcessStatus =
         match status with
         | 0 -> raise <| NotSupportedException(string status)
         | 1 -> Posted
         | 2 -> Dequeued
         | 3 -> Running
         | 4 -> Faulted
-        | 5 -> Completed
+        | 5 -> CloudProcessStatus.Completed
         | 6 -> UserException
         | 7 -> Canceled
-        | _ -> failwithf "Failed to convert %O to CloudTaskStatus." status
+        | _ -> failwithf "Failed to convert %O to CloudProcessStatus." status
 
-    let toInt (status : CloudTaskStatus) =
+    let toInt (status : CloudProcessStatus) =
         match status with
-        | Posted        -> 1
-        | Dequeued      -> 2
-        | Running       -> 3
-        | Faulted       -> 4
-        | Completed     -> 5
-        | UserException -> 6
-        | Canceled      -> 7
+        | Posted                        -> 1
+        | Dequeued                      -> 2
+        | Running                       -> 3
+        | Faulted                       -> 4
+        | CloudProcessStatus.Completed  -> 5
+        | UserException                 -> 6
+        | Canceled                      -> 7
 
 [<AllowNullLiteral>]
-type TaskRecord(taskId) = 
-    inherit TableEntity(TaskRecord.DefaultPartitionKey, taskId)
+type ProcessRecord(taskId) = 
+    inherit TableEntity(ProcessRecord.DefaultPartitionKey, taskId)
     member val Id  : string = taskId with get, set
 
     member val Name : string = null with get, set
@@ -60,10 +60,10 @@ type TaskRecord(taskId) =
     member val Type : byte [] = null with get, set
     member val Dependencies : byte [] = null with get, set
 
-    new () = new TaskRecord(null)
+    new () = new ProcessRecord(null)
 
     member this.CloneDefault() =
-        let p = new TaskRecord()
+        let p = new ProcessRecord()
         p.PartitionKey <- this.PartitionKey
         p.RowKey <- this.RowKey
         p.ETag <- this.ETag
@@ -74,21 +74,21 @@ type TaskRecord(taskId) =
     static member DefaultPartitionKey = "task"
 
 [<DataContract; Sealed>]
-type internal TaskCompletionSource (config : ConfigurationId, taskId) =
+type internal CloudProcessEntry (config : ConfigurationId, taskId) =
     static let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
 
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "taskId")>] taskId = taskId
     
-    let [<IgnoreDataMember>] mutable record = Unchecked.defaultof<Lazy<CacheAtom<TaskRecord>>>
-    let [<IgnoreDataMember>] mutable info = Unchecked.defaultof<Lazy<CloudTaskInfo>>
+    let [<IgnoreDataMember>] mutable record = Unchecked.defaultof<Lazy<CacheAtom<ProcessRecord>>>
+    let [<IgnoreDataMember>] mutable info = Unchecked.defaultof<Lazy<CloudProcessInfo>>
 
     [<OnDeserialized>]
     let init (_ : StreamingContext) =
-        record <- lazy CacheAtom.Create(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId, intervalMilliseconds = 200)
+        record <- lazy CacheAtom.Create(Table.read<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId, intervalMilliseconds = 200)
         info <-
             lazy
-                let record = Async.RunSync(Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId)
+                let record = Async.RunSync(Table.read<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId)
                 { 
                     Name = if record.Name = null then None else Some record.Name
                     CancellationTokenSource = unpickle record.CancellationTokenSource
@@ -104,12 +104,12 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
 
     override this.ToString() = sprintf "task:%A" taskId
 
-    interface ICloudTaskCompletionSource with
+    interface ICloudProcessEntry with
         member this.Id: string = taskId
 
-        member this.AwaitResult(): Async<TaskResult> = 
+        member this.AwaitResult(): Async<CloudProcessResult> = 
             async {
-                let tcs = this :> ICloudTaskCompletionSource
+                let tcs = this :> ICloudProcessEntry
                 let! result = tcs.TryGetResult()
                 match result with
                 | Some r -> return r
@@ -122,10 +122,10 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
         member this.IncrementFaultedWorkItemCount(): Async<unit> = async { return () }
         member this.IncrementWorkItemCount(): Async<unit> = async { return () }
         
-        member this.DeclareStatus(status: CloudTaskStatus): Async<unit> = 
+        member this.DeclareStatus(status: CloudProcessStatus): Async<unit> = 
             async {
-                let record = new TaskRecord(taskId)
-                record.Status <- nullable(TaskStatus.toInt status)
+                let record = new ProcessRecord(taskId)
+                record.Status <- nullable(ProcessStatus.toInt status)
                 record.ETag <- "*"
                 let now = nullable DateTimeOffset.Now
                 match status with
@@ -139,7 +139,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                     record.Completed <- nullable false
                     record.StartTime <- now
                 | Faulted
-                | Completed
+                | CloudProcessStatus.Completed
                 | UserException
                 | Canceled -> 
                     record.Completed <- nullable true
@@ -148,7 +148,7 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                 return ()
             }
         
-        member this.GetState(): Async<CloudTaskState> = 
+        member this.GetState(): Async<CloudProcessState> = 
             async {
                 // Fetch all jobRecord for with this taskId as a parent and
                 // do all the active/completed, etc calculations.
@@ -185,8 +185,8 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                         | WorkItemStatus.Completed -> (a, c+1, f)
                         | _ as s -> failwith "Invalid WorkItemStatus %A" s) (0, 0, 0)
 
-                return { Status = TaskStatus.ofInt(record.Status.GetValueOrDefault(-1))
-                         Info = (this :> ICloudTaskCompletionSource).Info
+                return { Status = ProcessStatus.ofInt(record.Status.GetValueOrDefault(-1))
+                         Info = (this :> ICloudProcessEntry).Info
                          ExecutionTime = execTime // TODO : dequeued vs running time?
                          MaxActiveWorkItemCount = -1
                          ActiveWorkItemCount = active
@@ -195,26 +195,26 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
                          TotalWorkItemCount = total }
             }
 
-        member this.Info: CloudTaskInfo = info.Value
+        member this.Info: CloudProcessInfo = info.Value
         
-        member this.TryGetResult(): Async<TaskResult option> = 
+        member this.TryGetResult(): Async<CloudProcessResult option> = 
             async {
                 let! record = getRecord()
                 if record.ResultUri = null then
                     return None
                 else
-                    let blob = Blob<SiftedClosure<TaskResult>>.FromPath(config, TaskRecord.DefaultPartitionKey, record.ResultUri)
+                    let blob = Blob<SiftedClosure<CloudProcessResult>>.FromPath(config, ProcessRecord.DefaultPartitionKey, record.ResultUri)
                     let! sifted = blob.GetValue()
                     let! result = ClosureSifter.UnSiftClosure(config, sifted)
                     return Some result
             }
 
-        member this.TrySetResult(result: TaskResult, _workerId : IWorkerId): Async<bool> = 
+        member this.TrySetResult(result: CloudProcessResult, _workerId : IWorkerId): Async<bool> = 
             async {
-                let record = new TaskRecord(taskId)
+                let record = new ProcessRecord(taskId)
                 let blobId = guid()
                 let! sifted = ClosureSifter.SiftClosure(config, result, allowNewSifts = false)
-                let! _blob = Blob.Create(config, TaskRecord.DefaultPartitionKey, blobId, fun () -> sifted)
+                let! _blob = Blob.Create(config, ProcessRecord.DefaultPartitionKey, blobId, fun () -> sifted)
                 record.ResultUri <- blobId
                 record.ETag <- "*"
                 let! _record = Table.merge config config.RuntimeTable record
@@ -223,57 +223,57 @@ type internal TaskCompletionSource (config : ConfigurationId, taskId) =
         
 
 [<Sealed; DataContract>]
-type TaskManager private (config : ConfigurationId, logger : ISystemLogger) =
+type CloudProcessManager private (config : ConfigurationId, logger : ISystemLogger) =
     static let pickle (value : 'T) = Config.Pickler.Pickle(value)
 
     let [<DataMember(Name="config")>] config = config
     let [<DataMember(Name="logger")>] logger = logger
 
-    interface ICloudTaskManager with
-        member this.Clear(taskId: string): Async<unit> = 
+    interface ICloudProcessManager with
+        member this.ClearProcess(taskId: string): Async<unit> = 
             async {
-                let record = new TaskRecord(taskId)
+                let record = new ProcessRecord(taskId)
                 record.ETag <- "*"
                 return! Table.delete config config.RuntimeTable record // TODO : perform full cleanup?
             }
         
-        member this.ClearAllTasks(): Async<unit> = 
+        member this.ClearAllProcesses(): Async<unit> = 
             async {
-                let! records = Table.queryPK<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey
+                let! records = Table.queryPK<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey
                 return! Table.deleteBatch config config.RuntimeTable records
             }
         
-        member this.CreateTask(info: CloudTaskInfo): Async<ICloudTaskCompletionSource> = 
+        member this.StartProcess(info: CloudProcessInfo): Async<ICloudProcessEntry> = 
             async {
                 let taskId = guid()
                 logger.LogInfof "task:%A : creating task" taskId
-                let record = new TaskRecord(taskId)
+                let record = new ProcessRecord(taskId)
                 record.Completed <- nullable false
                 record.StartTime <- nullableDefault
                 record.CompletionTime <- nullableDefault
                 record.Dependencies <- pickle info.Dependencies
                 record.EnqueuedTime <- nullable DateTimeOffset.Now
                 record.Name <- match info.Name with Some n -> n | None -> null
-                record.Status <- nullable(TaskStatus.toInt(CloudTaskStatus.Posted))
+                record.Status <- nullable(ProcessStatus.toInt(CloudProcessStatus.Posted))
                 record.Type <- pickle info.ReturnType
                 record.TypeName <- info.ReturnTypeName
                 record.CancellationTokenSource <- pickle info.CancellationTokenSource
                 let! _record = Table.insertOrReplace config config.RuntimeTable record
-                let tcs = new TaskCompletionSource(config, taskId)
+                let tcs = new CloudProcessEntry(config, taskId)
                 logger.LogInfof "%A : task created" tcs
-                return tcs :> ICloudTaskCompletionSource
+                return tcs :> ICloudProcessEntry
             }
         
-        member this.GetAllTasks(): Async<ICloudTaskCompletionSource []> = 
+        member this.GetAllProcesses(): Async<ICloudProcessEntry []> = 
             async {
-                let! records = Table.queryPK<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey
-                return records |> Array.map(fun r -> new TaskCompletionSource(config, r.Id) :> ICloudTaskCompletionSource)
+                let! records = Table.queryPK<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey
+                return records |> Array.map(fun r -> new CloudProcessEntry(config, r.Id) :> ICloudProcessEntry)
             }
         
-        member this.TryGetTask(taskId: string): Async<ICloudTaskCompletionSource option> = 
+        member this.TryGetProcessById(taskId: string): Async<ICloudProcessEntry option> = 
             async {
-                let! record = Table.read<TaskRecord> config config.RuntimeTable TaskRecord.DefaultPartitionKey taskId
-                if record = null then return None else return Some(new TaskCompletionSource(config, taskId) :> ICloudTaskCompletionSource)
+                let! record = Table.read<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId
+                if record = null then return None else return Some(new CloudProcessEntry(config, taskId) :> ICloudProcessEntry)
             }
 
-    static member Create(config : ConfigurationId, logger) = new TaskManager(config, logger)
+    static member Create(config : ConfigurationId, logger) = new CloudProcessManager(config, logger)

@@ -84,7 +84,8 @@ type BlobStore private (connectionString : string, defaultContainer : string) =
             let cont = normalizePath container
             new BlobStore(connectionString, cont) :> _
 
-        member this.GetRootDirectory () = rootPath
+        member this.RootDirectory = rootPath
+        member this.IsCaseSensitiveFileSystem = false
 
         member this.GetRandomDirectoryName() : string = normalizePath <| Guid.NewGuid().ToString()
 

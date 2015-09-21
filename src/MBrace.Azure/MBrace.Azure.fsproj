@@ -103,7 +103,7 @@
     <Compile Include="Primitives\Logging.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\WorkItemManager\WorkItemRecord.fs" />
-    <Compile Include="Runtime\WorkItemManager\TaskManager.fs" />
+    <Compile Include="Runtime\WorkItemManager\ProcessManager.fs" />
     <Compile Include="Runtime\WorkItemManager\Messaging.fs" />
     <Compile Include="Runtime\WorkItemManager\WorkItemManager.fs" />
     <Compile Include="Runtime\RuntimeManager.fs" />

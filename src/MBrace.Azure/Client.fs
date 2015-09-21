@@ -26,9 +26,9 @@ type LogLevel = MBrace.Runtime.LogLevel
 /// Can be used to point computations for execution at specific machines.
 type WorkerRef = MBrace.Runtime.WorkerRef
 /// Represents a distributed computation that is being executed by an MBrace runtime
-type CloudTask = MBrace.Runtime.CloudTask
+type CloudProcess = MBrace.Runtime.CloudProcess
 /// Represents a distributed computation that is being executed by an MBrace runtime
-type CloudTask<'T> = MBrace.Runtime.CloudTask<'T>
+type CloudProcess<'T> = MBrace.Runtime.CloudProcess<'T>
 
 /// <summary>
 ///     Windows Azure Cluster management client. Provides methods for management, execution and debugging of MBrace tasks in Azure.

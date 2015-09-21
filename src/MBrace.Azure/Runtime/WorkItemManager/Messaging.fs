@@ -196,7 +196,7 @@ type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : Clo
         member this.WorkItemType : CloudWorkItemType =
             let jobKind = enum<WorkItemKind>(record.Kind.GetValueOrDefault(-1))
             match jobKind with
-            | WorkItemKind.TaskRoot -> TaskRoot
+            | WorkItemKind.TaskRoot -> ProcRoot
             | WorkItemKind.Choice   -> ChoiceChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
             | WorkItemKind.Parallel -> ParallelChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
             | _ -> failwithf "Invalid WorkItemKind %d" <| int jobKind
@@ -208,7 +208,7 @@ type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : Clo
             | None -> None
             | Some w -> Some(WorkerId(w) :> _)
         
-        member this.TaskEntry : ICloudTaskCompletionSource = TaskCompletionSource(info.ConfigurationId, info.ParentWorkItemId) :> _
+        member this.Process : ICloudProcessEntry = CloudProcessEntry(info.ConfigurationId, info.ParentWorkItemId) :> _
         
         member this.Type : string = record.Type
 
@@ -305,10 +305,10 @@ type internal MessagingClient private () =
             let record = WorkItemRecord.FromCloudWorkItem(workItem)
             let! sift = ClosureSifter.SiftClosure(config, workItem, allowNewSifts)
             do! Table.insert config config.RuntimeTable record
-            let! blob = Blob<SiftedClosure<CloudWorkItem>>.Create(config, workItem.TaskEntry.Id, fromGuid workItem.Id, fun () -> sift)
+            let! blob = Blob<SiftedClosure<CloudWorkItem>>.Create(config, workItem.Process.Id, fromGuid workItem.Id, fun () -> sift)
             let msg = new BrokeredMessage(workItem.Id)
             msg.Properties.Add(Settings.WorkItemIdProperty, workItem.Id)
-            msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid workItem.TaskEntry.Id)
+            msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid workItem.Process.Id)
             match workItem.TargetWorker with
             | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)
             | _ -> ()
@@ -326,7 +326,7 @@ type internal MessagingClient private () =
     static member EnqueueBatch(config : ConfigurationId, logger : ISystemLogger, jobs : CloudWorkItem [], sendF : BrokeredMessage seq -> Task) =
         async { 
             if jobs.Length = 0 then return () else
-            let taskId = jobs.[0].TaskEntry.Id // this is a valid assumption for all uses
+            let taskId = jobs.[0].Process.Id // this is a valid assumption for all uses
             let records = jobs |> Seq.map WorkItemRecord.FromCloudWorkItem
             let! sifted = ClosureSifter.SiftClosure(config, jobs, allowNewSifts = false)
             do! Table.insertBatch config config.RuntimeTable records
@@ -338,7 +338,7 @@ type internal MessagingClient private () =
             let mkWorkItemMessage (i : int) (workItem : CloudWorkItem) =
                 let msg = new BrokeredMessage(toGuid blobName)
                 msg.Properties.Add(Settings.WorkItemIdProperty, workItem.Id)
-                msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid workItem.TaskEntry.Id)
+                msg.Properties.Add(Settings.ParentTaskIdProperty, toGuid workItem.Process.Id)
                 msg.Properties.Add(Settings.BatchIndexProperty, i)
                 match workItem.TargetWorker with
                 | Some target -> msg.Properties.Add(Settings.AffinityProperty, target.Id)

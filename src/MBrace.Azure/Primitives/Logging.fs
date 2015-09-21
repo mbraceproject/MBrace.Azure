@@ -256,15 +256,15 @@ type CloudLogReader (config : ConfigurationId, taskId : string) =
 type CloudLogManager (config : ConfigurationId) =
     interface ICloudLogManager with
         member this.CreateWorkItemLogger(worker: IWorkerId, workItem: CloudWorkItem): Async<ICloudWorkItemLogger> = async {
-            return new CloudLogWriter(config, worker, workItem.TaskEntry.Id, workItem.Id) :> _
+            return new CloudLogWriter(config, worker, workItem.Process.Id, workItem.Id) :> _
         }
         
-        member this.GetAllCloudLogsByTask(taskId: string): Async<seq<CloudLogEntry>> = async {
+        member this.GetAllCloudLogsByProcess(taskId: string): Async<seq<CloudLogEntry>> = async {
             let! logs = CloudLogReader(config, taskId).GetLogs()
             return logs :> seq<_>
         }
         
-        member this.GetCloudLogPollerByTask(taskId: string): Async<ILogPoller<CloudLogEntry>> = async {
+        member this.GetCloudLogPollerByProcess(taskId: string): Async<ILogPoller<CloudLogEntry>> = async {
             return CloudLogReader(config, taskId).GetLogPoller()
         }
 
@@ -298,7 +298,7 @@ type SystemLogManager (config : Configuration) =
             return defaultLogger.Value.GetSystemLogPoller()
         }
         
-        member x.CreateLogWriter(id: IWorkerId): Async<ISystemLogger> = async {
+        member x.CreateLogWriter(_id: IWorkerId): Async<ISystemLogger> = async {
 //            return mkTableLogger id.Id :> _
             return raise <| NotImplementedException()
         }

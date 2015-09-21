@@ -24,6 +24,7 @@ type ``BlobStore Tests - Remote``() =
     
     override __.FileStore = session.Runtime.GetResource<ICloudFileStore>()
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
+    override __.IsCaseSensitive = false
     override __.Run(workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
@@ -40,6 +41,7 @@ type ``BlobStore Tests - Storage Emulator``() =
     
     override __.FileStore = session.Runtime.GetResource<ICloudFileStore>()
     override __.Serializer = session.Runtime.GetResource<ISerializer>()
+    override __.IsCaseSensitive = false
     override __.Run(workflow : Cloud<'T>) = session.Runtime.Run workflow
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 

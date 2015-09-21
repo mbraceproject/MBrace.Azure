@@ -19,7 +19,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
     do systemLogger.LogInfo "Creating workItem manager"
     let jobManager    = WorkItemManager.Create(configId, workerManager, systemLogger)
     do systemLogger.LogInfo "Creating task manager"
-    let taskManager   = TaskManager.Create(configId, systemLogger)
+    let processManager   = CloudProcessManager.Create(configId, systemLogger)
     do systemLogger.LogInfo "Creating assembly manager"
     let store = resources.Resolve<ICloudFileStore>()
 
@@ -107,7 +107,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         member this.Id                       = configId :> _
         member this.Serializer               = Config.Pickler :> _
         member this.WorkerManager            = workerManager :> _
-        member this.TaskManager              = taskManager :> _
+        member this.ProcessManager           = processManager :> _
         member this.WorkItemQueue            = jobManager :> _
         member this.AssemblyManager          = assemblyManager :> _
         member this.CancellationEntryFactory = cancellationEntryFactory
