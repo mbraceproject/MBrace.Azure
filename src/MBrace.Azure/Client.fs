@@ -179,7 +179,7 @@ type AzureCluster private (manager : ClusterManager) =
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         let attachableLogger = AttacheableLogger.Create(makeAsynchronous = true, ?logLevel = logLevel)
-        let storageLogger = TableStorageSystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, clientId)
+        let storageLogger = TableSystemLogManager(config).CreateLogWriter(clientId) |> Async.RunSync
         let _ = attachableLogger.AttachLogger(storageLogger)
         let _ = logger |> Option.map attachableLogger.AttachLogger
         let manager = ClusterManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)

@@ -36,9 +36,9 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         ConfigurationRegistry.Register<ClosureSiftManager>(configId, manager)
 
     do systemLogger.LogInfo "Creating SystemLog manager"
-    let systemLogManager = new SystemLogManager(config)
+    let systemLogManager = new TableSystemLogManager(config)
     do systemLogger.LogInfo "Creating CloudLog manager"
-    let cloudLogManager = new CloudLogManager(configId)
+    let cloudLogManager = new TableCloudLogManager(config)
 
     let localSystemLogger = new AttacheableLoggerManager(systemLogger)
 

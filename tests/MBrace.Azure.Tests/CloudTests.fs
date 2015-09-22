@@ -55,20 +55,58 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
     override __.UsesSerialization = true
 
     [<Test>]
-    member __.``Z4. Runtime : Get worker count`` () =
+    member __.``Runtime : Get worker count`` () =
         run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers |> Seq.length)
 
     [<Test>]
-    member __.``Z4. Runtime : Get current worker`` () =
+    member __.``Runtime : Get current worker`` () =
         run Cloud.CurrentWorker |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``Z4. Runtime : Get task id`` () =
+    member __.``Runtime : Get task id`` () =
         run (Cloud.GetCloudProcessId()) |> Choice.shouldBe (fun _ -> true)
 
     [<Test>]
-    member __.``Z4. Runtime : Get work item id`` () =
+    member __.``Runtime : Get work item id`` () =
         run (Cloud.GetWorkItemId()) |> Choice.shouldBe (fun _ -> true)
+
+    [<Test>]
+    member __.``Runtime : Worker Log Observable`` () =
+        let cluster = session.Runtime
+        let worker = cluster.Workers.[0]
+        let ra = new ResizeArray<SystemLogEntry>()
+        use d = worker.SystemLogs.Subscribe ra.Add
+        cluster.Run(cloud { return () }, target = worker)
+        System.Threading.Thread.Sleep 2000
+        ra.Count |> shouldBe (fun i -> i > 0)
+
+    [<Test>]
+    member __.``Runtime : Cluster Log Observable`` () =
+        let cluster = session.Runtime
+        let ra = new ResizeArray<SystemLogEntry>()
+        use d = cluster.SystemLogs.Subscribe ra.Add
+        cluster.Run(Cloud.ParallelEverywhere(cloud { return 42 }) |> Cloud.Ignore)
+        System.Threading.Thread.Sleep 2000
+        ra.Count |> shouldBe (fun i -> i >= cluster.Workers.Length)
+
+    [<Test>]
+    member __.``Runtime : CloudProcess Log Observable`` () =
+        let workflow = cloud {
+            let workItem i = local {
+                for j in 1 .. 100 do
+                    do! Cloud.Logf "Work item %d, iteration %d" i j
+            }
+
+            do! Cloud.Sleep 50000
+            do! Cloud.Parallel [for i in 1 .. 20 -> workItem i] |> Cloud.Ignore
+            do! Cloud.Sleep 50000
+        }
+
+        let ra = new ResizeArray<CloudLogEntry>()
+        let job = session.Runtime.Submit(workflow)
+        use d = job.Logs.Subscribe(fun e -> ra.Add(e))
+        do job.Result
+        ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
 
 
 type ``Cloud Tests - Compute Emulator`` () =

@@ -96,7 +96,8 @@ type Service (config : Configuration, serviceId : string) =
         async {
             try
                 let sw = Stopwatch.StartNew()
-                let tableLogger = TableStorageSystemLogger.Create(config.StorageConnectionString, config.GetConfigurationId().RuntimeLogsTable, serviceId)
+                let tableLogManager = new TableSystemLogManager(config)
+                let! tableLogger = tableLogManager.CreateLogWriter(serviceId)
                 let _ = attachableLogger.AttachLogger(tableLogger)
 
                 attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
