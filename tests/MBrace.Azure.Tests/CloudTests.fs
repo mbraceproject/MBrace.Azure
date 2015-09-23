@@ -97,9 +97,9 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
                     do! Cloud.Logf "Work item %d, iteration %d" i j
             }
 
-            do! Cloud.Sleep 50000
+            do! Cloud.Sleep 5000
             do! Cloud.Parallel [for i in 1 .. 20 -> workItem i] |> Cloud.Ignore
-            do! Cloud.Sleep 50000
+            do! Cloud.Sleep 2000
         }
 
         let ra = new ResizeArray<CloudLogEntry>()
