@@ -7,7 +7,7 @@ open System
 open MBrace.Runtime.Utils
 
 type internal WorkItemKind =
-    | TaskRoot = 1
+    | ProcessRoot = 1
     | Parallel = 2
     | Choice   = 3
 
@@ -65,8 +65,8 @@ type WorkItemRecord(parentTaskId : string, jobId : string) =
         let record = new WorkItemRecord(workItem.Process.Id, fromGuid workItem.Id)
         
         match workItem.WorkItemType with
-        | ProcRoot -> 
-            record.Kind <- nullable(int WorkItemKind.TaskRoot)
+        | ProcessRoot -> 
+            record.Kind <- nullable(int WorkItemKind.ProcessRoot)
         | ParallelChild(i,m) ->
             record.Kind <- nullable(int WorkItemKind.Parallel)
             record.Index <- nullable i

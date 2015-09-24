@@ -78,6 +78,30 @@ module Utils =
         let last (ts : 'T []) = ts.[ts.Length - 1]
 
 
+    [<RequireQualifiedAccess>]
+    module Seq =
+        /// <summary>
+        ///      Splits input sequence into chunks of at most chunkSize.
+        /// </summary>
+        /// <param name="chunkSize">Maximal size used by chunks</param>
+        /// <param name="ts">Input array.</param>
+        let chunksOf chunkSize (ts : seq<'T>) : 'T [][] =
+            if chunkSize <= 0 then invalidArg "chunkSize" "must be positive integer."
+            let chunks = ResizeArray<'T []> ()
+            let builder = ResizeArray<'T> ()
+            use e = ts.GetEnumerator()
+            while e.MoveNext() do
+                if builder.Count = chunkSize then
+                    chunks.Add (builder.ToArray())
+                    builder.Clear()
+
+                builder.Add e.Current
+
+            if builder.Count > 0 then
+                chunks.Add(builder.ToArray())
+
+            chunks.ToArray()
+
 open MBrace.Core.Internals
 
 [<Sealed; AutoSerializable(false)>]

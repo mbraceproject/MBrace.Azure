@@ -265,6 +265,35 @@ type TableSystemLogManager (config : Configuration) =
     }
 
     /// <summary>
+    ///     Asynchronously clears all system logs from table store.
+    /// </summary>
+    /// <param name="loggerId">Constraing to specified logger id.</param>
+    member __.ClearLogs(?loggerId : string) = async {
+        let query = new TableQuery<SystemLogRecord>()
+        let query =
+            match loggerId with
+            | None -> query
+            | Some id -> query.Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, Logger.mkSystemLogPartitionKey id))
+
+        let query = query.Select [| "RowKey" |]
+
+        do! table.CreateIfNotExistsAsync()
+        
+        return!
+            table.ExecuteQuery query
+            |> Seq.groupBy (fun e -> e.PartitionKey)
+            |> Seq.collect (fun (_,es) -> Seq.chunksOf 100 es)
+            |> Seq.map (fun chunk ->
+                async {
+                    let batchOp = new TableBatchOperation()
+                    do for e in chunk do batchOp.Delete e
+                    do! table.ExecuteBatchAsync batchOp
+                })
+            |> Async.Parallel
+            |> Async.Ignore
+    }
+
+    /// <summary>
     ///     Gets a log entry observable that asynchronously polls for new logs.
     /// </summary>
     /// <param name="loggerId">Generating logger id constraint.</param>
@@ -311,11 +340,11 @@ type TableSystemLogManager (config : Configuration) =
         }
 
         member x.ClearLogs(): Async<unit> = async {
-            return raise <| NotImplementedException()
+            return! x.ClearLogs()
         }
         
-        member x.ClearLogs(_: IWorkerId): Async<unit> = async {
-            return raise <| NotImplementedException()
+        member x.ClearLogs(workerId: IWorkerId): Async<unit> = async {
+            return! x.ClearLogs(loggerId = workerId.Id)
         }
 
 /// Management object for writing cloud process logs to the table store

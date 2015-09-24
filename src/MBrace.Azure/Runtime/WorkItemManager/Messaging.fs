@@ -196,7 +196,7 @@ type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : Clo
         member this.WorkItemType : CloudWorkItemType =
             let jobKind = enum<WorkItemKind>(record.Kind.GetValueOrDefault(-1))
             match jobKind with
-            | WorkItemKind.TaskRoot -> ProcRoot
+            | WorkItemKind.ProcessRoot -> ProcessRoot
             | WorkItemKind.Choice   -> ChoiceChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
             | WorkItemKind.Parallel -> ParallelChild(record.Index.GetValueOrDefault(-1), record.MaxIndex.GetValueOrDefault(-1))
             | _ -> failwithf "Invalid WorkItemKind %d" <| int jobKind
