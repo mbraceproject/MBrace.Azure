@@ -33,7 +33,6 @@ worker.ShowSystemLogs()
 cluster.ShowProcesses()
 cluster.ClearAllProcesses()
 
-
 // Test fault data
 cluster.Submit(
     cloud { 
