@@ -32,3 +32,11 @@ let worker = cluster.Workers.[0]
 worker.ShowSystemLogs()
 cluster.ShowProcesses()
 cluster.ClearAllProcesses()
+
+
+// Test fault data
+cluster.Submit(
+    cloud { 
+        do! Cloud.Sleep 10000
+        return! Cloud.TryGetFaultData()
+    }, faultPolicy = FaultPolicy.WithMaxRetries 1)

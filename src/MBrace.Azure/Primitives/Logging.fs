@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Collections.Concurrent
 open System.Runtime.Serialization
+open System.Text.RegularExpressions
 open System.Threading
 
 open Microsoft.WindowsAzure.Storage
@@ -20,7 +21,10 @@ open MBrace.Azure.Runtime.Utilities
 module private Logger =
     let mkSystemLogPartitionKey (loggerId : string) = sprintf "systemlog:%s" loggerId
     let mkCloudLogPartitionKey (procId : string) = sprintf "cloudlog:%s" procId
-    let mkRowKey () = guid()
+    let mkRowKey (loggerUUID : Guid) (id : int64) = sprintf "%s-%010d" (loggerUUID.ToString("N")) id
+    let parseRowKey (rk : string) = 
+        let toks = rk.Split('-')
+        toks.[0], int64 toks.[1]
 
 [<AutoOpen>]
 module LoggerExtensions =
@@ -50,7 +54,7 @@ type SystemLogRecord(partitionKey : string, rowKey : string, message : string, l
     /// <param name="worker">Table partition key.</param>
     /// <param name="entry">Input log entry.</param>
     static member FromLogEntry(loggerId : string, entry : SystemLogEntry) =
-        new SystemLogRecord(Logger.mkSystemLogPartitionKey loggerId, Logger.mkRowKey(), entry.Message, entry.DateTime, int entry.LogLevel, loggerId)
+        new SystemLogRecord(Logger.mkSystemLogPartitionKey loggerId, null, entry.Message, entry.DateTime, int entry.LogLevel, loggerId)
 
 /// Cloud process log record that inherits Azure's TableEntity type
 type CloudLogRecord(partitionKey : string, rowKey : string, message : string, logTime : DateTimeOffset, workerId : string, procId : string, workItemId : Guid) =
@@ -76,8 +80,7 @@ type CloudLogRecord(partitionKey : string, rowKey : string, message : string, lo
     /// <param name="message">User log message.</param>
     static member Create(workItem : CloudWorkItem, worker : IWorkerId, message : string) =
         let partitionKey = Logger.mkCloudLogPartitionKey workItem.Process.Id
-        let rowKey = Logger.mkRowKey()
-        new CloudLogRecord(partitionKey, rowKey, message, DateTimeOffset.Now, worker.Id, workItem.Process.Id, workItem.Id)
+        new CloudLogRecord(partitionKey, null, message, DateTimeOffset.Now, worker.Id, workItem.Process.Id, workItem.Id)
 
 
 [<AutoSerializable(false)>]
@@ -90,10 +93,16 @@ type private TableLoggerMessage<'Entry when 'Entry :> TableEntity> =
 type private CloudTableLogWriter<'Entry when 'Entry :> TableEntity> private (table : CloudTable, timespan : TimeSpan, logThreshold : int) =
 
     let queue = new Queue<'Entry> ()
+    let loggerUUID = Guid.NewGuid()
+    let mutable idCount = 0L
     let flush () = async {
         if queue.Count > 0 then
             let tbo = new TableBatchOperation()
-            for log in queue do tbo.Insert log
+            do for log in queue  do
+                let i = idCount + 1L
+                idCount <- i
+                log.RowKey <- Logger.mkRowKey loggerUUID i
+                do tbo.Insert log
             do!
                 table.ExecuteBatchAsync tbo
                 |> Async.AwaitTask
@@ -148,40 +157,43 @@ type private CloudTableLogWriter<'Entry when 'Entry :> TableEntity> private (tab
 [<AutoSerializable(false)>]
 type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fetch : DateTimeOffset option -> Async<seq<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, interval : TimeSpan) =
     let event = new Event<'Entry> ()
-    let rec pollLoop (filtered : HashSet<string>) (lastDate : DateTimeOffset option) = async {
+    let loggerInfo = new Dictionary<string, int64> ()
+    let isNewLogEntry (e : 'Entry) =
+        let uuid,id = Logger.parseRowKey e.RowKey
+        let mutable lastId = 0L
+        let ok = loggerInfo.TryGetValue(uuid, &lastId)
+        if ok && id <= lastId then false
+        else
+            loggerInfo.[uuid] <- id
+            true
+
+    let rec pollLoop (threshold : DateTimeOffset option) = async {
         do! Async.Sleep (int interval.TotalMilliseconds)
-        let! logs = fetch lastDate |> Async.Catch
+        let! logs = fetch threshold |> Async.Catch
 
         match logs with
         | Choice2Of2 _ -> 
-            do! Async.Sleep 1000
-            return! pollLoop filtered lastDate
+            do! Async.Sleep (3 * int interval.TotalMilliseconds)
+            return! pollLoop threshold
 
         | Choice1Of2 logs ->
-            // TODO: avoid allocating array
-            let logs = 
-                logs 
-                |> Seq.filter (fun l -> not <| filtered.Contains l.RowKey) 
-                |> Seq.sortBy getLogDate
-                |> Seq.toArray
-
-            if Array.isEmpty logs then
-                return! pollLoop filtered lastDate
-            else
-                let lastLogEntry = logs |> Array.maxBy (fun l -> l.Timestamp)
-                let lastDate = lastLogEntry.Timestamp
-                let filtered = new HashSet<string>()
-
-                do for l in logs do
+            let mutable isEmpty = true
+            let mutable minDate = DateTimeOffset()
+            do 
+                for l in logs |> Seq.sortBy (fun l -> getLogDate l, l.RowKey) |> Seq.filter isNewLogEntry do
+                    isEmpty <- false
                     try event.Trigger l with _ -> ()
-                    if l.Timestamp = lastDate then
-                        ignore <| filtered.Add l.RowKey
+                    if minDate < l.Timestamp then minDate <- l.Timestamp
 
-                return! pollLoop filtered (Some lastDate)
+            if isEmpty then
+                return! pollLoop threshold
+            else
+                let threshold = minDate - interval - interval - interval - interval
+                return! pollLoop (Some threshold)
     }
 
     let cts = new CancellationTokenSource()
-    let _ = Async.StartAsTask(pollLoop (new HashSet<_>()) None, cancellationToken = cts.Token)
+    let _ = Async.StartAsTask(pollLoop None, cancellationToken = cts.Token)
 
     [<CLIEvent>]
     member __.Publish = event.Publish
