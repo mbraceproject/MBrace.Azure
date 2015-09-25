@@ -1,3 +1,7 @@
+### 0.10.5-alpha
+* Upgrade MBrace.Core to 0.11.
+* Refactor and improve logging.
+
 ### 0.10.4-alpha
 * Fix packaging issue.
 
