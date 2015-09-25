@@ -22,9 +22,14 @@ module private Logger =
     let mkSystemLogPartitionKey (loggerId : string) = sprintf "systemlog:%s" loggerId
     let mkCloudLogPartitionKey (procId : string) = sprintf "cloudlog:%s" procId
     let mkRowKey (loggerUUID : Guid) (id : int64) = sprintf "%s-%010d" (loggerUUID.ToString("N")) id
-    let parseRowKey (rk : string) = 
+    let inline tryParseRowKey (uuid : byref<string>) (id : byref<int64>) (rk : string) =
+        ignore uuid // squash strange unused argument warning by the F# compiler
         let toks = rk.Split('-')
-        toks.[0], int64 toks.[1]
+        if toks.Length = 2 then
+            uuid <- toks.[0]
+            Int64.TryParse(toks.[1], &id)
+        else
+            false
 
 [<AutoOpen>]
 module LoggerExtensions =
@@ -159,13 +164,17 @@ type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fet
     let event = new Event<'Entry> ()
     let loggerInfo = new Dictionary<string, int64> ()
     let isNewLogEntry (e : 'Entry) =
-        let uuid,id = Logger.parseRowKey e.RowKey
-        let mutable lastId = 0L
-        let ok = loggerInfo.TryGetValue(uuid, &lastId)
-        if ok && id <= lastId then false
+        let mutable uuid = null
+        let mutable id = 0L
+        if Logger.tryParseRowKey &uuid &id e.RowKey then
+            let mutable lastId = 0L
+            let ok = loggerInfo.TryGetValue(uuid, &lastId)
+            if ok && id <= lastId then false
+            else
+                loggerInfo.[uuid] <- id
+                true
         else
-            loggerInfo.[uuid] <- id
-            true
+            false
 
     let rec pollLoop (threshold : DateTimeOffset option) = async {
         do! Async.Sleep (int interval.TotalMilliseconds)
