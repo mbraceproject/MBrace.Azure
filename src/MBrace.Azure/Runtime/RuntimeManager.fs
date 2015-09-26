@@ -26,7 +26,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
     let assemblyManager =
         let serializer = resources.Resolve<ISerializer>()
         let ignoredAssemblies = [| Assembly.GetExecutingAssembly() |]
-        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = configId.VagabondContainer, ignoredAssemblies = ignoredAssemblies)
+        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = configId.VagabondContainer, ignoredAssemblies = ignoredAssemblies, compressAssemblies = true)
         StoreAssemblyManager.Create(config, localLogger = systemLogger)
 
     do
@@ -129,13 +129,12 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         let dictionaryProvider = CloudDictionaryProvider.Create(storeConn)
         let queueProvider = QueueProvider.Create(sbusConn)
 
-        // TODO : specify Vagabond and CloudValue containers in Configuration object
-
         let cloudValueProvider =
             let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory config.CloudValueContainer
             let mkCache () = Config.ObjectCache
             let mkLocalCachingStore () = (Config.FileStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
-            StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, cacheFactory = mkCache, localFileStore = mkLocalCachingStore, shadowPersistObjects = true)
+            StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, cacheFactory = mkCache, localFileStore = mkLocalCachingStore, 
+                                                            shadowPersistObjects = true, compressionLevel = CompressionLevel.Optimal)
 
         resource {
             yield fileStore :> ICloudFileStore
