@@ -90,9 +90,9 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
     let mkWorkerState (record : WorkerRecord) = 
         { Id = new WorkerId(record.Id)
           CurrentWorkItemCount = record.ActiveWorkItems.GetValueOrDefault(-1)
-          LastHeartbeat = record.Timestamp.DateTime
+          LastHeartbeat = record.Timestamp
           HeartbeatRate = TimeSpan.MinValue // TODO : Implement
-          InitializationTime = record.InitializationTime.Value.DateTime
+          InitializationTime = record.InitializationTime.Value
           ExecutionStatus = unpickle record.Status
           PerformanceMetrics = record.GetCounters()
           Info = 
@@ -150,7 +150,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
     member this.GetNonResponsiveWorkers () : Async<WorkerState []> =
         async {
             let! workers = this.GetAllWorkers()
-            let now = DateTime.UtcNow
+            let now = DateTimeOffset.Now
             return workers |> Array.filter (fun w -> 
                                 match w.ExecutionStatus with
                                 | CloudWorkItemExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> 
@@ -162,7 +162,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
     member this.GetInactiveWorkers () : Async<WorkerState []> =
         async {
             let! workers = this.GetAllWorkers()
-            let now = DateTime.UtcNow
+            let now = DateTimeOffset.Now
             return workers |> Array.filter (fun w -> now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan)
         }
 
@@ -214,7 +214,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
             async { 
                 let! workers = this.GetAllWorkers()
                 return workers 
-                       |> Seq.filter (fun w -> DateTime.UtcNow - w.LastHeartbeat <= WorkerManager.MaxHeartbeatTimespan)
+                       |> Seq.filter (fun w -> DateTimeOffset.Now - w.LastHeartbeat <= WorkerManager.MaxHeartbeatTimespan)
                        |> Seq.filter (fun w -> match w.ExecutionStatus with
                                                | CloudWorkItemExecutionStatus.Running -> true
                                                | _ -> false)

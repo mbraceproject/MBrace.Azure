@@ -5,6 +5,7 @@ open System.Runtime.Serialization
 
 open Microsoft.WindowsAzure.Storage.Table
 
+open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
@@ -18,27 +19,6 @@ open MBrace.Azure.Runtime.Utilities
 
 module ProcessStatus =
     open MBrace.Runtime
-    let ofInt status : CloudProcessStatus =
-        match status with
-        | 0 -> raise <| NotSupportedException(string status)
-        | 1 -> Posted
-        | 2 -> Dequeued
-        | 3 -> Running
-        | 4 -> Faulted
-        | 5 -> CloudProcessStatus.Completed
-        | 6 -> UserException
-        | 7 -> Canceled
-        | _ -> failwithf "Failed to convert %O to CloudProcessStatus." status
-
-    let toInt (status : CloudProcessStatus) =
-        match status with
-        | Posted                        -> 1
-        | Dequeued                      -> 2
-        | Running                       -> 3
-        | Faulted                       -> 4
-        | CloudProcessStatus.Completed  -> 5
-        | UserException                 -> 6
-        | Canceled                      -> 7
 
 [<AllowNullLiteral>]
 type ProcessRecord(taskId) = 
@@ -125,25 +105,28 @@ type internal CloudProcessEntry (config : ConfigurationId, taskId) =
         member this.DeclareStatus(status: CloudProcessStatus): Async<unit> = 
             async {
                 let record = new ProcessRecord(taskId)
-                record.Status <- nullable(ProcessStatus.toInt status)
+                record.Status <- nullable(int status)
                 record.ETag <- "*"
                 let now = nullable DateTimeOffset.Now
                 match status with
-                | Posted -> 
+                | CloudProcessStatus.Created -> 
                     record.Completed <- nullable false
                     record.EnqueuedTime <- now
-                | Dequeued -> 
+                | CloudProcessStatus.WaitingToRun -> 
                     record.Completed <- nullable false
                     record.DequeuedTime <- now
-                | Running -> 
+                | CloudProcessStatus.Running -> 
                     record.Completed <- nullable false
                     record.StartTime <- now
-                | Faulted
+                | CloudProcessStatus.Faulted
                 | CloudProcessStatus.Completed
-                | UserException
-                | Canceled -> 
+                | CloudProcessStatus.UserException
+                | CloudProcessStatus.Canceled -> 
                     record.Completed <- nullable true
                     record.CompletionTime <- nullable DateTimeOffset.Now
+
+                | _ -> invalidArg "status" "invalid Cloud process status."
+
                 let! _ = Table.merge config config.RuntimeTable record
                 return ()
             }
@@ -162,9 +145,9 @@ type internal CloudProcessEntry (config : ConfigurationId, taskId) =
                 let execTime =
                     match record.Completed, record.StartTime, record.CompletionTime with
                     | Nullable true, Nullable s, Nullable c ->
-                        Finished(s.DateTime, c-s, c.DateTime)
+                        Finished(s, c - s)
                     | Nullable false, Nullable s, _ ->
-                        Started(s.DateTime, DateTimeOffset.Now - s)
+                        Started(s, DateTimeOffset.Now - s)
                     | Nullable false, Null, Null ->
                         NotStarted
                     | _ -> 
@@ -185,7 +168,7 @@ type internal CloudProcessEntry (config : ConfigurationId, taskId) =
                         | WorkItemStatus.Completed -> (a, c+1, f)
                         | _ as s -> failwith "Invalid WorkItemStatus %A" s) (0, 0, 0)
 
-                return { Status = ProcessStatus.ofInt(record.Status.GetValueOrDefault(-1))
+                return { Status = enum (record.Status.GetValueOrDefault(-1))
                          Info = (this :> ICloudProcessEntry).Info
                          ExecutionTime = execTime // TODO : dequeued vs running time?
                          MaxActiveWorkItemCount = -1
@@ -254,7 +237,7 @@ type CloudProcessManager private (config : ConfigurationId, logger : ISystemLogg
                 record.Dependencies <- pickle info.Dependencies
                 record.EnqueuedTime <- nullable DateTimeOffset.Now
                 record.Name <- match info.Name with Some n -> n | None -> null
-                record.Status <- nullable(ProcessStatus.toInt(CloudProcessStatus.Posted))
+                record.Status <- nullable(int CloudProcessStatus.Created)
                 record.Type <- pickle info.ReturnType
                 record.TypeName <- info.ReturnTypeName
                 record.CancellationTokenSource <- pickle info.CancellationTokenSource
