@@ -1,17 +1,20 @@
 ﻿namespace MBrace.Azure.Runtime
 
+open System.Text.RegularExpressions
+
+open Microsoft.WindowsAzure.Storage
+open Microsoft.ServiceBus
+
 [<RequireQualifiedAccess>]
 module Validate =
-    open Microsoft.WindowsAzure.Storage
-    open Microsoft.ServiceBus
 
     // http://blogs.msdn.com/b/jmstall/archive/2014/06/12/azure-storage-naming-rules.aspx
 
-    let private lower = set { 'a'..'z' }
-    let private upper = set { 'A'..'Z' }
-    let private alpha = lower + upper
-    let private number = set { '0'..'9' }
-    let private alphanumeric = alpha + number
+    let private lowerAlphaNumeric = Regex("^[a-z0-9]*$", RegexOptions.Compiled)
+    let private alphaNumeric = Regex("^[a-zA-Z0-9]*$", RegexOptions.Compiled)
+    let private alphaNumericHyphens = Regex("^[a-zA-Z0-9\-_/]*$", RegexOptions.Compiled)
+
+    let inline private validate (r : Regex) (input : string) = r.IsMatch input
 
     let storageConn conn =
         match CloudStorageAccount.TryParse(conn) with
@@ -29,22 +32,22 @@ module Validate =
     let tableName (name : string) =
         let exn = InvalidConfigurationException(sprintf "Invalid table name %A. Name length should be between 3 and 63, containing alphanumeric characters." name)
         if name.Length < 3 || name.Length > 63 then raise exn
-        if name |> Seq.forall alphanumeric.Contains |> not then raise exn
+        if not <| validate alphaNumeric name then raise exn
         name
 
     let containerName (name : string) = 
         let exn = InvalidConfigurationException(sprintf "Invalid container name %A. Name length should be between 3 and 63, containing lowercase characters or numbers." name)
         if name.Length < 3 || name.Length > 63 then raise exn
-        if name |> Seq.forall (lower + number).Contains |> not then raise exn
+        if not <| validate lowerAlphaNumeric name then raise exn
         name
 
     let queueName (name : string) = 
         let exn = InvalidConfigurationException(sprintf "Invalid queue name %A. Name should contain only alphanumeric characters or '-','_','/' delimiters." name)
-        if name |> Seq.forall (alphanumeric + set ['-'; '_'; '/']).Contains |> not then raise exn
+        if not <| validate alphaNumericHyphens name then raise exn
         name
                 
     let subscriptionName (name : string) = 
         let exn = InvalidConfigurationException(sprintf "Invalid subscription name %A. Name length should be less than 50, containing only alphanumeric characters or '-','_','/' delimiters." name)
         if name.Length > 50 then raise exn
-        if name |> Seq.forall (alphanumeric + set ['-'; '_'; '/']).Contains |> not then raise exn
+        if not <| validate alphaNumericHyphens name then raise exn
         name
