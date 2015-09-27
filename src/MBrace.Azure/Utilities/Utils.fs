@@ -37,7 +37,7 @@ module Utils =
         /// <param name="task">Task to be awaited.</param>
         static member AwaitTaskCorrect(task : Task<'T>) = async {
             try return! Async.AwaitTask task
-            with :? AggregateException as ae -> 
+            with :? AggregateException as ae when ae.InnerExceptions.Count = 1 -> 
                 return! Async.Raise (ae.InnerExceptions.[0])
         }
 
@@ -101,47 +101,3 @@ module Utils =
                 chunks.Add(builder.ToArray())
 
             chunks.ToArray()
-
-open MBrace.Core.Internals
-
-[<Sealed; AutoSerializable(false)>]
-type Live<'T>(provider : unit -> Async<'T>, initial : Choice<'T,exn>, ?keepLast : bool, ?interval : int, ?stopf : Choice<'T, exn> -> bool) =
-    let interval = defaultArg interval 500
-    let keepLast = defaultArg keepLast false
-    let stopf = defaultArg stopf (fun _ -> false)
-    let mutable stop = false
-    let mutable value = initial
-
-    let runOnce () = async {
-        let! choice = Async.Catch <| provider ()
-        match choice with
-        | Choice1Of2 _ as v -> value <- v
-        | Choice2Of2 _ when keepLast -> ()
-        | Choice2Of2 _ as v -> value <- v
-        return choice
-    }
-
-    let rec update () = async {
-        let! choice = runOnce()
-        if stopf choice || stop then 
-            return ()
-        else
-            do! Async.Sleep interval
-            return! update ()
-    }
-
-    do 
-        runOnce() |> Async.Ignore |> Async.RunSync
-        update () |> Async.Start
-
-    member __.TryGetValue () = 
-        match value with
-        | Choice1Of2 v -> Some v
-        | Choice2Of2 _ -> None
-
-    member __.Value =
-        match value with
-        | Choice1Of2 v -> v
-        | Choice2Of2 e -> raise e
-
-    member __.Stop () = stop <- true
