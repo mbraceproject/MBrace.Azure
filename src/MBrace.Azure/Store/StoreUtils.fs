@@ -6,6 +6,7 @@ open System.Threading.Tasks
 
 open Microsoft.WindowsAzure.Storage
 
+open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 
 // TODO : merge with global runtime utils file
@@ -63,46 +64,20 @@ module internal Utils =
             | [|c; x|] -> { Container = Container c; BlobName = x }
             | _ -> failwith "Invalid store path %A" path
 
-
-    let validateContainerName =
-        //https://msdn.microsoft.com/en-us/library/azure/dd135715.aspx
-        let letters = set {'a'..'z'}
-        let nums = set { '0'..'9' }
-        let valid = letters + nums + Set.singleton '-'
-        fun (container : string) ->
-            let isValid =
-                container = ""
-                || container = "$root"
-                || (container.Length >= 3 
-                    && container.Length <= 63
-                    && container |> Seq.forall valid.Contains
-                    && container |> Seq.head <> '-')
-            if not isValid then failwithf "Invalid container '%s'" container
-            
-
-    /// Creates a Microsoft.WindowsAzure.Storage.BlobClient instance given a cloud storage account
-    let getBlobClient (account : CloudStorageAccount) =
-        let client = account.CreateCloudBlobClient()
-        client.DefaultRequestOptions.ServerTimeout <- Nullable(TimeSpan.FromMinutes(40.))
-        client.DefaultRequestOptions.ParallelOperationThreadCount <- System.Nullable(min 64 <| 4 * System.Environment.ProcessorCount)
-        client.DefaultRequestOptions.SingleBlobUploadThresholdInBytes <- System.Nullable(4L * 1024L * 1024L) // possible ranges: 1..64MB, default 32MB
-        
-        client
-
     /// <summary>
     ///     Creates a blob storage container reference given account and container name
     /// </summary>
     /// <param name="account">Storage account instance.</param>
     /// <param name="container">Container name</param>
-    let getContainerReference (account : CloudStorageAccount) (container : Container) = 
-        let client = getBlobClient account
+    let getContainerReference (account : AzureStorageAccount) (container : Container) = 
+        let client = account.BlobClient
         match container with
         | Root -> 
             let root = client.GetRootContainerReference()
             let _ = root.CreateIfNotExists()
             root
         | Container c ->
-            validateContainerName c
+            Validate.containerName c
             client.GetContainerReference c
 
     /// <summary>

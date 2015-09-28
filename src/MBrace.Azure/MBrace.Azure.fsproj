@@ -82,10 +82,13 @@
   <Import Project="..\..\.paket\paket.targets" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Common\Exceptions.fs" />
-    <Compile Include="Common\Validation.fs" />
-    <Compile Include="Common\Config.fs" />
-    <Compile Include="Common\Version.fs" />
+    <Compile Include="Configuration\ProcessConfiguration.fs" />
+    <Compile Include="Configuration\Exceptions.fs" />
+    <Compile Include="Configuration\Accounts.fs" />
+    <Compile Include="Configuration\Validation.fs" />
+    <Compile Include="Configuration\Configuration.fs" />
+    <Compile Include="Configuration\ClusterStateManager.fs" />
+    <Compile Include="Configuration\Version.fs" />
     <Compile Include="Utilities\Utils.fs" />
     <Compile Include="Utilities\Table.fs" />
     <Compile Include="Utilities\Argument.fs" />

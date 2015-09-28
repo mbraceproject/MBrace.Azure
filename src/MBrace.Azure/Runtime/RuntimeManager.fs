@@ -147,7 +147,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         }
 
     static member CreateForWorker(config : Configuration, workerId : IWorkerId, logger : AttacheableLogger, customResources) =
-        logger.LogInfof "Activating configuration with Id %A" config.Id
+        logger.LogInfof "Activating configuration with Id %A" config.Suffix
         Config.Activate(config)
         logger.LogInfof "Creating resources"
         let resources = ClusterManager.GetDefaultResources(config, customResources)
@@ -159,7 +159,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
     static member CreateForAppDomain(config : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) =
         let logger = AttacheableLogger.Create(makeAsynchronous = true)
         let _ = logger.AttachLogger(mlogger)
-        logger.LogInfof "Activating configuration with Id %A" config.Id
+        logger.LogInfof "Activating configuration with Id %A" config.Suffix
         Config.Activate(config)
         logger.LogInfof "Creating resources"
         let resources = ClusterManager.GetDefaultResources(config, customResources)
@@ -168,7 +168,7 @@ type ClusterManager private (config : Configuration, uuid : string, systemLogger
         runtime
 
     static member CreateForClient(config : Configuration, clientId : string, logger : AttacheableLogger, customResources) =
-        logger.LogInfof "Activating configuration with Id %A" config.Id
+        logger.LogInfof "Activating configuration with Id %A" config.Suffix
         Config.Activate(config)
         logger.LogInfof "Creating resources"        
         let resources = ClusterManager.GetDefaultResources(config, customResources)

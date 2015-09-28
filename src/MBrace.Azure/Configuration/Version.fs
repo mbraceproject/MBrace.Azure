@@ -1,7 +1,8 @@
 ﻿namespace MBrace.Azure.Runtime
 
-open System.Reflection
 open System
+open System.IO
+open System.Reflection
 open MBrace.Azure
 
 module internal ReleaseInfo =
@@ -17,15 +18,17 @@ module internal ReleaseInfo =
 
     /// Get version.
     let localVersion = typeof<Configuration>.Assembly.GetName().Version
-  
+
 type Metadata =
-    { Version : Version
-      ConfigurationId : ConfigurationId }
+    { 
+        Version : Version
+        ConfigurationId : ClusterConfiguration 
+    }
     
-[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+[<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module internal Metadata =
-    open Nessos.FsPickler
-    open System.IO
+
+    let private jsonSerializer = lazy(new Nessos.FsPickler.Json.JsonSerializer(omitHeader = true, indent = false))
 
     let compareConfigurations (local : Metadata) (remote : Metadata) =
         if local.ConfigurationId <> remote.ConfigurationId then
@@ -35,17 +38,10 @@ module internal Metadata =
         if local <> remote then
             raise <| IncompatibleVersionException(sprintf "%A" local, sprintf "%A" remote)
 
-    let toString (version : Version) (configurationId : ConfigurationId) =
+    let toString (version : Version) (configurationId : ClusterConfiguration) =
         let metadata = { Version = version; ConfigurationId = configurationId }
-        use sw = new StringWriter()
-        let json = Nessos.FsPickler.Json.JsonSerializer(omitHeader = true)
-        json.Serialize(sw, metadata)
-        sw.ToString()
+        jsonSerializer.Value.PickleToString metadata
 
     let fromString (metadata : string) =
-        let json = Nessos.FsPickler.Json.JsonSerializer(omitHeader = true)
-        use sr = new StringReader(metadata)
-        try
-            json.Deserialize<Metadata>(sr)
-         with ex ->
-            raise <| IncompatibleVersionException(sprintf "Failed to deserialize metadata %s" metadata, ex)
+        try jsonSerializer.Value.UnPickleOfString<Metadata> metadata
+        with e -> raise <| IncompatibleVersionException(sprintf "Failed to deserialize metadata %s" metadata, e)

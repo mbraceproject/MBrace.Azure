@@ -14,23 +14,23 @@ module Table =
             e :? StorageException && (e :?> StorageException).RequestInformation.HttpStatusCode = 412 
         | _ -> false
 
-    let private exec<'U> config table op : Async<obj> = 
+    let private exec<'U> (config : AzureStorageAccount) table op : Async<obj> = 
         async {
-            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
+            let t = config.TableClient.GetTableReference table
             let! _ = t.CreateIfNotExistsAsync()
             let! (e : TableResult) = t.ExecuteAsync(op)
             return e.Result 
         }
 
-    let insert<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
+    let insert<'T when 'T :> ITableEntity> (config : AzureStorageAccount) table (e : 'T) : Async<unit> = 
         TableOperation.Insert(e) |> exec config table |> Async.Ignore
 
-    let batch config table (operations : TableBatchOperation) = 
+    let batch (config : ClusterStateManager) table (operations : TableBatchOperation) = 
         async {
             let jobs = new ResizeArray<Async<unit>>()
             let batch = ref <| new TableBatchOperation()
             let mkHandle batch = Async.StartChild <| async {
-                let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
+                let t = config.TableClient.GetTableReference(table)
                 let! _ = t.CreateIfNotExistsAsync()
                 let! _ = t.ExecuteBatchAsync(batch)
                 ()
@@ -70,9 +70,9 @@ module Table =
     let insertOrMerge<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.InsertOrMerge(e) |> exec config table |> Async.Ignore
     
-    let queryDynamic config table pk : Async<DynamicTableEntity []> =
+    let queryDynamic (config : ClusterStateManager) table pk : Async<DynamicTableEntity []> =
         async {  
-            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
+            let t = config.TableClient.GetTableReference(table)
             let q = TableQuery<DynamicTableEntity>()
                         .Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
                         .Select([|"RowKey"|])
@@ -80,26 +80,24 @@ module Table =
                    |> Seq.toArray
         }
 
-    let read<'T when 'T :> ITableEntity> config table pk rk : Async<'T> = 
+    let read<'T when 'T :> ITableEntity> (config : AzureStorageAccount) table pk rk : Async<'T> = 
         async { 
-            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
+            let t = config.TableClient.GetTableReference(table)
             let! (e : TableResult) = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk))
             return e.Result :?> 'T
         }
     
-    let query<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table query =
+    let query<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> (config : ClusterStateManager) table query =
         async {
-            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
-            return t.ExecuteQuery<'T>(query)
-                   |> Seq.toArray
+            let t = config.TableClient.GetTableReference(table)
+            return t.ExecuteQuery<'T>(query) |> Seq.toArray
         }
 
-    let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> config table pk : Async<'T []> = 
+    let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> (config : ClusterStateManager) table pk : Async<'T []> = 
         async {  
-            let t = ConfigurationRegistry.Resolve<StoreClientProvider>(config).TableClient.GetTableReference(table)
+            let t = config.TableClient.GetTableReference(table)
             let q = TableQuery<'T>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))
-            return t.ExecuteQuery<'T>(q)
-                   |> Seq.toArray
+            return t.ExecuteQuery<'T>(q) |> Seq.toArray
         }
     
     let merge<'T when 'T :> ITableEntity> config table (e : 'T) : Async<'T> = 
