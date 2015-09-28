@@ -82,10 +82,10 @@ type WorkerId internal (workerId) =
     override this.GetHashCode() = hash workerId
 
 [<AutoSerializable(false)>]
-type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
+type WorkerManager private (config : ClusterConfiguration, logger : ISystemLogger) =
 
-    let pickle (value : 'T) = Config.Pickler.Pickle(value)
-    let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
+    let pickle (value : 'T) = ProcessConfiguration.Serializer.Pickle(value)
+    let unpickle (value : byte []) = ProcessConfiguration.Serializer.UnPickle<'T>(value)
 
     let mkWorkerState (record : WorkerRecord) = 
         { Id = new WorkerId(record.Id)
@@ -168,7 +168,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
 
     member this.GetAllWorkers(): Async<WorkerState []> = 
         async { 
-            let! records = Table.queryPK<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey
+            let! records = Table.queryPK<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey
             let state = records |> Array.map mkWorkerState
             return state
         }
@@ -186,13 +186,13 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 let record = new WorkerRecord(id.Id)
                 record.ETag <- "*"
                 record.Status <- pickle status
-                let! _ = Table.merge config config.RuntimeTable record
+                let! _ = Table.merge config.StorageAccount config.RuntimeTable record
                 return ()
             }
         
         member this.IncrementWorkItemCount(id: IWorkerId): Async<unit> = 
             async {
-                let! _ = Table.transact2<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
+                let! _ = Table.transact2<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
                             (fun e -> 
                                 let ec = e.CloneDefault()
                                 ec.ActiveWorkItems <- e.ActiveWorkItems ?+ 1
@@ -202,7 +202,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
 
         member this.DecrementWorkItemCount(id: IWorkerId): Async<unit> = 
             async {
-                let! _ = Table.transact2<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
+                let! _ = Table.transact2<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
                             (fun e -> 
                                 let ec = e.CloneDefault()
                                 ec.ActiveWorkItems <- e.ActiveWorkItems ?- 1
@@ -226,7 +226,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 let record = new WorkerRecord(id.Id)
                 record.ETag <- "*"
                 record.UpdateCounters(perf)
-                let! _result = Table.merge config config.RuntimeTable record
+                let! _result = Table.merge config.StorageAccount config.RuntimeTable record
                 return ()
             }
         
@@ -245,7 +245,7 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
                 record.MaxWorkItems <- nullable info.MaxWorkItemCount
                 record.ProcessorCount <- nullable info.ProcessorCount
                 record.ConfigurationId <- pickle config
-                do! Table.insertOrReplace<WorkerRecord> config config.RuntimeTable record //Worker might restart but keep id.
+                do! Table.insertOrReplace<WorkerRecord> config.StorageAccount config.RuntimeTable record //Worker might restart but keep id.
                 let unsubscriber =
                     { new IDisposable with
                           member x.Dispose(): unit = 
@@ -257,10 +257,10 @@ type WorkerManager private (config : ConfigurationId, logger : ISystemLogger) =
         
         member this.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = 
             async {
-                let! record = Table.read<WorkerRecord> config config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id
+                let! record = Table.read<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id
                 if record = null then return None
                 else return Some(mkWorkerState record)
             }
 
-    static member Create(config : ConfigurationId, logger : ISystemLogger) =
+    static member Create(config : ClusterConfiguration, logger : ISystemLogger) =
         new WorkerManager(config, logger)

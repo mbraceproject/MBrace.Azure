@@ -37,7 +37,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
             // Set the maximum number of concurrent connections
             ServicePointManager.DefaultConnectionLimit = 512;
 
-            Config.InitWorkerGlobalState();
+            ProcessConfiguration.InitAsWorker();
 
             bool result = base.OnStart();
 

@@ -7,8 +7,8 @@ open MBrace.Runtime
 // TODO replace with Argu
 /// BASE64 serialized argument parsing schema
     
-type Config = { 
-    Configuration : Configuration
+type Config = {
+    Configuration : ClusterConfiguration
     MaxWorkItems : int
     Name : string option
     LogLevel : LogLevel option

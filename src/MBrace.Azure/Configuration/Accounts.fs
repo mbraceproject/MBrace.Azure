@@ -8,6 +8,7 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.WindowsAzure.Storage.Blob
 open Microsoft.ServiceBus
+open Microsoft.ServiceBus.Messaging
 
 [<AutoSerializable(false); NoEquality; NoComparison>]
 type private AzureStorageAccountData = 
@@ -51,6 +52,11 @@ type AzureStorageAccount private (data : AzureStorageAccountData) =
     member __.TableClient = getLocalData().TableClient
     /// Azure blob client object
     member __.BlobClient = getLocalData().BlobClient
+
+    /// Creates a table reference for given name
+    member __.GetTableReference(tableName : string) = __.TableClient.GetTableReference(tableName)
+    /// Creates a container reference for given name
+    member __.GetContainerReference(container : string) = __.BlobClient.GetContainerReference(container)
 
     interface IComparable with
         member __.CompareTo(other : obj) =
@@ -148,6 +154,12 @@ type AzureServiceBusAccount private (data: ServiceBusAccountData) =
     member __.NamespaceManager = getData().NamespaceManager
     /// Service bus connection string
     member __.ConnectionString = getData().ConnectionString
+    /// Creates a Queue client instance
+    member __.CreateQueueClient(queue : string, mode : ReceiveMode) = QueueClient.CreateFromConnectionString(__.ConnectionString, queue, mode)
+    /// Creates a Subscription instance
+    member __.CreateSubscriptionClient(topic : string, name : string) = SubscriptionClient.CreateFromConnectionString(__.ConnectionString, topic, name)
+    /// Creates a Topic client
+    member __.CreateTopicClient(topic : string) = TopicClient.CreateFromConnectionString(__.ConnectionString, topic)
 
     interface IComparable with
         member __.CompareTo(other : obj) =

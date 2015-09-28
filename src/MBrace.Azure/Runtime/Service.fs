@@ -12,6 +12,7 @@ open MBrace.Runtime
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
+    let config = ClusterConfiguration.Activate config
     let mutable useAppDomainIsolation = true
     let mutable ignoreVersion         = true
     let mutable customResources       = ResourceRegistry.Empty
@@ -92,26 +93,26 @@ type Service (config : Configuration, serviceId : string) =
     member this.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(this.StartAsync(), cancellationToken = ct) :> _     
     
     /// Asynchronously start Service and worker loop.
-    member this.StartAsync() : Async<unit> =
-        async {
-            try
-                let sw = Stopwatch.StartNew()
-                let tableLogManager = new TableSystemLogManager(config)
-                let! tableLogger = tableLogManager.CreateLogWriter(serviceId)
-                let _ = attachableLogger.AttachLogger(tableLogger)
+    member this.StartAsync() : Async<unit> = async {
+        try
+            let sw = Stopwatch.StartNew()
+            let tableLogManager = new TableSystemLogManager(config)
+            let! tableLogger = tableLogManager.CreateLogWriter(serviceId)
+            let _ = attachableLogger.AttachLogger(tableLogger)
 
-                attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
+            attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
 
-                let! agent = Initializer.Init(config, this.Id, attachableLogger, this.UseAppDomainIsolation, this.MaxConcurrentWorkItems, customResources)
-                workerAgent <- Some agent
-                sw.Stop()
-                attachableLogger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
-                return ()
-            with ex ->
-                attachableLogger.LogErrorf "Service Start for %A failed with %A" this.Id ex
-                // TODO : finalize
-                return! Async.Raise ex
-        }
+            let! agent = Initializer.Init(config, this.Id, attachableLogger, this.UseAppDomainIsolation, this.MaxConcurrentWorkItems, customResources)
+            workerAgent <- Some agent
+            sw.Stop()
+            attachableLogger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
+            return ()
+        with ex ->
+
+            attachableLogger.LogErrorf "Service Start for %A failed with %A" this.Id ex
+            // TODO : finalize
+            return! Async.Raise ex
+    }
 
     /// Start Service.
     member this.Start() = Async.RunSync(this.StartAsync())

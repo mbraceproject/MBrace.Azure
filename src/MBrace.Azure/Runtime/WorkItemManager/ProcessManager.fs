@@ -54,8 +54,8 @@ type ProcessRecord(taskId) =
     static member DefaultPartitionKey = "task"
 
 [<DataContract; Sealed>]
-type internal CloudProcessEntry (config : ConfigurationId, taskId) =
-    static let unpickle (value : byte []) = Config.Pickler.UnPickle<'T>(value)
+type internal CloudProcessEntry (config : ClusterConfiguration, taskId) =
+    static let unpickle (value : byte []) = ProcessConfiguration.Serializer.UnPickle<'T>(value)
 
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "taskId")>] taskId = taskId
@@ -65,10 +65,10 @@ type internal CloudProcessEntry (config : ConfigurationId, taskId) =
 
     [<OnDeserialized>]
     let init (_ : StreamingContext) =
-        record <- lazy CacheAtom.Create(Table.read<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId, intervalMilliseconds = 200)
+        record <- lazy CacheAtom.Create(Table.read<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId, intervalMilliseconds = 200)
         info <-
             lazy
-                let record = Async.RunSync(Table.read<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId)
+                let record = Async.RunSync(Table.read<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId)
                 { 
                     Name = if record.Name = null then None else Some record.Name
                     CancellationTokenSource = unpickle record.CancellationTokenSource
@@ -127,7 +127,7 @@ type internal CloudProcessEntry (config : ConfigurationId, taskId) =
 
                 | _ -> invalidArg "status" "invalid Cloud process status."
 
-                let! _ = Table.merge config config.RuntimeTable record
+                let! _ = Table.merge config.StorageAccount config.RuntimeTable record
                 return ()
             }
         
@@ -137,7 +137,7 @@ type internal CloudProcessEntry (config : ConfigurationId, taskId) =
                 // do all the active/completed, etc calculations.
                 // TODO : use WorkItemManager.
                 let! recordHandle = Async.StartChild(getRecord())
-                let! jobsHandle = Async.StartChild(Table.queryPK<WorkItemRecord> config config.RuntimeTable taskId)
+                let! jobsHandle = Async.StartChild(Table.queryPK<WorkItemRecord> config.StorageAccount config.RuntimeTable taskId)
 
                 let! record = recordHandle
                 let! jobs = jobsHandle
@@ -200,14 +200,14 @@ type internal CloudProcessEntry (config : ConfigurationId, taskId) =
                 let! _blob = Blob.Create(config, ProcessRecord.DefaultPartitionKey, blobId, fun () -> sifted)
                 record.ResultUri <- blobId
                 record.ETag <- "*"
-                let! _record = Table.merge config config.RuntimeTable record
+                let! _record = Table.merge config.StorageAccount config.RuntimeTable record
                 return true
             }
         
 
 [<Sealed; DataContract>]
-type CloudProcessManager private (config : ConfigurationId, logger : ISystemLogger) =
-    static let pickle (value : 'T) = Config.Pickler.Pickle(value)
+type CloudProcessManager private (config : ClusterConfiguration, logger : ISystemLogger) =
+    static let pickle (value : 'T) = ProcessConfiguration.Serializer.Pickle(value)
 
     let [<DataMember(Name="config")>] config = config
     let [<DataMember(Name="logger")>] logger = logger
@@ -217,13 +217,13 @@ type CloudProcessManager private (config : ConfigurationId, logger : ISystemLogg
             async {
                 let record = new ProcessRecord(taskId)
                 record.ETag <- "*"
-                return! Table.delete config config.RuntimeTable record // TODO : perform full cleanup?
+                return! Table.delete config.StorageAccount config.RuntimeTable record // TODO : perform full cleanup?
             }
         
         member this.ClearAllProcesses(): Async<unit> = 
             async {
-                let! records = Table.queryPK<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey
-                return! Table.deleteBatch config config.RuntimeTable records
+                let! records = Table.queryPK<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey
+                return! Table.deleteBatch config.StorageAccount config.RuntimeTable records
             }
         
         member this.StartProcess(info: CloudProcessInfo): Async<ICloudProcessEntry> = 
@@ -241,7 +241,7 @@ type CloudProcessManager private (config : ConfigurationId, logger : ISystemLogg
                 record.Type <- pickle info.ReturnType
                 record.TypeName <- info.ReturnTypeName
                 record.CancellationTokenSource <- pickle info.CancellationTokenSource
-                let! _record = Table.insertOrReplace config config.RuntimeTable record
+                let! _record = Table.insertOrReplace config.StorageAccount config.RuntimeTable record
                 let tcs = new CloudProcessEntry(config, taskId)
                 logger.LogInfof "%A : task created" tcs
                 return tcs :> ICloudProcessEntry
@@ -249,14 +249,14 @@ type CloudProcessManager private (config : ConfigurationId, logger : ISystemLogg
         
         member this.GetAllProcesses(): Async<ICloudProcessEntry []> = 
             async {
-                let! records = Table.queryPK<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey
+                let! records = Table.queryPK<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey
                 return records |> Array.map(fun r -> new CloudProcessEntry(config, r.Id) :> ICloudProcessEntry)
             }
         
         member this.TryGetProcessById(taskId: string): Async<ICloudProcessEntry option> = 
             async {
-                let! record = Table.read<ProcessRecord> config config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId
+                let! record = Table.read<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId
                 if record = null then return None else return Some(new CloudProcessEntry(config, taskId) :> ICloudProcessEntry)
             }
 
-    static member Create(config : ConfigurationId, logger) = new CloudProcessManager(config, logger)
+    static member Create(config : ClusterConfiguration, logger) = new CloudProcessManager(config, logger)

@@ -25,7 +25,7 @@ module Table =
     let insert<'T when 'T :> ITableEntity> (config : AzureStorageAccount) table (e : 'T) : Async<unit> = 
         TableOperation.Insert(e) |> exec config table |> Async.Ignore
 
-    let batch (config : ClusterStateManager) table (operations : TableBatchOperation) = 
+    let batch (config : AzureStorageAccount) table (operations : TableBatchOperation) = 
         async {
             let jobs = new ResizeArray<Async<unit>>()
             let batch = ref <| new TableBatchOperation()
@@ -70,7 +70,7 @@ module Table =
     let insertOrMerge<'T when 'T :> ITableEntity> config table (e : 'T) : Async<unit> = 
         TableOperation.InsertOrMerge(e) |> exec config table |> Async.Ignore
     
-    let queryDynamic (config : ClusterStateManager) table pk : Async<DynamicTableEntity []> =
+    let queryDynamic (config : AzureStorageAccount) table pk : Async<DynamicTableEntity []> =
         async {  
             let t = config.TableClient.GetTableReference(table)
             let q = TableQuery<DynamicTableEntity>()
@@ -87,13 +87,13 @@ module Table =
             return e.Result :?> 'T
         }
     
-    let query<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> (config : ClusterStateManager) table query =
+    let query<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> (config : AzureStorageAccount) table query =
         async {
             let t = config.TableClient.GetTableReference(table)
             return t.ExecuteQuery<'T>(query) |> Seq.toArray
         }
 
-    let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> (config : ClusterStateManager) table pk : Async<'T []> = 
+    let queryPK<'T when 'T : (new : unit -> 'T) and 'T :> ITableEntity> (config : AzureStorageAccount) table pk : Async<'T []> = 
         async {  
             let t = config.TableClient.GetTableReference(table)
             let q = TableQuery<'T>().Where(TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, pk))

@@ -39,7 +39,23 @@ type AzureCluster private (manager : ClusterManager) =
 
     static let lockObj = obj()
     static let mutable localWorkerExecutable : string option = None
-    static do Config.InitClientGlobalState()
+    static do ProcessConfiguration.InitAsClient()
+
+    static let spawnLocalWorkers (config : ClusterConfiguration) workerCount maxWorkItems workerNameF logLevel =
+        let exe = AzureCluster.LocalWorkerExecutable
+        if workerCount < 1 then invalidArg "workerCount" "must be positive."  
+        let cfg = { Arguments.Configuration = config ; Arguments.MaxWorkItems = defaultArg maxWorkItems Environment.ProcessorCount; Name = None; LogLevel = logLevel }
+        let _ = Array.Parallel.init workerCount (fun i -> 
+            let conf =
+                match workerNameF with
+                | None -> cfg
+                | Some f -> {cfg with Name = Some(f(i)) }
+            let args = Config.ToBase64Pickle conf
+            let psi = new ProcessStartInfo(exe, args)
+            psi.WorkingDirectory <- Path.GetDirectoryName exe
+            psi.UseShellExecute <- true
+            Process.Start psi)
+        ()
 
     /// Current client instance identifier.
     member this.UUID = manager.RuntimeManagerId
@@ -104,7 +120,7 @@ type AzureCluster private (manager : ClusterManager) =
     /// <param name="maxWorkItems">Maximum number of concurrent jobs in the spawned worker.</param>
     /// <param name="logLevel">LogLevel used by the worker.</param>
     member this.AttachLocalWorker(?maxWorkItems:int, ?logLevel:LogLevel) =
-        AzureCluster.SpawnOnCurrentMachine(manager.Configuration, 1, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel)
+        spawnLocalWorkers manager.Configuration 1 maxWorkItems None logLevel
 
     /// Gets or sets the path for a local standalone worker executable.
     static member LocalWorkerExecutable
@@ -124,21 +140,7 @@ type AzureCluster private (manager : ClusterManager) =
     /// <param name="workerNameF">Worker name factory.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
     static member SpawnOnCurrentMachine(config : Configuration, workerCount, ?maxWorkItems : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
-        let exe = AzureCluster.LocalWorkerExecutable
-        if workerCount < 1 then invalidArg "workerCount" "must be positive."  
-        let cfg = { Arguments.Configuration = config; Arguments.MaxWorkItems = defaultArg maxWorkItems Environment.ProcessorCount; Name = None; LogLevel = logLevel }
-        do Config.Activate config
-        let _ = Array.Parallel.init workerCount (fun i -> 
-            let conf =
-                match workerNameF with
-                | None -> cfg
-                | Some f -> {cfg with Name = Some(f(i)) }
-            let args = Config.ToBase64Pickle conf
-            let psi = new ProcessStartInfo(exe, args)
-            psi.WorkingDirectory <- Path.GetDirectoryName exe
-            psi.UseShellExecute <- true
-            Process.Start psi)
-        ()
+        spawnLocalWorkers (ClusterConfiguration.Activate config) workerCount maxWorkItems workerNameF logLevel
 
     /// <summary>
     ///     Initialize a new local runtime instance with supplied worker count and return a handle.
@@ -176,6 +178,7 @@ type AzureCluster private (manager : ClusterManager) =
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
     static member Connect(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
+        let config = ClusterConfiguration.Activate config
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         let attachableLogger = AttacheableLogger.Create(makeAsynchronous = true, ?logLevel = logLevel)
