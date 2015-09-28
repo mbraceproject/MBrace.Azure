@@ -5,11 +5,11 @@ open System
 open MBrace.Azure.Runtime
 
 /// Azure Configuration Builder object
-[<Sealed; AutoSerializable(false); NoEquality; NoComparison>]
+[<AutoSerializable(true); Sealed; NoEquality; NoComparison>]
 type Configuration(storageConnectionString : string, serviceBusConnectionString : string) = 
 
-    let mutable storageAccount = AzureStorageAccount.Parse storageConnectionString
-    let mutable serviceBusAccount = AzureServiceBusAccount.Parse serviceBusConnectionString
+    let mutable storageConnectionString = AzureStorageAccount.Parse(storageConnectionString).ConnectionString
+    let mutable serviceBusConnectionString = AzureServiceBusAccount.Parse(serviceBusConnectionString).ConnectionString
     let mutable version = typeof<Configuration>.Assembly.GetName().Version
 
     // Default Service Bus Configuration
@@ -33,7 +33,7 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
         and set v = version <- Version.Parse v
 
     /// Append version to given configuration e.g. $RuntimeQueue$Version. Defaults to true.
-    member val UseVersionPostfix    = true with get, set
+    member val UseVersionSuffix    = true with get, set
 
     /// Runtime identifier, used for runtime isolation when using the same storage/servicebus accounts. Defaults to 0.
     member val SuffixId             = 0us with get, set
@@ -44,21 +44,18 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
 
     // #region Credentials
 
-    member __.StorageAccount = storageAccount
-    member __.ServiceBusAccount = serviceBusAccount
-
     /// Azure Storage connection string.
     member __.StorageConnectionString
-        with get () = storageAccount.ConnectionString
-        and set scs = storageAccount <- AzureStorageAccount.Parse scs
+        with get () = storageConnectionString
+        and set scs = storageConnectionString <- AzureStorageAccount.Parse(scs).ConnectionString
 
     /// Azure Service Bus connection string.
     member __.ServiceBusConnectionString
-        with get () = serviceBusAccount.ConnectionString
-        and set sbcs = serviceBusAccount <- AzureServiceBusAccount.Parse sbcs
+        with get () = serviceBusConnectionString
+        and set sbcs = serviceBusConnectionString <- AzureServiceBusAccount.Parse(sbcs).ConnectionString
+
 
     // #region Service Bus
-
 
     /// Service Bus queue used by the runtime.
     member __.RuntimeQueue

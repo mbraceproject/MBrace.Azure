@@ -12,14 +12,13 @@ open MBrace.Runtime
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
-    let config = ClusterConfiguration.Activate config
-    let mutable useAppDomainIsolation = true
-    let mutable ignoreVersion         = true
-    let mutable customResources       = ResourceRegistry.Empty
-    let mutable configuration         = config
-    let mutable maxWorkItems               = Environment.ProcessorCount
-    let mutable workerAgent           = None : WorkerAgent option
-    let attachableLogger              = AttacheableLogger.Create(makeAsynchronous = true)
+    let mutable useAppDomainIsolation   = true
+    let mutable ignoreVersion           = true
+    let mutable customResources         = ResourceRegistry.Empty
+    let mutable configuration           = config
+    let mutable maxWorkItems            = Environment.ProcessorCount
+    let mutable workerAgent             = None : WorkerAgent option
+    let attachableLogger                = AttacheableLogger.Create(makeAsynchronous = true)
     
     let check () = 
         match workerAgent with
@@ -96,7 +95,8 @@ type Service (config : Configuration, serviceId : string) =
     member this.StartAsync() : Async<unit> = async {
         try
             let sw = Stopwatch.StartNew()
-            let tableLogManager = new TableSystemLogManager(config)
+            let config2 = ClusterConfiguration.Activate config
+            let tableLogManager = new TableSystemLogManager(config2)
             let! tableLogger = tableLogManager.CreateLogWriter(serviceId)
             let _ = attachableLogger.AttachLogger(tableLogger)
 

@@ -55,9 +55,7 @@ with
         sprintf "AzureCluster-%s" <| Convert.ToBase64String hash.Hash
                     
     interface IRuntimeId with
-        member this.Id = 
-            let hash = ProcessConfiguration.Serializer.ComputeHash this
-            sprintf "AzureCluster-%s" <| Convert.ToBase64String hash.Hash
+        member this.Id = this.Id
 
     member this.ClearUserData() = async {
         do! this.StorageAccount.GetTableReference(this.UserDataTable).DeleteIfExistsAsync()
@@ -106,13 +104,13 @@ with
 
         let appendVersionAndId (text : string) =
             sprintf "%s%s%s" text 
-                (if configuration.UseVersionPostfix then versionPostfix else "") 
+                (if configuration.UseVersionSuffix then versionPostfix else "") 
                 (if configuration.UseSuffixId then sprintf "%05d" configuration.SuffixId else "")
 
         {
             Version                 = version.ToString(4)
-            StorageAccount          = configuration.StorageAccount
-            ServiceBusAccount       = configuration.ServiceBusAccount
+            StorageAccount          = AzureStorageAccount.Parse configuration.StorageConnectionString
+            ServiceBusAccount       = AzureServiceBusAccount.Parse configuration.ServiceBusConnectionString
 
             RuntimeQueue            = appendVersionAndId configuration.RuntimeQueue
             RuntimeTopic            = appendVersionAndId configuration.RuntimeTopic
@@ -140,4 +138,4 @@ type ConfigurationRegistry private () =
     static member Resolve<'T>(config : ClusterConfiguration) : 'T =
         match registry.TryGetValue((config, typeof<'T>)) with
         | true, v  -> v :?> 'T
-        | false, _ -> failwith <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>
+        | false, _ -> invalidOp <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>

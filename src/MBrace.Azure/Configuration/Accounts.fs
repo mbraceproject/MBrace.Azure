@@ -108,7 +108,7 @@ type AzureStorageAccount private (data : AzureStorageAccountData) =
     /// <param name="connectionString">Azure Storage account connection string.</param>
     static member Parse(connectionString : string) =
         match AzureStorageAccount.TryParse connectionString with
-        | None -> raise <| InvalidConfigurationException(sprintf "Invalid Storage connection string '%s'" connectionString)
+        | None -> invalidArg "connectionString" (sprintf "Invalid Storage connection string '%s'" connectionString)
         | Some asa -> asa
 
 [<AutoSerializable(false); NoEquality; NoComparison>]
@@ -164,12 +164,12 @@ type AzureServiceBusAccount private (data: ServiceBusAccountData) =
     interface IComparable with
         member __.CompareTo(other : obj) =
             match other with
-            | :? AzureStorageAccount as asba -> compare accountName asba.AccountName
+            | :? AzureServiceBusAccount as asba -> compare accountName asba.AccountName
             | _ -> invalidArg "other" "invalid comparand."
 
     override __.Equals(other : obj) =
         match other with
-        | :? AzureStorageAccount as asba -> accountName = asba.AccountName
+        | :? AzureServiceBusAccount as asba -> accountName = asba.AccountName
         | _ -> false
 
     override __.GetHashCode() = hash accountName
@@ -194,7 +194,7 @@ type AzureServiceBusAccount private (data: ServiceBusAccountData) =
     /// <param name="connectionString">Azure service bus connection string.</param>
     static member Parse(connectionString : string) =
         match tryParse connectionString with
-        | Choice2Of2 e -> raise <| InvalidConfigurationException(sprintf "Invalid ServiceBus connection string '%s'." connectionString, e)
+        | Choice2Of2 e -> raise <| new ArgumentException(sprintf "Invalid ServiceBus connection string '%s'." connectionString, "connectionString", e)
         | Choice1Of2 data ->
             let data = localContainer.GetOrAdd(data.AccountName, data)
             new AzureServiceBusAccount(data)

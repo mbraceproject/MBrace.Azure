@@ -76,7 +76,6 @@
     <Compile Include="VagabondTests.fs" />
     <Content Include="paket.references" />
     <None Include="test.fsx" />
-    <None Include="azure.fsx" />
     <Content Include="App.config" />
   </ItemGroup>
   <ItemGroup>

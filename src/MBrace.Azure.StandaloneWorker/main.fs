@@ -1,26 +1,28 @@
 ﻿module internal MBrace.Azure.StandaloneWorker
 
 open System
-open MBrace.Azure
-open MBrace.Azure.Runtime
 open System.Diagnostics
-open MBrace.Azure.Store
+
 open MBrace.Runtime
+open MBrace.Azure
+open MBrace.Azure.Store
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Arguments
 
 [<EntryPoint>]
 let main (args : string []) =
     try
         ProcessConfiguration.InitAsWorker()
         let ps = Process.GetCurrentProcess()
-        let cfg = Arguments.Config.OfBase64Pickle args
+        let cfg = AzureArgumentConfiguration.FromCommandLineArguments args
         let config = cfg.Configuration
         let workerId = 
-            match cfg.Name with
+            match cfg.WorkerName with
             | None -> sprintf "%s-%05d" <| System.Net.Dns.GetHostName() <| ps.Id
             | Some n -> n
 
         let svc = new Service(config, workerId)
-        svc.MaxConcurrentWorkItems <- cfg.MaxWorkItems
+        cfg.MaxWorkItems |> Option.iter (fun w -> svc.MaxConcurrentWorkItems <- w)
         Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
         cfg.LogLevel |> Option.iter (fun l -> svc.LogLevel <- l)
         let _ = svc.AttachLogger(ConsoleLogger(showDate = true, useColors = true))

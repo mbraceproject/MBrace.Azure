@@ -55,4 +55,4 @@ type ProcessConfiguration private () =
     /// Initializes process state for use as parent AppDomain in a worker.
     static member InitAsWorker() = initGlobalState None true false
     /// Initializes process state for use as a slave AppDomain in a worker.
-    static member internal InitAsWorkerSlaveDomain(workingDirectory) = initGlobalState (Some workingDirectory) false false
+    static member InitAsWorkerSlaveDomain(workingDirectory) = initGlobalState (Some workingDirectory) false false

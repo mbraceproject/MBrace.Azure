@@ -151,7 +151,7 @@ type internal CloudProcessEntry (config : ClusterConfiguration, taskId) =
                     | Nullable false, Null, Null ->
                         NotStarted
                     | _ -> 
-                        let ex = RuntimeException(sprintf "Invalid record %s" record.Id)
+                        let ex = new InvalidOperationException(sprintf "Invalid record %s" record.Id)
                         ex.Data.Add("record", record)
                         raise ex
 

@@ -36,7 +36,7 @@ module internal Metadata =
 
     let compare (local : Metadata) (remote : Metadata) =
         if local <> remote then
-            raise <| IncompatibleVersionException(sprintf "%A" local, sprintf "%A" remote)
+            raise <| FormatException(sprintf "Incompatible metadata, received %A, expected %A" remote local)
 
     let toString (version : Version) (configurationId : ClusterConfiguration) =
         let metadata = { Version = version; ConfigurationId = configurationId }
@@ -44,4 +44,4 @@ module internal Metadata =
 
     let fromString (metadata : string) =
         try jsonSerializer.Value.UnPickleOfString<Metadata> metadata
-        with e -> raise <| IncompatibleVersionException(sprintf "Failed to deserialize metadata %s" metadata, e)
+        with e -> raise <| FormatException(sprintf "Failed to deserialize metadata %s" metadata, e)

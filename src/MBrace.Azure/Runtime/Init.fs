@@ -7,7 +7,7 @@ open MBrace.Core
 
 [<Sealed>]
 type internal Initializer =
-    static member Init(config : ClusterConfiguration,
+    static member Init(config : Configuration,
                         workerId : string, 
                         logger : AttacheableLogger, 
                         useAppDomainIsolation : bool,
@@ -29,6 +29,8 @@ type internal Initializer =
                         let domainName = System.AppDomain.CurrentDomain.FriendlyName
                         marshalledLogger.LogInfof "Initializing Application Domain %A" domainName
                         ProcessConfiguration.InitAsWorkerSlaveDomain workingDirectory
+                        let _ = ClusterConfiguration.Activate config
+                        ()
 
                     let managerF () =
                         ClusterManager.CreateForAppDomain(config, workerId, marshalledLogger, customResources) :> IRuntimeManager , workerId
