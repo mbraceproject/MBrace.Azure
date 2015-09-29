@@ -119,10 +119,10 @@ type ClusterManager private (configB : Configuration, config : ClusterState, uui
 
 
     static member private GetDefaultResources(config : ClusterState, customResources : ResourceRegistry) =
-        let fileStore = BlobStore.Create(config.StorageAccount.ConnectionString, defaultContainer = config.UserDataContainer)
-        let atomProvider = TableAtomProvider.Create(config.StorageAccount.ConnectionString, defaultTable = config.UserDataTable)
-        let dictionaryProvider = TableDictionaryProvider.Create(config.StorageAccount.ConnectionString)
-        let queueProvider = ServiceBusQueueProvider.Create(config.ServiceBusAccount.ConnectionString)
+        let fileStore = BlobStore.Create(config.StorageAccount, defaultContainer = config.UserDataContainer)
+        let atomProvider = TableAtomProvider.Create(config.StorageAccount, defaultTable = config.UserDataTable)
+        let dictionaryProvider = TableDictionaryProvider.Create(config.StorageAccount)
+        let queueProvider = ServiceBusQueueProvider.Create(config.ServiceBusAccount)
 
         let cloudValueProvider =
             let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory config.CloudValueContainer
