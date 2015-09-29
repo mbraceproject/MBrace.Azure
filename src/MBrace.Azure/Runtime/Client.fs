@@ -7,12 +7,13 @@
 open System
 open System.Diagnostics
 open System.IO
+
 open MBrace.Core
 open MBrace.Core.Internals
+open MBrace.Runtime
 open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Arguments
-open MBrace.Runtime
 
 /// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
@@ -31,7 +32,7 @@ type CloudProcess = MBrace.Runtime.CloudProcess
 type CloudProcess<'T> = MBrace.Runtime.CloudProcess<'T>
 
 /// <summary>
-///     Windows Azure Cluster management client. Provides methods for management, execution and debugging of MBrace tasks in Azure.
+///     Windows Azure Cluster management client. Provides methods for management, execution and debugging of MBrace processes in Azure.
 /// </summary>
 [<AutoSerializable(false)>]
 type AzureCluster private (manager : ClusterManager) =
@@ -75,27 +76,43 @@ type AzureCluster private (manager : ClusterManager) =
             | _ ->
                 failwithf "No local process with Id = %d found." worker.ProcessId
 
-    /// Delete and reactivate runtime state (queues, containers, tables and logs but not user folders).
+    /// <summary>
+    /// Delete and re-activate runtime state.
     /// Using 'Reset' may cause unexpected behavior in clients and workers.
+    /// Workers should be restarted manually.</summary>
+    /// <param name="deleteQueues">Delete Configuration queue and topic. Defaults to true.</param>
+    /// <param name="deleteRuntimeState">Delete Configuration table and containers. Defaults to true.</param>
+    /// <param name="deleteLogs">Delete Configuration logs table. Defaults to true.</param>
+    /// <param name="deleteUserData">Delete Configuration UserData table and container. Defaults to false.</param>
+    /// <param name="deleteAssemblyData">Delete assembly data container from blob store. Defaults to false.</param>
+    /// <param name="force">Ignore active workers. Defaults to false.</param>
+    /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
     [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.Reset () = 
-        (manager :> IRuntimeManager).ResetClusterState()
-        |> Async.RunSync
+    member this.ResetAsync(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteUserData : bool, 
+                                ?deleteAssemblyData : bool, ?force : bool, ?reactivate : bool) =
+
+        manager.ResetCluster(?deleteQueues = deleteQueues, ?deleteRuntimeState = deleteRuntimeState, ?deleteLogs = deleteLogs, 
+                                ?deleteUserData = deleteUserData, ?deleteAssemblyData = deleteAssemblyData, 
+                                ?force = force, ?reactivate = reactivate)
 
     /// <summary>
     /// Delete and re-activate runtime state.
     /// Using 'Reset' may cause unexpected behavior in clients and workers.
     /// Workers should be restarted manually.</summary>
-    /// <param name="deleteQueues">Delete Configuration queue and topic.</param>
-    /// <param name="deleteState">Delete Configuration table and containers.</param>
-    /// <param name="deleteLogs">Delete Configuration logs table.</param>
-    /// <param name="deleteUserData">Delete Configuration UserData table and container.</param>
-    /// <param name="deleteVagabondData">Delete Vagabond assembly data container.</param>
-    /// <param name="force">Ignore active workers.</param>
-    /// <param name="reactivate">Reactivate configuration.</param>
+    /// <param name="deleteQueues">Delete Configuration queue and topic. Defaults to true.</param>
+    /// <param name="deleteRuntimeState">Delete Configuration table and containers. Defaults to true.</param>
+    /// <param name="deleteLogs">Delete Configuration logs table. Defaults to true.</param>
+    /// <param name="deleteUserData">Delete Configuration UserData table and container. Defaults to false.</param>
+    /// <param name="deleteAssemblyData">Delete assembly data container from blob store. Defaults to false.</param>
+    /// <param name="force">Ignore active workers. Defaults to false.</param>
+    /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
     [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.Reset(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) =
-        manager.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate)
+    member this.Reset(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteUserData : bool, 
+                                ?deleteAssemblyData : bool, ?force : bool, ?reactivate : bool) =
+
+        this.ResetAsync(?deleteQueues = deleteQueues, ?deleteRuntimeState = deleteRuntimeState, ?deleteLogs = deleteLogs, 
+                                ?deleteUserData = deleteUserData, ?deleteAssemblyData = deleteAssemblyData, 
+                                ?force = force, ?reactivate = reactivate)
         |> Async.RunSync
 
     /// <summary>

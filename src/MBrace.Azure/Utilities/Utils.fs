@@ -5,8 +5,6 @@ open System.IO
 open System.Text.RegularExpressions
 open System.Threading.Tasks
 
-open Microsoft.WindowsAzure.Storage.Table
-
 [<AutoOpen>]
 module Utils =
 

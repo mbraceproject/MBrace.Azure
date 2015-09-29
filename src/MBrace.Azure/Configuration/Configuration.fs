@@ -4,7 +4,7 @@ open System
 
 open MBrace.Azure.Runtime
 
-/// Azure Configuration Builder object
+/// Azure Configuration Builder. Used to specify MBrace.Azure cluster storage configuration.
 [<AutoSerializable(true); Sealed; NoEquality; NoComparison>]
 type Configuration(storageConnectionString : string, serviceBusConnectionString : string) = 
 

@@ -36,7 +36,7 @@ type IndexedReferenceEntity(partitionKey, rowKey) =
 
 
 [<DataContract; Sealed>]
-type ResultAggregator<'T> internal (config : ClusterState, partitionKey : string, size : int) =
+type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, size : int) =
     static let enableOverWrite = false
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
@@ -130,7 +130,7 @@ type ResultAggregator<'T> internal (config : ClusterState, partitionKey : string
             }
 
 [<Sealed>]
-type ResultAggregatorFactory private (config : ClusterState) =
+type ResultAggregatorFactory private (config : ClusterId) =
     interface ICloudResultAggregatorFactory with
         member x.CreateResultAggregator(_aggregatorId : string, capacity: int): Async<ICloudResultAggregator<'T>> = 
             async {

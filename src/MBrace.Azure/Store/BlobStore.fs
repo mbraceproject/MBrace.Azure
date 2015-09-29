@@ -82,15 +82,16 @@ module private BlobUtils =
     /// </summary>
     /// <param name="account">Storage account instance.</param>
     /// <param name="container">Container name</param>
-    let getContainerReference (account : AzureStorageAccount) (container : Container) = 
+    let getContainerReference (account : AzureStorageAccount) (container : Container) = async {
         let client = account.BlobClient
         match container with
         | Root -> 
             let root = client.GetRootContainerReference()
-            let _ = root.CreateIfNotExists()
-            root
+            let! _ = root.CreateIfNotExistsAsync()
+            return root
         | Container c ->
-            client.GetContainerReference c
+            return client.GetContainerReference c
+    }
 
     /// <summary>
     ///     Creates a blob reference given account and full path.
@@ -99,11 +100,11 @@ module private BlobUtils =
     /// <param name="path">Path to blob.</param>
     let getBlobReference account (fullPath : string) = async {
         let path = StorePath.Parse fullPath
-        let container = getContainerReference account path.Container
-        let _ =
-            match path.Container with
-            | Container _ -> container.CreateIfNotExists()
-            | Root -> true
+        let! container = getContainerReference account path.Container
+        match path.Container with
+        | Container _ -> do! container.CreateIfNotExistsAsync() |> Async.AwaitTaskCorrect |> Async.Ignore
+        | Root -> ()
+
         return container.GetBlockBlobReference(path.BlobName)
     }
 
@@ -209,7 +210,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let path = normalizePath path
             if isDirectory then
                 let storeDir = StoreDirectory.Parse path
-                let containerRef = getContainerReference account storeDir.Container
+                let! containerRef = getContainerReference account storeDir.Container
                 let! result = Async.Catch <| Async.AwaitTaskCorrect(containerRef.FetchAttributesAsync())
                 match result with
                 | Choice1Of2 () ->
@@ -235,7 +236,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         member this.FileExists(path: string) : Async<bool> = async {
             let path = normalizePath path
             let storePath = StorePath.Parse path
-            let container = getContainerReference account storePath.Container
+            let! container = getContainerReference account storePath.Container
 
             let! b1 = container.ExistsAsync()
             if b1 then
@@ -249,7 +250,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             try
                 let container = normalizePath container
                 let path = StoreDirectory.Parse container
-                let containerRef = getContainerReference account path.Container
+                let! containerRef = getContainerReference account path.Container
                 let blobs = new ResizeArray<string>()
                 let rec aux (token : BlobContinuationToken) = async {
                     let! (result : BlobResultSegment) = 
@@ -287,7 +288,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let path = StoreDirectory.Parse container
             match path.Container with
             | Container _ as c ->
-                let container = getContainerReference account c
+                let! container = getContainerReference account c
                 return! container.ExistsAsync()
             | Root ->
                 return true
@@ -298,7 +299,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let path = StoreDirectory.Parse container
             match path.Container with
             | Container _ as c ->
-                let container = getContainerReference account c
+                let! container = getContainerReference account c
                 let! _ =  container.CreateIfNotExistsAsync()
                 return ()
             | Root -> 
@@ -311,11 +312,11 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             match path with
             | { Container = Root; SubDirectory = _ } -> failwith "Deleting root directory not supported."
             | { Container = c; SubDirectory = None } ->
-                let container = getContainerReference account c
+                let! container = getContainerReference account c
                 let! _ = container.DeleteIfExistsAsync()
                 return ()
             | { Container = c; SubDirectory = Some s } ->
-                let container = getContainerReference account c
+                let! container = getContainerReference account c
                 let sub = container.GetDirectoryReference(s)
                 let blobs = sub.ListBlobs(true)
                 do! blobs |> Seq.map (fun b -> async {

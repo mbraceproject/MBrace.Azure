@@ -10,7 +10,7 @@ open MBrace.Azure
 open MBrace.Azure.Store
 
 [<AutoSerializable(false)>]
-type ClusterManager private (configB : Configuration, config : ClusterState, uuid : string, systemLogger : AttacheableLogger, resources : ResourceRegistry) =
+type ClusterManager private (configB : Configuration, config : ClusterId, uuid : string, systemLogger : AttacheableLogger, resources : ResourceRegistry) =
     do systemLogger.LogInfof "RuntimeManager Id = %A" config.Id
 
     do systemLogger.LogInfo "Creating worker manager"
@@ -52,21 +52,28 @@ type ClusterManager private (configB : Configuration, config : ClusterState, uui
     member this.Configuration = config
     member this.ConfigurationB = configB
 
-    member this.ResetCluster(deleteQueues, deleteState, deleteLogs, deleteUserData, deleteVagabondData, force, reactivate) = async {
+    member this.ResetCluster(?deleteQueues, ?deleteRuntimeState, ?deleteLogs, ?deleteUserData, ?deleteAssemblyData, ?force, ?reactivate) = async {
+        let deleteQueues = defaultArg deleteQueues true
+        let deleteRuntimeState = defaultArg deleteRuntimeState true
+        let deleteLogs = defaultArg deleteLogs true
+        let deleteUserData = defaultArg deleteUserData false
+        let deleteAssemblyData = defaultArg deleteAssemblyData false
+        let force = defaultArg force false
+        let reactivate = defaultArg reactivate true
+
         if not force then
             let! workers = (workerManager :> IWorkerManager).GetAvailableWorkers()
             if  workers.Length > 0 then
                 let exc = InvalidOperationException(sprintf "Found %d active workers. Shutdown workers first or 'force' reset." workers.Length)
                 systemLogger.LogError exc.Message
                 return! Async.Raise exc
-             
             
         if deleteQueues then 
             systemLogger.LogWarningf "Deleting Queues %A, %A." config.RuntimeQueue config.RuntimeTable
             do! config.ClearRuntimeQueues()
             
-        if deleteState then 
-            systemLogger.LogWarningf "Deleting Container %A and Table %A." config.RuntimeContainer config.RuntimeTable
+        if deleteRuntimeState then 
+            systemLogger.LogWarningf "Deleting runtime Container %A and Table %A." config.RuntimeContainer config.RuntimeTable
             do! config.ClearRuntimeState()
             
         if deleteLogs then 
@@ -77,7 +84,7 @@ type ClusterManager private (configB : Configuration, config : ClusterState, uui
             systemLogger.LogWarningf "Deleting UserData Container %A and Table %A." config.UserDataContainer config.UserDataTable
             do! config.ClearUserData()
 
-        if deleteVagabondData then
+        if deleteAssemblyData then
             systemLogger.LogWarningf "Deleting Vagabond Container %A." config.VagabondContainer
             do! config.ClearVagabondData()
     
@@ -110,7 +117,7 @@ type ClusterManager private (configB : Configuration, config : ClusterState, uui
         member this.AssemblyManager          = assemblyManager :> _
         member this.CancellationEntryFactory = cancellationEntryFactory
         member this.CounterFactory           = int32CounterFactory
-        member this.ResetClusterState()      = this.ResetCluster(true, true, true, false, false, false, true)
+        member this.ResetClusterState()      = this.ResetCluster()
         member this.ResourceRegistry         = resources
         member this.ResultAggregatorFactory  = resultAggregatorFactory
         member this.CloudLogManager          = cloudLogManager :> _
@@ -118,7 +125,7 @@ type ClusterManager private (configB : Configuration, config : ClusterState, uui
         member this.LocalSystemLogManager    = localSystemLogger :> _
 
 
-    static member private GetDefaultResources(config : ClusterState, customResources : ResourceRegistry) =
+    static member private GetDefaultResources(config : ClusterId, customResources : ResourceRegistry) =
         let fileStore = BlobStore.Create(config.StorageAccount, defaultContainer = config.UserDataContainer)
         let atomProvider = TableAtomProvider.Create(config.StorageAccount, defaultTable = config.UserDataTable)
         let dictionaryProvider = TableDictionaryProvider.Create(config.StorageAccount)
@@ -142,7 +149,7 @@ type ClusterManager private (configB : Configuration, config : ClusterState, uui
         }
 
     static member CreateForWorker(configB : Configuration, workerId : IWorkerId, logger : AttacheableLogger, customResources : ResourceRegistry) =
-        let config = ClusterState.Activate configB
+        let config = ClusterId.Activate configB
         logger.LogInfof "Activating cluster configuration: '%s'." config.Id
         logger.LogInfof "Creating resources"
         let resources = ClusterManager.GetDefaultResources(config, customResources)
@@ -152,7 +159,7 @@ type ClusterManager private (configB : Configuration, config : ClusterState, uui
         runtime
 
     static member CreateForAppDomain(configB : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) =
-        let config = ClusterState.Activate configB
+        let config = ClusterId.Activate configB
         let logger = AttacheableLogger.Create(makeAsynchronous = true)
         let _ = logger.AttachLogger(mlogger)
         let resources = ClusterManager.GetDefaultResources(config, customResources)
@@ -161,7 +168,7 @@ type ClusterManager private (configB : Configuration, config : ClusterState, uui
         runtime
 
     static member CreateForClient(configB : Configuration, clientId : string, logger : AttacheableLogger, customResources) =
-        let config = ClusterState.Activate configB
+        let config = ClusterId.Activate configB
         logger.LogInfof "Activating cluster configuration: '%s'." config.Id
         logger.LogInfof "Creating resources"
         let resources = ClusterManager.GetDefaultResources(config, customResources)

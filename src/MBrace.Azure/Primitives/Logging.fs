@@ -108,9 +108,10 @@ type private CloudTableLogWriter<'Entry when 'Entry :> TableEntity> private (tab
                 idCount <- i
                 log.RowKey <- Logger.mkRowKey loggerUUID i
                 do tbo.Insert log
+
             do!
                 table.ExecuteBatchAsync tbo
-                |> Async.AwaitTask
+                |> Async.AwaitTaskCorrect
                 |> Async.Catch
                 |> Async.Ignore
 
@@ -217,7 +218,7 @@ type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fet
 
 /// Management object for table storage based log files
 [<AutoSerializable(false)>]
-type TableSystemLogManager (config : ClusterState) =
+type TableSystemLogManager (config : ClusterId) =
     let table = config.StorageAccount.GetTableReference(config.RuntimeLogsTable)
 
     /// <summary>
@@ -357,7 +358,7 @@ type TableSystemLogManager (config : ClusterState) =
 
 /// Management object for writing cloud process logs to the table store
 [<AutoSerializable(false)>]
-type TableCloudLogManager (config : ClusterState) =
+type TableCloudLogManager (config : ClusterId) =
     let table = config.StorageAccount.GetTableReference config.UserDataTable
 
     /// <summary>

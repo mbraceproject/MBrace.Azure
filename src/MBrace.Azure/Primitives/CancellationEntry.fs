@@ -60,7 +60,7 @@ type CancellationTokenSourceEntity(uuid : string, links : seq<string>) =
     static member DefaultPartitionKey = "ctoken"
 
 [<Sealed>]
-type internal CancellationEntry (config : ClusterState, uuid : string) =
+type internal CancellationEntry (config : ClusterId, uuid : string) =
     interface ICancellationEntry with
         member x.Cancel(): Async<unit> = 
             async {
@@ -96,7 +96,7 @@ type internal CancellationEntry (config : ClusterState, uuid : string) =
         
 
 [<Sealed>]
-type CancellationTokenFactory private (config : ClusterState) =
+type CancellationTokenFactory private (config : ClusterId) =
     interface ICancellationEntryFactory with
         member x.CreateCancellationEntry(): Async<ICancellationEntry> = 
             async {
@@ -133,4 +133,4 @@ type CancellationTokenFactory private (config : ClusterState) =
                 return! loop ()
             }
         
-    static member Create(config : ClusterState) = new CancellationTokenFactory(config) :> ICancellationEntryFactory
+    static member Create(config : ClusterId) = new CancellationTokenFactory(config) :> ICancellationEntryFactory

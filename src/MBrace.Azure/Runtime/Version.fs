@@ -22,7 +22,7 @@ module internal ReleaseInfo =
 type Metadata =
     { 
         Version : Version
-        ConfigurationId : ClusterState 
+        ConfigurationId : ClusterId 
     }
     
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -39,7 +39,7 @@ module internal Metadata =
         if local <> remote then
             raise <| FormatException(sprintf "Incompatible metadata, received %A, expected %A" remote local)
 
-    let toString (version : Version) (config : ClusterState) =
+    let toString (version : Version) (config : ClusterId) =
         let metadata = { Version = version; ConfigurationId = config }
         jsonSerializer.Value.PickleToString metadata
 

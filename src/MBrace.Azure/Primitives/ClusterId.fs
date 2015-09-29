@@ -14,11 +14,12 @@ open Nessos.FsPickler
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Azure
+open MBrace.Azure.Runtime.Utilities
 
 /// Serializable state/configuration record uniquely identifying an MBrace.Azure cluster
 [<AutoSerializable(true); StructuralEquality; StructuralComparison>]
 [<StructuredFormatDisplay("{Id}")>]
-type ClusterState =
+type ClusterId =
     {
         /// Runtime version string
         Version : string
@@ -57,42 +58,69 @@ with
     interface IRuntimeId with
         member this.Id = this.Id
 
+    member private this.DeleteTable(tableName : string) = async {
+        let! _ = this.StorageAccount.TableClient.GetTableReference(tableName).DeleteIfExistsAsync()
+        return ()
+    }
+
+    member private this.DeleteContainer(containerName : string) = async {
+        let! _ = this.StorageAccount.BlobClient.GetContainerReference(containerName).DeleteIfExistsAsync()
+        return ()
+    }
+
     member this.ClearUserData() = async {
-        do! this.StorageAccount.GetTableReference(this.UserDataTable).DeleteIfExistsAsync()
-        do! this.StorageAccount.GetContainerReference(this.UserDataContainer).DeleteIfExistsAsync()
-        do! this.StorageAccount.GetContainerReference(this.CloudValueContainer).DeleteIfExistsAsync()
+        do!
+            [|
+                this.DeleteTable this.UserDataTable
+                this.DeleteContainer this.UserDataContainer
+                this.DeleteContainer this.CloudValueContainer
+            |]
+            |> Async.Parallel
+            |> Async.Ignore
     }
 
     member this.ClearVagabondData() = async {
-        do! this.StorageAccount.GetContainerReference(this.VagabondContainer).DeleteIfExistsAsync()
+        do! this.DeleteContainer this.VagabondContainer
     }
 
     member this.ClearRuntimeState() = async {
-        do! this.StorageAccount.GetTableReference(this.RuntimeTable).DeleteIfExistsAsync()
-        do! this.StorageAccount.GetContainerReference(this.RuntimeContainer).DeleteIfExistsAsync()
+        do!
+            [|
+                this.DeleteTable this.RuntimeTable
+                this.DeleteContainer this.RuntimeContainer
+            |]
+            |> Async.Parallel
+            |> Async.Ignore
     }
 
     member this.ClearRuntimeLogs() = async {
-        do! this.StorageAccount.GetTableReference(this.RuntimeLogsTable).DeleteIfExistsAsync()
+        do! this.DeleteTable this.RuntimeLogsTable
     }
 
     member this.ClearRuntimeQueues() = async {
-        do! this.ServiceBusAccount.NamespaceManager.DeleteQueueAsync this.RuntimeQueue
-        do! this.ServiceBusAccount.NamespaceManager.DeleteTopicAsync this.RuntimeTopic
+        do!
+            [|
+                Async.AwaitTaskCorrect(this.ServiceBusAccount.NamespaceManager.DeleteQueueAsync this.RuntimeQueue)
+                Async.AwaitTaskCorrect(this.ServiceBusAccount.NamespaceManager.DeleteTopicAsync this.RuntimeTopic)
+            |]
+            |> Async.Parallel
+            |> Async.Ignore
     }
 
     member this.InitializeAll() = async {
-        let aat t = Async.AwaitTask t
+        let createTable name = async { let! _ = this.StorageAccount.GetTableReference(name).CreateIfNotExistsAsync() in return () }
+        let createContainer name = async { let! _ = this.StorageAccount.GetContainerReference(name).CreateIfNotExistsAsync() in return () }
         do!
-            [|  aat <| this.StorageAccount.GetTableReference(this.RuntimeTable).CreateIfNotExistsAsync()
-                aat <| this.StorageAccount.GetTableReference(this.UserDataTable).CreateIfNotExistsAsync()
-                aat <| this.StorageAccount.GetTableReference(this.RuntimeLogsTable).CreateIfNotExistsAsync()
+            [|  
+                createTable this.RuntimeTable
+                createTable this.UserDataTable
+                createTable this.RuntimeLogsTable
 
-                aat <| this.StorageAccount.GetTableReference(this.RuntimeContainer).CreateIfNotExistsAsync()
-                aat <| this.StorageAccount.GetTableReference(this.UserDataContainer).CreateIfNotExistsAsync()
-                aat <| this.StorageAccount.GetTableReference(this.CloudValueContainer).CreateIfNotExistsAsync()
-                aat <| this.StorageAccount.GetTableReference(this.VagabondContainer).CreateIfNotExistsAsync() |]
-     
+                createContainer this.RuntimeContainer
+                createContainer this.UserDataContainer
+                createContainer this.CloudValueContainer
+                createContainer this.VagabondContainer
+            |]
             |> Async.Parallel
             |> Async.Ignore
     }
@@ -129,13 +157,13 @@ with
 /// Dependency injection facility for Specific cluster instances
 [<Sealed;AbstractClass>]
 type ConfigurationRegistry private () =
-    static let registry = new ConcurrentDictionary<ClusterState * Type, obj>()
+    static let registry = new ConcurrentDictionary<ClusterId * Type, obj>()
 
-    static member Register<'T>(config : ClusterState, item : 'T) : unit =
+    static member Register<'T>(config : ClusterId, item : 'T) : unit =
         registry.TryAdd((config, typeof<'T>), item :> obj)
         |> ignore
 
-    static member Resolve<'T>(config : ClusterState) : 'T =
+    static member Resolve<'T>(config : ClusterId) : 'T =
         match registry.TryGetValue((config, typeof<'T>)) with
         | true, v  -> v :?> 'T
         | false, _ -> invalidOp <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>

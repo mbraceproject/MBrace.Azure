@@ -41,7 +41,7 @@ type internal Settings private () =
 /// Info stored in BrokeredMessage.
 type internal WorkItemLeaseTokenInfo =
     {
-        ConfigurationId : ClusterState
+        ConfigurationId : ClusterId
         WorkItemId : Guid
         ContentId : string
         MessageLockId : Guid
@@ -208,7 +208,7 @@ type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : Clo
 
 [<Sealed; AbstractClass>]
 type internal MessagingClient private () =
-    static member TryDequeue (config : ClusterState, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<WorkItemLeaseToken option> =
+    static member TryDequeue (config : ClusterId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<WorkItemLeaseToken option> =
         async { 
             let! (message : BrokeredMessage) = dequeueF()
             if message = null then 
@@ -293,7 +293,7 @@ type internal MessagingClient private () =
                 return Some(WorkItemLeaseToken(jobInfo, faultInfo))
         }
 
-    static member Enqueue (config : ClusterState, logger : ISystemLogger, workItem : CloudWorkItem, allowNewSifts : bool, sendF : BrokeredMessage -> Task) =
+    static member Enqueue (config : ClusterId, logger : ISystemLogger, workItem : CloudWorkItem, allowNewSifts : bool, sendF : BrokeredMessage -> Task) =
         async { 
             logger.Logf LogLevel.Debug "workItem:%O : enqueue" workItem.Id
             let record = WorkItemRecord.FromCloudWorkItem(workItem)
@@ -317,7 +317,7 @@ type internal MessagingClient private () =
             logger.Logf LogLevel.Debug "workItem:%O : enqueue completed, size %s" workItem.Id (getHumanReadableByteSize blob.Size)
         }
 
-    static member EnqueueBatch(config : ClusterState, logger : ISystemLogger, jobs : CloudWorkItem [], sendF : BrokeredMessage seq -> Task) =
+    static member EnqueueBatch(config : ClusterId, logger : ISystemLogger, jobs : CloudWorkItem [], sendF : BrokeredMessage seq -> Task) =
         async { 
             if jobs.Length = 0 then return () else
             let taskId = jobs.[0].Process.Id // this is a valid assumption for all uses
@@ -361,7 +361,7 @@ type internal MessagingClient private () =
 
 /// Local queue subscription client
 [<AutoSerializable(false)>]
-type internal Subscription (config : ClusterState, localWorkerId : IWorkerId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
+type internal Subscription (config : ClusterId, localWorkerId : IWorkerId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
     do 
         let nsClient = config.ServiceBusAccount.NamespaceManager
         let topic = config.RuntimeTopic
@@ -391,7 +391,7 @@ type internal Subscription (config : ClusterState, localWorkerId : IWorkerId, ta
 
 /// Local queue topic client
 [<AutoSerializable(false)>]
-type internal Topic (config : ClusterState, logger : ISystemLogger) = 
+type internal Topic (config : ClusterId, logger : ISystemLogger) = 
     let topic = config.ServiceBusAccount.CreateTopicClient(config.RuntimeTopic)
     
     member val LocalWorkerId = Unchecked.defaultof<_> with get, set
@@ -424,7 +424,7 @@ type internal Topic (config : ClusterState, logger : ISystemLogger) =
 
 /// Queue client implementation
 [<AutoSerializable(false)>]
-type internal Queue (config : ClusterState, logger : ISystemLogger) = 
+type internal Queue (config : ClusterId, logger : ISystemLogger) = 
     let queue = config.ServiceBusAccount.CreateQueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
 
     member val LocalWorkerId = Unchecked.defaultof<_> with get, set
@@ -440,7 +440,7 @@ type internal Queue (config : ClusterState, logger : ISystemLogger) =
     member this.TryDequeue() : Async<WorkItemLeaseToken option> = 
         MessagingClient.TryDequeue(config, logger, this.LocalWorkerId, fun () -> queue.ReceiveAsync(Settings.ServerWaitTime))
         
-    static member Create(config : ClusterState, logger : ISystemLogger) = 
+    static member Create(config : ClusterId, logger : ISystemLogger) = 
         async { 
             let ns = config.ServiceBusAccount.NamespaceManager
             let! exists = ns.QueueExistsAsync(config.RuntimeQueue)

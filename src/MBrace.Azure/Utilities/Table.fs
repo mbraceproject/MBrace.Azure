@@ -2,10 +2,13 @@
 
 open System
 open System.Collections.Generic
-open MBrace.Azure.Runtime
+
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
+open MBrace.Azure.Runtime
+
+[<RequireQualifiedAccess>]
 module Table =
 
     let getRandomName () =
@@ -87,7 +90,7 @@ module Table =
         // taken from http://stackoverflow.com/a/24270388
         let items = new ResizeArray<'T> ()
         let rec runQuery (token : TableContinuationToken) = async {
-            let! segment = table.ExecuteQuerySegmentedAsync(query, token) |> Async.AwaitTask
+            let! segment = table.ExecuteQuerySegmentedAsync(query, token) |> Async.AwaitTaskCorrect
             items.AddRange segment
             match segment.ContinuationToken with
             | null -> ()

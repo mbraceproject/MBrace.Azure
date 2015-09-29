@@ -82,7 +82,7 @@ type WorkerId internal (workerId) =
     override this.GetHashCode() = hash workerId
 
 [<AutoSerializable(false)>]
-type WorkerManager private (config : ClusterState, logger : ISystemLogger) =
+type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
 
     let pickle (value : 'T) = ProcessConfiguration.Serializer.Pickle(value)
     let unpickle (value : byte []) = ProcessConfiguration.Serializer.UnPickle<'T>(value)
@@ -262,5 +262,5 @@ type WorkerManager private (config : ClusterState, logger : ISystemLogger) =
                 else return Some(mkWorkerState record)
             }
 
-    static member Create(config : ClusterState, logger : ISystemLogger) =
+    static member Create(config : ClusterId, logger : ISystemLogger) =
         new WorkerManager(config, logger)

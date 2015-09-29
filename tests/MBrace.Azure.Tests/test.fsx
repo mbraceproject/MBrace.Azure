@@ -18,7 +18,7 @@ let config =
 AzureCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 let cluster = AzureCluster.InitOnCurrentMachine(config, 4, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
 //let cluster = AzureCluster.Connect(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
-cluster.Reset(true,true,true,true,true,true,false)
+cluster.Reset(deleteUserData = true, deleteAssemblyData = true, force = true)
 cluster.KillAllLocalWorkers()
 cluster.Workers
 

@@ -86,16 +86,16 @@
     <Compile Include="Configuration\Validation.fs" />
     <Compile Include="Configuration\Accounts.fs" />
     <Compile Include="Configuration\Configuration.fs" />
-    <Compile Include="Configuration\ClusterState.fs" />
+    <Compile Include="Configuration\Arguments.fs" />
     <Compile Include="Utilities\Utils.fs" />
-    <Compile Include="Utilities\StoreException.fs" />
+    <Compile Include="Utilities\Store.fs" />
     <Compile Include="Utilities\Table.fs" />
     <Compile Include="Utilities\FatEntity.fs" />
-    <Compile Include="Utilities\Arguments.fs" />
     <Compile Include="Store\BlobStore.fs" />
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Queue.fs" />
     <Compile Include="Store\Dictionary.fs" />
+    <Compile Include="Primitives\ClusterId.fs" />
     <Compile Include="Primitives\ClosureSifter.fs" />
     <Compile Include="Primitives\Counters.fs" />
     <Compile Include="Primitives\BlobCells.fs" />
@@ -111,7 +111,7 @@
     <Compile Include="Runtime\RuntimeManager.fs" />
     <Compile Include="Runtime\Init.fs" />
     <Compile Include="Runtime\Service.fs" />
-    <Compile Include="Client.fs" />
+    <Compile Include="Runtime\Client.fs" />
     <Content Include="paket.references" />
     <None Include="paket.template" />
   </ItemGroup>

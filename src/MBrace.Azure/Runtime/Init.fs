@@ -7,13 +7,10 @@ open MBrace.Core
 
 [<Sealed>]
 type internal Initializer =
-    static member Init(config : Configuration,
-                        workerId : string, 
-                        logger : AttacheableLogger, 
-                        useAppDomainIsolation : bool,
-                        maxConcurrentWorkItems : int, 
-                        customResources : ResourceRegistry) =
+    static member Init(config : Configuration, workerId : string, logger : AttacheableLogger, useAppDomainIsolation : bool,
+                                        maxConcurrentWorkItems : int, customResources : ResourceRegistry) =
         async {
+
             logger.LogInfof "Initializing worker %A" workerId
             let workerId = new WorkerId(workerId) :> IWorkerId
 
@@ -29,7 +26,7 @@ type internal Initializer =
                         let domainName = System.AppDomain.CurrentDomain.FriendlyName
                         marshalledLogger.LogInfof "Initializing Application Domain %A" domainName
                         ProcessConfiguration.InitAsWorkerSlaveDomain workingDirectory
-                        let _ = ClusterState.Activate config
+                        let _ = ClusterId.Activate config
                         ()
 
                     let managerF () =

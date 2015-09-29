@@ -1,8 +1,12 @@
-﻿namespace MBrace.Azure.Runtime.Utilities
+﻿[<AutoOpen>]
+module MBrace.Azure.Runtime.Utilities.StoreUtils
 
 open System
 open Microsoft.WindowsAzure.Storage
+open Microsoft.WindowsAzure.Storage.Table
+open Microsoft.WindowsAzure.Storage.Blob
 
+[<RequireQualifiedAccess>]
 module StoreException =
 
     let private checkExn code (e : exn) =
