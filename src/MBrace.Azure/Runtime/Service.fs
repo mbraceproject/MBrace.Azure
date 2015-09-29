@@ -5,10 +5,13 @@ open System.Diagnostics
 open System.Threading
 
 open MBrace.Core.Internals
+open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Runtime
+
+// TODO : make thread safe, overall clean up
 
 /// MBrace Runtime Service.
 type Service (config : Configuration, serviceId : string) =
@@ -17,12 +20,12 @@ type Service (config : Configuration, serviceId : string) =
     let mutable customResources         = ResourceRegistry.Empty
     let mutable configuration           = config
     let mutable maxWorkItems            = Environment.ProcessorCount
-    let mutable workerAgent             = None : WorkerAgent option
+    let mutable subscription            = None : WorkerSubscription.Subscription option
     let attachableLogger                = AttacheableLogger.Create(makeAsynchronous = true)
     
     let check () = 
-        match workerAgent with
-        | Some wa when wa.IsRunning -> invalidOp "Cannot change Service while it is active."
+        match subscription with
+        | Some wa when wa.Agent.IsRunning -> invalidOp "Cannot change Service while it is active."
         | _ -> ()
 
     /// MBrace Runtime Service.
@@ -61,8 +64,8 @@ type Service (config : Configuration, serviceId : string) =
     
     member this.IsRunning 
         with get () =
-            match workerAgent with
-            | Some wa -> wa.IsRunning
+            match subscription with
+            | Some wa -> wa.Agent.IsRunning
             | None -> false
 
     /// Register a CloudFileStoreConfiguration instance. Defaults to BlobStore with configuration's storage connection string.
@@ -102,8 +105,8 @@ type Service (config : Configuration, serviceId : string) =
 
             attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
 
-            let! agent = Initializer.Init(config, this.Id, attachableLogger, this.UseAppDomainIsolation, this.MaxConcurrentWorkItems, customResources)
-            workerAgent <- Some agent
+            let! sub = WorkerSubscription.initialize config this.Id attachableLogger this.UseAppDomainIsolation this.MaxConcurrentWorkItems customResources
+            subscription <- Some sub
             sw.Stop()
             attachableLogger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
             return ()
@@ -129,8 +132,9 @@ type Service (config : Configuration, serviceId : string) =
     member this.StopAsync () =
         async {
             try
+                let sub = subscription |> Option.get
                 attachableLogger.LogInfof "Stopping Service %A." serviceId
-                do! workerAgent.Value.Stop()
+                sub.Dispose()
                 attachableLogger.LogInfof "Service %A stopped." serviceId
             with ex ->
                 // TODO : Handle error

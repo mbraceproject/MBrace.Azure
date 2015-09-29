@@ -107,9 +107,14 @@ with
             |> Async.Ignore
     }
 
-    member this.InitializeAll() = async {
-        let createTable name = async { let! _ = this.StorageAccount.GetTableReference(name).CreateIfNotExistsAsync() in return () }
-        let createContainer name = async { let! _ = this.StorageAccount.GetContainerReference(name).CreateIfNotExistsAsync() in return () }
+    /// <summary>
+    ///   Initializes all store resources on which the current runtime depends.  
+    /// </summary>
+    /// <param name="maxRetries">Maximum number of retries on conflicts. Defaults to infinite retries.</param>
+    /// <param name="retryInterval">Retry sleep interval. Defaults to 3000ms.</param>
+    member this.InitializeAllStoreResources(?maxRetries : int, ?retryInterval : int) = async {
+        let createTable name = async { do! this.StorageAccount.GetTableReference(name).CreateIfNotExistsAsyncSafe(?maxRetries = maxRetries, ?retryInterval = retryInterval) }
+        let createContainer name = async { do! this.StorageAccount.GetContainerReference(name).CreateIfNotExistsAsyncSafe(?maxRetries = maxRetries, ?retryInterval = retryInterval) }
         do!
             [|  
                 createTable this.RuntimeTable
@@ -125,6 +130,10 @@ with
             |> Async.Ignore
     }
 
+    /// <summary>
+    ///     Activates a cluster id instance using provided configuration object.
+    /// </summary>
+    /// <param name="configuration">Azure cluster configuration object.</param>
     static member Activate(configuration : Configuration) =
         ProcessConfiguration.EnsureInitialized()
         let version = Version.Parse configuration.Version

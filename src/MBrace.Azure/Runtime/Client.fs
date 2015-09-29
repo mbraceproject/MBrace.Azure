@@ -42,9 +42,6 @@ type AzureCluster private (manager : ClusterManager) =
     static let mutable localWorkerExecutable : string option = None
     static do ProcessConfiguration.InitAsClient()
 
-    /// Current client instance identifier.
-    member this.UUID = manager.RuntimeManagerId
-
     /// <summary>
     /// Kill all local worker processes.
     /// </summary>
@@ -121,7 +118,7 @@ type AzureCluster private (manager : ClusterManager) =
     /// <param name="maxWorkItems">Maximum number of concurrent jobs in the spawned worker.</param>
     /// <param name="logLevel">LogLevel used by the worker.</param>
     member this.AttachLocalWorker(?maxWorkItems:int, ?logLevel:LogLevel) =
-        AzureCluster.SpawnOnCurrentMachine(manager.ConfigurationB, 1, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel)
+        AzureCluster.SpawnOnCurrentMachine(manager.Configuration, 1, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel)
 
     /// Gets or sets the path for a local standalone worker executable.
     static member LocalWorkerExecutable
@@ -187,13 +184,25 @@ type AzureCluster private (manager : ClusterManager) =
     /// <param name="clientId">Custom client id for this instance.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member Connect(config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
+    static member ConnectAsync (config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : Async<AzureCluster> = async {
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
-        let attachableLogger = AttacheableLogger.Create(makeAsynchronous = true, ?logLevel = logLevel)
-        let manager = ClusterManager.CreateForClient(config, clientId, attachableLogger, ResourceRegistry.Empty)
-        let storageLogger = TableSystemLogManager(manager.Configuration).CreateLogWriter(clientId) |> Async.RunSync
-        let _ = attachableLogger.AttachLogger(storageLogger)
-        let _ = logger |> Option.map attachableLogger.AttachLogger
-        let cluster = new AzureCluster(manager)
-        cluster
+        let! manager = ClusterManager.Create(config, ?systemLogger = logger)
+        let! storageLogger = manager.SystemLogManager.CreateLogWriter(clientId)
+        let _ = manager.LocalLogManager.AttachLogger(storageLogger)
+        logLevel |> Option.iter (fun l -> manager.LocalLogManager.LogLevel <- l)
+        return new AzureCluster(manager)
+    }
+
+    /// <summary>
+    ///     Connects to an MBrace-on-Azure cluster as identified by provided configuration object.
+    ///     If successful returns a management handle object to the cluster.
+    /// </summary>
+    /// <param name="config">Runtime configuration.</param>
+    /// <param name="clientId">Client identifier.</param>
+    /// <param name="clientId">Custom client id for this instance.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    static member Connect (config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster =
+        AzureCluster.ConnectAsync(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
+        |> Async.RunSync

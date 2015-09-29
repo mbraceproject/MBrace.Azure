@@ -8,8 +8,26 @@ open MBrace.Azure.Runtime
 [<AutoSerializable(true); Sealed; NoEquality; NoComparison>]
 type Configuration(storageConnectionString : string, serviceBusConnectionString : string) = 
 
-    let mutable storageConnectionString = AzureStorageAccount.Parse(storageConnectionString).ConnectionString
-    let mutable serviceBusConnectionString = AzureServiceBusAccount.Parse(serviceBusConnectionString).ConnectionString
+    let mutable _storageAccountName = null
+    let mutable _storageConnectionString = null
+
+    let mutable _serviceBusAccountName = null
+    let mutable _serviceBusConnectionString = null
+
+    let parseStorage conn =
+        let account = AzureStorageAccount.Parse conn
+        _storageConnectionString <- account.ConnectionString
+        _storageAccountName <- account.AccountName
+
+    let parseServiceBus conn =
+        let account = AzureServiceBusAccount.Parse conn
+        _serviceBusConnectionString <- account.ConnectionString
+        _serviceBusAccountName <- account.AccountName
+
+    do
+        parseStorage storageConnectionString
+        parseServiceBus serviceBusConnectionString
+
     let mutable version = typeof<Configuration>.Assembly.GetName().Version
 
     // Default Service Bus Configuration
@@ -44,15 +62,20 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
 
     // #region Credentials
 
+    /// Azure Storage account name
+    member __.StorageAccount = _storageAccountName
+    /// Azure ServiceBus account name
+    member __.ServiceBusAccount = _serviceBusAccountName
+
     /// Azure Storage connection string.
     member __.StorageConnectionString
-        with get () = storageConnectionString
-        and set scs = storageConnectionString <- AzureStorageAccount.Parse(scs).ConnectionString
+        with get () = _storageConnectionString
+        and set scs = parseStorage scs
 
     /// Azure Service Bus connection string.
     member __.ServiceBusConnectionString
         with get () = serviceBusConnectionString
-        and set sbcs = serviceBusConnectionString <- AzureServiceBusAccount.Parse(sbcs).ConnectionString
+        and set sbcs = parseServiceBus sbcs
 
 
     // #region Service Bus

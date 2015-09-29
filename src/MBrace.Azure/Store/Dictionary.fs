@@ -25,9 +25,11 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
     [<DataMember(Name = "Table")>]
     let tableName = tableName
 
+    let getEntitiesAsync() = Table.readAll<FatEntity> account tableName
+
     let getSeqAsync() = async {
         let serializer = VagabondRegistry.Instance.Serializer
-        let! entities = Table.readAll<FatEntity> account tableName
+        let! entities = getEntitiesAsync()
         return entities |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, serializer.UnPickle<'T>(entity.GetPayload())))
     }
 
@@ -93,8 +95,8 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
                 return e <> null
             }
         
-        member this.GetCount () : Async<int64> = Async.Raise(new NotSupportedException("Count property not supported in Azure Tables."))
-        member this.GetSize () : Async<int64> = Async.Raise(new NotSupportedException("Size property not supported in Azure Tables."))
+        member this.GetCount () : Async<int64> = async { let! entities = getEntitiesAsync() in return int64 entities.Count }
+        member this.GetSize () : Async<int64> = async { let! entities = getEntitiesAsync() in return int64 entities.Count }
 
         member this.Dispose(): Async<unit> = async {
             let! _ = account.TableClient.GetTableReference(tableName).DeleteAsync() |> Async.AwaitTaskCorrect
@@ -112,9 +114,7 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
         }
         
         member this.ToEnumerable(): Async<seq<Collections.Generic.KeyValuePair<string,'T>>> = async {
-            let! entities = Table.readAll<FatEntity> account tableName
-            let serializer = VagabondRegistry.Instance.Serializer
-            return entities |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, serializer.UnPickle<'T>(entity.GetPayload())))
+            return! getSeqAsync()
         }
         
         member this.TryAdd(key: string, value: 'T): Async<bool> = async {
@@ -162,7 +162,7 @@ type TableDictionaryProvider private (account : AzureStorageAccount) =
         member x.Create(): Async<CloudDictionary<'T>> = async {
             let tableName = Table.getRandomName()
             let tableRef = account.TableClient.GetTableReference(tableName)
-            let! _ = tableRef.CreateIfNotExistsAsync()
+            do! tableRef.CreateIfNotExistsAsyncSafe(maxRetries = 3)
             return new TableDictionary<'T>(tableName, account) :> CloudDictionary<'T>
         }
 

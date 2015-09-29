@@ -28,7 +28,7 @@ module Table =
     let private exec<'U> (config : AzureStorageAccount) table op : Async<obj> = 
         async {
             let t = config.TableClient.GetTableReference table
-            let! _ = t.CreateIfNotExistsAsync()
+            do! t.CreateIfNotExistsAsyncSafe(maxRetries = 3)
             let! (e : TableResult) = t.ExecuteAsync(op)
             return e.Result 
         }
@@ -41,7 +41,7 @@ module Table =
         let batch = ref <| new TableBatchOperation()
         let mkHandle batch = Async.StartChild <| async {
             let t = config.TableClient.GetTableReference(table)
-            let! _ = t.CreateIfNotExistsAsync()
+            do! t.CreateIfNotExistsAsyncSafe(maxRetries = 3)
             let! _ = t.ExecuteBatchAsync(batch)
             ()
         }

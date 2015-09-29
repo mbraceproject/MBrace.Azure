@@ -155,7 +155,7 @@ type private CloudTableLogWriter<'Entry when 'Entry :> TableEntity> private (tab
     static member Create(table : CloudTable, ?timespan : TimeSpan, ?logThreshold : int) = async {
         let timespan = defaultArg timespan (TimeSpan.FromMilliseconds 500.)
         let logThreshold = defaultArg logThreshold 100
-        do! table.CreateIfNotExistsAsync()   
+        do! table.CreateIfNotExistsAsyncSafe(maxRetries = 3)   
         return new CloudTableLogWriter<'Entry>(table, timespan, logThreshold)
     }
 
@@ -268,7 +268,7 @@ type TableSystemLogManager (config : ClusterId) =
             | None -> query
             | Some f -> query.Where(f)
 
-        do! table.CreateIfNotExistsAsync()
+        do! table.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         return! Table.queryAsync table query
     }
 
@@ -285,7 +285,7 @@ type TableSystemLogManager (config : ClusterId) =
 
         let query = query.Select [| "RowKey" |]
 
-        do! table.CreateIfNotExistsAsync()
+        do! table.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         
         let! entries = Table.queryAsync table query
         return!
@@ -389,7 +389,7 @@ type TableCloudLogManager (config : ClusterId) =
                 | None -> query
                 | Some f -> query.Where(f) 
 
-            do! table.CreateIfNotExistsAsync()
+            do! table.CreateIfNotExistsAsyncSafe(maxRetries = 3)
             return! Table.queryAsync table query
         }
 

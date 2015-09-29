@@ -62,7 +62,7 @@ type WorkerRecord(id) =
     static member DefaultPartitionKey = "worker"
 
 [<AutoSerializable(true)>]
-type WorkerId internal (workerId) = 
+type WorkerId internal (workerId : string) = 
     member this.Id = workerId
 
     interface IWorkerId with

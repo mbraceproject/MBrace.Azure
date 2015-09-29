@@ -3,6 +3,8 @@
 open System
 open System.Reflection
 
+open Nessos.FsPickler
+
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Components
@@ -10,49 +12,48 @@ open MBrace.Azure
 open MBrace.Azure.Store
 
 [<AutoSerializable(false)>]
-type ClusterManager private (configB : Configuration, config : ClusterId, uuid : string, systemLogger : AttacheableLogger, resources : ResourceRegistry) =
-    do systemLogger.LogInfof "RuntimeManager Id = %A" config.Id
+type ClusterManager private (configB : Configuration, config : ClusterId, logger : AttacheableLogger, resources : ResourceRegistry) =
+    do logger.LogInfof "RuntimeManager Id = %A" config.Id
 
-    do systemLogger.LogInfo "Creating worker manager"
-    let workerManager = WorkerManager.Create(config, systemLogger)
-    do systemLogger.LogInfo "Creating work item manager"
-    let jobManager    = WorkItemManager.Create(config, workerManager, systemLogger)
-    do systemLogger.LogInfo "Creating task manager"
-    let processManager   = CloudProcessManager.Create(config, systemLogger)
-    do systemLogger.LogInfo "Creating assembly manager"
-    let store = resources.Resolve<ICloudFileStore>()
-
+    do logger.LogInfo "Creating worker manager"
+    let workerManager = WorkerManager.Create(config, logger)
+    do logger.LogInfo "Creating work item manager"
+    let workManager    = WorkItemManager.Create(config, workerManager, logger)
+    do logger.LogInfo "Creating task manager"
+    let processManager   = CloudProcessManager.Create(config, logger)
+    do logger.LogInfo "Creating assembly manager"
+    let fileStore = resources.Resolve<ICloudFileStore>()
+    let serializer = resources.Resolve<ISerializer>()
     let assemblyManager =
-        let serializer = resources.Resolve<ISerializer>()
         let ignoredAssemblies = [| Assembly.GetExecutingAssembly() |]
-        let config = StoreAssemblyManagerConfiguration.Create(store, serializer, container = config.VagabondContainer, ignoredAssemblies = ignoredAssemblies, compressAssemblies = true)
-        StoreAssemblyManager.Create(config, localLogger = systemLogger)
+        let config = StoreAssemblyManagerConfiguration.Create(fileStore, serializer, container = config.VagabondContainer, ignoredAssemblies = ignoredAssemblies, compressAssemblies = true)
+        StoreAssemblyManager.Create(config, localLogger = logger)
 
-    do
-        let cloudValueProvider = resources.Resolve<ICloudValueProvider>()
-        let csc = ClosureSiftConfiguration.Create(cloudValueProvider, siftThreshold = 5L * 1024L * 1024L)
-        let manager = ClosureSiftManager.Create(csc, localLogger = systemLogger)
-        ConfigurationRegistry.Register<ClosureSiftManager>(config, manager)
-
-    do systemLogger.LogInfo "Creating SystemLog manager"
+    do logger.LogInfo "Creating SystemLog manager"
     let systemLogManager = new TableSystemLogManager(config)
-    do systemLogger.LogInfo "Creating CloudLog manager"
+    do logger.LogInfo "Creating CloudLog manager"
     let cloudLogManager = new TableCloudLogManager(config)
 
-    let localSystemLogger = new AttacheableLoggerManager(systemLogger)
+    let loggerManager = new AttacheableLoggerManager(logger)
 
     let cancellationEntryFactory = CancellationTokenFactory.Create(config)
     let int32CounterFactory = Int32CounterFactory.Create(config)
     let resultAggregatorFactory = ResultAggregatorFactory.Create(config)
 
-    do systemLogger.LogInfo "RuntimeManager initialization complete"
+    do logger.LogInfo "RuntimeManager initialization complete"
 
-    member this.RuntimeManagerId = uuid
     member this.Resources = resources
-    member this.Configuration = config
-    member this.ConfigurationB = configB
+    member this.ClusterId = config
+    member this.Configuration = configB
+    member this.WorkerManager = workerManager
+    member this.WorkItemManager = workManager
+    member this.SystemLogManager = systemLogManager
+    member this.CloudLogManager = cloudLogManager
+    member this.LocalLogManager = loggerManager :> ILocalSystemLogManager
 
-    member this.ResetCluster(?deleteQueues, ?deleteRuntimeState, ?deleteLogs, ?deleteUserData, ?deleteAssemblyData, ?force, ?reactivate) = async {
+    member this.ResetCluster(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteUserData : bool, 
+                                ?deleteAssemblyData : bool, ?force : bool, ?reactivate : bool) = async {
+
         let deleteQueues = defaultArg deleteQueues true
         let deleteRuntimeState = defaultArg deleteRuntimeState true
         let deleteLogs = defaultArg deleteLogs true
@@ -65,55 +66,43 @@ type ClusterManager private (configB : Configuration, config : ClusterId, uuid :
             let! workers = (workerManager :> IWorkerManager).GetAvailableWorkers()
             if  workers.Length > 0 then
                 let exc = InvalidOperationException(sprintf "Found %d active workers. Shutdown workers first or 'force' reset." workers.Length)
-                systemLogger.LogError exc.Message
+                logger.LogError exc.Message
                 return! Async.Raise exc
             
         if deleteQueues then 
-            systemLogger.LogWarningf "Deleting Queues %A, %A." config.RuntimeQueue config.RuntimeTable
+            logger.LogWarningf "Deleting Queues %A, %A." config.RuntimeQueue config.RuntimeTable
             do! config.ClearRuntimeQueues()
             
         if deleteRuntimeState then 
-            systemLogger.LogWarningf "Deleting runtime Container %A and Table %A." config.RuntimeContainer config.RuntimeTable
+            logger.LogWarningf "Deleting runtime Container %A and Table %A." config.RuntimeContainer config.RuntimeTable
             do! config.ClearRuntimeState()
             
         if deleteLogs then 
-            systemLogger.LogWarningf "Deleting system log Table %A." config.RuntimeLogsTable
+            logger.LogWarningf "Deleting system log Table %A." config.RuntimeLogsTable
             do! config.ClearRuntimeLogs()
 
         if deleteUserData then 
-            systemLogger.LogWarningf "Deleting UserData Container %A and Table %A." config.UserDataContainer config.UserDataTable
+            logger.LogWarningf "Deleting UserData Container %A and Table %A." config.UserDataContainer config.UserDataTable
             do! config.ClearUserData()
 
         if deleteAssemblyData then
-            systemLogger.LogWarningf "Deleting Vagabond Container %A." config.VagabondContainer
+            logger.LogWarningf "Deleting Vagabond Container %A." config.VagabondContainer
             do! config.ClearVagabondData()
     
         if reactivate then        
-            systemLogger.LogInfo "Reactivating configuration."
-            let rec loop retryCount = async {
-                systemLogger.LogInfof "RetryCount %d." retryCount
-                let! step2 = Async.Catch <| config.InitializeAll()
-                match step2 with
-                | Choice1Of2 _ -> ()
-                | Choice2Of2 ex ->
-                    systemLogger.LogWarningf "Failed with %A\nWaiting." ex
-                    do! Async.Sleep 10000
-                    return! loop (retryCount + 1)
-            }
-            do! loop 0
-        systemLogger.LogInfo "Reset : done."
+            logger.LogInfo "Reactivating configuration."
+            do! config.InitializeAllStoreResources()
+
+        logger.LogInfo "Reset : done."
         return ()
     }
-
-    member private this.SetLocalWorkerId(workerId : IWorkerId) =
-        jobManager.SetLocalWorkerId(workerId)
 
     interface IRuntimeManager with
         member this.Id                       = config :> _
         member this.Serializer               = ProcessConfiguration.Serializer :> _
         member this.WorkerManager            = workerManager :> _
         member this.ProcessManager           = processManager :> _
-        member this.WorkItemQueue            = jobManager :> _
+        member this.WorkItemQueue            = workManager :> _
         member this.AssemblyManager          = assemblyManager :> _
         member this.CancellationEntryFactory = cancellationEntryFactory
         member this.CounterFactory           = int32CounterFactory
@@ -122,56 +111,72 @@ type ClusterManager private (configB : Configuration, config : ClusterId, uuid :
         member this.ResultAggregatorFactory  = resultAggregatorFactory
         member this.CloudLogManager          = cloudLogManager :> _
         member this.RuntimeSystemLogManager  = systemLogManager :> _
-        member this.LocalSystemLogManager    = localSystemLogger :> _
+        member this.LocalSystemLogManager    = loggerManager :> _
 
+    static member Create(configB : Configuration, ?customResources : ResourceRegistry, ?systemLogger : ISystemLogger) = async {
+        let logger = AttacheableLogger.Create(makeAsynchronous = false)
+        match systemLogger with Some l -> logger.AttachLogger l |> ignore | None -> ()
 
-    static member private GetDefaultResources(config : ClusterId, customResources : ResourceRegistry) =
+        let configB = FsPickler.Clone configB
+
+        logger.LogInfof "Activating cluster configuration: 'Storage:%s, ServiceBus:%s'." configB.StorageAccount configB.ServiceBusAccount
+        let config = ClusterId.Activate configB
+
+        logger.LogInfof "Initializing Azure store entities"
+        do! config.InitializeAllStoreResources(maxRetries = 20, retryInterval = 3000)
+
+        logger.LogInfof "Creating MBrace resource registry"
         let fileStore = BlobStore.Create(config.StorageAccount, defaultContainer = config.UserDataContainer)
         let atomProvider = TableAtomProvider.Create(config.StorageAccount, defaultTable = config.UserDataTable)
         let dictionaryProvider = TableDictionaryProvider.Create(config.StorageAccount)
         let queueProvider = ServiceBusQueueProvider.Create(config.ServiceBusAccount)
+        let serializer = VagabondFsPicklerBinarySerializer()
 
         let cloudValueProvider =
             let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory config.CloudValueContainer
             let mkCache () = ProcessConfiguration.ObjectCache
             let mkLocalCachingStore () = (ProcessConfiguration.FileStore :> ICloudFileStore).WithDefaultDirectory "cloudValueCache"
-            StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, cacheFactory = mkCache, localFileStore = mkLocalCachingStore, 
+            let provider = StoreCloudValueProvider.InitCloudValueProvider(cloudValueStore, cacheFactory = mkCache, localFileStore = mkLocalCachingStore, 
                                                             shadowPersistObjects = true, compressionLevel = CompressionLevel.Optimal)
+            provider.InstallCacheOnLocalAppDomain()
+            provider
 
-        resource {
+        do
+            let csc = ClosureSiftConfiguration.Create(cloudValueProvider, siftThreshold = 5L * 1024L * 1024L)
+            let manager = ClosureSiftManager.Create(csc, localLogger = logger)
+            ConfigurationRegistry.Register<ClosureSiftManager>(config, manager)
+
+        let resources = resource {
+            match customResources with Some r -> yield! r | None -> ()
             yield fileStore :> ICloudFileStore
             yield cloudValueProvider :> ICloudValueProvider
             yield atomProvider :> ICloudAtomProvider
             yield dictionaryProvider :> ICloudDictionaryProvider
             yield queueProvider :> ICloudQueueProvider
-            yield new VagabondFsPicklerBinarySerializer() :> ISerializer
-            yield! customResources
+            yield serializer :> ISerializer
         }
 
-    static member CreateForWorker(configB : Configuration, workerId : IWorkerId, logger : AttacheableLogger, customResources : ResourceRegistry) =
-        let config = ClusterId.Activate configB
-        logger.LogInfof "Activating cluster configuration: '%s'." config.Id
-        logger.LogInfof "Creating resources"
-        let resources = ClusterManager.GetDefaultResources(config, customResources)
-        logger.LogInfof "Creating RuntimeManager for Worker %A" workerId
-        let runtime = new ClusterManager(configB, config, workerId.Id, logger, resources)
-        runtime.SetLocalWorkerId(workerId)
-        runtime
+        return new ClusterManager(configB, config, logger, resources)
+    }
 
-    static member CreateForAppDomain(configB : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) =
-        let config = ClusterId.Activate configB
-        let logger = AttacheableLogger.Create(makeAsynchronous = true)
-        let _ = logger.AttachLogger(mlogger)
-        let resources = ClusterManager.GetDefaultResources(config, customResources)
-        logger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
-        let runtime = new ClusterManager(configB, config, workerId.Id, logger, resources)
-        runtime
-
-    static member CreateForClient(configB : Configuration, clientId : string, logger : AttacheableLogger, customResources) =
-        let config = ClusterId.Activate configB
-        logger.LogInfof "Activating cluster configuration: '%s'." config.Id
-        logger.LogInfof "Creating resources"
-        let resources = ClusterManager.GetDefaultResources(config, customResources)
-        logger.LogInfof "Creating RuntimeManager for Client %A" clientId
-        let runtime = new ClusterManager(configB, config, clientId, logger, resources)
-        runtime
+//    static member CreateForAppDomain(configB : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) = async {
+//        let configB = FsPickler.Clone configB
+//        let config = ClusterId.Activate configB
+//        let logger = AttacheableLogger.Create(makeAsynchronous = true)
+//        let _ = logger.AttachLogger(mlogger)
+//        let resources = ClusterManager.GetDefaultResources(config, customResources)
+//        logger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
+//        let runtime = new ClusterManager(configB, config, workerId.Id, logger, resources)
+//        return runtime
+//    }
+//
+//    static member CreateForClient(configB : Configuration, clientId : string, logger : AttacheableLogger, customResources) = async {
+//        let configB = FsPickler.Clone configB
+//        let config = ClusterId.Activate configB
+//        logger.LogInfof "Activating cluster configuration: '%s'." config.Id
+//        logger.LogInfof "Creating resources"
+//        let resources = ClusterManager.GetDefaultResources(config, customResources)
+//        logger.LogInfof "Creating RuntimeManager for Client %A" clientId
+//        let runtime = new ClusterManager(configB, config, clientId, logger, resources)
+//        return runtime
+//    }

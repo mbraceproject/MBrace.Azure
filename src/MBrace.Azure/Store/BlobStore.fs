@@ -87,7 +87,7 @@ module private BlobUtils =
         match container with
         | Root -> 
             let root = client.GetRootContainerReference()
-            let! _ = root.CreateIfNotExistsAsync()
+            do! root.CreateIfNotExistsAsyncSafe(maxRetries = 3)
             return root
         | Container c ->
             return client.GetContainerReference c
@@ -102,7 +102,7 @@ module private BlobUtils =
         let path = StorePath.Parse fullPath
         let! container = getContainerReference account path.Container
         match path.Container with
-        | Container _ -> do! container.CreateIfNotExistsAsync() |> Async.AwaitTaskCorrect |> Async.Ignore
+        | Container _ -> do! container.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         | Root -> ()
 
         return container.GetBlockBlobReference(path.BlobName)
@@ -300,7 +300,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             match path.Container with
             | Container _ as c ->
                 let! container = getContainerReference account c
-                let! _ =  container.CreateIfNotExistsAsync()
+                do! container.CreateIfNotExistsAsyncSafe(maxRetries = 3)
                 return ()
             | Root -> 
                 return ()

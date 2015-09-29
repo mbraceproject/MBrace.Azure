@@ -37,7 +37,7 @@ type Blob<'T> internal (config : ClusterId, prefix : string, filename : string) 
     /// </summary>
     member __.TryGetValue() : Async<'T option> = async {
         let container = config.StorageAccount.BlobClient.GetContainerReference(config.RuntimeContainer)
-        let! _ = container.CreateIfNotExistsAsync()
+        let! _ = container.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         let b = container.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
         let! exists = b.ExistsAsync()
         if exists then
@@ -59,14 +59,14 @@ type Blob<'T> internal (config : ClusterId, prefix : string, filename : string) 
 
     static member Exists(config, prefix, filename) = async {
         let c = config.StorageAccount.BlobClient.GetContainerReference(config.RuntimeContainer)
-        let! _ = c.CreateIfNotExistsAsync()
+        do! c.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
         return! b.ExistsAsync()
     }
 
     static member Create(config, prefix, filename : string, f : unit -> 'T) = async { 
         let c = config.StorageAccount.BlobClient.GetContainerReference(config.RuntimeContainer)
-        let! _ = c.CreateIfNotExistsAsync()
+        do! c.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
 
         let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
@@ -122,14 +122,14 @@ type Blob internal (config : ClusterId, prefix : string, filename : string) =
 
     static member Exists(config : ClusterId, prefix : string, filename : string) = async {
         let c = config.StorageAccount.BlobClient.GetContainerReference(config.RuntimeContainer)
-        let! _ = c.CreateIfNotExistsAsync()
+        do! c.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
         return! b.ExistsAsync()
     }
 
     static member UploadFromFile(config : ClusterId, prefix : string, filename : string, localPath : string) = async { 
         let c = config.StorageAccount.BlobClient.GetContainerReference(config.RuntimeContainer)
-        let! _ = c.CreateIfNotExistsAsync()
+        do! c.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
 
         let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
