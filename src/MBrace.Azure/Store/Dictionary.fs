@@ -29,7 +29,7 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
 
     let getSeqAsync() = async {
         let serializer = VagabondRegistry.Instance.Serializer
-        let! entities = Table.readAll<FatEntity> account.TableClient tableName
+        let! entities = Table.readAll<FatEntity> account tableName
         return entities |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, serializer.UnPickle<'T>(entity.GetPayload())))
     }
 
@@ -47,7 +47,7 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
         member this.Add(key: string, value : 'T): Async<unit> = async {
             let binary = VagabondRegistry.Instance.Serializer.Pickle value
             let e = new FatEntity(key, String.Empty, binary)
-            do! Table.insert<FatEntity> account.TableClient tableName e
+            do! Table.insert<FatEntity> account tableName e
         }
         
         member this.Transact(key: string, transacter: 'T option -> 'R * 'T, maxRetries: int option): Async<'R> = async {
@@ -68,35 +68,35 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
                 let e' = new FatEntity(key, String.Empty, binary)
                 match value with
                 | None ->
-                    let! result = Async.Catch <| Table.insert<FatEntity> account.TableClient tableName e'
+                    let! result = Async.Catch <| Table.insert<FatEntity> account tableName e'
                     match result with
                     | Choice1Of2 () -> return returnValue
                     | Choice2Of2 ex when Conflict ex ->
-                        let! e = Table.read<FatEntity> account.TableClient tableName key String.Empty
+                        let! e = Table.read<FatEntity> account tableName key String.Empty
                         return! transact e (count + 1)
                     | Choice2Of2 ex -> return raise ex
                 | Some _ ->
                     e'.ETag <- e.ETag
-                    let! result = Async.Catch <| Table.merge<FatEntity> account.TableClient tableName e'
+                    let! result = Async.Catch <| Table.merge<FatEntity> account tableName e'
                     match result with
                     | Choice1Of2 _ -> return returnValue
                     | Choice2Of2 ex when PreconditionFailed ex -> 
-                        let! e = Table.read<FatEntity> account.TableClient tableName key String.Empty
+                        let! e = Table.read<FatEntity> account tableName key String.Empty
                         return! transact e (count + 1)
                     | Choice2Of2 ex -> return raise ex
             }
-            let! e = Table.read<FatEntity> account.TableClient tableName key String.Empty
+            let! e = Table.read<FatEntity> account tableName key String.Empty
             return! transact e 0
         }
 
         member this.ContainsKey(key: string): Async<bool> = 
             async {
-                let! e = Table.read<FatEntity> account.TableClient tableName key String.Empty
+                let! e = Table.read<FatEntity> account tableName key String.Empty
                 return e <> null
             }
         
-        member this.GetCount () : Async<int64> = Async.Raise(new NotSupportedException("Count property not supported."))
-        member this.GetSize () : Async<int64> = Async.Raise(new NotSupportedException("Size property not supported."))
+        member this.GetCount () : Async<int64> = Async.Raise(new NotSupportedException("Count property not supported in Azure Tables."))
+        member this.GetSize () : Async<int64> = Async.Raise(new NotSupportedException("Size property not supported in Azure Tables."))
 
         member this.Dispose(): Async<unit> = async {
             let! _ = account.TableClient.GetTableReference(tableName).DeleteAsync() |> Async.AwaitTaskCorrect
@@ -107,14 +107,14 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
         
         member this.Remove(key: string): Async<bool> = async {
             try
-                do! Table.delete account.TableClient tableName (TableEntity(key, String.Empty, ETag = "*"))
+                do! Table.delete account tableName (TableEntity(key, String.Empty, ETag = "*"))
                 return true
             with ex -> 
                 if NotFound ex then return false else return raise ex
         }
         
         member this.ToEnumerable(): Async<seq<Collections.Generic.KeyValuePair<string,'T>>> = async {
-            let! entities = Table.readAll<FatEntity> account.TableClient tableName
+            let! entities = Table.readAll<FatEntity> account tableName
             let serializer = VagabondRegistry.Instance.Serializer
             return entities |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, serializer.UnPickle<'T>(entity.GetPayload())))
         }
@@ -128,7 +128,7 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
         }
         
         member x.TryFind(key: string): Async<'T option> = async {
-            let! e = Table.read<FatEntity> account.TableClient tableName key String.Empty
+            let! e = Table.read<FatEntity> account tableName key String.Empty
             match e with
             | null -> return None
             | e ->

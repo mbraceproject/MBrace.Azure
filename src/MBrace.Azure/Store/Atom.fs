@@ -29,7 +29,7 @@ type Atom<'T> internal (table : string, partitionKey : string, rowKey : string, 
     let rowKey = rowKey
     
     let getValueAsync() = async {
-        let! e = Table.read<FatEntity> account.TableClient table partitionKey rowKey
+        let! e = Table.read<FatEntity> account table partitionKey rowKey
         let value = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload())
         return value
     } 
@@ -47,12 +47,12 @@ type Atom<'T> internal (table : string, partitionKey : string, rowKey : string, 
                 if count >= maxRetries then
                     return raise <| exn("Maximum number of retries exceeded.")
                 else
-                    let! e = Table.read<FatEntity> account.TableClient table partitionKey rowKey
+                    let! e = Table.read<FatEntity> account table partitionKey rowKey
                     let oldValue = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload()) 
                     let returnValue, newValue = transaction oldValue
                     let newBinary = serializer.Pickle newValue
                     let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = e.ETag)
-                    let! result = Async.Catch <| Table.merge account.TableClient table e
+                    let! result = Async.Catch <| Table.merge account table e
                     match result with
                     | Choice1Of2 _ -> return returnValue
                     | Choice2Of2 e when Table.PreconditionFailed e -> 
@@ -64,15 +64,15 @@ type Atom<'T> internal (table : string, partitionKey : string, rowKey : string, 
         } 
 
         member this.Dispose(): Async<unit> = async {
-            let! e = Table.read<FatEntity> account.TableClient table partitionKey rowKey
-            return! Table.delete<FatEntity> account.TableClient table e
+            let! e = Table.read<FatEntity> account table partitionKey rowKey
+            return! Table.delete<FatEntity> account table e
         }
 
         member this.Force(newValue: 'T): Async<unit> = async {
-            let! e = Table.read<FatEntity> account.TableClient table partitionKey rowKey
+            let! e = Table.read<FatEntity> account table partitionKey rowKey
             let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
             let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
-            let! _ = Table.merge account.TableClient table e
+            let! _ = Table.merge account table e
             return ()
         }
 
@@ -118,7 +118,7 @@ type AtomProvider private (account : AzureStorageAccount, defaultTable : string)
         member this.CreateAtom(table : string, initial: 'T) = async {
             let binary = VagabondRegistry.Instance.Serializer.Pickle initial
             let e = new FatEntity(guid(), String.Empty, binary)
-            do! Table.insert<FatEntity> account.TableClient table e
+            do! Table.insert<FatEntity> account table e
             return new Atom<'T>(table, e.PartitionKey, e.RowKey, account) :> CloudAtom<'T>
         }
 

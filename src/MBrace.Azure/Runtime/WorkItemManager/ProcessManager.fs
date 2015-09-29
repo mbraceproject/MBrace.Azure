@@ -155,10 +155,10 @@ type internal CloudProcessEntry (config : ClusterConfiguration, taskId) =
                         ex.Data.Add("record", record)
                         raise ex
 
-                let total = jobs.Length
+                let total = jobs.Count
                 let active, completed, faulted =
                     jobs
-                    |> Array.fold (fun ((a,c,f) as state) workItem ->
+                    |> Seq.fold (fun ((a,c,f) as state) workItem ->
                         match enum<WorkItemStatus> workItem.Status.Value with
                         | WorkItemStatus.Preparing 
                         | WorkItemStatus.Enqueued  -> state
@@ -250,7 +250,7 @@ type CloudProcessManager private (config : ClusterConfiguration, logger : ISyste
         member this.GetAllProcesses(): Async<ICloudProcessEntry []> = 
             async {
                 let! records = Table.queryPK<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey
-                return records |> Array.map(fun r -> new CloudProcessEntry(config, r.Id) :> ICloudProcessEntry)
+                return records |> Seq.map(fun r -> new CloudProcessEntry(config, r.Id) :> ICloudProcessEntry) |> Seq.toArray
             }
         
         member this.TryGetProcessById(taskId: string): Async<ICloudProcessEntry option> = 

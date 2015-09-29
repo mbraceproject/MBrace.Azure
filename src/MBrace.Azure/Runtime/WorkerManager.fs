@@ -18,8 +18,8 @@ type WorkerRecord(id) =
     member val ProcessName        = Unchecked.defaultof<string> with get, set
     member val InitializationTime = Nullable<DateTimeOffset>() with get, set
     member val ConfigurationId    = Unchecked.defaultof<byte []> with get, set
-    member val MaxWorkItems            = Nullable<int>()   with get, set
-    member val ActiveWorkItems         = Nullable<int>()   with get, set
+    member val MaxWorkItems       = Nullable<int>()   with get, set
+    member val ActiveWorkItems    = Nullable<int>()   with get, set
     member val ProcessorCount     = Nullable<int>()   with get, set
     member val MaxClockSpeed      = Nullable<double>() with get, set
     member val CPU                = Nullable<double>() with get, set
@@ -169,7 +169,7 @@ type WorkerManager private (config : ClusterConfiguration, logger : ISystemLogge
     member this.GetAllWorkers(): Async<WorkerState []> = 
         async { 
             let! records = Table.queryPK<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey
-            let state = records |> Array.map mkWorkerState
+            let state = records |> Seq.map mkWorkerState |> Seq.toArray
             return state
         }
 

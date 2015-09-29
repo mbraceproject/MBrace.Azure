@@ -160,7 +160,7 @@ type private CloudTableLogWriter<'Entry when 'Entry :> TableEntity> private (tab
 
 /// Defines a local polling agent for subscribing table log events
 [<AutoSerializable(false)>]
-type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fetch : DateTimeOffset option -> Async<seq<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, interval : TimeSpan) =
+type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fetch : DateTimeOffset option -> Async<ICollection<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, interval : TimeSpan) =
     let event = new Event<'Entry> ()
     let loggerInfo = new Dictionary<string, int64> ()
     let isNewLogEntry (e : 'Entry) =
@@ -210,7 +210,7 @@ type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fet
     interface IDisposable with
         member __.Dispose() = cts.Cancel()
 
-    static member Create(fetch : DateTimeOffset option -> Async<seq<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, ?interval) =
+    static member Create(fetch : DateTimeOffset option -> Async<ICollection<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, ?interval) =
         let interval = defaultArg interval (TimeSpan.FromMilliseconds 500.)
         new CloudTableLogPoller<'Entry>(fetch, getLogDate, interval)
 
@@ -246,7 +246,7 @@ type TableSystemLogManager (config : ClusterConfiguration) =
     /// <param name="loggerId">Constrain to specific logger identifier.</param>
     /// <param name="fromDate">Log entries start date.</param>
     /// <param name="toDate">Log entries finish date.</param>
-    member __.GetLogs(?loggerId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<seq<SystemLogRecord>> = async {
+    member __.GetLogs(?loggerId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<ICollection<SystemLogRecord>> = async {
         let query = new TableQuery<SystemLogRecord>()
         let filters = 
             [ loggerId  |> Option.map (fun pk -> TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, Logger.mkSystemLogPartitionKey pk))
@@ -268,7 +268,7 @@ type TableSystemLogManager (config : ClusterConfiguration) =
             | Some f -> query.Where(f)
 
         do! table.CreateIfNotExistsAsync()
-        return table.ExecuteQuery query
+        return! Table.queryAsync table query
     }
 
     /// <summary>
@@ -286,8 +286,9 @@ type TableSystemLogManager (config : ClusterConfiguration) =
 
         do! table.CreateIfNotExistsAsync()
         
+        let! entries = Table.queryAsync table query
         return!
-            table.ExecuteQuery query
+            entries
             |> Seq.groupBy (fun e -> e.PartitionKey)
             |> Seq.collect (fun (_,es) -> Seq.chunksOf 100 es)
             |> Seq.map (fun chunk ->
@@ -365,7 +366,7 @@ type TableCloudLogManager (config : ClusterConfiguration) =
     /// <param name="processId">Cloud process identifier.</param>
     /// <param name="fromDate">Start date constraint.</param>
     /// <param name="toDate">Stop date constraint.</param>
-    member this.GetLogs (processId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<seq<CloudLogRecord>> =
+    member this.GetLogs (processId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<ICollection<CloudLogRecord>> =
         async {
             let query = new TableQuery<CloudLogRecord>()
             let filters = 
@@ -388,7 +389,7 @@ type TableCloudLogManager (config : ClusterConfiguration) =
                 | Some f -> query.Where(f) 
 
             do! table.CreateIfNotExistsAsync()
-            return table.ExecuteQuery query
+            return! Table.queryAsync table query
         }
 
     /// <summary>
