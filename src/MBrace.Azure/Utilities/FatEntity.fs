@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure.Store.TableEntities
+﻿namespace MBrace.Azure.Runtime.Utilities
 
 open System
 open System.IO
@@ -8,9 +8,8 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure.Store
 
-module internal TableEntityConfig =
+module FatEntityConfiguration =
 
     let PayloadSizePerProperty = 64 * 1024
     let NumberOfProperties = 15
@@ -27,10 +26,10 @@ type FatEntity (partitionKey : string, rowKey : string, blob : byte []) =
 
     let chunks = 
         if blob = null then null
-        elif blob.Length > TableEntityConfig.MaxPayloadSize then
-            invalidOp <| sprintf "Blob payload exceeds limit of %d bytes." TableEntityConfig.MaxPayloadSize
+        elif blob.Length > FatEntityConfiguration.MaxPayloadSize then
+            invalidOp <| sprintf "Blob payload exceeds limit of %d bytes." FatEntityConfiguration.MaxPayloadSize
         else 
-            Array.chunksOf TableEntityConfig.PayloadSizePerProperty blob
+            Array.chunksOf FatEntityConfiguration.PayloadSizePerProperty blob
 
     let item i = 
         let i = i - 1
@@ -38,6 +37,8 @@ type FatEntity (partitionKey : string, rowKey : string, blob : byte []) =
         elif i >= chunks.Length then Array.empty
         else
             chunks.[i]
+
+    new () = FatEntity (null, null, null)
 
     /// Max size 64KB
     member val Item01 = item 1  with get, set
@@ -62,34 +63,3 @@ type FatEntity (partitionKey : string, rowKey : string, blob : byte []) =
             [| this.Item01; this.Item02; this.Item03; this.Item04; this.Item05; this.Item06; this.Item07; this.Item08; this.Item09; 
                this.Item10; this.Item11; this.Item12; this.Item13; this.Item14; this.Item15; |]
             |> Array.concat
-        
-    new () = FatEntity (null, null, null)
-
-
-module internal Table =
-    let private checkExn code (e : exn) =
-        match e with
-        | :? StorageException as e -> e.RequestInformation.HttpStatusCode = code
-        | :? AggregateException as e ->
-            let e = e.InnerException
-            e :? StorageException && (e :?> StorageException).RequestInformation.HttpStatusCode = code
-        | _ -> false
-
-    
-    let PreconditionFailed (e : exn) = checkExn 412 e
-    let Conflict (e : exn) = checkExn 409 e
-    let NotFound (e : exn) = checkExn 404 e
-
-    let getRandomName () =
-        // See http://blogs.msdn.com/b/jmstall/archive/2014/06/12/azure-storage-naming-rules.aspx
-        let alpha = [|'a'..'z'|]
-        let alphaNumeric = Array.append alpha [|'0'..'9'|]
-        let maxLen = 63
-        let randOf =
-            let rand = new Random(int DateTime.Now.Ticks)
-            fun (x : char []) -> x.[rand.Next(0, x.Length)]
-
-        let name = 
-            [| yield randOf alpha
-               for _i = 1 to maxLen-1 do yield randOf alphaNumeric |]
-        new String(name)

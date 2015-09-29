@@ -14,7 +14,7 @@ let main (args : string []) =
     try
         ProcessConfiguration.InitAsWorker()
         let ps = Process.GetCurrentProcess()
-        let cfg = AzureArgumentConfiguration.FromCommandLineArguments args
+        let cfg = ArgumentConfiguration.FromCommandLineArguments args
         let config = cfg.Configuration
         let workerId = 
             match cfg.WorkerName with

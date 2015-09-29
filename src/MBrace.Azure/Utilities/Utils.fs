@@ -67,12 +67,18 @@ module Utils =
         /// <param name="ts">Input array.</param>
         let chunksOf chunkSize (ts : 'T []) =
             if chunkSize <= 0 then invalidArg "chunkSize" "must be positive integer."
-            let N = ts.Length
-            let chunkCount = (float N) / (float chunkSize) |> ceil |> int
             let chunks = ResizeArray<'T []> ()
-            for i = 0  to chunkCount - 1 do
-                let s, e = N * i / chunkCount, N * (i + 1) / chunkCount
-                chunks.Add <| Array.sub ts s (e - s)
+            let builder = ResizeArray<'T> ()
+            for i = 0 to ts.Length - 1 do
+                if builder.Count = chunkSize then
+                    chunks.Add (builder.ToArray())
+                    builder.Clear()
+
+                builder.Add ts.[i]
+
+            if builder.Count > 0 then
+                chunks.Add(builder.ToArray())
+
             chunks.ToArray()
 
         let last (ts : 'T []) = ts.[ts.Length - 1]

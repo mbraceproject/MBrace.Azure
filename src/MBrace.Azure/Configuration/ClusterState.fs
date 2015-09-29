@@ -15,10 +15,10 @@ open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Azure
 
-/// Configuration record uniquely identifying an MBrace.Azure cluster
+/// Serializable state/configuration record uniquely identifying an MBrace.Azure cluster
 [<AutoSerializable(true); StructuralEquality; StructuralComparison>]
 [<StructuredFormatDisplay("{Id}")>]
-type ClusterConfiguration =
+type ClusterState =
     {
         /// Runtime version string
         Version : string
@@ -129,13 +129,13 @@ with
 /// Dependency injection facility for Specific cluster instances
 [<Sealed;AbstractClass>]
 type ConfigurationRegistry private () =
-    static let registry = new ConcurrentDictionary<ClusterConfiguration * Type, obj>()
+    static let registry = new ConcurrentDictionary<ClusterState * Type, obj>()
 
-    static member Register<'T>(config : ClusterConfiguration, item : 'T) : unit =
+    static member Register<'T>(config : ClusterState, item : 'T) : unit =
         registry.TryAdd((config, typeof<'T>), item :> obj)
         |> ignore
 
-    static member Resolve<'T>(config : ClusterConfiguration) : 'T =
+    static member Resolve<'T>(config : ClusterState) : 'T =
         match registry.TryGetValue((config, typeof<'T>)) with
         | true, v  -> v :?> 'T
         | false, _ -> invalidOp <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>

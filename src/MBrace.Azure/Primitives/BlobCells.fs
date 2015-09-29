@@ -11,7 +11,7 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
 [<DataContract>]
-type Blob<'T> internal (config : ClusterConfiguration, prefix : string, filename : string) =
+type Blob<'T> internal (config : ClusterState, prefix : string, filename : string) =
     
     [<DataMember(Name = "config")>]
     let config = config
@@ -50,11 +50,11 @@ type Blob<'T> internal (config : ClusterConfiguration, prefix : string, filename
     
     member __.Path = sprintf "%s/%s" prefix filename
 
-    static member FromPath(config : ClusterConfiguration, path : string) = 
+    static member FromPath(config : ClusterState, path : string) = 
         let p = path.Split('/')
         Blob<'T>.FromPath(config, p.[0], p.[1])
 
-    static member FromPath(config : ClusterConfiguration, prefix, file) = 
+    static member FromPath(config : ClusterState, prefix, file) = 
         new Blob<'T>(config, prefix, file)
 
     static member Exists(config, prefix, filename) = async {
@@ -83,7 +83,7 @@ type Blob<'T> internal (config : ClusterConfiguration, prefix : string, filename
     }
 
 [<DataContract>]
-type Blob internal (config : ClusterConfiguration, prefix : string, filename : string) =
+type Blob internal (config : ClusterState, prefix : string, filename : string) =
     
     [<DataMember(Name = "config")>]
     let config = config
@@ -113,21 +113,21 @@ type Blob internal (config : ClusterConfiguration, prefix : string, filename : s
         return ()
     }        
 
-    static member FromPath(config : ClusterConfiguration, path : string) = 
+    static member FromPath(config : ClusterState, path : string) = 
         let p = path.Split('/')
         Blob.FromPath(config, p.[0], p.[1])
 
-    static member FromPath(config : ClusterConfiguration, prefix : string, file : string) =
+    static member FromPath(config : ClusterState, prefix : string, file : string) =
         new Blob(config, prefix, file)
 
-    static member Exists(config : ClusterConfiguration, prefix : string, filename : string) = async {
+    static member Exists(config : ClusterState, prefix : string, filename : string) = async {
         let c = config.StorageAccount.BlobClient.GetContainerReference(config.RuntimeContainer)
         let! _ = c.CreateIfNotExistsAsync()
         let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)
         return! b.ExistsAsync()
     }
 
-    static member UploadFromFile(config : ClusterConfiguration, prefix : string, filename : string, localPath : string) = async { 
+    static member UploadFromFile(config : ClusterState, prefix : string, filename : string, localPath : string) = async { 
         let c = config.StorageAccount.BlobClient.GetContainerReference(config.RuntimeContainer)
         let! _ = c.CreateIfNotExistsAsync()
         let b = c.GetBlockBlobReference(sprintf "%s/%s" prefix filename)

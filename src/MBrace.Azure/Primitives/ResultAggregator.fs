@@ -36,7 +36,7 @@ type IndexedReferenceEntity(partitionKey, rowKey) =
 
 
 [<DataContract; Sealed>]
-type ResultAggregator<'T> internal (config : ClusterConfiguration, partitionKey : string, size : int) =
+type ResultAggregator<'T> internal (config : ClusterState, partitionKey : string, size : int) =
     static let enableOverWrite = false
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
@@ -100,7 +100,7 @@ type ResultAggregator<'T> internal (config : ClusterConfiguration, partitionKey 
                         try
                             do! Table.mergeBatch config.StorageAccount config.RuntimeTable [guard; record]
                             return guard.Counter.Value = size
-                        with ex when Table.PreconditionFailed ex ->
+                        with ex when StoreException.PreconditionFailed ex ->
                             let! xs = getEntity index
                             return! loop xs
                 }
@@ -130,7 +130,7 @@ type ResultAggregator<'T> internal (config : ClusterConfiguration, partitionKey 
             }
 
 [<Sealed>]
-type ResultAggregatorFactory private (config : ClusterConfiguration) =
+type ResultAggregatorFactory private (config : ClusterState) =
     interface ICloudResultAggregatorFactory with
         member x.CreateResultAggregator(_aggregatorId : string, capacity: int): Async<ICloudResultAggregator<'T>> = 
             async {

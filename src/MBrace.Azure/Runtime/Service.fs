@@ -95,7 +95,7 @@ type Service (config : Configuration, serviceId : string) =
     member this.StartAsync() : Async<unit> = async {
         try
             let sw = Stopwatch.StartNew()
-            let config2 = ClusterConfiguration.Activate config
+            let config2 = ClusterState.Activate config
             let tableLogManager = new TableSystemLogManager(config2)
             let! tableLogger = tableLogManager.CreateLogWriter(serviceId)
             let _ = attachableLogger.AttachLogger(tableLogger)

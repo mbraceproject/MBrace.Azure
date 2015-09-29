@@ -13,11 +13,10 @@ open MBrace.Runtime
 
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure.Store.TableEntities
 
-/// Azure Table store CloudAtom implementation
+/// CloudAtom implementation on top of Azure table store.
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type Atom<'T> internal (table : string, partitionKey : string, rowKey : string, account : AzureStorageAccount) =
+type TableAtom<'T> internal (table : string, partitionKey : string, rowKey : string, account : AzureStorageAccount) =
     
     [<DataMember(Name = "StorageAccount")>]
     let account = account
@@ -55,7 +54,7 @@ type Atom<'T> internal (table : string, partitionKey : string, rowKey : string, 
                     let! result = Async.Catch <| Table.merge account table e
                     match result with
                     | Choice1Of2 _ -> return returnValue
-                    | Choice2Of2 e when Table.PreconditionFailed e -> 
+                    | Choice2Of2 e when StoreException.PreconditionFailed e -> 
                         do! Async.Sleep currInterval
                         return! update (min (interval * currInterval) maxInterval) (count+1)
                     | Choice2Of2 e -> return raise e
@@ -79,10 +78,9 @@ type Atom<'T> internal (table : string, partitionKey : string, rowKey : string, 
         member this.GetValueAsync () : Async<'T> = getValueAsync()
         member this.Value : 'T = getValueAsync () |> Async.RunSync
 
-/// Store implementation that uses a Azure Blob Storage as backend.
+/// CloudAtom provider implementation on top of Azure table store.
 [<Sealed; DataContract>]
-type AtomProvider private (account : AzureStorageAccount, defaultTable : string) =
-    // TODO: validate table inputs
+type TableAtomProvider private (account : AzureStorageAccount, defaultTable : string) =
     
     [<DataMember(Name = "Account")>]
     let account = account
@@ -92,13 +90,21 @@ type AtomProvider private (account : AzureStorageAccount, defaultTable : string)
 
     /// <summary>
     ///     Creates an Azure table store based atom provider that
+    ///     connects to provided storage account instance.
+    /// </summary>
+    /// <param name="connectionString">Azure storage account connection string.</param>
+    static member Create (account : AzureStorageAccount, ?defaultTable : string) =
+        ignore account.ConnectionString // force check that connection string is present in current host
+        let defaultTable = match defaultTable with Some d -> Validate.tableName d ; d | None -> Table.getRandomName()
+        new TableAtomProvider(account, defaultTable)
+
+    /// <summary>
+    ///     Creates an Azure table store based atom provider that
     ///     connects to storage account with provided connection sting.
     /// </summary>
     /// <param name="connectionString">Azure storage account connection string.</param>
     static member Create (connectionString : string, ?defaultTable : string) =
-        let account = AzureStorageAccount.Parse connectionString
-        let defaultTable = match defaultTable with Some d -> d | None -> Table.getRandomName()
-        new AtomProvider(account, defaultTable)
+        TableAtomProvider.Create(AzureStorageAccount.Parse connectionString, ?defaultTable = defaultTable)
 
     interface ICloudAtomProvider with
         member this.Id = account.TableClient.StorageUri.PrimaryUri.ToString()
@@ -106,12 +112,12 @@ type AtomProvider private (account : AzureStorageAccount, defaultTable : string)
         member this.Name = "Azure Table Storage Atom Provider"
         
         member this.DefaultContainer = defaultTable
-        member this.WithDefaultContainer table = 
+        member this.WithDefaultContainer (table : string) = 
             Validate.tableName table
-            new AtomProvider(account, table) :> _
+            new TableAtomProvider(account, table) :> _
 
         member this.IsSupportedValue(value: 'T) : bool = 
-            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
+            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 FatEntityConfiguration.MaxPayloadSize
         
         member this.CreateUniqueContainerName() = Table.getRandomName()
 
@@ -119,7 +125,7 @@ type AtomProvider private (account : AzureStorageAccount, defaultTable : string)
             let binary = VagabondRegistry.Instance.Serializer.Pickle initial
             let e = new FatEntity(guid(), String.Empty, binary)
             do! Table.insert<FatEntity> account table e
-            return new Atom<'T>(table, e.PartitionKey, e.RowKey, account) :> CloudAtom<'T>
+            return new TableAtom<'T>(table, e.PartitionKey, e.RowKey, account) :> CloudAtom<'T>
         }
 
         member this.DisposeContainer(table : string) = async {

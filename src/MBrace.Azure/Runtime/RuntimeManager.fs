@@ -10,7 +10,7 @@ open MBrace.Azure
 open MBrace.Azure.Store
 
 [<AutoSerializable(false)>]
-type ClusterManager private (configB : Configuration, config : ClusterConfiguration, uuid : string, systemLogger : AttacheableLogger, resources : ResourceRegistry) =
+type ClusterManager private (configB : Configuration, config : ClusterState, uuid : string, systemLogger : AttacheableLogger, resources : ResourceRegistry) =
     do systemLogger.LogInfof "RuntimeManager Id = %A" config.Id
 
     do systemLogger.LogInfo "Creating worker manager"
@@ -118,11 +118,11 @@ type ClusterManager private (configB : Configuration, config : ClusterConfigurat
         member this.LocalSystemLogManager    = localSystemLogger :> _
 
 
-    static member private GetDefaultResources(config : ClusterConfiguration, customResources : ResourceRegistry) =
+    static member private GetDefaultResources(config : ClusterState, customResources : ResourceRegistry) =
         let fileStore = BlobStore.Create(config.StorageAccount.ConnectionString, defaultContainer = config.UserDataContainer)
-        let atomProvider = AtomProvider.Create(config.StorageAccount.ConnectionString, defaultTable = config.UserDataTable)
-        let dictionaryProvider = CloudDictionaryProvider.Create(config.StorageAccount.ConnectionString)
-        let queueProvider = QueueProvider.Create(config.ServiceBusAccount.ConnectionString)
+        let atomProvider = TableAtomProvider.Create(config.StorageAccount.ConnectionString, defaultTable = config.UserDataTable)
+        let dictionaryProvider = TableDictionaryProvider.Create(config.StorageAccount.ConnectionString)
+        let queueProvider = ServiceBusQueueProvider.Create(config.ServiceBusAccount.ConnectionString)
 
         let cloudValueProvider =
             let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory config.CloudValueContainer
@@ -142,7 +142,7 @@ type ClusterManager private (configB : Configuration, config : ClusterConfigurat
         }
 
     static member CreateForWorker(configB : Configuration, workerId : IWorkerId, logger : AttacheableLogger, customResources : ResourceRegistry) =
-        let config = ClusterConfiguration.Activate configB
+        let config = ClusterState.Activate configB
         logger.LogInfof "Activating cluster configuration: '%s'." config.Id
         logger.LogInfof "Creating resources"
         let resources = ClusterManager.GetDefaultResources(config, customResources)
@@ -152,7 +152,7 @@ type ClusterManager private (configB : Configuration, config : ClusterConfigurat
         runtime
 
     static member CreateForAppDomain(configB : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) =
-        let config = ClusterConfiguration.Activate configB
+        let config = ClusterState.Activate configB
         let logger = AttacheableLogger.Create(makeAsynchronous = true)
         let _ = logger.AttachLogger(mlogger)
         let resources = ClusterManager.GetDefaultResources(config, customResources)
@@ -161,7 +161,7 @@ type ClusterManager private (configB : Configuration, config : ClusterConfigurat
         runtime
 
     static member CreateForClient(configB : Configuration, clientId : string, logger : AttacheableLogger, customResources) =
-        let config = ClusterConfiguration.Activate configB
+        let config = ClusterState.Activate configB
         logger.LogInfof "Activating cluster configuration: '%s'." config.Id
         logger.LogInfof "Creating resources"
         let resources = ClusterManager.GetDefaultResources(config, customResources)

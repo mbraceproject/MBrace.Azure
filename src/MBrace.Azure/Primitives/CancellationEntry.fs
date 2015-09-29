@@ -60,7 +60,7 @@ type CancellationTokenSourceEntity(uuid : string, links : seq<string>) =
     static member DefaultPartitionKey = "ctoken"
 
 [<Sealed>]
-type internal CancellationEntry (config : ClusterConfiguration, uuid : string) =
+type internal CancellationEntry (config : ClusterState, uuid : string) =
     interface ICancellationEntry with
         member x.Cancel(): Async<unit> = 
             async {
@@ -96,7 +96,7 @@ type internal CancellationEntry (config : ClusterConfiguration, uuid : string) =
         
 
 [<Sealed>]
-type CancellationTokenFactory private (config : ClusterConfiguration) =
+type CancellationTokenFactory private (config : ClusterState) =
     interface ICancellationEntryFactory with
         member x.CreateCancellationEntry(): Async<ICancellationEntry> = 
             async {
@@ -127,10 +127,10 @@ type CancellationTokenFactory private (config : ClusterConfiguration) =
                         try
                             do! Table.batch config.StorageAccount config.RuntimeTable tbo
                             return Some(CancellationEntry(config, uuid) :> ICancellationEntry)
-                        with ex when Table.PreconditionFailed ex ->
+                        with ex when StoreException.PreconditionFailed ex ->
                             return! loop ()
                 }
                 return! loop ()
             }
         
-    static member Create(config : ClusterConfiguration) = new CancellationTokenFactory(config) :> ICancellationEntryFactory
+    static member Create(config : ClusterState) = new CancellationTokenFactory(config) :> ICancellationEntryFactory

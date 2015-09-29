@@ -8,7 +8,7 @@ open System.Runtime.Serialization
 open System
 
 [<AutoSerializable(true); DataContract; Sealed>]  
-type WorkItemManager private (config : ClusterConfiguration, workerManager : WorkerManager, logger : ISystemLogger) =
+type WorkItemManager private (config : ClusterState, workerManager : WorkerManager, logger : ISystemLogger) =
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "logger")>] logger = logger
 
@@ -160,4 +160,4 @@ type WorkItemManager private (config : ClusterConfiguration, workerManager : Wor
                 | None   -> return! queue.Enqueue(workItem, allowNewSifts = isClientSideEnqueue)
             }
 
-    static member Create(config : ClusterConfiguration, workerManager, logger) = new WorkItemManager(config, workerManager, logger)
+    static member Create(config : ClusterState, workerManager, logger) = new WorkItemManager(config, workerManager, logger)

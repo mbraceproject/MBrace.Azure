@@ -54,7 +54,7 @@ type ProcessRecord(taskId) =
     static member DefaultPartitionKey = "task"
 
 [<DataContract; Sealed>]
-type internal CloudProcessEntry (config : ClusterConfiguration, taskId) =
+type internal CloudProcessEntry (config : ClusterState, taskId) =
     static let unpickle (value : byte []) = ProcessConfiguration.Serializer.UnPickle<'T>(value)
 
     let [<DataMember(Name = "config")>] config = config
@@ -206,7 +206,7 @@ type internal CloudProcessEntry (config : ClusterConfiguration, taskId) =
         
 
 [<Sealed; DataContract>]
-type CloudProcessManager private (config : ClusterConfiguration, logger : ISystemLogger) =
+type CloudProcessManager private (config : ClusterState, logger : ISystemLogger) =
     static let pickle (value : 'T) = ProcessConfiguration.Serializer.Pickle(value)
 
     let [<DataMember(Name="config")>] config = config
@@ -259,4 +259,4 @@ type CloudProcessManager private (config : ClusterConfiguration, logger : ISyste
                 if record = null then return None else return Some(new CloudProcessEntry(config, taskId) :> ICloudProcessEntry)
             }
 
-    static member Create(config : ClusterConfiguration, logger) = new CloudProcessManager(config, logger)
+    static member Create(config : ClusterState, logger) = new CloudProcessManager(config, logger)

@@ -11,26 +11,131 @@ open Microsoft.WindowsAzure.Storage.Blob
 open MBrace.Core.Internals
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure.Store.TableEntities.Table
+
+[<AutoOpen>]
+module private BlobUtils =
+    
+    let rootPath = "/"
+    let rootPathAlt = @"\"
+    let delims = [|'/'; '\\'|]
+
+    let isPathRooted (path : string) =
+        path.StartsWith rootPath || path.StartsWith rootPathAlt
+
+    let normalizePath (path : string) =
+        let path = if isPathRooted path then path else Path.Combine(rootPath, path)
+        path.Replace('\\', '/')
+
+    let ensureRooted (path : string) =
+        if isPathRooted path then path else raise <| FormatException(sprintf "Invalid path %A. Paths should start with '/' or '\\'." path)
+
+    /// Azure blob container.
+    type Container =
+        | Root
+        | Container of string
+    
+    /// Represents a 'directory' in blob storage.
+    type StoreDirectory =
+        {
+            Container : Container
+            SubDirectory : string option
+        }
+    with
+        static member Parse(path : string) =
+            let path = ensureRooted path    
+            let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
+            match xs with
+            | [||] -> { Container = Root; SubDirectory = None }
+            | [|c|] -> 
+                Validate.containerName c
+                { Container = Container c ; SubDirectory = None }
+
+            | [|c; x|] -> 
+                Validate.containerName c
+                { Container = Container c; SubDirectory = Some x }
+
+            | _ -> raise <| new FormatException(sprintf "Invalid store path %A." path)
+
+    /// Represents a full path to a blob.
+    type StorePath =
+        {
+            Container : Container
+            BlobName : string 
+        }
+    with
+        static member Validate(path : string) =
+            ignore <| StorePath.Parse path
+
+        static member Parse(path : string) =
+            let path = ensureRooted path    
+            let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
+            match xs with
+            | [|x|] -> { Container = Root; BlobName = x }
+            | [|c; x|] -> 
+                Validate.containerName c
+                { Container = Container c; BlobName = x }
+
+            | _ -> raise <| new FormatException(sprintf "Invalid store path %A." path)
+
+    /// <summary>
+    ///     Creates a blob storage container reference given account and container name
+    /// </summary>
+    /// <param name="account">Storage account instance.</param>
+    /// <param name="container">Container name</param>
+    let getContainerReference (account : AzureStorageAccount) (container : Container) = 
+        let client = account.BlobClient
+        match container with
+        | Root -> 
+            let root = client.GetRootContainerReference()
+            let _ = root.CreateIfNotExists()
+            root
+        | Container c ->
+            client.GetContainerReference c
+
+    /// <summary>
+    ///     Creates a blob reference given account and full path.
+    /// </summary>
+    /// <param name="account">Cloud storage account.</param>
+    /// <param name="path">Path to blob.</param>
+    let getBlobReference account (fullPath : string) = async {
+        let path = StorePath.Parse fullPath
+        let container = getContainerReference account path.Container
+        let _ =
+            match path.Container with
+            | Container _ -> container.CreateIfNotExists()
+            | Root -> true
+        return container.GetBlockBlobReference(path.BlobName)
+    }
+
 
 ///  MBrace File Store implementation that uses Azure Blob Storage as backend.
 [<Sealed; DataContract>]
 type BlobStore private (account : AzureStorageAccount, defaultContainer : string) =
-    
+
     [<DataMember(Name = "StorageAccount")>]
     let account = account
 
     [<DataMember(Name = "DefaultContainer")>]
-    let defaultContainer = defaultContainer
+    let defaultContainer = normalizePath defaultContainer
+
+    do StorePath.Validate defaultContainer
 
     /// <summary>
-    ///     Creates an MBrace blob storage interface that connects to storage account with provided connection string.
+    ///     Creates an Azure blob store based CloudFileStore instance that connects to provided storage account.
+    /// </summary>
+    /// <param name="account">Azure storage account.</param>
+    /// <param name="defaultContainer">Default container to be used be store instance.</param>
+    static member Create(account : AzureStorageAccount, ?defaultContainer : string) = 
+        ignore account.ConnectionString // force check that connection string is present in current host.
+        new BlobStore(account, defaultArg defaultContainer "")
+
+    /// <summary>
+    ///     Creates an Azure blob store based CloudFileStore instance that connects to provided connection string.
     /// </summary>
     /// <param name="connectionString">Azure storage account connection string.</param>
     /// <param name="defaultContainer">Default container to be used be store instance.</param>
     static member Create(connectionString : string, ?defaultContainer : string) = 
-        let account = AzureStorageAccount.Parse connectionString
-        new BlobStore(account, defaultArg defaultContainer "")
+        BlobStore.Create(AzureStorageAccount.Parse connectionString, ?defaultContainer = defaultContainer)
 
     interface ICloudFileStore with
         member this.BeginWrite(path: string): Async<Stream> = async {
@@ -47,9 +152,9 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             match stream with
             | Choice1Of2 s -> 
                 return Some s
-            | Choice2Of2 e when PreconditionFailed e -> 
+            | Choice2Of2 e when StoreException.PreconditionFailed e -> 
                 return None
-            | Choice2Of2 e when NotFound e ->
+            | Choice2Of2 e when StoreException.NotFound e ->
                 return raise <| new FileNotFoundException(path, e)
             | Choice2Of2 e -> return raise e
         }
@@ -64,7 +169,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 else
                     return Some blob.Properties.ETag
             with
-            | ex when NotFound ex -> return None
+            | ex when StoreException.NotFound ex -> return None
             | ex -> return raise ex
         }
         
@@ -73,7 +178,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
 
         member this.DefaultDirectory = defaultContainer
         member this.WithDefaultDirectory (newContainer : string) =
-            Validate.containerName newContainer
             let newContainer = normalizePath newContainer
             new BlobStore(account, newContainer) :> _
 
@@ -97,7 +201,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             match result with
             | Choice1Of2 () when blob.Properties.Length = -1L -> return! Async.Raise <| FileNotFoundException(path)
             | Choice1Of2 () -> return blob.Properties.Length
-            | Choice2Of2 ex when NotFound ex -> return! Async.Raise <| FileNotFoundException(path)
+            | Choice2Of2 ex when StoreException.NotFound ex -> return! Async.Raise <| FileNotFoundException(path)
             | Choice2Of2 ex -> return! Async.Raise ex
         }
 
@@ -113,7 +217,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                     if lm.HasValue then return lm.Value
                     else return! Async.Raise <| DirectoryNotFoundException(path)
 
-                | Choice2Of2 ex when NotFound ex -> return! Async.Raise <| DirectoryNotFoundException(path)
+                | Choice2Of2 ex when StoreException.NotFound ex -> return! Async.Raise <| DirectoryNotFoundException(path)
                 | Choice2Of2 ex -> return! Async.Raise ex
             else
                 let! blob = getBlobReference account path
@@ -124,7 +228,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                     if lm.HasValue then return lm.Value
                     else return! Async.Raise <| FileNotFoundException(path)
 
-                | Choice2Of2 ex when NotFound ex -> return! Async.Raise <| FileNotFoundException(path)
+                | Choice2Of2 ex when StoreException.NotFound ex -> return! Async.Raise <| FileNotFoundException(path)
                 | Choice2Of2 ex -> return! Async.Raise ex
         }
 
@@ -165,7 +269,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                     |> Seq.map normalizePath
                     |> Seq.toArray
 
-            with e when NotFound e ->
+            with e when StoreException.NotFound e ->
                 return raise <| new DirectoryNotFoundException(container, e)
         }
         
@@ -174,7 +278,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 let path = normalizePath path
                 let! blob = getBlobReference account path
                 do! blob.DeleteAsync()
-            with e when NotFound e ->
+            with e when StoreException.NotFound e ->
                 return raise <| new FileNotFoundException(path, e)
         }
 
@@ -235,7 +339,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                             |> Seq.map (fun c -> normalizePath c.Name)
                             |> Seq.toArray
                 | { Container = _; SubDirectory = _ } -> return! Async.Raise <| NotImplementedException()
-            with e when NotFound e ->
+            with e when StoreException.NotFound e ->
                 return raise <| new DirectoryNotFoundException(directory, e)
         }
 
@@ -256,7 +360,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 let path = normalizePath path
                 let! blob = getBlobReference account path
                 return! blob.OpenReadAsync()
-            with e when NotFound e ->
+            with e when StoreException.NotFound e ->
                 return raise <| new FileNotFoundException(path, e)
         }
 
@@ -272,6 +376,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 let path = normalizePath path
                 let! blob = getBlobReference account path
                 do! blob.DownloadToStreamAsync(target).ContinueWith ignore
-            with e when NotFound e ->
+            with e when StoreException.NotFound e ->
                 return raise <| new FileNotFoundException(path, e)
         }

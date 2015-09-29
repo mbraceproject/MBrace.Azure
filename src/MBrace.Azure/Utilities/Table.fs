@@ -7,13 +7,20 @@ open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
 module Table =
-    let PreconditionFailed (e : exn) =
-        match e with
-        | :? StorageException as e -> e.RequestInformation.HttpStatusCode = 412 
-        | :? AggregateException as e ->
-            let e = e.InnerException
-            e :? StorageException && (e :?> StorageException).RequestInformation.HttpStatusCode = 412 
-        | _ -> false
+
+    let getRandomName () =
+        // See http://blogs.msdn.com/b/jmstall/archive/2014/06/12/azure-storage-naming-rules.aspx
+        let alpha = [|'a'..'z'|]
+        let alphaNumeric = Array.append alpha [|'0'..'9'|]
+        let maxLen = 63
+        let randOf =
+            let rand = new Random(int DateTime.Now.Ticks)
+            fun (x : char []) -> x.[rand.Next(0, x.Length)]
+
+        let name = 
+            [| yield randOf alpha
+               for _i = 1 to maxLen-1 do yield randOf alphaNumeric |]
+        new String(name)
 
     let private exec<'U> (config : AzureStorageAccount) table op : Async<obj> = 
         async {
@@ -120,7 +127,7 @@ module Table =
         let! result = Async.Catch <| merge<'T> config table e
         match result with
         | Choice1Of2 r -> return Some(r)
-        | Choice2Of2 ex when PreconditionFailed ex -> return None
+        | Choice2Of2 ex when StoreException.PreconditionFailed ex -> return None
         | Choice2Of2 ex -> return raise ex
     }
 
@@ -136,7 +143,7 @@ module Table =
             let! result = Async.Catch <| merge<'T> config table e
             match result with
             | Choice1Of2 r -> return r
-            | Choice2Of2 ex when PreconditionFailed ex -> 
+            | Choice2Of2 ex when StoreException.PreconditionFailed ex -> 
                 let! e = read<'T> config table pk rk
                 return! transact e
             | Choice2Of2 ex -> return raise ex
@@ -151,7 +158,7 @@ module Table =
             let! result = Async.Catch <| merge<'T> config table e'
             match result with
             | Choice1Of2 r -> return r
-            | Choice2Of2 ex when PreconditionFailed ex -> 
+            | Choice2Of2 ex when StoreException.PreconditionFailed ex -> 
                 let! e = read<'T> config table pk rk
                 return! transact e
             | Choice2Of2 ex -> return raise ex

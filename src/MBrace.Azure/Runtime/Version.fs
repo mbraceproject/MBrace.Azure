@@ -22,7 +22,7 @@ module internal ReleaseInfo =
 type Metadata =
     { 
         Version : Version
-        ConfigurationId : ClusterConfiguration 
+        ConfigurationId : ClusterState 
     }
     
 [<RequireQualifiedAccess; CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -32,14 +32,15 @@ module internal Metadata =
 
     let compareConfigurations (local : Metadata) (remote : Metadata) =
         if local.ConfigurationId <> remote.ConfigurationId then
-            failwithf "Configuration mismatch. Given configuration %+A does not match remote configuration %+A" local.ConfigurationId remote.ConfigurationId
+            let msg = sprintf "Configuration mismatch. Given configuration %+A does not match remote configuration %+A" local.ConfigurationId remote.ConfigurationId
+            raise <| FormatException(msg)
 
     let compare (local : Metadata) (remote : Metadata) =
         if local <> remote then
             raise <| FormatException(sprintf "Incompatible metadata, received %A, expected %A" remote local)
 
-    let toString (version : Version) (configurationId : ClusterConfiguration) =
-        let metadata = { Version = version; ConfigurationId = configurationId }
+    let toString (version : Version) (config : ClusterState) =
+        let metadata = { Version = version; ConfigurationId = config }
         jsonSerializer.Value.PickleToString metadata
 
     let fromString (metadata : string) =

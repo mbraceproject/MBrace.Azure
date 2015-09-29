@@ -10,12 +10,12 @@ open MBrace.Runtime.Components
 [<AutoSerializable(false)>]
 type ClosureSifter =
     
-    static member SiftClosure<'T>(id : ClusterConfiguration, closure : 'T, allowNewSifts : bool) = async {
+    static member SiftClosure<'T>(id : ClusterState, closure : 'T, allowNewSifts : bool) = async {
         let manager = ConfigurationRegistry.Resolve<ClosureSiftManager>(id)
         return! manager.SiftClosure(closure, allowNewSifts)
     }
 
-    static member UnSiftClosure<'T>(id : ClusterConfiguration, sifted : SiftedClosure<'T>) = async {
+    static member UnSiftClosure<'T>(id : ClusterState, sifted : SiftedClosure<'T>) = async {
         let manager = ConfigurationRegistry.Resolve<ClosureSiftManager>(id)
         return! manager.UnSiftClosure sifted
     }

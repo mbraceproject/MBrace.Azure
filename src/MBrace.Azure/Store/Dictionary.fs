@@ -15,12 +15,10 @@ open MBrace.Runtime
 
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure.Store.TableEntities
-open MBrace.Azure.Store.TableEntities.Table
 
-/// Azure Table store CloudDictionary implementation.
+/// MBrace CloudDictionary implementation on top of Azure Table Store.
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type Dictionary<'T> (tableName : string, account : AzureStorageAccount) = 
+type TableDictionary<'T> internal (tableName : string, account : AzureStorageAccount) = 
     
     [<DataMember(Name = "Account")>]
     let account = account
@@ -71,7 +69,7 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
                     let! result = Async.Catch <| Table.insert<FatEntity> account tableName e'
                     match result with
                     | Choice1Of2 () -> return returnValue
-                    | Choice2Of2 ex when Conflict ex ->
+                    | Choice2Of2 ex when StoreException.Conflict ex ->
                         let! e = Table.read<FatEntity> account tableName key String.Empty
                         return! transact e (count + 1)
                     | Choice2Of2 ex -> return raise ex
@@ -80,7 +78,7 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
                     let! result = Async.Catch <| Table.merge<FatEntity> account tableName e'
                     match result with
                     | Choice1Of2 _ -> return returnValue
-                    | Choice2Of2 ex when PreconditionFailed ex -> 
+                    | Choice2Of2 ex when StoreException.PreconditionFailed ex -> 
                         let! e = Table.read<FatEntity> account tableName key String.Empty
                         return! transact e (count + 1)
                     | Choice2Of2 ex -> return raise ex
@@ -110,7 +108,7 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
                 do! Table.delete account tableName (TableEntity(key, String.Empty, ETag = "*"))
                 return true
             with ex -> 
-                if NotFound ex then return false else return raise ex
+                if StoreException.NotFound ex then return false else return raise ex
         }
         
         member this.ToEnumerable(): Async<seq<Collections.Generic.KeyValuePair<string,'T>>> = async {
@@ -124,7 +122,7 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
                 do! (this :> CloudDictionary<'T>).Add(key, value)
                 return true
             with ex ->
-                if Conflict ex then return false else return raise ex
+                if StoreException.Conflict ex then return false else return raise ex
         }
         
         member x.TryFind(key: string): Async<'T option> = async {
@@ -136,15 +134,27 @@ type Dictionary<'T> (tableName : string, account : AzureStorageAccount) =
                 return Some value
         }
 
+/// CloudDictionary provider implementation on top of Azure table store.
 [<Sealed; DataContract>]
-type CloudDictionaryProvider private (account : AzureStorageAccount) =
+type TableDictionaryProvider private (account : AzureStorageAccount) =
     
     [<DataMember(Name = "Account")>]
     let account = account
 
+    /// <summary>
+    ///     Creates a TableDirectionaryProvider instance using provided Azure storage account.
+    /// </summary>
+    /// <param name="account">Azure storage account.</param>
+    static member Create(account : AzureStorageAccount) =
+        ignore account.ConnectionString // ensure that connection string is present in the current context
+        new TableDictionaryProvider(account)
+
+    /// <summary>
+    ///     Creates a TableDirectionaryProvider instance using provided Azure storage connection string.
+    /// </summary>
+    /// <param name="connectionString">Azure storage connection string.</param>
     static member Create(connectionString : string) =
-        let account = AzureStorageAccount.Parse connectionString
-        new CloudDictionaryProvider(account)
+        TableDictionaryProvider.Create(AzureStorageAccount.Parse connectionString)
 
     interface ICloudDictionaryProvider with
         member x.Id = account.TableClient.BaseUri.AbsolutePath
@@ -153,8 +163,8 @@ type CloudDictionaryProvider private (account : AzureStorageAccount) =
             let tableName = Table.getRandomName()
             let tableRef = account.TableClient.GetTableReference(tableName)
             let! _ = tableRef.CreateIfNotExistsAsync()
-            return new Dictionary<'T>(tableName, account) :> CloudDictionary<'T>
+            return new TableDictionary<'T>(tableName, account) :> CloudDictionary<'T>
         }
 
         member x.IsSupportedValue(value: 'T): bool = 
-            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
+            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 FatEntityConfiguration.MaxPayloadSize

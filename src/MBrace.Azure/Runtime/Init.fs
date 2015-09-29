@@ -29,7 +29,7 @@ type internal Initializer =
                         let domainName = System.AppDomain.CurrentDomain.FriendlyName
                         marshalledLogger.LogInfof "Initializing Application Domain %A" domainName
                         ProcessConfiguration.InitAsWorkerSlaveDomain workingDirectory
-                        let _ = ClusterConfiguration.Activate config
+                        let _ = ClusterState.Activate config
                         ()
 
                     let managerF () =

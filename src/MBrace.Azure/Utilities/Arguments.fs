@@ -57,7 +57,8 @@ with
 
 let private argParser = ArgumentParser.Create<AzureArguments>()
 
-type AzureArgumentConfiguration = 
+/// Configuration object encoding command line parameters for an MBrace.Azure process
+type ArgumentConfiguration = 
     {
         Configuration : Configuration
         MaxWorkItems : int option
@@ -65,41 +66,44 @@ type AzureArgumentConfiguration =
         LogLevel : LogLevel option
     }
 with
+    /// Creates a configuration object using supplied parameters.
     static member Create(config : Configuration, ?maxWorkItems, ?workerName, ?logLevel) =
         { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerName = workerName ; LogLevel = logLevel }
 
-    static member ToCommandLineArguments(cfg : AzureArgumentConfiguration) =
-        let args = 
-            [
-                match cfg.MaxWorkItems with Some w -> yield Max_Work_Items w | None -> ()
-                match cfg.WorkerName with Some n -> yield Worker_Name n | None -> ()
-                match cfg.LogLevel with Some l -> yield Log_Level (int l) | None -> ()
+    /// Converts a configuration object to a command line string.
+    static member ToCommandLineArguments(cfg : ArgumentConfiguration) =
+        let args = [
 
-                let config = cfg.Configuration
+            match cfg.MaxWorkItems with Some w -> yield Max_Work_Items w | None -> ()
+            match cfg.WorkerName with Some n -> yield Worker_Name n | None -> ()
+            match cfg.LogLevel with Some l -> yield Log_Level (int l) | None -> ()
 
-                yield Storage_Connection_String config.StorageConnectionString
-                yield Service_Bus_Connection_string config.ServiceBusConnectionString
+            let config = cfg.Configuration
 
-                yield Force_Version config.Version
-                yield Suffix_Id config.SuffixId
-                yield Use_Version_Suffix config.UseVersionSuffix
-                yield Use_Suffix_Id config.UseSuffixId
+            yield Storage_Connection_String config.StorageConnectionString
+            yield Service_Bus_Connection_string config.ServiceBusConnectionString
 
-                yield Runtime_Queue config.RuntimeQueue
-                yield Runtime_Topic config.RuntimeTopic
+            yield Force_Version config.Version
+            yield Suffix_Id config.SuffixId
+            yield Use_Version_Suffix config.UseVersionSuffix
+            yield Use_Suffix_Id config.UseSuffixId
 
-                yield Runtime_Container config.RuntimeContainer
-                yield User_Data_Container config.UserDataContainer
-                yield Assembly_Container config.AssemblyContainer
-                yield Cloud_Value_Container config.CloudValueContainer
+            yield Runtime_Queue config.RuntimeQueue
+            yield Runtime_Topic config.RuntimeTopic
 
-                yield Runtime_Table config.RuntimeTable
-                yield Runtime_Logs_Table config.RuntimeLogsTable
-                yield User_Data_Table config.UserDataTable
-            ]
+            yield Runtime_Container config.RuntimeContainer
+            yield User_Data_Container config.UserDataContainer
+            yield Assembly_Container config.AssemblyContainer
+            yield Cloud_Value_Container config.CloudValueContainer
+
+            yield Runtime_Table config.RuntimeTable
+            yield Runtime_Logs_Table config.RuntimeLogsTable
+            yield User_Data_Table config.UserDataTable
+        ]
 
         argParser.PrintCommandLineFlat args
 
+    /// Parses command line arguments to a configuration object using Argu.
     static member FromCommandLineArguments(args : string []) =
         let parseResult = argParser.Parse(args, errorHandler = new ProcessExiter())
 

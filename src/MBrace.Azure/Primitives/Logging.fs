@@ -217,7 +217,7 @@ type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fet
 
 /// Management object for table storage based log files
 [<AutoSerializable(false)>]
-type TableSystemLogManager (config : ClusterConfiguration) =
+type TableSystemLogManager (config : ClusterState) =
     let table = config.StorageAccount.GetTableReference(config.RuntimeLogsTable)
 
     /// <summary>
@@ -357,7 +357,7 @@ type TableSystemLogManager (config : ClusterConfiguration) =
 
 /// Management object for writing cloud process logs to the table store
 [<AutoSerializable(false)>]
-type TableCloudLogManager (config : ClusterConfiguration) =
+type TableCloudLogManager (config : ClusterState) =
     let table = config.StorageAccount.GetTableReference config.UserDataTable
 
     /// <summary>

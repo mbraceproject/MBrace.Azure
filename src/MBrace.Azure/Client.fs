@@ -127,8 +127,8 @@ type AzureCluster private (manager : ClusterManager) =
         let exe = AzureCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."
         let _ = Array.Parallel.init workerCount (fun i -> 
-            let cli = AzureArgumentConfiguration.Create(config, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?workerName = (workerNameF |> Option.map (fun f -> f i)))
-            let args = AzureArgumentConfiguration.ToCommandLineArguments(cli)
+            let cli = ArgumentConfiguration.Create(config, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?workerName = (workerNameF |> Option.map (fun f -> f i)))
+            let args = ArgumentConfiguration.ToCommandLineArguments(cli)
             let psi = new ProcessStartInfo(exe, args)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
             psi.UseShellExecute <- true

@@ -14,8 +14,9 @@ open MBrace.Runtime
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 
+/// CloudQueue implementation on top of Azure ServiceBus
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type Queue<'T> internal (queuePath, account : AzureServiceBusAccount) =
+type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) =
     
     [<DataMember(Name = "Account")>]
     let account = account
@@ -91,9 +92,9 @@ type Queue<'T> internal (queuePath, account : AzureServiceBusAccount) =
         }
 
 
-/// MBrace Channel provider over Azure Service Bus queues
+/// MBrace CloudQueue provider implemented on top of Azure Service Bus queues
 [<Sealed; DataContract>]
-type QueueProvider private (account : AzureServiceBusAccount) =
+type ServiceBusQueueProvider private (account : AzureServiceBusAccount) =
     
     [<DataMember(Name = "Account")>]
     let account = account
@@ -115,13 +116,20 @@ type QueueProvider private (account : AzureServiceBusAccount) =
                 qd.SupportOrdering <- true
                 qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
                 do! account.NamespaceManager.CreateQueueAsync(qd)
-                return new Queue<'T>(queuePath, account) :> CloudQueue<'T>
+                return new ServiceBusQueue<'T>(queuePath, account) :> CloudQueue<'T>
             }
 
     /// <summary>
-    ///     Creates an Azure Service bus queue connection string.
+    ///     Creates an Azure Service bus Queue provider using provided azure service bus account.
     /// </summary>
-    /// <param name="connectionString">Azure service bus connection string.</param>
+    /// <param name="account">Azure service bus account.</param>
+    static member Create(account : AzureServiceBusAccount) =
+        ignore account.ConnectionString // check that connection string is present in current host context.
+        new ServiceBusQueueProvider(account)
+
+    /// <summary>
+    ///     Creates an Azure Service bus Queue provider using provided azure service bus connection string.
+    /// </summary>
+    /// <param name="account">Azure service bus account.</param>
     static member Create(connectionString : string) =
-        let account = AzureServiceBusAccount.Parse connectionString
-        new QueueProvider(account)
+        ServiceBusQueueProvider.Create(AzureServiceBusAccount.Parse connectionString)
