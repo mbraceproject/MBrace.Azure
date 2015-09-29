@@ -7,6 +7,8 @@ open MBrace.Azure.Runtime.Utilities
 open System.Runtime.Serialization
 open System
 
+// TODO : make non-serializable & thread safe
+
 [<AutoSerializable(true); DataContract; Sealed>]  
 type WorkItemManager private (config : ClusterId, workerManager : WorkerManager, logger : ISystemLogger) =
     let [<DataMember(Name = "config")>] config = config

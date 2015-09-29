@@ -228,16 +228,13 @@ type TableSystemLogManager (config : ClusterId) =
     member __.CreateLogWriter(loggerId : string) = async {
         let! writer = CloudTableLogWriter<SystemLogRecord>.Create(table)
         return {
-            new obj ()
+            new IRemoteSystemLogger with
+                member __.LogEntry(e : SystemLogEntry) =
+                    let record = SystemLogRecord.FromLogEntry(loggerId, e)
+                    writer.LogEntry record
 
-                interface ISystemLogger with
-                    member __.LogEntry(e : SystemLogEntry) =
-                        let record = SystemLogRecord.FromLogEntry(loggerId, e)
-                        writer.LogEntry record
-
-                interface IDisposable with
-                    member __.Dispose() =
-                        Disposable.dispose writer
+                member __.Dispose() =
+                    Disposable.dispose writer
         }
     }
         
@@ -326,7 +323,7 @@ type TableSystemLogManager (config : ClusterId) =
         }
 
     interface IRuntimeSystemLogManager with 
-        member x.CreateLogWriter(id: IWorkerId): Async<ISystemLogger> = async {
+        member x.CreateLogWriter(id: IWorkerId): Async<IRemoteSystemLogger> = async {
             return! x.CreateLogWriter(id.Id)
         }
                

@@ -29,7 +29,7 @@ module StoreException =
 let private mkStoreConflictRetryPolicy maxRetries interval =
     let interval = defaultArg interval 3000 |> float |> TimeSpan.FromMilliseconds
     Policy (fun retries exn ->
-        if maxRetries |> Option.exists (fun mr -> mr > retries) then None
+        if maxRetries |> Option.exists (fun mr -> retries > mr) then None
         elif StoreException.Conflict exn then Some interval
         else None)
 

@@ -173,6 +173,7 @@ type ConfigurationRegistry private () =
         |> ignore
 
     static member Resolve<'T>(config : ClusterId) : 'T =
-        match registry.TryGetValue((config, typeof<'T>)) with
-        | true, v  -> v :?> 'T
-        | false, _ -> invalidOp <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>
+        let mutable result = null
+        if registry.TryGetValue((config, typeof<'T>), &result) then result :?> 'T
+        else
+            invalidOp <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>

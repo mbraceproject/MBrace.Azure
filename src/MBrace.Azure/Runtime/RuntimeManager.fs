@@ -114,12 +114,12 @@ type ClusterManager private (configB : Configuration, config : ClusterId, logger
         member this.LocalSystemLogManager    = loggerManager :> _
 
     static member Create(configB : Configuration, ?customResources : ResourceRegistry, ?systemLogger : ISystemLogger) = async {
+        let configB = FsPickler.Clone configB // isolate external mutations to configuration object
+
         let logger = AttacheableLogger.Create(makeAsynchronous = false)
         match systemLogger with Some l -> logger.AttachLogger l |> ignore | None -> ()
 
-        let configB = FsPickler.Clone configB
-
-        logger.LogInfof "Activating cluster configuration: 'Storage:%s, ServiceBus:%s'." configB.StorageAccount configB.ServiceBusAccount
+        logger.LogInfof "Activating cluster configuration:\n\tStorage: %s\n\tServiceBus: %s" configB.StorageAccount configB.ServiceBusAccount
         let config = ClusterId.Activate configB
 
         logger.LogInfof "Initializing Azure store entities"

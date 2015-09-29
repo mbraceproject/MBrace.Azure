@@ -17,14 +17,15 @@ module WorkerSubscription =
             Manager : ClusterManager
             Agent : WorkerAgent
             WorkItemEvaluator : ICloudWorkItemEvaluator
+            StoreLogger : IRemoteSystemLogger
             StoreLoggerSubscription : IDisposable
-            // TODO : storeLogger
         }
     with
         member s.Dispose() =
             Disposable.dispose s.Agent
             Disposable.dispose s.WorkItemEvaluator
             Disposable.dispose s.StoreLoggerSubscription
+            Disposable.dispose s.StoreLogger
 
     let initialize (config : Configuration) (workerId : string) (logger : ISystemLogger) 
                     (useAppDomainIsolation : bool) (maxConcurrentWorkItems : int) (customResources : ResourceRegistry) =
@@ -76,6 +77,7 @@ module WorkerSubscription =
                 Agent = agent
                 Manager = clusterManager
                 StoreLoggerSubscription = storeLoggerSubscription
+                StoreLogger = storeLogger
                 WorkItemEvaluator = jobEvaluator
             }
         }
