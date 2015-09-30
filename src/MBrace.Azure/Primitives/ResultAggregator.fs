@@ -129,7 +129,7 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
                         |> Async.Parallel
             }
 
-[<Sealed>]
+[<Sealed; AutoSerializable(false)>]
 type ResultAggregatorFactory private (config : ClusterId) =
     interface ICloudResultAggregatorFactory with
         member x.CreateResultAggregator(_aggregatorId : string, capacity: int): Async<ICloudResultAggregator<'T>> = 

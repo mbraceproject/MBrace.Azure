@@ -40,6 +40,8 @@ type ClusterManager private (configB : Configuration, config : ClusterId, logger
     let int32CounterFactory = Int32CounterFactory.Create(config)
     let resultAggregatorFactory = ResultAggregatorFactory.Create(config)
 
+    do ConfigurationRegistry.Register(config, logger :> ISystemLogger)
+
     do logger.LogInfo "RuntimeManager initialization complete"
 
     member this.Resources = resources
@@ -158,25 +160,3 @@ type ClusterManager private (configB : Configuration, config : ClusterId, logger
 
         return new ClusterManager(configB, config, logger, resources)
     }
-
-//    static member CreateForAppDomain(configB : Configuration, workerId : IWorkerId, mlogger : MarshaledLogger, customResources) = async {
-//        let configB = FsPickler.Clone configB
-//        let config = ClusterId.Activate configB
-//        let logger = AttacheableLogger.Create(makeAsynchronous = true)
-//        let _ = logger.AttachLogger(mlogger)
-//        let resources = ClusterManager.GetDefaultResources(config, customResources)
-//        logger.LogInfof "Creating RuntimeManager for AppDomain %A" AppDomain.CurrentDomain.FriendlyName
-//        let runtime = new ClusterManager(configB, config, workerId.Id, logger, resources)
-//        return runtime
-//    }
-//
-//    static member CreateForClient(configB : Configuration, clientId : string, logger : AttacheableLogger, customResources) = async {
-//        let configB = FsPickler.Clone configB
-//        let config = ClusterId.Activate configB
-//        logger.LogInfof "Activating cluster configuration: '%s'." config.Id
-//        logger.LogInfof "Creating resources"
-//        let resources = ClusterManager.GetDefaultResources(config, customResources)
-//        logger.LogInfof "Creating RuntimeManager for Client %A" clientId
-//        let runtime = new ClusterManager(configB, config, clientId, logger, resources)
-//        return runtime
-//    }

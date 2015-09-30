@@ -9,14 +9,14 @@ open Microsoft.WindowsAzure.Storage.Table
 open MBrace.Runtime
 
 // NOTE : All types that inherit TableEntity must provide a default public ctor.
-type CounterEntity(id : string, value : int) = 
+type CounterEntity(id : string, value : int64) = 
     inherit TableEntity(id, CounterEntity.DefaultRowKey)
     member val Counter = value with get, set
-    new () = new CounterEntity(null, 0)
+    new () = new CounterEntity(null, 0L)
     static member DefaultRowKey = String.Empty
 
 [<DataContract; Sealed>]
-type internal Int32Counter (config : ClusterId, partitionKey : string) =
+type internal CloudCounter (config : ClusterId, partitionKey : string) =
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
 
@@ -25,12 +25,12 @@ type internal Int32Counter (config : ClusterId, partitionKey : string) =
             do! Table.delete config.StorageAccount config.RuntimeTable <| CounterEntity(PartitionKey = partitionKey)
         }
         
-        member x.Increment(): Async<int> = async { 
-            let! e = Table.transact<CounterEntity> config.StorageAccount config.RuntimeTable partitionKey CounterEntity.DefaultRowKey (fun e -> e.Counter <- 1 + e.Counter)
+        member x.Increment(): Async<int64> = async { 
+            let! e = Table.transact<CounterEntity> config.StorageAccount config.RuntimeTable partitionKey CounterEntity.DefaultRowKey (fun e -> e.Counter <- 1L + e.Counter)
             return e.Counter
         }
 
-        member x.Value: Async<int> = async {
+        member x.Value: Async<int64> = async {
             let! e = Table.read<CounterEntity> config.StorageAccount config.RuntimeTable partitionKey CounterEntity.DefaultRowKey
             return e.Counter
         }
@@ -38,11 +38,11 @@ type internal Int32Counter (config : ClusterId, partitionKey : string) =
 [<Sealed>]
 type Int32CounterFactory private (config : ClusterId) =
     interface ICloudCounterFactory with
-        member x.CreateCounter(initialValue: int): Async<ICloudCounter> = 
+        member x.CreateCounter(initialValue: int64): Async<ICloudCounter> = 
             async {
                 let record = new CounterEntity(guid(), initialValue)
                 let! _record = Table.insert config.StorageAccount config.RuntimeTable record
-                return new Int32Counter(config, record.PartitionKey) :> ICloudCounter
+                return new CloudCounter(config, record.PartitionKey) :> ICloudCounter
             }
 
     static member Create(config : ClusterId) = new Int32CounterFactory(config) :> ICloudCounterFactory
