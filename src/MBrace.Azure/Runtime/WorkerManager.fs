@@ -9,26 +9,28 @@ open MBrace.Runtime
 open MBrace.Core.Internals
 
 [<AllowNullLiteral>]
-type WorkerRecord(id) =
-    inherit TableEntity(WorkerRecord.DefaultPartitionKey, id)
+type WorkerRecord(workerId : string) =
+    inherit TableEntity(WorkerRecord.DefaultPartitionKey, workerId)
     
-    member val Id                 = id with get, set
-    member val Hostname           = Unchecked.defaultof<string> with get, set
-    member val ProcessId          = Nullable<int>() with get, set
-    member val ProcessName        = Unchecked.defaultof<string> with get, set
-    member val InitializationTime = Nullable<DateTimeOffset>() with get, set
-    member val ConfigurationId    = Unchecked.defaultof<byte []> with get, set
-    member val MaxWorkItems       = Nullable<int>()   with get, set
-    member val ActiveWorkItems    = Nullable<int>()   with get, set
-    member val ProcessorCount     = Nullable<int>()   with get, set
-    member val MaxClockSpeed      = Nullable<double>() with get, set
-    member val CPU                = Nullable<double>() with get, set
-    member val TotalMemory        = Nullable<double>() with get, set
-    member val Memory             = Nullable<double>() with get, set
-    member val NetworkUp          = Nullable<double>() with get, set
-    member val NetworkDown        = Nullable<double>() with get, set
-    member val Version            = Unchecked.defaultof<string> with get, set
-    member val Status             = Unchecked.defaultof<byte []> with get, set
+    member val Id                   = workerId with get, set
+    member val Hostname             = Unchecked.defaultof<string> with get, set
+    member val ProcessId            = Nullable<int>() with get, set
+    member val ProcessName          = Unchecked.defaultof<string> with get, set
+    member val InitializationTime   = Nullable<DateTimeOffset>() with get, set
+    member val ConfigurationId      = Unchecked.defaultof<byte []> with get, set
+    member val MaxWorkItems         = Nullable<int>()   with get, set
+    member val ActiveWorkItems      = Nullable<int>()   with get, set
+    member val ProcessorCount       = Nullable<int>()   with get, set
+    member val MaxClockSpeed        = Nullable<double>() with get, set
+    member val CPU                  = Nullable<double>() with get, set
+    member val TotalMemory          = Nullable<double>() with get, set
+    member val Memory               = Nullable<double>() with get, set
+    member val NetworkUp            = Nullable<double>() with get, set
+    member val NetworkDown          = Nullable<double>() with get, set
+    member val HeartbeatInterval    = Nullable<int64>() with get, set
+    member val HeartbeatThreshold   = Nullable<int64>() with get, set
+    member val Version              = Unchecked.defaultof<string> with get, set
+    member val Status               = Unchecked.defaultof<byte []> with get, set
     
     new () = new WorkerRecord(null)
 
@@ -87,19 +89,26 @@ type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
     let pickle (value : 'T) = ProcessConfiguration.Serializer.Pickle(value)
     let unpickle (value : byte []) = ProcessConfiguration.Serializer.UnPickle<'T>(value)
 
-    let mkWorkerState (record : WorkerRecord) = 
-        { Id = new WorkerId(record.Id)
-          CurrentWorkItemCount = record.ActiveWorkItems.GetValueOrDefault(-1)
-          LastHeartbeat = record.Timestamp
-          HeartbeatRate = TimeSpan.MinValue // TODO : Implement
-          InitializationTime = record.InitializationTime.Value
-          ExecutionStatus = unpickle record.Status
-          PerformanceMetrics = record.GetCounters()
-          Info = 
-              { Hostname = record.Hostname
+    let mkWorkerState (record : WorkerRecord) =
+        let workerInfo =
+            { 
+                Hostname = record.Hostname
                 ProcessId = record.ProcessId.GetValueOrDefault(-1)
                 ProcessorCount = record.ProcessorCount.GetValueOrDefault(-1)
-                MaxWorkItemCount = record.MaxWorkItems.GetValueOrDefault(-1) } } 
+                MaxWorkItemCount = record.MaxWorkItems.GetValueOrDefault(-1) 
+                HeartbeatInterval = record.HeartbeatInterval.Value |> TimeSpan.FromTicks
+                HeartbeatThreshold = record.HeartbeatThreshold.Value |> TimeSpan.FromTicks
+            }
+            
+        { 
+            Id = new WorkerId(record.Id)
+            CurrentWorkItemCount = record.ActiveWorkItems.GetValueOrDefault(-1)
+            LastHeartbeat = record.Timestamp
+            InitializationTime = record.InitializationTime.Value
+            ExecutionStatus = unpickle record.Status
+            PerformanceMetrics = record.GetCounters()
+            Info = workerInfo
+        } 
 
 //    /// Attempts to find non-responsive workers and fix their status. Returns whether any non-responsive workers were found.
 //    let rec cleanup () : Async<unit> =
@@ -139,128 +148,116 @@ type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
 //            return! cleanup ()
 //        }
 
-
-    /// Max interval between heartbeats, used to determine if a worker is alive.
-    static member MaxHeartbeatTimespan : TimeSpan = TimeSpan.FromMinutes(5.)
-
     ///// Start worker maintenance service.
     //member this.EnableMaintenance () = Async.Start(cleanup())
 
     /// 'Running' workers that fail to give heartbeats.
-    member this.GetNonResponsiveWorkers () : Async<WorkerState []> =
-        async {
-            let! workers = this.GetAllWorkers()
-            let now = DateTimeOffset.Now
-            return workers |> Array.filter (fun w -> 
-                                match w.ExecutionStatus with
-                                | CloudWorkItemExecutionStatus.Running when now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan -> 
-                                    true
-                                | _ -> false)
-        }
+    member this.GetNonResponsiveWorkers () : Async<WorkerState []> = async {
+        let! workers = this.GetAllWorkers()
+        let now = DateTimeOffset.Now
+        return workers |> Array.filter (fun w -> 
+                            match w.ExecutionStatus with
+                            | CloudWorkItemExecutionStatus.Running when now - w.LastHeartbeat > w.Info.HeartbeatThreshold -> true
+                            | _ -> false)
+    }
 
     /// Workers that fail to give heartbeats.
-    member this.GetInactiveWorkers () : Async<WorkerState []> =
-        async {
-            let! workers = this.GetAllWorkers()
-            let now = DateTimeOffset.Now
-            return workers |> Array.filter (fun w -> now - w.LastHeartbeat > WorkerManager.MaxHeartbeatTimespan)
-        }
+    member this.GetInactiveWorkers () : Async<WorkerState []> = async {
+        let! workers = this.GetAllWorkers()
+        let now = DateTimeOffset.Now
+        return workers |> Array.filter (fun w -> now - w.LastHeartbeat > w.Info.HeartbeatThreshold)
+    }
 
-    member this.GetAllWorkers(): Async<WorkerState []> = 
-        async { 
-            let! records = Table.queryPK<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey
-            let state = records |> Seq.map mkWorkerState |> Seq.toArray
-            return state
-        }
+    member this.GetAllWorkers(): Async<WorkerState []> = async { 
+        let! records = Table.queryPK<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey
+        let state = records |> Seq.map mkWorkerState |> Seq.toArray
+        return state
+    }
 
-    member this.UnsubscribeWorker(id : IWorkerId) =
-        async {
-            logger.Logf LogLevel.Info "Unsubscribing worker %O" id
-            return! (this :> IWorkerManager).DeclareWorkerStatus(id, CloudWorkItemExecutionStatus.Stopped)
-        }
+    member this.UnsubscribeWorker(id : IWorkerId) = async {
+        logger.Logf LogLevel.Info "Unsubscribing worker %O" id
+        return! (this :> IWorkerManager).DeclareWorkerStatus(id, CloudWorkItemExecutionStatus.Stopped)
+    }
 
     interface IWorkerManager with
-        member this.DeclareWorkerStatus(id: IWorkerId, status: CloudWorkItemExecutionStatus): Async<unit> = 
-            async {
-                logger.LogInfof "Changing worker %O status to %A" id status
-                let record = new WorkerRecord(id.Id)
-                record.ETag <- "*"
-                record.Status <- pickle status
-                let! _ = Table.merge config.StorageAccount config.RuntimeTable record
-                return ()
-            }
+        member this.DeclareWorkerStatus(id: IWorkerId, status: CloudWorkItemExecutionStatus): Async<unit> = async {
+            logger.LogInfof "Changing worker %O status to %A" id status
+            let record = new WorkerRecord(id.Id)
+            record.ETag <- "*"
+            record.Status <- pickle status
+            let! _ = Table.merge config.StorageAccount config.RuntimeTable record
+            return ()
+        }
         
-        member this.IncrementWorkItemCount(id: IWorkerId): Async<unit> = 
-            async {
-                let! _ = Table.transact2<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
-                            (fun e -> 
-                                let ec = e.CloneDefault()
-                                ec.ActiveWorkItems <- e.ActiveWorkItems ?+ 1
-                                ec)
-                return ()            
-            }
+        member this.IncrementWorkItemCount(id: IWorkerId): Async<unit> = async {
+            let! _ = Table.transact2<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
+                        (fun e -> 
+                            let ec = e.CloneDefault()
+                            ec.ActiveWorkItems <- e.ActiveWorkItems ?+ 1
+                            ec)
+            return ()            
+        }
 
-        member this.DecrementWorkItemCount(id: IWorkerId): Async<unit> = 
-            async {
-                let! _ = Table.transact2<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
-                            (fun e -> 
-                                let ec = e.CloneDefault()
-                                ec.ActiveWorkItems <- e.ActiveWorkItems ?- 1
-                                ec)
-                return ()            
-            }
+        member this.DecrementWorkItemCount(id: IWorkerId): Async<unit> = async {
+            let! _ = Table.transact2<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
+                        (fun e -> 
+                            let ec = e.CloneDefault()
+                            ec.ActiveWorkItems <- e.ActiveWorkItems ?- 1
+                            ec)
+            return ()            
+        }
         
-        member this.GetAvailableWorkers(): Async<WorkerState []> = 
-            async { 
-                let! workers = this.GetAllWorkers()
-                return workers 
-                       |> Seq.filter (fun w -> DateTimeOffset.Now - w.LastHeartbeat <= WorkerManager.MaxHeartbeatTimespan)
-                       |> Seq.filter (fun w -> match w.ExecutionStatus with
-                                               | CloudWorkItemExecutionStatus.Running -> true
-                                               | _ -> false)
-                       |> Seq.toArray
-            }
+        member this.GetAvailableWorkers(): Async<WorkerState []> = async { 
+            let! workers = this.GetAllWorkers()
+            return 
+                workers 
+                |> Seq.filter (fun w -> DateTimeOffset.Now - w.LastHeartbeat <= w.Info.HeartbeatThreshold)
+                |> Seq.filter (fun w -> match w.ExecutionStatus with
+                                        | CloudWorkItemExecutionStatus.Running -> true
+                                        | _ -> false)
+                |> Seq.toArray
+        }
         
-        member this.SubmitPerformanceMetrics(id: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = 
-            async {
-                let record = new WorkerRecord(id.Id)
-                record.ETag <- "*"
-                record.UpdateCounters(perf)
-                let! _result = Table.merge config.StorageAccount config.RuntimeTable record
-                return ()
-            }
+        member this.SubmitPerformanceMetrics(id: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = async {
+            let record = new WorkerRecord(id.Id)
+            record.ETag <- "*"
+            record.UpdateCounters(perf)
+            let! _result = Table.merge config.StorageAccount config.RuntimeTable record
+            return ()
+        }
         
-        member this.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = 
-            async {
-                logger.Logf LogLevel.Info "Subscribing worker %O" id
-                let joined = DateTimeOffset.UtcNow
-                let record = new WorkerRecord(id.Id)
-                record.Hostname <- info.Hostname
-                record.ProcessName <- Diagnostics.Process.GetCurrentProcess().ProcessName
-                record.ProcessId <- nullable info.ProcessId
-                record.InitializationTime <- nullable joined
-                record.ActiveWorkItems <- nullable 0
-                record.Status <- pickle CloudWorkItemExecutionStatus.Running
-                record.Version <- ReleaseInfo.localVersion.ToString(4)
-                record.MaxWorkItems <- nullable info.MaxWorkItemCount
-                record.ProcessorCount <- nullable info.ProcessorCount
-                record.ConfigurationId <- pickle config
-                do! Table.insertOrReplace<WorkerRecord> config.StorageAccount config.RuntimeTable record //Worker might restart but keep id.
-                let unsubscriber =
-                    { new IDisposable with
-                          member x.Dispose(): unit = 
+        member this.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
+            logger.Logf LogLevel.Info "Subscribing worker %O" id
+            let joined = DateTimeOffset.UtcNow
+            let record = new WorkerRecord(id.Id)
+            record.Hostname <- info.Hostname
+            record.ProcessName <- Diagnostics.Process.GetCurrentProcess().ProcessName
+            record.ProcessId <- nullable info.ProcessId
+            record.InitializationTime <- nullable joined
+            record.ActiveWorkItems <- nullable 0
+            record.Status <- pickle CloudWorkItemExecutionStatus.Running
+            record.Version <- ReleaseInfo.localVersion.ToString(4)
+            record.MaxWorkItems <- nullable info.MaxWorkItemCount
+            record.ProcessorCount <- nullable info.ProcessorCount
+            record.ConfigurationId <- pickle config
+            record.HeartbeatInterval <- nullable info.HeartbeatInterval.Ticks
+            record.HeartbeatThreshold <- nullable info.HeartbeatThreshold.Ticks
+            do! Table.insertOrReplace<WorkerRecord> config.StorageAccount config.RuntimeTable record //Worker might restart but keep id.
+            let unsubscriber =
+                { 
+                    new IDisposable with
+                        member x.Dispose(): unit = 
                             this.UnsubscribeWorker(id)
                             |> Async.RunSync
-                    }
-                return unsubscriber
-            }
+                }
+            return unsubscriber
+        }
         
-        member this.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = 
-            async {
-                let! record = Table.read<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id
-                if record = null then return None
-                else return Some(mkWorkerState record)
-            }
+        member this.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = async {
+            let! record = Table.read<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id
+            if record = null then return None
+            else return Some(mkWorkerState record)
+        }
 
     static member Create(config : ClusterId, logger : ISystemLogger) =
         new WorkerManager(config, logger)

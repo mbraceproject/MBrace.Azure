@@ -1,16 +1,21 @@
 ﻿namespace MBrace.Azure.Runtime
 
+open System
+open System.Runtime.Serialization
+
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
-open System.Runtime.Serialization
-open System
 
 // TODO : make non-serializable & thread safe
 
 [<AutoSerializable(true); DataContract; Sealed>]  
 type WorkItemManager private (config : ClusterId, workerManager : WorkerManager, logger : ISystemLogger) =
+    static let random =
+        let seed = Environment.MachineName.GetHashCode() + int DateTime.Now.Ticks
+        new Random(seed)
+
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "logger")>] logger = logger
 
@@ -54,9 +59,13 @@ type WorkItemManager private (config : ClusterId, workerManager : WorkerManager,
             return! mkLoop recv slot
         }
 
-    /// WorkItem queue maintenance : check for non responsive workers and cleanup their queu
+    /// WorkItem queue maintenance : check for non responsive workers and cleanup their queue
     let rec cleanup () = async {
-        do! Async.Sleep(int(0.5 * WorkerManager.MaxHeartbeatTimespan.TotalMilliseconds))
+        // perform cleanup every 30 seconds with a probability of 1/7
+        // this is done since only one worker of the cluster need perform cleanups each time
+        do! Async.Sleep 30000
+        if random.Next(0, 7) = 0 then return! cleanup() else
+
         let! result = Async.Catch <| async {
             logger.LogInfof "WorkItemManager : performing maintenance."
             let! workersToCheck = workerManager.GetInactiveWorkers()

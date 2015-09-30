@@ -21,6 +21,8 @@ type Service (config : Configuration, serviceId : string) =
     let mutable configuration           = config
     let mutable maxWorkItems            = Environment.ProcessorCount
     let mutable subscription            = None : WorkerSubscription.Subscription option
+    let mutable heartbeatThreshold      = TimeSpan.FromMinutes 5.
+    let mutable heartbeatInterval       = TimeSpan.FromSeconds 2.
     let attachableLogger                = AttacheableLogger.Create(makeAsynchronous = true)
     
     let check () = 
@@ -105,7 +107,7 @@ type Service (config : Configuration, serviceId : string) =
 
             attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
 
-            let! sub = WorkerSubscription.initialize config this.Id attachableLogger this.UseAppDomainIsolation this.MaxConcurrentWorkItems customResources
+            let! sub = WorkerSubscription.initialize config this.Id attachableLogger heartbeatThreshold heartbeatInterval this.UseAppDomainIsolation this.MaxConcurrentWorkItems customResources
             subscription <- Some sub
             sw.Stop()
             attachableLogger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds

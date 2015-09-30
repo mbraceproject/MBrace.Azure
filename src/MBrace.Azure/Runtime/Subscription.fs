@@ -28,7 +28,9 @@ module WorkerSubscription =
             Disposable.dispose s.StoreLogger
 
     let initialize (config : Configuration) (workerId : string) (logger : ISystemLogger) 
-                    (useAppDomainIsolation : bool) (maxConcurrentWorkItems : int) (customResources : ResourceRegistry) =
+                    (heartbeatInterval : TimeSpan) (heartbeatThreshold : TimeSpan)
+                    (useAppDomainIsolation : bool) (maxConcurrentWorkItems : int) 
+                    (customResources : ResourceRegistry) =
         async {
             logger.LogInfof "Initializing worker %A" workerId
             let workerId = new WorkerId(workerId) :> IWorkerId
@@ -69,7 +71,9 @@ module WorkerSubscription =
             logger.LogInfo "Creating worker subscription"
             do clusterManager.WorkItemManager.SetLocalWorkerId workerId // TODO: this is ugly; need to fix
             logger.LogInfo "Creating worker agent"
-            let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentWorkItems, submitPerformanceMetrics = true)
+            let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentWorkItems, 
+                                            submitPerformanceMetrics = true, heartbeatInterval = heartbeatInterval, heartbeatThreshold = heartbeatThreshold)
+
             logger.LogInfo "Starting worker agent"
             do! agent.Start()
             logger.LogInfo "Worker agent started"
