@@ -187,15 +187,15 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
         member this.Info: CloudProcessInfo = processInfo
         
         member this.TryGetResult(): Async<CloudProcessResult option> = async {
-                let! record = ProcessRecord.GetProcessRecord(config, taskId)
-                if record.ResultUri = null then
-                    return None
-                else
-                    let blob = Blob<SiftedClosure<CloudProcessResult>>.FromPath(config, ProcessRecord.DefaultPartitionKey, record.ResultUri)
-                    let! sifted = blob.GetValue()
-                    let! result = ClosureSifter.UnSiftClosure(config, sifted)
-                    return Some result
-            }
+            let! record = ProcessRecord.GetProcessRecord(config, taskId)
+            if record.ResultUri = null then
+                return None
+            else
+                let blob = Blob<SiftedClosure<CloudProcessResult>>.FromPath(config, ProcessRecord.DefaultPartitionKey, record.ResultUri)
+                let! sifted = blob.GetValue()
+                let! result = ClosureSifter.UnSiftClosure(config, sifted)
+                return Some result
+        }
 
         member this.TrySetResult(result: CloudProcessResult, _workerId : IWorkerId): Async<bool> = async {
             let record = new ProcessRecord(taskId)
