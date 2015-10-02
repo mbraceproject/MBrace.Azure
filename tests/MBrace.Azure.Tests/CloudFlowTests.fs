@@ -37,11 +37,11 @@ type ``Azure CloudFlow Tests`` (session : RuntimeSession) as self =
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3
 
-type ``CloudFlow Tests - Compute Emulator`` () =
+type ``CloudFlow Tests - Compute Emulator - Remote Storage`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 0))
 
-type ``CloudFlow Tests - Storage Emulator`` () =
+type ``CloudFlow Tests - Standalone Cluster - Storage Emulator`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(emulatorConfig, 4))
         
-type ``CloudFlow Tests - Standalone`` () =
+type ``CloudFlow Tests - Standalone Cluster - Remote Storage`` () =
     inherit ``Azure CloudFlow Tests``(RuntimeSession(remoteConfig, 4))

@@ -117,11 +117,11 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
         ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
 
 
-type ``Cloud Tests - Compute Emulator`` () =
+type ``Cloud Tests - Compute Emulator - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 0))
 
-type ``Cloud Tests - Storage Emulator`` () =
+type ``Cloud Tests - Standalone Cluster - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 4))
 
-type ``Cloud Tests - Standalone`` () =
+type ``Cloud Tests - Standalone Cluster - Remote Storage`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(remoteConfig, 4))
