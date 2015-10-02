@@ -18,7 +18,7 @@ type ClusterManager private (configB : Configuration, config : ClusterId, logger
     do logger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(config, logger)
     do logger.LogInfo "Creating work item manager"
-    let workManager    = WorkItemManager.Create(config, workerManager, logger)
+    let workManager    = WorkItemQueue.Create(config, workerManager, logger) |> Async.RunSync
     do logger.LogInfo "Creating task manager"
     let processManager   = CloudProcessManager.Create(config, logger)
     do logger.LogInfo "Creating assembly manager"

@@ -19,6 +19,7 @@ module WorkerSubscription =
             WorkItemEvaluator : ICloudWorkItemEvaluator
             StoreLogger : IRemoteSystemLogger
             StoreLoggerSubscription : IDisposable
+            QueueMaintanance : IDisposable
         }
     with
         member s.Dispose() =
@@ -26,6 +27,7 @@ module WorkerSubscription =
             Disposable.dispose s.WorkItemEvaluator
             Disposable.dispose s.StoreLoggerSubscription
             Disposable.dispose s.StoreLogger
+            Disposable.dispose s.QueueMaintanance
 
     let initialize (config : Configuration) (workerId : string) (logger : ISystemLogger) 
                     (heartbeatInterval : TimeSpan) (heartbeatThreshold : TimeSpan)
@@ -69,7 +71,7 @@ module WorkerSubscription =
                     LocalWorkItemEvaluator.Create(runtimeManager, workerId) :> ICloudWorkItemEvaluator
 
             logger.LogInfo "Creating worker subscription"
-            do clusterManager.WorkItemManager.SetLocalWorkerId workerId // TODO: this is ugly; need to fix
+            let queueMaintenance = clusterManager.WorkItemManager.InitDequeuingAgents workerId
             logger.LogInfo "Creating worker agent"
             let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentWorkItems, 
                                             submitPerformanceMetrics = true, heartbeatInterval = heartbeatInterval, heartbeatThreshold = heartbeatThreshold)
@@ -83,5 +85,6 @@ module WorkerSubscription =
                 StoreLoggerSubscription = storeLoggerSubscription
                 StoreLogger = storeLogger
                 WorkItemEvaluator = jobEvaluator
+                QueueMaintanance = queueMaintenance
             }
         }
