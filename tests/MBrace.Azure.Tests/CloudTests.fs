@@ -10,6 +10,7 @@ open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Tests
 
+#nowarn "444"
 #nowarn "445" // 'Reset'
 
 [<AbstractClass; TestFixture>]
@@ -79,6 +80,13 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
         cluster.Run(cloud { return () }, target = worker)
         System.Threading.Thread.Sleep 2000
         ra.Count |> shouldBe (fun i -> i > 0)
+
+    [<Test>]
+    member __.``Runtime : additional resources`` () =
+        let cluster = session.Runtime
+        let res = (42, "forty-two")
+        cluster.Run(Cloud.GetResource<int * string>(), additionalResources = resource { yield res })
+        |> shouldEqual res
 
     [<Test>]
     member __.``Runtime : Cluster Log Observable`` () =

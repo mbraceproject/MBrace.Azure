@@ -98,34 +98,33 @@ type internal WorkItemLeaseMonitor private () =
                 }
             renewLoop())
     
-    static member Complete(token : WorkItemLeaseTokenInfo) : Async<unit> = 
-        async { 
-            let config = token.ConfigurationId
-            match token.TargetWorker with
-            | None -> 
-                let queue = config.ServiceBusAccount.CreateQueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
-                return! queue.CompleteAsync(token.MessageLockId)
-            | Some affinity -> 
-                let subscription = config.ServiceBusAccount.CreateSubscriptionClient(config.RuntimeTopic, affinity)
-                return! subscription.CompleteAsync(token.MessageLockId)
-        }
+    static member Complete(token : WorkItemLeaseTokenInfo) : Async<unit> = async { 
+        let config = token.ConfigurationId
+        match token.TargetWorker with
+        | None -> 
+            let queue = config.ServiceBusAccount.CreateQueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
+            return! queue.CompleteAsync(token.MessageLockId)
+        | Some affinity -> 
+            let subscription = config.ServiceBusAccount.CreateSubscriptionClient(config.RuntimeTopic, affinity)
+            return! subscription.CompleteAsync(token.MessageLockId)
+    }
 
-    static member Abandon(token : WorkItemLeaseTokenInfo) : Async<unit> = 
-        async { 
-            let config = token.ConfigurationId
-            match token.TargetWorker with
-            | None -> 
-                let queue = config.ServiceBusAccount.CreateQueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
-                return! queue.AbandonAsync(token.MessageLockId)
-            | Some affinity -> 
-                let subscription = config.ServiceBusAccount.CreateSubscriptionClient(config.RuntimeTopic, affinity)
-                return! subscription.AbandonAsync(token.MessageLockId)
-        }
+    static member Abandon(token : WorkItemLeaseTokenInfo) : Async<unit> = async { 
+        let config = token.ConfigurationId
+        match token.TargetWorker with
+        | None -> 
+            let queue = config.ServiceBusAccount.CreateQueueClient(config.RuntimeQueue, ReceiveMode.PeekLock)
+            return! queue.AbandonAsync(token.MessageLockId)
+        | Some affinity -> 
+            let subscription = config.ServiceBusAccount.CreateSubscriptionClient(config.RuntimeTopic, affinity)
+            return! subscription.AbandonAsync(token.MessageLockId)
+    }
 
 [<AutoSerializable(true); DataContract>]
-type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : CloudWorkItemFaultInfo)  = 
+type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : CloudWorkItemFaultInfo, procInfo : CloudProcessInfo)  = 
     let [<DataMember(Name="info")>] info = info
     let [<DataMember(Name="faultInfo")>] faultInfo = faultInfo
+    let [<DataMember(Name="processInfo")>] procInfo = procInfo
     let [<IgnoreDataMember>] mutable record : WorkItemRecord = null
         
     let init () =
@@ -202,7 +201,7 @@ type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : Clo
             | None -> None
             | Some w -> Some(WorkerId(w) :> _)
         
-        member this.Process : ICloudProcessEntry = CloudProcessEntry(info.ConfigurationId, info.ParentWorkItemId) :> _
+        member this.Process : ICloudProcessEntry = CloudProcessEntry(info.ConfigurationId, info.ParentWorkItemId, procInfo) :> _
         
         member this.Type : string = record.Type
 
@@ -240,6 +239,8 @@ type internal MessagingClient private () =
                 }
                 logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" jobInfo
                 WorkItemLeaseMonitor.Start(message, jobInfo, logger)
+
+                let! procRecordT = ProcessRecord.GetProcessRecord(config, parentId) |> Async.StartChild
 
                 logger.Logf LogLevel.Debug "%O : changing status to %A" jobInfo WorkItemStatus.Dequeued
                 let newRecord = new WorkItemRecord(jobInfo.ParentWorkItemId, fromGuid jobInfo.WorkItemId)
@@ -287,10 +288,13 @@ type internal MessagingClient private () =
                                 return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
                 }
 
+                let! procRecord = procRecordT
+
                 logger.Logf LogLevel.Debug "%O : extracted fault info %A" jobInfo faultInfo
                 let! _record = Table.merge config.StorageAccount config.RuntimeTable newRecord
                 logger.Logf LogLevel.Debug "%O : changed status successfully" jobInfo
-                return Some(WorkItemLeaseToken(jobInfo, faultInfo))
+                let leaseToken = new WorkItemLeaseToken(jobInfo, faultInfo, procRecord.ToCloudProcessInfo())
+                return Some leaseToken
         }
 
     static member Enqueue (config : ClusterId, logger : ISystemLogger, workItem : CloudWorkItem, allowNewSifts : bool, sendF : BrokeredMessage -> Task) =

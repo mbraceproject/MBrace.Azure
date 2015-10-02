@@ -107,7 +107,7 @@ type Service (config : Configuration, serviceId : string) =
 
             attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
 
-            let! sub = WorkerSubscription.initialize config this.Id attachableLogger heartbeatThreshold heartbeatInterval this.UseAppDomainIsolation this.MaxConcurrentWorkItems customResources
+            let! sub = WorkerSubscription.initialize config this.Id attachableLogger heartbeatInterval heartbeatThreshold this.UseAppDomainIsolation this.MaxConcurrentWorkItems customResources
             subscription <- Some sub
             sw.Stop()
             attachableLogger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
