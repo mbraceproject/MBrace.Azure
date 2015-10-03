@@ -35,6 +35,10 @@ type IndexedReferenceEntity(partitionKey, rowKey) =
     static member MakeRowKey(index) = sprintf "%010d" index
     static member DefaultRowKey = String.Empty
 
+    /// Defines a blob value instance for supplied configuration and reference entity uri
+    static member DefineBlobValue<'T>(config : ClusterId, uri : string) =
+        BlobValue.Define<SiftedClosure<'T>>(config.StorageAccount, config.RuntimeContainer, uri)
+
 
 [<DataContract; Sealed>]
 type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, size : int) =
@@ -75,7 +79,12 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
             do! Table.deleteBatch config.StorageAccount config.RuntimeTable records
             do! 
                 indexed
-                |> Seq.map (fun r -> async { if r.Uri <> null then return! Blob.Delete(config.StorageAccount, config.RuntimeContainer, r.Uri) })
+                |> Seq.choose (fun r -> match r.Uri with null -> None | uri -> Some uri)
+                |> Seq.map (fun uri -> 
+                    async {
+                        let b = IndexedReferenceEntity.DefineBlobValue<'T>(config, uri) 
+                        do! b.Delete() 
+                    })
                 |> Async.Parallel
                 |> Async.Ignore
         }
@@ -87,7 +96,9 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
         
         member this.SetResult(index: int, value: 'T, workerId : IWorkerId): Async<bool> = async { 
             let! sifted = ClosureSifter.SiftClosure(config, value, allowNewSifts = false)
-            let! bc = BlobValue.Create(config, partitionKey, IndexedReferenceEntity.MakeRowKey(index), fun () -> sifted)
+            let uri = sprintf "%s/%s" partitionKey <| IndexedReferenceEntity.MakeRowKey index
+            let bv = IndexedReferenceEntity.DefineBlobValue<'T>(config, uri)
+            do! bv.WriteValue(sifted)
             let rec loop(guard : IndexedReferenceEntity, record : IndexedReferenceEntity) = async {
                 if enableOverWrite = false && record.Uri <> null then
                     return guard.Counter.Value = size
@@ -96,7 +107,7 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
                         guard.Counter <- nullable(guard.Counter.Value + 1)
 
                     record.WorkerId <- workerId.Id
-                    record.Uri <- bc.Path
+                    record.Uri <- bv.Path
                     try
                         do! Table.mergeBatch config.StorageAccount config.RuntimeTable [guard; record]
                         return guard.Counter.Value = size
@@ -118,7 +129,8 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
                 return! Async.Raise <| new InvalidOperationException(sprintf "Result aggregator incomplete (%d/%d)." guard.Counter.Value size)
             else
                 let loadResult (e : IndexedReferenceEntity) = async {
-                    let! sifted = BlobValue<SiftedClosure<'T>>.FromPath(config, e.Uri).GetValue()
+                    let bv = IndexedReferenceEntity.DefineBlobValue<'T>(config, e.Uri)
+                    let! sifted = bv.GetValue()
                     return! ClosureSifter.UnSiftClosure(config, sifted)
                 }
 

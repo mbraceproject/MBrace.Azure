@@ -40,6 +40,15 @@ type internal Settings private () =
     /// SUbscription queue auto delete interval.
     static member SubscriptionAutoDeleteInterval = TimeSpan.MaxValue 
 
+type MessagePayload =
+    | Single of CloudWorkItem
+    | Batch of CloudWorkItem []
+with
+    /// Defines a blob value for persisting message payloads of given parameters
+    static member DefineBlobValue(config : ClusterId, parentProcessId : string, workItemId : string) =
+        let fileName = sprintf "%s/%s" parentProcessId workItemId
+        BlobValue.Define<SiftedClosure<MessagePayload>>(config.StorageAccount, config.RuntimeContainer, fileName)
+
 /// Info stored in BrokeredMessage.
 type internal WorkItemLeaseTokenInfo =
     {
@@ -53,14 +62,9 @@ type internal WorkItemLeaseTokenInfo =
         DeliveryCount : int
         DequeueTime : DateTimeOffset
     }
-
+with
     override this.ToString() = sprintf "leaseinfo:%A" this.WorkItemId
-
-type EnqueuedWorkItems =
-    | Single of CloudWorkItem
-    | Batch of CloudWorkItem []
-
-and MessagePayload = SiftedClosure<EnqueuedWorkItems>
+    
 
 [<Sealed; AbstractClass>]
 type internal WorkItemLeaseMonitor = 
@@ -177,7 +181,7 @@ type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : Clo
         member this.FaultInfo : CloudWorkItemFaultInfo = faultInfo
         
         member this.GetWorkItem() : Async<CloudWorkItem> = async { 
-            let blob = BlobValue<MessagePayload>.FromPath(info.ConfigurationId, info.ParentWorkItemId, info.ContentId)
+            let blob = MessagePayload.DefineBlobValue(info.ConfigurationId, info.ParentWorkItemId, info.ContentId)
             let! siftedPayload = blob.GetValue()
             let! payload = ClosureSifter.UnSiftClosure(info.ConfigurationId, siftedPayload)
             match payload with
@@ -303,7 +307,9 @@ type internal MessagingClient private () =
         let record = WorkItemRecord.FromCloudWorkItem(workItem)
         let! sift = ClosureSifter.SiftClosure(config, Single workItem, allowNewSifts)
         do! Table.insert config.StorageAccount config.RuntimeTable record
-        let! blob = BlobValue<MessagePayload>.Create(config, workItem.Process.Id, fromGuid workItem.Id, fun () -> sift)
+        let blob = MessagePayload.DefineBlobValue(config, workItem.Process.Id, fromGuid workItem.Id) 
+        do! blob.WriteValue(sift)
+        let! size = blob.GetSize()
         let msg = new BrokeredMessage(workItem.Id)
         msg.Properties.[Settings.WorkItemIdProperty] <- workItem.Id
         msg.Properties.[Settings.ParentTaskIdProperty] <- toGuid workItem.Process.Id
@@ -313,12 +319,12 @@ type internal MessagingClient private () =
         let newRecord = record.CloneDefault()
         newRecord.Status <- nullable(int WorkItemStatus.Enqueued)
         newRecord.EnqueueTime <- nullable record.Timestamp
-        newRecord.Size <- nullable blob.Size
+        newRecord.Size <- nullable size
         newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
         newRecord.ETag <- "*"
         let! _record = Table.merge config.StorageAccount config.RuntimeTable newRecord
         do! sendF msg
-        logger.Logf LogLevel.Debug "workItem:%O : enqueue completed, size %s" workItem.Id (getHumanReadableByteSize blob.Size)
+        logger.Logf LogLevel.Debug "workItem:%O : enqueue completed, size %s" workItem.Id (getHumanReadableByteSize size)
     }
 
     static member EnqueueBatch(config : ClusterId, logger : ISystemLogger, jobs : CloudWorkItem [], sendF : BrokeredMessage seq -> Task) = async { 
@@ -329,8 +335,9 @@ type internal MessagingClient private () =
         do! Table.insertBatch config.StorageAccount config.RuntimeTable records
 
         let blobName = guid()
-        let! blob = BlobValue<MessagePayload>.Create(config, taskId, blobName, fun () -> sifted)
-        let size = blob.Size
+        let blob = MessagePayload.DefineBlobValue(config, taskId, blobName)
+        do! blob.WriteValue(sifted)
+        let! size = blob.GetSize()
 
         let mkWorkItemMessage (i : int) (workItem : CloudWorkItem) =
             let msg = new BrokeredMessage(toGuid blobName)

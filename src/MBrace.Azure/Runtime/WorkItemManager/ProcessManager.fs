@@ -53,6 +53,10 @@ type ProcessRecord(taskId) =
 
     static member DefaultPartitionKey = "task"
 
+    /// Defines a cloud process result persist blob for given configuration and uri
+    static member DefineBlobValue(config : ClusterId, uri : string) =
+        BlobValue.Define<SiftedClosure<CloudProcessResult>>(config.StorageAccount, config.RuntimeContainer, sprintf "task-%s" uri)
+
     static member CreateNew(taskId : string, info : CloudProcessInfo) =
         let serializer = ProcessConfiguration.Serializer
         let record = new ProcessRecord(taskId)
@@ -188,7 +192,7 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
             if record.ResultUri = null then
                 return None
             else
-                let blob = BlobValue<SiftedClosure<CloudProcessResult>>.FromPath(config, ProcessRecord.DefaultPartitionKey, record.ResultUri)
+                let blob = ProcessRecord.DefineBlobValue(config, record.ResultUri)
                 let! sifted = blob.GetValue()
                 let! result = ClosureSifter.UnSiftClosure(config, sifted)
                 return Some result
@@ -198,7 +202,8 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
             let record = new ProcessRecord(taskId)
             let blobId = guid()
             let! sifted = ClosureSifter.SiftClosure(config, result, allowNewSifts = false)
-            let! _blob = BlobValue.Create(config, ProcessRecord.DefaultPartitionKey, blobId, fun () -> sifted)
+            let blob = ProcessRecord.DefineBlobValue(config, blobId)
+            do! blob.WriteValue sifted
             record.ResultUri <- blobId
             record.ETag <- "*"
             let! _record = Table.merge config.StorageAccount config.RuntimeTable record

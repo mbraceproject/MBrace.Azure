@@ -91,12 +91,12 @@
     <Compile Include="Utilities\Store.fs" />
     <Compile Include="Utilities\Table.fs" />
     <Compile Include="Utilities\FatEntity.fs" />
+    <Compile Include="Utilities\BlobValue.fs" />
     <Compile Include="Store\BlobStore.fs" />
     <Compile Include="Store\Atom.fs" />
     <Compile Include="Store\Queue.fs" />
     <Compile Include="Store\Dictionary.fs" />
     <Compile Include="Primitives\ClusterId.fs" />
-    <Compile Include="Primitives\BlobCells.fs" />
     <Compile Include="Primitives\ClosureSifter.fs" />
     <Compile Include="Primitives\Counters.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
