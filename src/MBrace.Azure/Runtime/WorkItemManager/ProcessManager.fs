@@ -19,9 +19,6 @@ open MBrace.Azure.Runtime.Utilities
 // Add Posting status.
 // Use dynamic query when fetching task completion source?
 
-module ProcessStatus =
-    open MBrace.Runtime
-
 [<AllowNullLiteral>]
 type ProcessRecord(taskId) = 
     inherit TableEntity(ProcessRecord.DefaultPartitionKey, taskId)
@@ -191,7 +188,7 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
             if record.ResultUri = null then
                 return None
             else
-                let blob = Blob<SiftedClosure<CloudProcessResult>>.FromPath(config, ProcessRecord.DefaultPartitionKey, record.ResultUri)
+                let blob = BlobValue<SiftedClosure<CloudProcessResult>>.FromPath(config, ProcessRecord.DefaultPartitionKey, record.ResultUri)
                 let! sifted = blob.GetValue()
                 let! result = ClosureSifter.UnSiftClosure(config, sifted)
                 return Some result
@@ -201,7 +198,7 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
             let record = new ProcessRecord(taskId)
             let blobId = guid()
             let! sifted = ClosureSifter.SiftClosure(config, result, allowNewSifts = false)
-            let! _blob = Blob.Create(config, ProcessRecord.DefaultPartitionKey, blobId, fun () -> sifted)
+            let! _blob = BlobValue.Create(config, ProcessRecord.DefaultPartitionKey, blobId, fun () -> sifted)
             record.ResultUri <- blobId
             record.ETag <- "*"
             let! _record = Table.merge config.StorageAccount config.RuntimeTable record

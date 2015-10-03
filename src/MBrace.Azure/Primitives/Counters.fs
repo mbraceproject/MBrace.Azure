@@ -16,7 +16,7 @@ type CounterEntity(id : string, value : int64) =
     static member DefaultRowKey = String.Empty
 
 [<DataContract; Sealed>]
-type internal CloudCounter (config : ClusterId, partitionKey : string) =
+type internal TableCounter (config : ClusterId, partitionKey : string) =
     let [<DataMember(Name = "config")>] config = config
     let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
 
@@ -36,13 +36,12 @@ type internal CloudCounter (config : ClusterId, partitionKey : string) =
         }
 
 [<Sealed>]
-type Int32CounterFactory private (config : ClusterId) =
+type TableCounterFactory private (config : ClusterId) =
     interface ICloudCounterFactory with
-        member x.CreateCounter(initialValue: int64): Async<ICloudCounter> = 
-            async {
-                let record = new CounterEntity(guid(), initialValue)
-                let! _record = Table.insert config.StorageAccount config.RuntimeTable record
-                return new CloudCounter(config, record.PartitionKey) :> ICloudCounter
-            }
+        member x.CreateCounter(initialValue: int64): Async<ICloudCounter> = async {
+            let record = new CounterEntity(guid(), initialValue)
+            let! _record = Table.insert config.StorageAccount config.RuntimeTable record
+            return new TableCounter(config, record.PartitionKey) :> ICloudCounter
+        }
 
-    static member Create(config : ClusterId) = new Int32CounterFactory(config) :> ICloudCounterFactory
+    static member Create(config : ClusterId) = new TableCounterFactory(config) :> ICloudCounterFactory

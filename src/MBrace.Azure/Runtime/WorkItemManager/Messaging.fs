@@ -301,7 +301,7 @@ type internal MessagingClient private () =
         let record = WorkItemRecord.FromCloudWorkItem(workItem)
         let! sift = ClosureSifter.SiftClosure(config, workItem, allowNewSifts)
         do! Table.insert config.StorageAccount config.RuntimeTable record
-        let! blob = Blob<SiftedClosure<CloudWorkItem>>.Create(config, workItem.Process.Id, fromGuid workItem.Id, fun () -> sift)
+        let! blob = BlobValue<SiftedClosure<CloudWorkItem>>.Create(config, workItem.Process.Id, fromGuid workItem.Id, fun () -> sift)
         let msg = new BrokeredMessage(workItem.Id)
         msg.Properties.[Settings.WorkItemIdProperty] <- workItem.Id
         msg.Properties.[Settings.ParentTaskIdProperty] <- toGuid workItem.Process.Id
@@ -327,7 +327,7 @@ type internal MessagingClient private () =
         do! Table.insertBatch config.StorageAccount config.RuntimeTable records
 
         let blobName = guid()
-        let! blob = Blob<SiftedClosure<CloudWorkItem []>>.Create(config, taskId, blobName, fun () -> sifted)
+        let! blob = BlobValue<SiftedClosure<CloudWorkItem []>>.Create(config, taskId, blobName, fun () -> sifted)
         let size = blob.Size
 
         let mkWorkItemMessage (i : int) (workItem : CloudWorkItem) =

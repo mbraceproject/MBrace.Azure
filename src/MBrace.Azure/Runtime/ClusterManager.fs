@@ -36,8 +36,8 @@ type ClusterManager private (configB : Configuration, config : ClusterId, logger
 
     let loggerManager = new AttacheableLoggerManager(logger)
 
-    let cancellationEntryFactory = CancellationTokenFactory.Create(config)
-    let int32CounterFactory = Int32CounterFactory.Create(config)
+    let cancellationEntryFactory = TableCancellationTokenFactory.Create(config)
+    let int32CounterFactory = TableCounterFactory.Create(config)
     let resultAggregatorFactory = ResultAggregatorFactory.Create(config)
 
     do ConfigurationRegistry.Register(config, logger :> ISystemLogger)

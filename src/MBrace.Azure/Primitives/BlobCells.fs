@@ -10,8 +10,10 @@ open Microsoft.WindowsAzure.Storage.Blob
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
+// represents a value that has been persisted to blob store
+
 [<DataContract>]
-type Blob<'T> internal (config : ClusterId, prefix : string, filename : string) =
+type BlobValue<'T> internal (config : ClusterId, prefix : string, filename : string) =
     
     [<DataMember(Name = "config")>]
     let config = config
@@ -52,10 +54,10 @@ type Blob<'T> internal (config : ClusterId, prefix : string, filename : string) 
 
     static member FromPath(config : ClusterId, path : string) = 
         let p = path.Split('/')
-        Blob<'T>.FromPath(config, p.[0], p.[1])
+        BlobValue<'T>.FromPath(config, p.[0], p.[1])
 
     static member FromPath(config : ClusterId, prefix, file) = 
-        new Blob<'T>(config, prefix, file)
+        new BlobValue<'T>(config, prefix, file)
 
     static member Exists(config, prefix, filename) = async {
         let c = config.StorageAccount.BlobClient.GetContainerReference(config.RuntimeContainer)
@@ -79,7 +81,7 @@ type Blob<'T> internal (config : ClusterId, prefix : string, filename : string) 
         let! exists = b.ExistsAsync()
         if not exists then failwith(sprintf "Failed to upload %s/%s" prefix filename)
 
-        return new Blob<'T>(config, prefix, filename)
+        return new BlobValue<'T>(config, prefix, filename)
     }
 
 [<DataContract>]
