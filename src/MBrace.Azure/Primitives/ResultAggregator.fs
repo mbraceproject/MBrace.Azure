@@ -73,8 +73,9 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
             let! records = Table.queryPK<IndexedReferenceEntity> config.StorageAccount config.RuntimeTable partitionKey
             let indexed = records |> Seq.filter (fun e -> e.RowKey <> IndexedReferenceEntity.DefaultRowKey)
             do! Table.deleteBatch config.StorageAccount config.RuntimeTable records
-            do! indexed
-                |> Seq.map (fun r -> async { if r.Uri <> null then return! Blob.Delete(config, r.Uri) })
+            do! 
+                indexed
+                |> Seq.map (fun r -> async { if r.Uri <> null then return! Blob.Delete(config.StorageAccount, config.RuntimeContainer, r.Uri) })
                 |> Async.Parallel
                 |> Async.Ignore
         }

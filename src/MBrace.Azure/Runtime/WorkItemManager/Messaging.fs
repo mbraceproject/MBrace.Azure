@@ -56,6 +56,12 @@ type internal WorkItemLeaseTokenInfo =
 
     override this.ToString() = sprintf "leaseinfo:%A" this.WorkItemId
 
+type EnqueuedWorkItems =
+    | Single of CloudWorkItem
+    | Batch of CloudWorkItem []
+
+and MessagePayload = SiftedClosure<EnqueuedWorkItems>
+
 [<Sealed; AbstractClass>]
 type internal WorkItemLeaseMonitor = 
     
@@ -171,16 +177,12 @@ type WorkItemLeaseToken internal (info : WorkItemLeaseTokenInfo, faultInfo : Clo
         member this.FaultInfo : CloudWorkItemFaultInfo = faultInfo
         
         member this.GetWorkItem() : Async<CloudWorkItem> = async { 
-            let blob = Blob.FromPath(info.ConfigurationId, info.ParentWorkItemId, info.ContentId)
-            use! stream = blob.OpenRead()
-            match info.BatchIndex with
-            | Some i -> 
-                let sifted = ProcessConfiguration.Serializer.Deserialize<SiftedClosure<CloudWorkItem []>>(stream)
-                let! jobs = ClosureSifter.UnSiftClosure(info.ConfigurationId, sifted)
-                return jobs.[i]
-            | _ ->
-                let sifted = ProcessConfiguration.Serializer.Deserialize<SiftedClosure<CloudWorkItem>>(stream)
-                return! ClosureSifter.UnSiftClosure(info.ConfigurationId, sifted)
+            let blob = BlobValue<MessagePayload>.FromPath(info.ConfigurationId, info.ParentWorkItemId, info.ContentId)
+            let! siftedPayload = blob.GetValue()
+            let! payload = ClosureSifter.UnSiftClosure(info.ConfigurationId, siftedPayload)
+            match payload with
+            | Single item -> return item
+            | Batch items -> return items.[Option.get info.BatchIndex]
         }
         
         member this.Id : CloudWorkItemId = info.WorkItemId
@@ -299,9 +301,9 @@ type internal MessagingClient private () =
     static member Enqueue (config : ClusterId, logger : ISystemLogger, workItem : CloudWorkItem, allowNewSifts : bool, sendF : BrokeredMessage -> Task) = async { 
         logger.Logf LogLevel.Debug "workItem:%O : enqueue" workItem.Id
         let record = WorkItemRecord.FromCloudWorkItem(workItem)
-        let! sift = ClosureSifter.SiftClosure(config, workItem, allowNewSifts)
+        let! sift = ClosureSifter.SiftClosure(config, Single workItem, allowNewSifts)
         do! Table.insert config.StorageAccount config.RuntimeTable record
-        let! blob = BlobValue<SiftedClosure<CloudWorkItem>>.Create(config, workItem.Process.Id, fromGuid workItem.Id, fun () -> sift)
+        let! blob = BlobValue<MessagePayload>.Create(config, workItem.Process.Id, fromGuid workItem.Id, fun () -> sift)
         let msg = new BrokeredMessage(workItem.Id)
         msg.Properties.[Settings.WorkItemIdProperty] <- workItem.Id
         msg.Properties.[Settings.ParentTaskIdProperty] <- toGuid workItem.Process.Id
@@ -323,11 +325,11 @@ type internal MessagingClient private () =
         if jobs.Length = 0 then return () else
         let taskId = jobs.[0].Process.Id // this is a valid assumption for all uses
         let records = jobs |> Seq.map WorkItemRecord.FromCloudWorkItem
-        let! sifted = ClosureSifter.SiftClosure(config, jobs, allowNewSifts = false)
+        let! sifted = ClosureSifter.SiftClosure(config, Batch jobs, allowNewSifts = false)
         do! Table.insertBatch config.StorageAccount config.RuntimeTable records
 
         let blobName = guid()
-        let! blob = BlobValue<SiftedClosure<CloudWorkItem []>>.Create(config, taskId, blobName, fun () -> sifted)
+        let! blob = BlobValue<MessagePayload>.Create(config, taskId, blobName, fun () -> sifted)
         let size = blob.Size
 
         let mkWorkItemMessage (i : int) (workItem : CloudWorkItem) =
