@@ -18,7 +18,7 @@ type ClusterManager private (configB : Configuration, config : ClusterId, logger
     do logger.LogInfo "Creating worker manager"
     let workerManager = WorkerManager.Create(config, logger)
     do logger.LogInfo "Creating work item manager"
-    let workManager    = WorkItemQueue.Create(config, workerManager, logger) |> Async.RunSync
+    let workManager   = WorkItemQueue.Create(config, logger) |> Async.RunSync
     do logger.LogInfo "Creating task manager"
     let processManager   = CloudProcessManager.Create(config, logger)
     do logger.LogInfo "Creating assembly manager"
@@ -52,6 +52,8 @@ type ClusterManager private (configB : Configuration, config : ClusterId, logger
     member this.SystemLogManager = systemLogManager
     member this.CloudLogManager = cloudLogManager
     member this.LocalLogManager = loggerManager :> ILocalSystemLogManager
+
+    member this.InitTopicMonitor() = TopicMonitor.Create(config, workerManager, logger)
 
     member this.ResetCluster(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteUserData : bool, 
                                 ?deleteAssemblyData : bool, ?force : bool, ?reactivate : bool) = async {

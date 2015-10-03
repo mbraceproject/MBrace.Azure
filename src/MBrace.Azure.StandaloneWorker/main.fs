@@ -23,6 +23,8 @@ let main (args : string []) =
 
         let svc = new Service(config, workerId)
         cfg.MaxWorkItems |> Option.iter (fun w -> svc.MaxConcurrentWorkItems <- w)
+        cfg.HeartbeatInterval |> Option.iter (fun i -> svc.HeartbeatInterval <- i)
+        cfg.HeartbeatThreshold |> Option.iter (fun i -> svc.HeartbeatThreshold <- i)
         Console.Title <- sprintf "%s(%d) : %s"  ps.ProcessName ps.Id svc.Id
         cfg.LogLevel |> Option.iter (fun l -> svc.LogLevel <- l)
         let _ = svc.AttachLogger(ConsoleLogger(showDate = true, useColors = true))

@@ -1,5 +1,7 @@
 ﻿module MBrace.Azure.Runtime.Arguments
 
+open System
+
 open Nessos.Argu
 
 open MBrace.Azure
@@ -11,6 +13,8 @@ type private AzureArguments =
     | Log_Level of int
     | Max_Work_Items of int
     | Worker_Name of string
+    | Heartbeat_Interval of float
+    | Heartbeat_Threshold of float
     // Connection string parameters
     | [<Mandatory>][<AltCommandLine("-s")>] Storage_Connection_String of string
     | [<Mandatory>][<AltCommandLine("-b")>] Service_Bus_Connection_string of string
@@ -37,6 +41,8 @@ with
             match arg with
             | Log_Level _ -> "Log level for worker system logs. Defaults to Info."
             | Max_Work_Items _ -> "Specify maximum number of concurrent work items."
+            | Heartbeat_Interval _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 1 second."
+            | Heartbeat_Threshold _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 300 seconds."
             | Worker_Name _ -> "Specify worker name identifier."
             | Storage_Connection_String _ -> "Azure Storage connection string."
             | Service_Bus_Connection_string _ -> "Azure ServiceBus connection string."
@@ -64,11 +70,14 @@ type ArgumentConfiguration =
         MaxWorkItems : int option
         WorkerName : string option
         LogLevel : LogLevel option
+        HeartbeatInterval : TimeSpan option
+        HeartbeatThreshold : TimeSpan option
     }
 with
     /// Creates a configuration object using supplied parameters.
-    static member Create(config : Configuration, ?maxWorkItems, ?workerName, ?logLevel) =
-        { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerName = workerName ; LogLevel = logLevel }
+    static member Create(config : Configuration, ?maxWorkItems, ?workerName, ?logLevel, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
+        { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerName = workerName ; 
+            LogLevel = logLevel ; HeartbeatInterval = heartbeatInterval ; HeartbeatThreshold = heartbeatThreshold }
 
     /// Converts a configuration object to a command line string.
     static member ToCommandLineArguments(cfg : ArgumentConfiguration) =
@@ -77,6 +86,8 @@ with
             match cfg.MaxWorkItems with Some w -> yield Max_Work_Items w | None -> ()
             match cfg.WorkerName with Some n -> yield Worker_Name n | None -> ()
             match cfg.LogLevel with Some l -> yield Log_Level (int l) | None -> ()
+            match cfg.HeartbeatInterval with Some h -> yield Heartbeat_Interval h.TotalSeconds | None -> ()
+            match cfg.HeartbeatThreshold with Some h -> yield Heartbeat_Threshold h.TotalSeconds | None -> ()
 
             let config = cfg.Configuration
 
@@ -110,6 +121,8 @@ with
         let maxWorkItems = parseResult.TryGetResult <@ Max_Work_Items @>
         let logLevel = parseResult.TryPostProcessResult(<@ Log_Level @>, enum<LogLevel>)
         let workerName = parseResult.TryGetResult <@ Worker_Name @>
+        let heartbeatInterval = parseResult.TryPostProcessResult(<@ Heartbeat_Interval @>, fun i -> if i <= 0. then failwith "must be positive" else TimeSpan.FromSeconds i)
+        let heartbeatThreshold = parseResult.TryPostProcessResult(<@ Heartbeat_Threshold @>, fun i -> if i <= 0. then failwith "must be positive" else TimeSpan.FromSeconds i)
 
         let sconn = parseResult.GetResult <@ Storage_Connection_String @>
         let bconn = parseResult.GetResult <@ Service_Bus_Connection_string @>
@@ -137,4 +150,6 @@ with
             MaxWorkItems = maxWorkItems
             WorkerName = workerName
             LogLevel = logLevel
+            HeartbeatInterval = heartbeatInterval
+            HeartbeatThreshold = heartbeatThreshold
         }

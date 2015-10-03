@@ -44,6 +44,14 @@ type Service (config : Configuration, serviceId : string) =
         with get () = attachableLogger.LogLevel
         and  set l = check (); attachableLogger.LogLevel <- l
 
+    member this.HeartbeatInterval
+        with get () = heartbeatInterval
+        and set i = heartbeatInterval <- i
+
+    member this.HeartbeatThreshold
+        with get () = heartbeatThreshold
+        and set i = heartbeatThreshold <- i
+
     /// Get or set service configuration.
     member this.Configuration  
         with get () = configuration

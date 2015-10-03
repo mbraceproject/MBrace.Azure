@@ -107,6 +107,7 @@
     <Compile Include="Runtime\WorkItemManager\WorkItemRecord.fs" />
     <Compile Include="Runtime\WorkItemManager\ProcessManager.fs" />
     <Compile Include="Runtime\WorkItemManager\Messaging.fs" />
+    <Compile Include="Runtime\WorkItemManager\TopicMonitor.fs" />
     <Compile Include="Runtime\WorkItemManager\WorkItemQueue.fs" />
     <Compile Include="Runtime\ClusterManager.fs" />
     <Compile Include="Runtime\Subscription.fs" />

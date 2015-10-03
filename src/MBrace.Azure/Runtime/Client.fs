@@ -137,11 +137,18 @@ type AzureCluster private (manager : ClusterManager) =
     /// <param name="maxWorkItems">Maximum number of concurrent jobs per worker.</param>
     /// <param name="workerNameF">Worker name factory.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
-    static member SpawnOnCurrentMachine(config : Configuration, workerCount, ?maxWorkItems : int, ?workerNameF : int -> string, ?logLevel : LogLevel) =
+    /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
+    /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
+    static member SpawnOnCurrentMachine(config : Configuration, workerCount, ?maxWorkItems : int, ?workerNameF : int -> string, 
+                                            ?logLevel : LogLevel, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
+
         let exe = AzureCluster.LocalWorkerExecutable
         if workerCount < 1 then invalidArg "workerCount" "must be positive."
         let _ = Array.Parallel.init workerCount (fun i -> 
-            let cli = ArgumentConfiguration.Create(config, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?workerName = (workerNameF |> Option.map (fun f -> f i)))
+            let cli = 
+                ArgumentConfiguration.Create(config, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?workerName = (workerNameF |> Option.map (fun f -> f i)), 
+                                                    ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
+
             let args = ArgumentConfiguration.ToCommandLineArguments(cli)
             let psi = new ProcessStartInfo(exe, args)
             psi.WorkingDirectory <- Path.GetDirectoryName exe
@@ -159,8 +166,11 @@ type AzureCluster private (manager : ClusterManager) =
     /// <param name="clientId">Client instance identifier.</param>
     /// <param name="logger">Client logger to attach.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
-    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?maxWorkItems : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster =
-        AzureCluster.SpawnOnCurrentMachine(config, workerCount, ?maxWorkItems = maxWorkItems, ?workerNameF = workerNameF, ?logLevel = logLevel)
+    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?maxWorkItems : int, ?workerNameF, ?clientId : string, ?logger : ISystemLogger, 
+                                            ?logLevel : LogLevel, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) : AzureCluster =
+        AzureCluster.SpawnOnCurrentMachine(config, workerCount, ?maxWorkItems = maxWorkItems, ?workerNameF = workerNameF, 
+                                                    ?logLevel = logLevel, ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
+
         AzureCluster.Connect(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
