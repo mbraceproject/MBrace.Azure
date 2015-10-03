@@ -128,7 +128,7 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
         }
 
 [<Sealed; AutoSerializable(false)>]
-type ResultAggregatorFactory private (config : ClusterId) =
+type TableResultAggregatorFactory private (config : ClusterId) =
     interface ICloudResultAggregatorFactory with
         member x.CreateResultAggregator(_aggregatorId : string, capacity: int): Async<ICloudResultAggregator<'T>> = async {
             let partitionKey = guid()
@@ -142,4 +142,4 @@ type ResultAggregatorFactory private (config : ClusterId) =
             return new ResultAggregator<'T>(config, partitionKey, capacity) :> ICloudResultAggregator<'T>
         }
     
-    static member Create(config) = new ResultAggregatorFactory(config) :> ICloudResultAggregatorFactory
+    static member Create(config) = new TableResultAggregatorFactory(config)

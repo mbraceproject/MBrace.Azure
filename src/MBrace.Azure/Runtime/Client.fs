@@ -198,9 +198,9 @@ type AzureCluster private (manager : ClusterManager) =
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         let! manager = ClusterManager.Create(config, ?systemLogger = logger)
-        let! storageLogger = manager.SystemLogManager.CreateLogWriter(clientId)
-        let _ = manager.LocalLogManager.AttachLogger(storageLogger)
-        logLevel |> Option.iter (fun l -> manager.LocalLogManager.LogLevel <- l)
+        let! storageLogger = manager.SystemLoggerManager.CreateLogWriter(clientId)
+        let _ = manager.LocalLoggerManager.AttachLogger(storageLogger)
+        logLevel |> Option.iter (fun l -> manager.LocalLoggerManager.LogLevel <- l)
         return new AzureCluster(manager)
     }
 

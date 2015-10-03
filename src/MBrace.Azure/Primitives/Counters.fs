@@ -8,6 +8,9 @@ open MBrace.Azure
 open Microsoft.WindowsAzure.Storage.Table
 open MBrace.Runtime
 
+// Defines a distributed counter for use by the MBrace execution engine
+// using Azure table storage
+
 // NOTE : All types that inherit TableEntity must provide a default public ctor.
 type CounterEntity(id : string, value : int64) = 
     inherit TableEntity(id, CounterEntity.DefaultRowKey)
@@ -44,4 +47,4 @@ type TableCounterFactory private (config : ClusterId) =
             return new TableCounter(config, record.PartitionKey) :> ICloudCounter
         }
 
-    static member Create(config : ClusterId) = new TableCounterFactory(config) :> ICloudCounterFactory
+    static member Create(config : ClusterId) = new TableCounterFactory(config)

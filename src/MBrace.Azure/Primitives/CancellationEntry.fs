@@ -126,4 +126,4 @@ type TableCancellationTokenFactory private (config : ClusterId) =
         }
         
     static member Create(config : ClusterId) = 
-        new TableCancellationTokenFactory(config) :> ICancellationEntryFactory
+        new TableCancellationTokenFactory(config)
