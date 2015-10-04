@@ -1,10 +1,12 @@
 ﻿namespace MBrace.Azure.Runtime
 
-open MBrace.Runtime
-open MBrace.Azure.Runtime.Utilities
-open Microsoft.WindowsAzure.Storage.Table
 open System
+
+open Microsoft.WindowsAzure.Storage.Table
+
+open MBrace.Runtime
 open MBrace.Runtime.Utils
+open MBrace.Azure.Runtime.Utilities
 
 type internal WorkItemKind =
     | ProcessRoot = 1

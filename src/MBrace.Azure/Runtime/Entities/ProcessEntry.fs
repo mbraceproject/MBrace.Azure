@@ -8,10 +8,7 @@ open Microsoft.WindowsAzure.Storage.Table
 open Nessos.FsPickler
 
 open MBrace.Core
-open MBrace.Core.Internals
 open MBrace.Runtime
-open MBrace.Runtime.Utils
-open MBrace.Runtime.Components
 open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 
@@ -20,8 +17,8 @@ open MBrace.Azure.Runtime.Utilities
 // Use dynamic query when fetching task completion source?
 
 [<AllowNullLiteral>]
-type ProcessRecord(taskId) = 
-    inherit TableEntity(ProcessRecord.DefaultPartitionKey, taskId)
+type CloudProcessRecord(taskId) = 
+    inherit TableEntity(CloudProcessRecord.DefaultPartitionKey, taskId)
     member val Id  : string = taskId with get, set
 
     member val Name : string = null with get, set
@@ -40,10 +37,10 @@ type ProcessRecord(taskId) =
     member val Dependencies : byte [] = null with get, set
     member val AdditionalResources : byte [] = null with get, set
 
-    new () = new ProcessRecord(null)
+    new () = new CloudProcessRecord(null)
 
     member this.CloneDefault() =
-        let p = new ProcessRecord()
+        let p = new CloudProcessRecord()
         p.PartitionKey <- this.PartitionKey
         p.RowKey <- this.RowKey
         p.ETag <- this.ETag
@@ -55,7 +52,7 @@ type ProcessRecord(taskId) =
 
     static member CreateNew(taskId : string, info : CloudProcessInfo) =
         let serializer = ProcessConfiguration.Serializer
-        let record = new ProcessRecord(taskId)
+        let record = new CloudProcessRecord(taskId)
         record.Completed <- nullable false
         record.StartTime <- nullableDefault
         record.CompletionTime <- nullableDefault
@@ -81,7 +78,7 @@ type ProcessRecord(taskId) =
         }
 
     static member GetProcessRecord(config : ClusterId, taskId : string) = async {
-        return! Table.read<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId
+        return! Table.read<CloudProcessRecord> config.StorageAccount config.RuntimeTable CloudProcessRecord.DefaultPartitionKey taskId
     }
 
 [<DataContract; Sealed>]
@@ -110,7 +107,7 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
         member this.IncrementWorkItemCount(): Async<unit> = async { return () }
         
         member this.DeclareStatus(status: CloudProcessStatus): Async<unit> = async {
-            let record = new ProcessRecord(taskId)
+            let record = new CloudProcessRecord(taskId)
             record.Status <- nullable(int status)
             record.ETag <- "*"
             let now = nullable DateTimeOffset.Now
@@ -139,7 +136,7 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
         
         member this.GetState(): Async<CloudProcessState> = async {
             let! jobsHandle = Async.StartChild(Table.queryPK<WorkItemRecord> config.StorageAccount config.RuntimeTable taskId)
-            let! record = ProcessRecord.GetProcessRecord(config, taskId)
+            let! record = CloudProcessRecord.GetProcessRecord(config, taskId)
             let! jobs = jobsHandle
 
             let execTime =
@@ -184,7 +181,7 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
         member this.Info: CloudProcessInfo = processInfo
         
         member this.TryGetResult(): Async<CloudProcessResult option> = async {
-            let! record = ProcessRecord.GetProcessRecord(config, taskId)
+            let! record = CloudProcessRecord.GetProcessRecord(config, taskId)
             match record.ResultUri with
             | null -> return None
             | uri ->
@@ -193,7 +190,7 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
         }
 
         member this.TrySetResult(result: CloudProcessResult, _workerId : IWorkerId): Async<bool> = async {
-            let record = new ProcessRecord(taskId)
+            let record = new CloudProcessRecord(taskId)
             let blobUri = guid()
             do! BlobPersist.PersistClosure(config, result, blobUri, allowNewSifts = false)
             record.ResultUri <- blobUri
@@ -201,44 +198,3 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
             let! _record = Table.merge config.StorageAccount config.RuntimeTable record
             return true
         }
-        
-
-[<Sealed; DataContract>]
-type CloudProcessManager private (config : ClusterId, logger : ISystemLogger) =
-
-    let [<DataMember(Name="config")>] config = config
-    let [<DataMember(Name="logger")>] logger = logger
-
-    interface ICloudProcessManager with
-        member this.ClearProcess(taskId: string): Async<unit> = async {
-            let record = new ProcessRecord(taskId)
-            record.ETag <- "*"
-            return! Table.delete config.StorageAccount config.RuntimeTable record // TODO : perform full cleanup?
-        }
-        
-        member this.ClearAllProcesses(): Async<unit> = async {
-            let! records = Table.queryPK<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey
-            return! Table.deleteBatch config.StorageAccount config.RuntimeTable records
-        }
-        
-        member this.StartProcess(info: CloudProcessInfo): Async<ICloudProcessEntry> = async {
-            let taskId = guid()
-            logger.LogInfof "task:%A : creating task" taskId
-            let record = ProcessRecord.CreateNew(taskId, info)
-            let! _record = Table.insertOrReplace config.StorageAccount config.RuntimeTable record
-            let tcs = new CloudProcessEntry(config, taskId, info)
-            logger.LogInfof "%A : task created" tcs
-            return tcs :> ICloudProcessEntry
-        }
-        
-        member this.GetAllProcesses(): Async<ICloudProcessEntry []> = async {
-            let! records = Table.queryPK<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey
-            return records |> Seq.map(fun r -> new CloudProcessEntry(config, r.Id, r.ToCloudProcessInfo()) :> ICloudProcessEntry) |> Seq.toArray
-        }
-        
-        member this.TryGetProcessById(taskId: string): Async<ICloudProcessEntry option> = async {
-            let! record = Table.read<ProcessRecord> config.StorageAccount config.RuntimeTable ProcessRecord.DefaultPartitionKey taskId
-            if record = null then return None else return Some(new CloudProcessEntry(config, taskId, record.ToCloudProcessInfo()) :> ICloudProcessEntry)
-        }
-
-    static member Create(config : ClusterId, logger) = new CloudProcessManager(config, logger)

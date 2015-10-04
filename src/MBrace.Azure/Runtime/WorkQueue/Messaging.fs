@@ -59,10 +59,6 @@ with
 type MessagePayload =
     | Single of CloudWorkItem
     | Batch of CloudWorkItem []
-//with
-//    static member GetBlobPersistUri(processId : string, workItemId : string) =
-//        sprintf "workitem%s/%s" processId workItemId
-    
 
 [<Sealed; AbstractClass>]
 type internal WorkItemLeaseMonitor = 
@@ -241,7 +237,7 @@ type internal MessagingClient =
             logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" jobInfo
             WorkItemLeaseMonitor.Start(message, jobInfo, logger)
 
-            let! procRecordT = ProcessRecord.GetProcessRecord(config, parentId) |> Async.StartChild
+            let! procRecordT = CloudProcessRecord.GetProcessRecord(config, parentId) |> Async.StartChild
 
             logger.Logf LogLevel.Debug "%O : changing status to %A" jobInfo WorkItemStatus.Dequeued
             let newRecord = new WorkItemRecord(jobInfo.ProcessId, fromGuid jobInfo.WorkItemId)
