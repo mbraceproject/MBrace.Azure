@@ -23,6 +23,7 @@ type private AzureArguments =
     | Suffix_Id of uint16
     | Use_Version_Suffix of bool
     | Use_Suffix_Id of bool
+    | Optimize_Closure_Serialization of bool
     // ServiceBus
     | Runtime_Queue of string
     | Runtime_Topic of string
@@ -46,6 +47,7 @@ with
             | Worker_Name _ -> "Specify worker name identifier."
             | Storage_Connection_String _ -> "Azure Storage connection string."
             | Service_Bus_Connection_string _ -> "Azure ServiceBus connection string."
+            | Optimize_Closure_Serialization _ -> "Specifies whether cluster should implement closure serialization optimizations. Defaults to true."
             | Force_Version _ -> "Forces an MBrace.Azure version number identifier. Defaults to compiled version."
             | Suffix_Id _ -> "User-supplied suffix identifier for Azure store resources. Defaults to 0."
             | Use_Version_Suffix _ -> "Enables or disables version suffix in store resources. Defaults to true."
@@ -98,6 +100,7 @@ with
             yield Suffix_Id config.SuffixId
             yield Use_Version_Suffix config.UseVersionSuffix
             yield Use_Suffix_Id config.UseSuffixId
+            yield Optimize_Closure_Serialization config.OptimizeClosureSerialization
 
             yield Runtime_Queue config.RuntimeQueue
             yield Runtime_Topic config.RuntimeTopic
@@ -132,6 +135,7 @@ with
         parseResult.IterResult(<@ Suffix_Id @>, fun id -> config.SuffixId <- id)
         parseResult.IterResult(<@ Use_Version_Suffix @>, fun b -> config.UseVersionSuffix <- b)
         parseResult.IterResult(<@ Use_Suffix_Id @>, fun b -> config.UseVersionSuffix <- b)
+        parseResult.IterResult(<@ Optimize_Closure_Serialization @>, fun o -> config.OptimizeClosureSerialization <- o)
 
         parseResult.IterResult(<@ Runtime_Queue @>, fun q -> config.RuntimeQueue <- q)
         parseResult.IterResult(<@ Runtime_Topic @>, fun t -> config.RuntimeTopic <- t)

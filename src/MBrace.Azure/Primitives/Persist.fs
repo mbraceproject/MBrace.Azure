@@ -12,8 +12,6 @@ open MBrace.Azure.Runtime.Utilities
 [<AbstractClass; Sealed; AutoSerializable(false)>]
 type BlobPersist private () =
 
-    static let siftClosures = true // TODO: move to configuration
-
     static let mkBlobValue (id : ClusterId) (fileName : string) =
         BlobValue.Define<'T>(id.StorageAccount, id.RuntimeContainer, fileName)
     
@@ -25,7 +23,7 @@ type BlobPersist private () =
     /// <param name="persistFileName">Filename of persisted blob.</param>
     /// <param name="allowNewSifts">Specifies if new values should be sifted.</param>
     static member PersistClosure<'T>(id : ClusterId, closure : 'T, persistFileName : string, allowNewSifts : bool) = async {
-        if siftClosures then
+        if id.OptimizeClosureSerialization then
             let manager = ConfigurationRegistry.Resolve<ClosureSiftManager>(id)
             let! sifted = manager.SiftClosure(closure, allowNewSifts)
             let bv : BlobValue<SiftedClosure<'T>> = mkBlobValue id persistFileName
@@ -41,7 +39,7 @@ type BlobPersist private () =
     /// <param name="id">Cluster identifier object.</param>
     /// <param name="persistFileName">Filename of persisted blob.</param>
     static member ReadPersistedClosure<'T>(id : ClusterId, persistFileName : string) = async {
-        if siftClosures then
+        if id.OptimizeClosureSerialization then
             let manager = ConfigurationRegistry.Resolve<ClosureSiftManager>(id)
             let bv : BlobValue<SiftedClosure<'T>> = mkBlobValue id persistFileName
             let! sifted = bv.GetValue()

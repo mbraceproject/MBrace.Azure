@@ -47,7 +47,11 @@ type ClusterId =
         /// Runtime logs table.
         RuntimeLogsTable : string
         /// User data table.
-        UserDataTable : string 
+        UserDataTable : string
+
+        /// Specifies whether closure serialization
+        /// should be optimized using closure sifting.
+        OptimizeClosureSerialization : bool
     }
 with
 
@@ -160,6 +164,8 @@ with
             RuntimeTable            = appendVersionAndId configuration.RuntimeTable
             RuntimeLogsTable        = appendVersionAndId configuration.RuntimeLogsTable
             UserDataTable           = appendVersionAndId configuration.UserDataTable
+
+            OptimizeClosureSerialization            = configuration.OptimizeClosureSerialization
         }
 
 

@@ -59,6 +59,8 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     /// Append runtime id to given configuration e.g. $RuntimeQueue$Version$Id. Defaults to true.
     member val UseSuffixId          = true with get, set
 
+    /// Specifies wether the cluster should optimize closure serialization. Defaults to true.
+    member val OptimizeClosureSerialization = true with get, set
 
     // #region Credentials
 

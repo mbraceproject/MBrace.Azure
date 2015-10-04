@@ -428,21 +428,20 @@ type internal Topic (config : ClusterId, logger : ISystemLogger) =
     member this.Enqueue(workItem : CloudWorkItem, allowNewSifts : bool) = 
         MessagingClient.Enqueue(config, logger, workItem, allowNewSifts, topic.SendAsync)
 
-    static member Create(config, logger : ISystemLogger) = 
-        async { 
-            let! exists = config.ServiceBusAccount.NamespaceManager.TopicExistsAsync(config.RuntimeTopic)
-            if not exists then 
-                logger.Logf LogLevel.Info "Creating new topic %A" config.RuntimeTopic
-                let qd = new TopicDescription(config.RuntimeTopic)
-                qd.EnableBatchedOperations <- true
-                qd.EnablePartitioning <- true
-                qd.DefaultMessageTimeToLive <- Settings.MaxTTL
-                qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
-                do! config.ServiceBusAccount.NamespaceManager.CreateTopicAsync(qd)
-            else
-                logger.Logf  LogLevel.Info "Topic %A exists." config.RuntimeTopic
-            return new Topic(config, logger)
-        }
+    static member Create(config, logger : ISystemLogger) = async { 
+        let! exists = config.ServiceBusAccount.NamespaceManager.TopicExistsAsync(config.RuntimeTopic)
+        if not exists then 
+            logger.Logf LogLevel.Info "Creating new topic %A" config.RuntimeTopic
+            let qd = new TopicDescription(config.RuntimeTopic)
+            qd.EnableBatchedOperations <- true
+            qd.EnablePartitioning <- true
+            qd.DefaultMessageTimeToLive <- Settings.MaxTTL
+            qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
+            do! config.ServiceBusAccount.NamespaceManager.CreateTopicAsync(qd)
+        else
+            logger.Logf  LogLevel.Info "Topic %A exists." config.RuntimeTopic
+        return new Topic(config, logger)
+    }
 
 /// Queue client implementation
 [<Sealed; AutoSerializable(false)>]
@@ -465,21 +464,20 @@ type internal Queue (config : ClusterId, logger : ISystemLogger) =
 
     member this.EnqueueMessagesBatch(messages : seq<BrokeredMessage>) = async { return! queue.SendBatchAsync messages }
         
-    static member Create(config : ClusterId, logger : ISystemLogger) = 
-        async { 
-            let ns = config.ServiceBusAccount.NamespaceManager
-            let! exists = ns.QueueExistsAsync(config.RuntimeQueue)
-            if not exists then 
-                logger.Logf LogLevel.Info "Creating new queue %A" config.RuntimeQueue
-                let qd = new QueueDescription(config.RuntimeQueue)
-                qd.EnableBatchedOperations <- true
-                qd.EnablePartitioning <- true
-                qd.DefaultMessageTimeToLive <- Settings.MaxTTL 
-                qd.MaxDeliveryCount <- Settings.MaxDeliveryCount
-                qd.LockDuration <- Settings.MaxLockDuration
-                qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
-                do! ns.CreateQueueAsync(qd)
-            else
-                logger.Logf LogLevel.Info "Queue %A exists." config.RuntimeQueue
-            return new Queue(config, logger)
-        }
+    static member Create(config : ClusterId, logger : ISystemLogger) = async { 
+        let ns = config.ServiceBusAccount.NamespaceManager
+        let! exists = ns.QueueExistsAsync(config.RuntimeQueue)
+        if not exists then 
+            logger.Logf LogLevel.Info "Creating new queue %A" config.RuntimeQueue
+            let qd = new QueueDescription(config.RuntimeQueue)
+            qd.EnableBatchedOperations <- true
+            qd.EnablePartitioning <- true
+            qd.DefaultMessageTimeToLive <- Settings.MaxTTL 
+            qd.MaxDeliveryCount <- Settings.MaxDeliveryCount
+            qd.LockDuration <- Settings.MaxLockDuration
+            qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
+            do! ns.CreateQueueAsync(qd)
+        else
+            logger.Logf LogLevel.Info "Queue %A exists." config.RuntimeQueue
+        return new Queue(config, logger)
+    }
