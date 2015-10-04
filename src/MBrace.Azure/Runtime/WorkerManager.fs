@@ -236,7 +236,7 @@ type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
             record.InitializationTime <- nullable joined
             record.ActiveWorkItems <- nullable 0
             record.Status <- pickle CloudWorkItemExecutionStatus.Running
-            record.Version <- ReleaseInfo.localVersion.ToString(4)
+            record.Version <- ProcessConfiguration.Version.ToString(4)
             record.MaxWorkItems <- nullable info.MaxWorkItemCount
             record.ProcessorCount <- nullable info.ProcessorCount
             record.ConfigurationId <- pickle config

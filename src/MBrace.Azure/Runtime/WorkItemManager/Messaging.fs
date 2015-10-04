@@ -432,11 +432,12 @@ type internal Topic (config : ClusterId, logger : ISystemLogger) =
         let! exists = config.ServiceBusAccount.NamespaceManager.TopicExistsAsync(config.RuntimeTopic)
         if not exists then 
             logger.Logf LogLevel.Info "Creating new topic %A" config.RuntimeTopic
+            let metadata = Metadata.Create config
             let qd = new TopicDescription(config.RuntimeTopic)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- Settings.MaxTTL
-            qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
+            qd.UserMetadata <- Metadata.ToJson metadata
             do! config.ServiceBusAccount.NamespaceManager.CreateTopicAsync(qd)
         else
             logger.Logf  LogLevel.Info "Topic %A exists." config.RuntimeTopic
@@ -469,13 +470,14 @@ type internal Queue (config : ClusterId, logger : ISystemLogger) =
         let! exists = ns.QueueExistsAsync(config.RuntimeQueue)
         if not exists then 
             logger.Logf LogLevel.Info "Creating new queue %A" config.RuntimeQueue
+            let metadata = Metadata.Create config
             let qd = new QueueDescription(config.RuntimeQueue)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- Settings.MaxTTL 
             qd.MaxDeliveryCount <- Settings.MaxDeliveryCount
             qd.LockDuration <- Settings.MaxLockDuration
-            qd.UserMetadata <- Metadata.toString ReleaseInfo.localVersion config
+            qd.UserMetadata <- Metadata.ToJson metadata
             do! ns.CreateQueueAsync(qd)
         else
             logger.Logf LogLevel.Info "Queue %A exists." config.RuntimeQueue

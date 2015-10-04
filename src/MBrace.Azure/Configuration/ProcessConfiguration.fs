@@ -1,7 +1,11 @@
 ﻿namespace MBrace.Azure.Runtime
 
+open System
 open System.IO
 open System.Net
+
+open Nessos.FsPickler
+open Nessos.FsPickler.Json
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils
@@ -13,6 +17,8 @@ type ProcessConfiguration private () =
     static let mutable objectCache = Unchecked.defaultof<InMemoryCache>
     static let mutable localFileStore = Unchecked.defaultof<FileSystemStore>
     static let mutable workingDirectory = Unchecked.defaultof<string>
+    static let mutable jsonSerializer = Unchecked.defaultof<JsonSerializer>
+    static let mutable version = Unchecked.defaultof<Version>
 
     static let checkInitialized () =
         if not isInitialized.Value then
@@ -32,6 +38,8 @@ type ProcessConfiguration private () =
                 VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance)
                 objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
                 localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
+                jsonSerializer <- FsPickler.CreateJsonSerializer(indent = false, omitHeader = true, typeConverter = VagabondRegistry.Instance.TypeConverter)
+                version <- typeof<ProcessConfiguration>.Assembly.GetName().Version
                 isInitialized := true
         )
 
@@ -41,6 +49,9 @@ type ProcessConfiguration private () =
     /// Default FsPicklerSerializer instance.
     static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
 
+    /// Default FsPicklerJsonSerializer instance.
+    static member JsonSerializer = checkInitialized() ; jsonSerializer
+
     /// Working Directory used by current global state.
     static member WorkingDirectory = checkInitialized(); workingDirectory
 
@@ -49,6 +60,9 @@ type ProcessConfiguration private () =
 
     /// Local file system store
     static member FileStore = checkInitialized(); localFileStore
+
+    /// MBrace.Azure compiled version
+    static member Version = checkInitialized(); version
 
     /// Initializes process state for use as client.
     static member InitAsClient() = initGlobalState None true true
