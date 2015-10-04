@@ -26,11 +26,11 @@ type internal FaultInfo =
     | IsTargetedWorkItemOfDeadWorker     = 3
 
 [<AllowNullLiteral>]
-type WorkItemRecord(parentTaskId : string, jobId : string) = 
-    inherit TableEntity(parentTaskId, jobId)
+type WorkItemRecord(processId : string, workItemId : string) = 
+    inherit TableEntity(processId, workItemId)
     
-    member val Id                 = jobId with get
-    member val ParentTaskId       = parentTaskId with get
+    member val Id                 = workItemId with get
+    member val ProcessId          = processId with get
 
     member val Affinity           = null : string with get, set
     member val Kind               = Nullable<int>() with get, set
@@ -54,7 +54,7 @@ type WorkItemRecord(parentTaskId : string, jobId : string) =
 
     new () = new WorkItemRecord(null, null)
 
-    override this.ToString() = sprintf "workItem:%A" jobId
+    override this.ToString() = sprintf "workItem:%A" workItemId
 
     member this.CloneDefault() =
         let p = new WorkItemRecord(this.PartitionKey, this.RowKey)

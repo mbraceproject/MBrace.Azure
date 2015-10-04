@@ -97,7 +97,7 @@
     <Compile Include="Store\Queue.fs" />
     <Compile Include="Store\Dictionary.fs" />
     <Compile Include="Primitives\ClusterId.fs" />
-    <Compile Include="Primitives\ClosureSifter.fs" />
+    <Compile Include="Primitives\Persist.fs" />
     <Compile Include="Primitives\Counters.fs" />
     <Compile Include="Primitives\CancellationEntry.fs" />
     <Compile Include="Primitives\ResultAggregator.fs" />

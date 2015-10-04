@@ -53,10 +53,6 @@ type ProcessRecord(taskId) =
 
     static member DefaultPartitionKey = "task"
 
-    /// Defines a cloud process result persist blob for given configuration and uri
-    static member DefineBlobValue(config : ClusterId, uri : string) =
-        BlobValue.Define<SiftedClosure<CloudProcessResult>>(config.StorageAccount, config.RuntimeContainer, sprintf "task-%s" uri)
-
     static member CreateNew(taskId : string, info : CloudProcessInfo) =
         let serializer = ProcessConfiguration.Serializer
         let record = new ProcessRecord(taskId)
@@ -189,22 +185,18 @@ type internal CloudProcessEntry (config : ClusterId, taskId : string, processInf
         
         member this.TryGetResult(): Async<CloudProcessResult option> = async {
             let! record = ProcessRecord.GetProcessRecord(config, taskId)
-            if record.ResultUri = null then
-                return None
-            else
-                let blob = ProcessRecord.DefineBlobValue(config, record.ResultUri)
-                let! sifted = blob.GetValue()
-                let! result = ClosureSifter.UnSiftClosure(config, sifted)
+            match record.ResultUri with
+            | null -> return None
+            | uri ->
+                let! result = BlobPersist.ReadPersistedClosure<CloudProcessResult>(config, uri)
                 return Some result
         }
 
         member this.TrySetResult(result: CloudProcessResult, _workerId : IWorkerId): Async<bool> = async {
             let record = new ProcessRecord(taskId)
-            let blobId = guid()
-            let! sifted = ClosureSifter.SiftClosure(config, result, allowNewSifts = false)
-            let blob = ProcessRecord.DefineBlobValue(config, blobId)
-            do! blob.WriteValue sifted
-            record.ResultUri <- blobId
+            let blobUri = guid()
+            do! BlobPersist.PersistClosure(config, result, blobUri, allowNewSifts = false)
+            record.ResultUri <- blobUri
             record.ETag <- "*"
             let! _record = Table.merge config.StorageAccount config.RuntimeTable record
             return true
