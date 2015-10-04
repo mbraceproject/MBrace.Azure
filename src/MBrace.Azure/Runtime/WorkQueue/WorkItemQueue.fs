@@ -40,6 +40,7 @@ type WorkItemQueue private (queue : Queue, topic : Topic) =
         }
 
         member this.BatchEnqueue(jobs: CloudWorkItem []): Async<unit> = async {
+            // TODO: clean up and add support for mixed topic/queue modes
             if jobs.Length > 1024 then 
                 raise(NotSupportedException(sprintf "Max batch size reached : %d/1024" jobs.Length))
             let nQueue = jobs |> Array.sumBy (fun j -> Convert.ToInt32 j.TargetWorker.IsNone)

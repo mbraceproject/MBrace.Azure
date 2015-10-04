@@ -8,6 +8,7 @@ open MBrace.Runtime.Utils.Retry
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 open Microsoft.WindowsAzure.Storage.Blob
+open Microsoft.ServiceBus.Messaging
 
 [<RequireQualifiedAccess>]
 module StoreException =
@@ -44,3 +45,14 @@ type CloudBlobContainer with
     member container.CreateIfNotExistsAsyncSafe(?retryInterval : int, ?maxRetries : int) =
         retryAsync (mkStoreConflictRetryPolicy maxRetries retryInterval) 
                     (async { let! _ = container.CreateIfNotExistsAsync() in return () })
+
+type BrokeredMessage with
+    member message.TryGetProperty<'T>(id : string) =
+        let mutable result = Unchecked.defaultof<obj>
+        if message.Properties.TryGetValue(id, &result) then
+            Some(result :?> 'T)
+        else
+            None
+
+    member message.GetProperty<'T>(id : string) =
+        message.Properties.[id] :?> 'T

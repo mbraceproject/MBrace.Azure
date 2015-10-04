@@ -108,6 +108,8 @@
     <Compile Include="Runtime\Entities\ProcessEntry.fs" />
     <Compile Include="Runtime\WorkerManager.fs" />
     <Compile Include="Runtime\ProcessManager.fs" />
+    <Compile Include="Runtime\WorkQueue\ServiceBusSettings.fs" />
+    <Compile Include="Runtime\WorkQueue\WorkItemLeaseToken.fs" />
     <Compile Include="Runtime\WorkQueue\Messaging.fs" />
     <Compile Include="Runtime\WorkQueue\TopicMonitor.fs" />
     <Compile Include="Runtime\WorkQueue\WorkItemQueue.fs" />

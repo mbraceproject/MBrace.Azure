@@ -29,7 +29,7 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
                 let m' = m.Clone()
                 // keep the current delivery count as a separate property
                 // as the message is reposted in the main queue
-                m'.Properties.[Settings.TopicDeliveryCount] <- m.DeliveryCount - 1
+                m'.Properties.[ServiceBusSettings.TopicDeliveryCount] <- m.DeliveryCount - 1
                 m'
 
             // clone messages and re-enqueue to main work item queue
