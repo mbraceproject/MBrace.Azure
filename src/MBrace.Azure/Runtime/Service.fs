@@ -32,14 +32,14 @@ type WorkerService (config : Configuration, workerId : string) =
     let mutable heartbeatInterval       = TimeSpan.FromSeconds 2.
     let mutable workingDirectory        = WorkingDirectory.GetDefaultWorkingDirectoryForProcess(prefix = "mbrace.azure")
     let mutable logFile                 = None
-    let mutable status                  = 0 // 0: stopped, 1: running, 2: stopping
+    let mutable status                  = 0 // 0: stopped, 1: starting, 2: running, 3: stopping
     let mutable subscription            = None : WorkerSubscription.Subscription option
     let mutable cancellationTokenSource = None : CancellationTokenSource option
     let attacheableLogger               = AttacheableLogger.Create(makeAsynchronous = true)
 
-    let setStarting  () = Interlocked.CompareExchange(&status, 1, 0) = 0
-    let setStopping  () = Interlocked.CompareExchange(&status, 3, 2) = 2
-    let checkStopped () = if status <> 0 then invalidOp "Cannot change Service while it is active."
+    let trySetStarting  () = Interlocked.CompareExchange(&status, 1, 0) = 0
+    let trySetStopping  () = Interlocked.CompareExchange(&status, 3, 2) = 2
+    let checkStopped    () = if status <> 0 then invalidOp "Cannot change Service while it is active."
     let validateInterval (i : TimeSpan) = if i < TimeSpan.FromSeconds 1. then invalidArg "interval" "Must be at least 1 second." else i
 
     /// MBrace Runtime Service.
@@ -116,7 +116,7 @@ type WorkerService (config : Configuration, workerId : string) =
     
     /// Asynchronously starts the service with specified configuration
     member this.StartAsync() : Async<unit> = async {
-        if not <| setStarting() then invalidOp "MBrace.Azure.Service is already running."
+        if not <| trySetStarting() then invalidOp "MBrace.Azure.Service is already running."
         try
             let sw = Stopwatch.StartNew()
             attacheableLogger.LogInfof "Starting MBrace.Azure.Service %A" workerId
@@ -139,7 +139,7 @@ type WorkerService (config : Configuration, workerId : string) =
         with e ->
             subscription |> Option.iter (fun sub -> try sub.Dispose() with _ -> ())
             subscription <- None
-            status <- 0
+            status <- int ServiceStatus.Stopped
             attacheableLogger.LogErrorf "Service Start for %A failed with %A" this.Id e
             return! Async.Raise e
     }
@@ -159,19 +159,17 @@ type WorkerService (config : Configuration, workerId : string) =
 
     /// Asynchronously stops the worker service
     member this.StopAsync ()  : Async<unit> = async {
-        if not <| setStopping() then invalidOp "MBrace.Azure.Service is not running."
+        if not <| trySetStopping() then invalidOp "MBrace.Azure.Service is not running."
         try
             attacheableLogger.LogInfof "Stopping Service %A." workerId
             subscription |> Option.iter (fun s -> s.Dispose())
             cancellationTokenSource |> Option.iter (fun c -> c.Cancel())
             subscription <- None
             cancellationTokenSource <- None
-            status <- 0
+            status <- int ServiceStatus.Stopped
             attacheableLogger.LogInfof "Service %A stopped." workerId
         with e ->
-            subscription |> Option.iter (fun sub -> try sub.Dispose() with _ -> ())
-            subscription <- None
-            status <- 0
+            status <- int ServiceStatus.Running
             attacheableLogger.LogErrorf "Service Stop for %A failed with %A" this.Id e
             return! Async.Raise e
     }
