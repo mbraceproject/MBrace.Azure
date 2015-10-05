@@ -174,12 +174,12 @@ with
 type ConfigurationRegistry private () =
     static let registry = new ConcurrentDictionary<ClusterId * Type, obj>()
 
-    static member Register<'T>(config : ClusterId, item : 'T) : unit =
-        registry.TryAdd((config, typeof<'T>), item :> obj)
+    static member Register<'T>(clusterId : ClusterId, item : 'T) : unit =
+        registry.TryAdd((clusterId, typeof<'T>), item :> obj)
         |> ignore
 
-    static member Resolve<'T>(config : ClusterId) : 'T =
+    static member Resolve<'T>(clusterId : ClusterId) : 'T =
         let mutable result = null
-        if registry.TryGetValue((config, typeof<'T>), &result) then result :?> 'T
+        if registry.TryGetValue((clusterId, typeof<'T>), &result) then result :?> 'T
         else
-            invalidOp <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" config typeof<'T>
+            invalidOp <| sprintf "Could not resolve Resource of type %A for ConfigurationId %A" clusterId typeof<'T>

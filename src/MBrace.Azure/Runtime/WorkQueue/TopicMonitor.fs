@@ -75,9 +75,9 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
     interface IDisposable with
         member __.Dispose() = cts.Cancel()
 
-    static member Create(config : ClusterId, workerManager : WorkerManager, logger : ISystemLogger) = async {
-        let! queueT = Queue.Create(config, logger) |> Async.StartChild
-        let! topic = Topic.Create(config, logger)
+    static member Create(clusterId : ClusterId, workerManager : WorkerManager, logger : ISystemLogger) = async {
+        let! queueT = Queue.Create(clusterId, logger) |> Async.StartChild
+        let! topic = Topic.Create(clusterId, logger)
         let! queue = queueT
         return new TopicMonitor(workerManager, topic, queue, logger)
     }

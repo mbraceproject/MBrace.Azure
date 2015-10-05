@@ -19,32 +19,32 @@ type CounterEntity(id : string, value : int64) =
     static member DefaultRowKey = String.Empty
 
 [<DataContract; Sealed>]
-type internal TableCounter (config : ClusterId, partitionKey : string) =
-    let [<DataMember(Name = "config")>] config = config
-    let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
+type internal TableCounter (clusterId : ClusterId, partitionKey : string) =
+    let [<DataMember(Name = "ClusterId")>] id = clusterId
+    let [<DataMember(Name = "PartitionKey")>] partitionKey = partitionKey
 
     interface ICloudCounter with
         member x.Dispose(): Async<unit> = async {
-            do! Table.delete config.StorageAccount config.RuntimeTable <| CounterEntity(PartitionKey = partitionKey)
+            do! Table.delete id.StorageAccount id.RuntimeTable <| CounterEntity(PartitionKey = partitionKey)
         }
         
         member x.Increment(): Async<int64> = async { 
-            let! e = Table.transact<CounterEntity> config.StorageAccount config.RuntimeTable partitionKey CounterEntity.DefaultRowKey (fun e -> e.Counter <- 1L + e.Counter)
+            let! e = Table.transact<CounterEntity> id.StorageAccount id.RuntimeTable partitionKey CounterEntity.DefaultRowKey (fun e -> e.Counter <- 1L + e.Counter)
             return e.Counter
         }
 
         member x.Value: Async<int64> = async {
-            let! e = Table.read<CounterEntity> config.StorageAccount config.RuntimeTable partitionKey CounterEntity.DefaultRowKey
+            let! e = Table.read<CounterEntity> id.StorageAccount id.RuntimeTable partitionKey CounterEntity.DefaultRowKey
             return e.Counter
         }
 
 [<Sealed>]
-type TableCounterFactory private (config : ClusterId) =
+type TableCounterFactory private (clusterId : ClusterId) =
     interface ICloudCounterFactory with
         member x.CreateCounter(initialValue: int64): Async<ICloudCounter> = async {
             let record = new CounterEntity(guid(), initialValue)
-            let! _record = Table.insert config.StorageAccount config.RuntimeTable record
-            return new TableCounter(config, record.PartitionKey) :> ICloudCounter
+            let! _record = Table.insert clusterId.StorageAccount clusterId.RuntimeTable record
+            return new TableCounter(clusterId, record.PartitionKey) :> ICloudCounter
         }
 
-    static member Create(config : ClusterId) = new TableCounterFactory(config)
+    static member Create(clusterId : ClusterId) = new TableCounterFactory(clusterId)

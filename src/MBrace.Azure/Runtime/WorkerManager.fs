@@ -9,7 +9,7 @@ open MBrace.Runtime
 open MBrace.Core.Internals
 
 [<AutoSerializable(false)>]
-type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
+type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
 
     let pickle (value : 'T) = ProcessConfiguration.Serializer.Pickle(value)
     let unpickle (value : byte []) = ProcessConfiguration.Serializer.UnPickle<'T>(value)
@@ -94,28 +94,28 @@ type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
     }
 
     member this.GetAllWorkers(): Async<WorkerState []> = async { 
-        let! records = Table.queryPK<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey
+        let! records = Table.queryPK<WorkerRecord> clusterId.StorageAccount clusterId.RuntimeTable WorkerRecord.DefaultPartitionKey
         let state = records |> Seq.map mkWorkerState |> Seq.toArray
         return state
     }
 
-    member this.UnsubscribeWorker(id : IWorkerId) = async {
-        logger.Logf LogLevel.Info "Unsubscribing worker %O" id
-        return! (this :> IWorkerManager).DeclareWorkerStatus(id, CloudWorkItemExecutionStatus.Stopped)
+    member this.UnsubscribeWorker(workerId : IWorkerId) = async {
+        logger.Logf LogLevel.Info "Unsubscribing worker %O" workerId
+        return! (this :> IWorkerManager).DeclareWorkerStatus(workerId, CloudWorkItemExecutionStatus.Stopped)
     }
 
     interface IWorkerManager with
-        member this.DeclareWorkerStatus(id: IWorkerId, status: CloudWorkItemExecutionStatus): Async<unit> = async {
-            logger.LogInfof "Changing worker %O status to %A" id status
-            let record = new WorkerRecord(id.Id)
+        member this.DeclareWorkerStatus(workerId: IWorkerId, status: CloudWorkItemExecutionStatus): Async<unit> = async {
+            logger.LogInfof "Changing worker %O status to %A" clusterId status
+            let record = new WorkerRecord(workerId.Id)
             record.ETag <- "*"
             record.Status <- pickle status
-            let! _ = Table.merge config.StorageAccount config.RuntimeTable record
+            let! _ = Table.merge clusterId.StorageAccount clusterId.RuntimeTable record
             return ()
         }
         
-        member this.IncrementWorkItemCount(id: IWorkerId): Async<unit> = async {
-            let! _ = Table.transact2<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
+        member this.IncrementWorkItemCount(workerId: IWorkerId): Async<unit> = async {
+            let! _ = Table.transact2<WorkerRecord> clusterId.StorageAccount clusterId.RuntimeTable WorkerRecord.DefaultPartitionKey workerId.Id 
                         (fun e -> 
                             let ec = e.CloneDefault()
                             ec.ActiveWorkItems <- e.ActiveWorkItems ?+ 1
@@ -123,8 +123,8 @@ type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
             return ()            
         }
 
-        member this.DecrementWorkItemCount(id: IWorkerId): Async<unit> = async {
-            let! _ = Table.transact2<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id 
+        member this.DecrementWorkItemCount(workerId: IWorkerId): Async<unit> = async {
+            let! _ = Table.transact2<WorkerRecord> clusterId.StorageAccount clusterId.RuntimeTable WorkerRecord.DefaultPartitionKey workerId.Id 
                         (fun e -> 
                             let ec = e.CloneDefault()
                             ec.ActiveWorkItems <- e.ActiveWorkItems ?- 1
@@ -143,18 +143,18 @@ type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
                 |> Seq.toArray
         }
         
-        member this.SubmitPerformanceMetrics(id: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = async {
-            let record = new WorkerRecord(id.Id)
+        member this.SubmitPerformanceMetrics(workerId: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = async {
+            let record = new WorkerRecord(workerId.Id)
             record.ETag <- "*"
             record.UpdateCounters(perf)
-            let! _result = Table.merge config.StorageAccount config.RuntimeTable record
+            let! _result = Table.merge clusterId.StorageAccount clusterId.RuntimeTable record
             return ()
         }
         
-        member this.SubscribeWorker(id: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
-            logger.Logf LogLevel.Info "Subscribing worker %O" id
+        member this.SubscribeWorker(workerId: IWorkerId, info: WorkerInfo): Async<IDisposable> = async {
+            logger.Logf LogLevel.Info "Subscribing worker %O" clusterId
             let joined = DateTimeOffset.UtcNow
-            let record = new WorkerRecord(id.Id)
+            let record = new WorkerRecord(workerId.Id)
             record.Hostname <- info.Hostname
             record.ProcessName <- Diagnostics.Process.GetCurrentProcess().ProcessName
             record.ProcessId <- nullable info.ProcessId
@@ -164,25 +164,25 @@ type WorkerManager private (config : ClusterId, logger : ISystemLogger) =
             record.Version <- ProcessConfiguration.Version.ToString(4)
             record.MaxWorkItems <- nullable info.MaxWorkItemCount
             record.ProcessorCount <- nullable info.ProcessorCount
-            record.ConfigurationId <- pickle config
+            record.ConfigurationId <- pickle clusterId
             record.HeartbeatInterval <- nullable info.HeartbeatInterval.Ticks
             record.HeartbeatThreshold <- nullable info.HeartbeatThreshold.Ticks
-            do! Table.insertOrReplace<WorkerRecord> config.StorageAccount config.RuntimeTable record //Worker might restart but keep id.
+            do! Table.insertOrReplace<WorkerRecord> clusterId.StorageAccount clusterId.RuntimeTable record //Worker might restart but keep id.
             let unsubscriber =
                 { 
                     new IDisposable with
                         member x.Dispose(): unit = 
-                            this.UnsubscribeWorker(id)
+                            this.UnsubscribeWorker(workerId)
                             |> Async.RunSync
                 }
             return unsubscriber
         }
         
-        member this.TryGetWorkerState(id: IWorkerId): Async<WorkerState option> = async {
-            let! record = Table.read<WorkerRecord> config.StorageAccount config.RuntimeTable WorkerRecord.DefaultPartitionKey id.Id
+        member this.TryGetWorkerState(workerId: IWorkerId): Async<WorkerState option> = async {
+            let! record = Table.read<WorkerRecord> clusterId.StorageAccount clusterId.RuntimeTable WorkerRecord.DefaultPartitionKey workerId.Id
             if record = null then return None
             else return Some(mkWorkerState record)
         }
 
-    static member Create(config : ClusterId, logger : ISystemLogger) =
-        new WorkerManager(config, logger)
+    static member Create(clusterId : ClusterId, logger : ISystemLogger) =
+        new WorkerManager(clusterId, logger)

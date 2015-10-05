@@ -7,6 +7,7 @@
 open System
 open System.Diagnostics
 open System.IO
+open System.Net
 
 open MBrace.Core
 open MBrace.Core.Internals
@@ -43,35 +44,22 @@ type AzureCluster private (manager : ClusterManager) =
     static do ProcessConfiguration.InitAsClient()
 
     /// <summary>
-    /// Kill all local worker processes.
-    /// </summary>
-    member this.KillAllLocalWorkers() =
-        let workers = this.Workers
-        let exists id hostname =
-            if Net.Dns.GetHostName() = hostname then
-                let ps = try Some <| Process.GetProcessById(id) with :? ArgumentException -> None
-                ps.IsSome
-            else false
-        workers |> Seq.filter (fun w -> exists w.ProcessId w.Hostname)    
-                |> Seq.iter this.KillLocalWorker
-
-    /// <summary>
-    /// Kill local worker process.
+    ///     Kill worker process if running on local machine.
+    ///     Returns true if successful, false if local worker not found.
     /// </summary>
     /// <param name="worker">Local worker to kill.</param>
-    member this.KillLocalWorker(worker : WorkerRef) =
-        let hostname = System.Net.Dns.GetHostName()
-        if worker.Hostname <> hostname then
-            failwith "WorkerRef hostname %A does not match local hostname %A" worker.Hostname hostname
+    member this.KillLocalWorker(worker : IWorkerRef) : bool =
+        let worker = worker :?> WorkerRef
+        let hostname = Dns.GetHostName()
+        if worker.Hostname <> hostname then false
         else
-            let ps = try Some <| Process.GetProcessById(worker.ProcessId) with :? ArgumentException -> None
-            match ps with
-            | Some p ->
-                (manager :> IRuntimeManager).WorkerManager.DeclareWorkerStatus(worker.WorkerId, CloudWorkItemExecutionStatus.Stopped)
-                |> Async.RunSync
-                p.Kill()
-            | _ ->
-                failwithf "No local process with Id = %d found." worker.ProcessId
+            try let p = Process.GetProcessById(worker.ProcessId) in p.Kill() ; true
+            with :? ArgumentException -> false
+
+    /// <summary>
+    ///     Kills all worker processes of the cluster that are running on the local machine.
+    /// </summary>
+    member this.KillAllLocalWorkers() = this.Workers |> Seq.iter (ignore << this.KillLocalWorker)
 
     /// <summary>
     /// Delete and re-activate runtime state.

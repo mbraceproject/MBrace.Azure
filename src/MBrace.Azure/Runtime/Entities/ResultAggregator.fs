@@ -35,17 +35,12 @@ type IndexedReferenceEntity(partitionKey, rowKey) =
     static member MakeRowKey(index) = sprintf "%010d" index
     static member DefaultRowKey = String.Empty
 
-//    /// Defines a blob value instance for supplied configuration and reference entity uri
-//    static member DefineBlobValue<'T>(config : ClusterId, uri : string) =
-//        BlobValue.Define<SiftedClosure<'T>>(config.StorageAccount, config.RuntimeContainer, uri)
-
-
 [<DataContract; Sealed>]
-type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, size : int) =
+type ResultAggregator<'T> internal (clusterId : ClusterId, partitionKey : string, size : int) =
     static let enableOverWrite = false
-    let [<DataMember(Name = "config")>] config = config
-    let [<DataMember(Name = "partitionKey")>] partitionKey = partitionKey
-    let [<DataMember(Name = "size")>] size = size
+    let [<DataMember(Name = "ClusterId")>] clusterId = clusterId
+    let [<DataMember(Name = "PartitionKey")>] partitionKey = partitionKey
+    let [<DataMember(Name = "Size")>] size = size
 
     let getEntity index = async {
         let pkFilter = TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, partitionKey)
@@ -57,7 +52,7 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
 
         let query = TableQuery<IndexedReferenceEntity>().Where(TableQuery.CombineFilters(pkFilter, TableOperators.And, rkFilter))
 
-        let! entities = Table.query<IndexedReferenceEntity> config.StorageAccount config.RuntimeTable query
+        let! entities = Table.query<IndexedReferenceEntity> clusterId.StorageAccount clusterId.RuntimeTable query
         let guard = entities |> Seq.find (fun e -> e.RowKey = IndexedReferenceEntity.DefaultRowKey)
         let entity = entities |> Seq.find (fun e -> e.RowKey = IndexedReferenceEntity.MakeRowKey(index))
         return guard, entity
@@ -69,18 +64,18 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
         member this.Capacity: int = size
         
         member this.CurrentSize: Async<int> = async {
-            let! record = Table.read<IndexedReferenceEntity> config.StorageAccount config.RuntimeTable partitionKey IndexedReferenceEntity.DefaultRowKey
+            let! record = Table.read<IndexedReferenceEntity> clusterId.StorageAccount clusterId.RuntimeTable partitionKey IndexedReferenceEntity.DefaultRowKey
             return record.Counter.Value
         }
         
         member this.Dispose(): Async<unit> = async {
-            let! records = Table.queryPK<IndexedReferenceEntity> config.StorageAccount config.RuntimeTable partitionKey
+            let! records = Table.queryPK<IndexedReferenceEntity> clusterId.StorageAccount clusterId.RuntimeTable partitionKey
             let indexed = records |> Seq.filter (fun e -> e.RowKey <> IndexedReferenceEntity.DefaultRowKey)
-            do! Table.deleteBatch config.StorageAccount config.RuntimeTable records
+            do! Table.deleteBatch clusterId.StorageAccount clusterId.RuntimeTable records
             do! 
                 indexed
                 |> Seq.choose (fun r -> match r.Uri with null -> None | uri -> Some uri)
-                |> Seq.map (fun uri -> BlobPersist.DeletePersistedClosure(config, uri))
+                |> Seq.map (fun uri -> BlobPersist.DeletePersistedClosure(clusterId, uri))
                 |> Async.Parallel
                 |> Async.Ignore
         }
@@ -92,7 +87,7 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
         
         member this.SetResult(index: int, value: 'T, workerId : IWorkerId): Async<bool> = async { 
             let uri = sprintf "%s/%s" partitionKey <| IndexedReferenceEntity.MakeRowKey index
-            do! BlobPersist.PersistClosure(config, value, uri, allowNewSifts = false)
+            do! BlobPersist.PersistClosure(clusterId, value, uri, allowNewSifts = false)
             let rec loop(guard : IndexedReferenceEntity, record : IndexedReferenceEntity) = async {
                 if enableOverWrite = false && record.Uri <> null then
                     return guard.Counter.Value = size
@@ -103,7 +98,7 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
                     record.WorkerId <- workerId.Id
                     record.Uri <- uri
                     try
-                        do! Table.mergeBatch config.StorageAccount config.RuntimeTable [guard; record]
+                        do! Table.mergeBatch clusterId.StorageAccount clusterId.RuntimeTable [guard; record]
                         return guard.Counter.Value = size
                     with ex when StoreException.PreconditionFailed ex ->
                         let! xs = getEntity index
@@ -114,7 +109,7 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
         }
         
         member this.ToArray(): Async<'T []> = async { 
-            let! records = Table.queryPK<IndexedReferenceEntity> config.StorageAccount config.RuntimeTable partitionKey
+            let! records = Table.queryPK<IndexedReferenceEntity> clusterId.StorageAccount clusterId.RuntimeTable partitionKey
             let records = records |> Seq.sortBy (fun r -> r.RowKey)
             let guard = Seq.head records
             let entities = Seq.skip 1 records
@@ -124,12 +119,12 @@ type ResultAggregator<'T> internal (config : ClusterId, partitionKey : string, s
             else
                 return!
                     entities
-                    |> Seq.map (fun e -> BlobPersist.ReadPersistedClosure<'T>(config, e.Uri))
+                    |> Seq.map (fun e -> BlobPersist.ReadPersistedClosure<'T>(clusterId, e.Uri))
                     |> Async.Parallel
         }
 
 [<Sealed; AutoSerializable(false)>]
-type TableResultAggregatorFactory private (config : ClusterId) =
+type TableResultAggregatorFactory private (clusterId : ClusterId) =
     interface ICloudResultAggregatorFactory with
         member x.CreateResultAggregator(_aggregatorId : string, capacity: int): Async<ICloudResultAggregator<'T>> = async {
             let partitionKey = guid()
@@ -139,8 +134,8 @@ type TableResultAggregatorFactory private (config : ClusterId) =
                     let rowKey = IndexedReferenceEntity.MakeRowKey(i)
                     yield new IndexedReferenceEntity(partitionKey, rowKey)
             }
-            do! Table.insertBatch config.StorageAccount config.RuntimeTable entities
-            return new ResultAggregator<'T>(config, partitionKey, capacity) :> ICloudResultAggregator<'T>
+            do! Table.insertBatch clusterId.StorageAccount clusterId.RuntimeTable entities
+            return new ResultAggregator<'T>(clusterId, partitionKey, capacity) :> ICloudResultAggregator<'T>
         }
     
-    static member Create(config) = new TableResultAggregatorFactory(config)
+    static member Create(clusterId : ClusterId) = new TableResultAggregatorFactory(clusterId)

@@ -54,8 +54,11 @@ type CancellationTokenSourceEntity(uuid : string, children : seq<string>) =
     static member DefaultPartitionKey = "cancellationToken"
     static member MaxChildrenPerProperty = 512
 
-[<Sealed>]
-type internal TableCancellationEntry (config : ClusterId, uuid : string) =
+[<Sealed; DataContract>]
+type internal TableCancellationEntry (clusterId : ClusterId, uuid : string) =
+    let [<DataMember(Name = "ClusterId")>] id = clusterId
+    let [<DataMember(Name = "UUID")>] uuid = uuid
+
     interface ICancellationEntry with        
         member x.UUID: string = uuid
 
@@ -63,7 +66,7 @@ type internal TableCancellationEntry (config : ClusterId, uuid : string) =
             let visited = new HashSet<string>()
             let rec walk rowKey = async {
                 if not <| visited.Contains rowKey then
-                    let! e = Table.read<CancellationTokenSourceEntity> config.StorageAccount config.RuntimeTable CancellationTokenSourceEntity.DefaultPartitionKey rowKey
+                    let! e = Table.read<CancellationTokenSourceEntity> id.StorageAccount id.RuntimeTable CancellationTokenSourceEntity.DefaultPartitionKey rowKey
                     if e.IsCancellationRequested then ()
                     else
                         let _ = visited.Add rowKey
@@ -74,26 +77,26 @@ type internal TableCancellationEntry (config : ClusterId, uuid : string) =
         
             do! visited
                 |> Seq.map (fun rowKey -> new CancellationTokenSourceEntity(rowKey, [||], IsCancellationRequested = true, ETag = "*"))
-                |> Table.mergeBatch config.StorageAccount config.RuntimeTable
+                |> Table.mergeBatch id.StorageAccount id.RuntimeTable
         }
         
         member x.Dispose(): Async<unit> = async {
-            do! Table.delete config.StorageAccount config.RuntimeTable (new CancellationTokenSourceEntity(uuid, [||]))
+            do! Table.delete id.StorageAccount id.RuntimeTable (new CancellationTokenSourceEntity(uuid, [||]))
         }
         
         member x.IsCancellationRequested: Async<bool> = async {
-            let! record = Table.read<CancellationTokenSourceEntity> config.StorageAccount config.RuntimeTable CancellationTokenSourceEntity.DefaultPartitionKey uuid
+            let! record = Table.read<CancellationTokenSourceEntity> id.StorageAccount id.RuntimeTable CancellationTokenSourceEntity.DefaultPartitionKey uuid
             return record.IsCancellationRequested
         }
         
 
 [<Sealed>]
-type TableCancellationTokenFactory private (config : ClusterId) =
+type TableCancellationTokenFactory private (clusterId : ClusterId) =
     interface ICancellationEntryFactory with
         member x.CreateCancellationEntry(): Async<ICancellationEntry> = async {
             let record = new CancellationTokenSourceEntity(guid(), [||])
-            let! _record = Table.insert config.StorageAccount config.RuntimeTable record
-            return new TableCancellationEntry(config, record.RowKey) :> ICancellationEntry
+            let! _record = Table.insert clusterId.StorageAccount clusterId.RuntimeTable record
+            return new TableCancellationEntry(clusterId, record.RowKey) :> ICancellationEntry
         }
         
         member x.TryCreateLinkedCancellationEntry(parents: ICancellationEntry []): Async<ICancellationEntry option> = async {
@@ -103,7 +106,7 @@ type TableCancellationTokenFactory private (config : ClusterId) =
             let rec loop () = async {
                 let! parents = 
                     parents 
-                    |> Seq.map (fun p -> Table.read<CancellationTokenSourceEntity> config.StorageAccount config.RuntimeTable CancellationTokenSourceEntity.DefaultPartitionKey p.UUID)
+                    |> Seq.map (fun p -> Table.read<CancellationTokenSourceEntity> clusterId.StorageAccount clusterId.RuntimeTable CancellationTokenSourceEntity.DefaultPartitionKey p.UUID)
                     |> Async.Parallel
 
                 if parents |> Array.exists (fun p -> p.IsCancellationRequested) then
@@ -116,8 +119,8 @@ type TableCancellationTokenFactory private (config : ClusterId) =
                         newParent.ETag <- parent.ETag
                         tbo.Merge(newParent)
                     try
-                        do! Table.batch config.StorageAccount config.RuntimeTable tbo
-                        return Some(TableCancellationEntry(config, uuid) :> ICancellationEntry)
+                        do! Table.batch clusterId.StorageAccount clusterId.RuntimeTable tbo
+                        return Some(TableCancellationEntry(clusterId, uuid) :> ICancellationEntry)
                     with ex when StoreException.PreconditionFailed ex ->
                         return! loop ()
             }
@@ -125,5 +128,5 @@ type TableCancellationTokenFactory private (config : ClusterId) =
             return! loop ()
         }
         
-    static member Create(config : ClusterId) = 
-        new TableCancellationTokenFactory(config)
+    static member Create(clusterId : ClusterId) = 
+        new TableCancellationTokenFactory(clusterId)

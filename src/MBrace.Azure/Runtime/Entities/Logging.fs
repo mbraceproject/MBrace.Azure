@@ -218,8 +218,8 @@ type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fet
 
 /// Management object for table storage based log files
 [<AutoSerializable(false)>]
-type TableSystemLogManager (config : ClusterId) =
-    let table = config.StorageAccount.GetTableReference(config.RuntimeLogsTable)
+type TableSystemLogManager (clusterId : ClusterId) =
+    let table = clusterId.StorageAccount.GetTableReference(clusterId.RuntimeLogsTable)
 
     /// <summary>
     ///     Creates a local log writer using provided logger id.
@@ -355,8 +355,8 @@ type TableSystemLogManager (config : ClusterId) =
 
 /// Management object for writing cloud process logs to the table store
 [<AutoSerializable(false)>]
-type TableCloudLogManager (config : ClusterId) =
-    let table = config.StorageAccount.GetTableReference config.UserDataTable
+type TableCloudLogManager (clusterId : ClusterId) =
+    let table = clusterId.StorageAccount.GetTableReference clusterId.UserDataTable
 
     /// <summary>
     ///     Fetches all cloud process log entries satisfying given constraints.

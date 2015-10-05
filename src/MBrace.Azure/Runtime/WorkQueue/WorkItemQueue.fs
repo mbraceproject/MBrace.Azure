@@ -59,9 +59,9 @@ type WorkItemQueue private (queue : Queue, topic : Topic) =
             | None   -> return! queue.Enqueue(workItem, allowNewSifts = isClientSideEnqueue)
         }
 
-    static member Create(config : ClusterId, logger : ISystemLogger) = async {
-        let! queueT = Queue.Create(config, logger) |> Async.StartChild
-        let! topic = Topic.Create(config, logger)
+    static member Create(clusterId : ClusterId, logger : ISystemLogger) = async {
+        let! queueT = Queue.Create(clusterId, logger) |> Async.StartChild
+        let! topic = Topic.Create(clusterId, logger)
         let! queue = queueT
         return new WorkItemQueue(queue, topic)
     }
