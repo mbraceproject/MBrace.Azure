@@ -1,6 +1,7 @@
 ﻿module MBrace.Azure.Runtime.Arguments
 
 open System
+open System.IO
 
 open Nessos.Argu
 
@@ -8,13 +9,16 @@ open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Runtime
 
+/// Argu configuration schema
 type private AzureArguments =
     // General-purpose arguments
-    | Log_Level of int
-    | Max_Work_Items of int
-    | Worker_Name of string
+    | [<AltCommandLine("-m")>] Max_Work_Items of int
+    | [<AltCommandLine("-w")>] Worker_Name of string
     | Heartbeat_Interval of float
     | Heartbeat_Threshold of float
+    | [<AltCommandLine("-L")>] Log_Level of int
+    | [<AltCommandLine("-l")>] Log_File of string
+    | Working_Directory of string
     // Connection string parameters
     | [<Mandatory>][<AltCommandLine("-s")>] Storage_Connection_String of string
     | [<Mandatory>][<AltCommandLine("-b")>] Service_Bus_Connection_string of string
@@ -41,9 +45,11 @@ with
         member arg.Usage =
             match arg with
             | Log_Level _ -> "Log level for worker system logs. Defaults to Info."
+            | Log_File _ -> "Specify a log file to write worker system logs."
             | Max_Work_Items _ -> "Specify maximum number of concurrent work items."
             | Heartbeat_Interval _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 1 second."
             | Heartbeat_Threshold _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 300 seconds."
+            | Working_Directory _ -> "Specify the working directory for the worker."
             | Worker_Name _ -> "Specify worker name identifier."
             | Storage_Connection_String _ -> "Azure Storage connection string."
             | Service_Bus_Connection_string _ -> "Azure ServiceBus connection string."
@@ -72,14 +78,22 @@ type ArgumentConfiguration =
         MaxWorkItems : int option
         WorkerName : string option
         LogLevel : LogLevel option
+        LogFile : string option
         HeartbeatInterval : TimeSpan option
         HeartbeatThreshold : TimeSpan option
+        WorkingDirectory : string option
     }
 with
     /// Creates a configuration object using supplied parameters.
-    static member Create(config : Configuration, ?maxWorkItems, ?workerName, ?logLevel, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
-        { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerName = workerName ; 
-            LogLevel = logLevel ; HeartbeatInterval = heartbeatInterval ; HeartbeatThreshold = heartbeatThreshold }
+    static member Create(config : Configuration, ?workingDirectory : string, ?maxWorkItems : int, ?workerName : string, ?logLevel : LogLevel, 
+                            ?logfile : string, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
+        maxWorkItems |> Option.iter (fun w -> if w < 0 then invalidArg "maxWorkItems" "must be positive." elif w > 1024 then invalidArg "maxWorkItems" "exceeds 1024 limit.")
+        heartbeatInterval |> Option.iter (fun i -> if i < TimeSpan.FromSeconds 1. then invalidArg "heartbeatInterval" "must be at least one second.")
+        heartbeatThreshold |> Option.iter (fun i -> if i < TimeSpan.FromSeconds 1. then invalidArg "heartbeatThreshold" "must be at least one second.")
+        let workingDirectory = workingDirectory |> Option.map Path.GetFullPath
+        { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerName = workerName ; LogFile = logfile ;
+            LogLevel = logLevel ; HeartbeatInterval = heartbeatInterval ; HeartbeatThreshold = heartbeatThreshold ;
+            WorkingDirectory = workingDirectory }
 
     /// Converts a configuration object to a command line string.
     static member ToCommandLineArguments(cfg : ArgumentConfiguration) =
@@ -90,6 +104,8 @@ with
             match cfg.LogLevel with Some l -> yield Log_Level (int l) | None -> ()
             match cfg.HeartbeatInterval with Some h -> yield Heartbeat_Interval h.TotalSeconds | None -> ()
             match cfg.HeartbeatThreshold with Some h -> yield Heartbeat_Threshold h.TotalSeconds | None -> ()
+            match cfg.LogFile with Some l -> yield Log_File l | None -> ()
+            match cfg.WorkingDirectory with Some w -> yield Working_Directory w | None -> ()
 
             let config = cfg.Configuration
 
@@ -121,16 +137,18 @@ with
     static member FromCommandLineArguments(args : string []) =
         let parseResult = argParser.Parse(args, errorHandler = new ProcessExiter())
 
-        let maxWorkItems = parseResult.TryGetResult <@ Max_Work_Items @>
+        let maxWorkItems = parseResult.TryPostProcessResult(<@ Max_Work_Items @>, fun i -> if i < 0 then failwith "must be positive." elif i > 1024 then failwith "exceeds 1024 limit." else i)
         let logLevel = parseResult.TryPostProcessResult(<@ Log_Level @>, enum<LogLevel>)
-        let workerName = parseResult.TryGetResult <@ Worker_Name @>
-        let heartbeatInterval = parseResult.TryPostProcessResult(<@ Heartbeat_Interval @>, fun i -> if i <= 0. then failwith "must be positive" else TimeSpan.FromSeconds i)
-        let heartbeatThreshold = parseResult.TryPostProcessResult(<@ Heartbeat_Threshold @>, fun i -> if i <= 0. then failwith "must be positive" else TimeSpan.FromSeconds i)
+        let logFile = parseResult.TryPostProcessResult(<@ Log_File @>, fun f -> ignore <| Path.GetFullPath f ; f) // use GetFullPath to validate chars
+        let workerName = parseResult.TryPostProcessResult(<@ Worker_Name @>, fun name -> Validate.subscriptionName name; name)
+        let heartbeatInterval = parseResult.TryPostProcessResult(<@ Heartbeat_Interval @>, fun i -> let t = TimeSpan.FromSeconds i in if t < TimeSpan.FromSeconds 1. then failwith "must be positive" else t)
+        let heartbeatThreshold = parseResult.TryPostProcessResult(<@ Heartbeat_Threshold @>, fun i -> let t = TimeSpan.FromSeconds i in if t < TimeSpan.FromSeconds 1. then failwith "must be positive" else t)
+        let workingDirectory = parseResult.TryPostProcessResult(<@ Working_Directory @>, Path.GetFullPath)
 
-        let sconn = parseResult.GetResult <@ Storage_Connection_String @>
-        let bconn = parseResult.GetResult <@ Service_Bus_Connection_string @>
+        let sacc = parseResult.PostProcessResult(<@ Storage_Connection_String @>, AzureStorageAccount.Parse)
+        let bacc = parseResult.PostProcessResult(<@ Service_Bus_Connection_string @>, AzureServiceBusAccount.Parse)
 
-        let config = new Configuration(sconn, bconn)
+        let config = new Configuration(sacc.ConnectionString, bacc.ConnectionString)
         parseResult.IterResult(<@ Force_Version @>, fun v -> config.Version <- v)
         parseResult.IterResult(<@ Suffix_Id @>, fun id -> config.SuffixId <- id)
         parseResult.IterResult(<@ Use_Version_Suffix @>, fun b -> config.UseVersionSuffix <- b)
@@ -153,7 +171,9 @@ with
             Configuration = config
             MaxWorkItems = maxWorkItems
             WorkerName = workerName
+            WorkingDirectory = workingDirectory
             LogLevel = logLevel
+            LogFile = logFile
             HeartbeatInterval = heartbeatInterval
             HeartbeatThreshold = heartbeatThreshold
         }

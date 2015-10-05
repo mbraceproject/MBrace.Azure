@@ -29,7 +29,7 @@ module WorkerSubscription =
             Disposable.dispose s.StoreLogger
             Disposable.dispose s.TopicMonitor
 
-    let initialize (config : Configuration) (workerId : string) (logger : ISystemLogger) 
+    let initialize (config : Configuration) (workerId : string) (logger : ISystemLogger)
                     (heartbeatInterval : TimeSpan) (heartbeatThreshold : TimeSpan)
                     (useAppDomainIsolation : bool) (maxConcurrentWorkItems : int) 
                     (customResources : ResourceRegistry) =
@@ -74,8 +74,8 @@ module WorkerSubscription =
             logger.LogInfo "Creating topic monitor agent"
             let! topicMonitorDisposer = clusterManager.InitTopicMonitor()
             logger.LogInfo "Creating worker agent"
-            let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentWorkItems, 
-                                            submitPerformanceMetrics = true, heartbeatInterval = heartbeatInterval, heartbeatThreshold = heartbeatThreshold)
+            let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentWorkItems, submitPerformanceMetrics = true, 
+                                                heartbeatInterval = heartbeatInterval, heartbeatThreshold = heartbeatThreshold)
 
             logger.LogInfo "Starting worker agent"
             do! agent.Start()

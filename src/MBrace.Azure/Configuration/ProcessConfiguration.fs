@@ -24,7 +24,7 @@ type ProcessConfiguration private () =
         if not isInitialized.Value then
             invalidOp "Azure configuration has not been initialized in the current process."
 
-    static let initGlobalState path populateDirs isClientInstance =
+    static let initGlobalState workDir populateDirs isClientInstance =
         lock isInitialized (fun () ->
             if not isInitialized.Value then
                 do ServicePointManager.DefaultConnectionLimit <- 512
@@ -32,7 +32,8 @@ type ProcessConfiguration private () =
                 do ServicePointManager.UseNagleAlgorithm <- false
 
                 let _ = System.Threading.ThreadPool.SetMinThreads(256, 256)
-                workingDirectory <- WorkingDirectory.CreateWorkingDirectory(?path = path, cleanup = populateDirs)
+                workingDirectory <- match workDir with Some w -> w | None -> WorkingDirectory.GetDefaultWorkingDirectoryForProcess(prefix = "mbrace.azure")
+                let _ = WorkingDirectory.CreateWorkingDirectory(workingDirectory, cleanup = populateDirs)
                 let vagabondDir = Path.Combine(workingDirectory, "vagabond")
                 if populateDirs then ignore <| WorkingDirectory.CreateWorkingDirectory(vagabondDir, cleanup = false)
                 VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance)
@@ -45,6 +46,9 @@ type ProcessConfiguration private () =
 
     /// Ensure that global configuration object has been initialized
     static member EnsureInitialized () = checkInitialized()
+
+    /// Checks whether process configuration is initialized
+    static member IsInitialized = !isInitialized
 
     /// Default FsPicklerSerializer instance.
     static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
@@ -67,6 +71,6 @@ type ProcessConfiguration private () =
     /// Initializes process state for use as client.
     static member InitAsClient() = initGlobalState None true true
     /// Initializes process state for use as parent AppDomain in a worker.
-    static member InitAsWorker() = initGlobalState None true false
+    static member InitAsWorker(?workingDirectory : string) = initGlobalState workingDirectory true false
     /// Initializes process state for use as a slave AppDomain in a worker.
     static member InitAsWorkerSlaveDomain(workingDirectory : string) = initGlobalState (Some workingDirectory) false false

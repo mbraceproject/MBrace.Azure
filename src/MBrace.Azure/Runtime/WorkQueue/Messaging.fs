@@ -10,8 +10,6 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.Retry
-open MBrace.Runtime.Components
-open System.Runtime.Serialization
 
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities

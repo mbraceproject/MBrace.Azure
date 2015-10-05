@@ -1,8 +1,8 @@
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget MBrace.Core 0.11.7-alpha
-nuget MBrace.Runtime 0.11.7-alpha
+nuget MBrace.Core 0.11.8-alpha
+nuget MBrace.Runtime 0.11.8-alpha
 nuget MBrace.Tests
 nuget WindowsAzure.ServiceBus ~> 2.5.2
 nuget WindowsAzure.Storage ~> 4.3.0
