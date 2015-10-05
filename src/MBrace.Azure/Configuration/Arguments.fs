@@ -13,7 +13,7 @@ open MBrace.Runtime
 type private AzureArguments =
     // General-purpose arguments
     | [<AltCommandLine("-m")>] Max_Work_Items of int
-    | [<AltCommandLine("-w")>] Worker_Name of string
+    | [<AltCommandLine("-w")>] Worker_Id of string
     | Heartbeat_Interval of float
     | Heartbeat_Threshold of float
     | [<AltCommandLine("-L")>] Log_Level of int
@@ -50,7 +50,7 @@ with
             | Heartbeat_Interval _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 1 second."
             | Heartbeat_Threshold _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 300 seconds."
             | Working_Directory _ -> "Specify the working directory for the worker."
-            | Worker_Name _ -> "Specify worker name identifier."
+            | Worker_Id _ -> "Specify worker name identifier."
             | Storage_Connection_String _ -> "Azure Storage connection string."
             | Service_Bus_Connection_string _ -> "Azure ServiceBus connection string."
             | Optimize_Closure_Serialization _ -> "Specifies whether cluster should implement closure serialization optimizations. Defaults to true."
@@ -74,9 +74,9 @@ let private argParser = ArgumentParser.Create<AzureArguments>()
 /// Configuration object encoding command line parameters for an MBrace.Azure process
 type ArgumentConfiguration = 
     {
-        Configuration : Configuration
+        Configuration : Configuration option
         MaxWorkItems : int option
-        WorkerName : string option
+        WorkerId : string option
         LogLevel : LogLevel option
         LogFile : string option
         HeartbeatInterval : TimeSpan option
@@ -85,13 +85,14 @@ type ArgumentConfiguration =
     }
 with
     /// Creates a configuration object using supplied parameters.
-    static member Create(config : Configuration, ?workingDirectory : string, ?maxWorkItems : int, ?workerName : string, ?logLevel : LogLevel, 
+    static member Create(?config : Configuration, ?workingDirectory : string, ?maxWorkItems : int, ?workerId : string, ?logLevel : LogLevel, 
                             ?logfile : string, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
         maxWorkItems |> Option.iter (fun w -> if w < 0 then invalidArg "maxWorkItems" "must be positive." elif w > 1024 then invalidArg "maxWorkItems" "exceeds 1024 limit.")
         heartbeatInterval |> Option.iter (fun i -> if i < TimeSpan.FromSeconds 1. then invalidArg "heartbeatInterval" "must be at least one second.")
         heartbeatThreshold |> Option.iter (fun i -> if i < TimeSpan.FromSeconds 1. then invalidArg "heartbeatThreshold" "must be at least one second.")
+        workerId |> Option.iter Validate.subscriptionName
         let workingDirectory = workingDirectory |> Option.map Path.GetFullPath
-        { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerName = workerName ; LogFile = logfile ;
+        { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerId = workerId ; LogFile = logfile ;
             LogLevel = logLevel ; HeartbeatInterval = heartbeatInterval ; HeartbeatThreshold = heartbeatThreshold ;
             WorkingDirectory = workingDirectory }
 
@@ -100,35 +101,36 @@ with
         let args = [
 
             match cfg.MaxWorkItems with Some w -> yield Max_Work_Items w | None -> ()
-            match cfg.WorkerName with Some n -> yield Worker_Name n | None -> ()
+            match cfg.WorkerId with Some n -> yield Worker_Id n | None -> ()
             match cfg.LogLevel with Some l -> yield Log_Level (int l) | None -> ()
             match cfg.HeartbeatInterval with Some h -> yield Heartbeat_Interval h.TotalSeconds | None -> ()
             match cfg.HeartbeatThreshold with Some h -> yield Heartbeat_Threshold h.TotalSeconds | None -> ()
             match cfg.LogFile with Some l -> yield Log_File l | None -> ()
             match cfg.WorkingDirectory with Some w -> yield Working_Directory w | None -> ()
 
-            let config = cfg.Configuration
+            match cfg.Configuration with
+            | None -> ()
+            | Some config ->
+                yield Storage_Connection_String config.StorageConnectionString
+                yield Service_Bus_Connection_string config.ServiceBusConnectionString
 
-            yield Storage_Connection_String config.StorageConnectionString
-            yield Service_Bus_Connection_string config.ServiceBusConnectionString
+                yield Force_Version config.Version
+                yield Suffix_Id config.SuffixId
+                yield Use_Version_Suffix config.UseVersionSuffix
+                yield Use_Suffix_Id config.UseSuffixId
+                yield Optimize_Closure_Serialization config.OptimizeClosureSerialization
 
-            yield Force_Version config.Version
-            yield Suffix_Id config.SuffixId
-            yield Use_Version_Suffix config.UseVersionSuffix
-            yield Use_Suffix_Id config.UseSuffixId
-            yield Optimize_Closure_Serialization config.OptimizeClosureSerialization
+                yield Runtime_Queue config.RuntimeQueue
+                yield Runtime_Topic config.RuntimeTopic
 
-            yield Runtime_Queue config.RuntimeQueue
-            yield Runtime_Topic config.RuntimeTopic
+                yield Runtime_Container config.RuntimeContainer
+                yield User_Data_Container config.UserDataContainer
+                yield Assembly_Container config.AssemblyContainer
+                yield Cloud_Value_Container config.CloudValueContainer
 
-            yield Runtime_Container config.RuntimeContainer
-            yield User_Data_Container config.UserDataContainer
-            yield Assembly_Container config.AssemblyContainer
-            yield Cloud_Value_Container config.CloudValueContainer
-
-            yield Runtime_Table config.RuntimeTable
-            yield Runtime_Logs_Table config.RuntimeLogsTable
-            yield User_Data_Table config.UserDataTable
+                yield Runtime_Table config.RuntimeTable
+                yield Runtime_Logs_Table config.RuntimeLogsTable
+                yield User_Data_Table config.UserDataTable
         ]
 
         argParser.PrintCommandLineFlat args
@@ -140,7 +142,7 @@ with
         let maxWorkItems = parseResult.TryPostProcessResult(<@ Max_Work_Items @>, fun i -> if i < 0 then failwith "must be positive." elif i > 1024 then failwith "exceeds 1024 limit." else i)
         let logLevel = parseResult.TryPostProcessResult(<@ Log_Level @>, enum<LogLevel>)
         let logFile = parseResult.TryPostProcessResult(<@ Log_File @>, fun f -> ignore <| Path.GetFullPath f ; f) // use GetFullPath to validate chars
-        let workerName = parseResult.TryPostProcessResult(<@ Worker_Name @>, fun name -> Validate.subscriptionName name; name)
+        let workerName = parseResult.TryPostProcessResult(<@ Worker_Id @>, fun name -> Validate.subscriptionName name; name)
         let heartbeatInterval = parseResult.TryPostProcessResult(<@ Heartbeat_Interval @>, fun i -> let t = TimeSpan.FromSeconds i in if t < TimeSpan.FromSeconds 1. then failwith "must be positive" else t)
         let heartbeatThreshold = parseResult.TryPostProcessResult(<@ Heartbeat_Threshold @>, fun i -> let t = TimeSpan.FromSeconds i in if t < TimeSpan.FromSeconds 1. then failwith "must be positive" else t)
         let workingDirectory = parseResult.TryPostProcessResult(<@ Working_Directory @>, Path.GetFullPath)
@@ -168,9 +170,9 @@ with
         parseResult.IterResult(<@ User_Data_Table @>, fun c -> config.UserDataTable <- c)
 
         {
-            Configuration = config
+            Configuration = Some config
             MaxWorkItems = maxWorkItems
-            WorkerName = workerName
+            WorkerId = workerName
             WorkingDirectory = workingDirectory
             LogLevel = logLevel
             LogFile = logFile

@@ -19,4 +19,4 @@
 open System.IO
 open MBrace.Azure
 
-AzureCluster.LocalWorkerExecutable <- Path.Combine(__SOURCE_DIRECTORY__, @"tools\mbrace.azureworker.exe")
+AzureWorker.LocalExecutable <- Path.Combine(__SOURCE_DIRECTORY__, @"tools\mbrace.azureworker.exe")

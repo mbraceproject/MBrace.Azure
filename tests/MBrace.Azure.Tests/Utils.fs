@@ -34,7 +34,7 @@ module Utils =
 
 type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
 
-    static do AzureCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+    static do AzureWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
     
     let mutable state = None
 
