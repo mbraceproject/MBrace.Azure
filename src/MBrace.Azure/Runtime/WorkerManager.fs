@@ -28,7 +28,7 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
         { 
             Id = new WorkerId(record.Id)
             CurrentWorkItemCount = record.ActiveWorkItems.GetValueOrDefault(-1)
-            LastHeartbeat = record.Timestamp
+            LastHeartbeat = record.LastHeartbeat.Value
             InitializationTime = record.InitializationTime.Value
             ExecutionStatus = unpickle record.Status
             PerformanceMetrics = record.GetCounters()
@@ -159,6 +159,7 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
             record.ProcessName <- Diagnostics.Process.GetCurrentProcess().ProcessName
             record.ProcessId <- nullable info.ProcessId
             record.InitializationTime <- nullable joined
+            record.LastHeartbeat <- nullable joined
             record.ActiveWorkItems <- nullable 0
             record.Status <- pickle CloudWorkItemExecutionStatus.Running
             record.Version <- ProcessConfiguration.Version.ToString(4)

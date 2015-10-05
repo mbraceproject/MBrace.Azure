@@ -6,6 +6,7 @@ open Microsoft.WindowsAzure.Storage.Table
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils.PerformanceMonitor
+open MBrace.Azure.Runtime.Utilities
 
 [<AutoSerializable(true)>]
 type WorkerId internal (workerId : string) = 
@@ -36,6 +37,7 @@ type WorkerRecord(workerId : string) =
     member val ProcessId            = Nullable<int>() with get, set
     member val ProcessName          = Unchecked.defaultof<string> with get, set
     member val InitializationTime   = Nullable<DateTimeOffset>() with get, set
+    member val LastHeartbeat        = Nullable<DateTimeOffset>() with get, set
     member val ConfigurationId      = Unchecked.defaultof<byte []> with get, set
     member val MaxWorkItems         = Nullable<int>()   with get, set
     member val ActiveWorkItems      = Nullable<int>()   with get, set
@@ -70,6 +72,7 @@ type WorkerRecord(workerId : string) =
             this.NetworkUp <- counters.NetworkUsageUp
             this.NetworkDown <- counters.NetworkUsageDown
             this.MaxClockSpeed <- counters.MaxClockSpeed
+            this.LastHeartbeat <- nullable DateTimeOffset.Now
 
     member this.CloneDefault() =
         let p = new WorkerRecord()
