@@ -138,11 +138,6 @@ with
             provider.InstallCacheOnLocalAppDomain()
             provider
 
-        logger.LogInfof "Initializing closure sifter."
-        let csc = ClosureSiftConfiguration.Create(cloudValueProvider, siftThreshold = 5L * 1024L * 1024L)
-        let manager = ClosureSiftManager.Create(csc, localLogger = logger)
-        ConfigurationRegistry.Register<ClosureSiftManager>(clusterId, manager)
-
         let resources = resource {
             match customResources with Some r -> yield! r | None -> ()
             yield fileStore :> ICloudFileStore
@@ -164,6 +159,12 @@ with
             let ignoredAssemblies = [| Assembly.GetExecutingAssembly() |]
             let config = StoreAssemblyManagerConfiguration.Create(fileStore, serializer, container = clusterId.VagabondContainer, ignoredAssemblies = ignoredAssemblies, compressAssemblies = true)
             StoreAssemblyManager.Create(config, localLogger = logger)
+
+        logger.LogInfof "Creating closure sift manager."
+        let siftManager =
+            let csc = ClosureSiftConfiguration.Create(cloudValueProvider, siftThreshold = 5L * 1024L * 1024L)
+            ClosureSiftManager.Create(csc, localLogger = logger)
+        ConfigurationRegistry.Register<ClosureSiftManager>(clusterId, siftManager)
 
         logger.LogInfo "Creating SystemLog manager"
         let systemLogManager = new TableSystemLogManager(clusterId)

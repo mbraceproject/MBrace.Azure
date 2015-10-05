@@ -41,22 +41,16 @@ type WorkItemQueue private (queue : Queue, topic : Topic) =
         }
 
         member this.BatchEnqueue(jobs: CloudWorkItem []): Async<unit> = async {
-            // TODO: clean up and add support for mixed topic/queue modes
-            if jobs.Length > 1024 then 
-                raise(NotSupportedException(sprintf "Max batch size reached : %d/1024" jobs.Length))
-            let nQueue = jobs |> Array.sumBy (fun j -> Convert.ToInt32 j.TargetWorker.IsNone)
-            if nQueue <> jobs.Length && nQueue <> 0 then
-                raise(NotSupportedException("WorkItems with mixed TargetWorker are not supported."))
-            let parentId = (Seq.head jobs).Process.Id
-            if jobs |> Seq.exists(fun j -> j.Process.Id <> parentId) then
-                raise(NotSupportedException("WorkItems with different parent Process not supported."))
-
-            if jobs.Length = 0 then
-                return ()
-            elif nQueue = jobs.Length then
-                return! queue.EnqueueBatch(jobs)
+            if jobs.Length = 0 then ()
+            elif jobs.Length > 1024 then
+                raise <| ArgumentOutOfRangeException(sprintf "Max batch size reached : %d/1024" jobs.Length)
             else
-                return! topic.EnqueueBatch(jobs)
+                let nQueue = jobs |> Array.sumBy (fun j -> match j.TargetWorker with None -> 1 | _ -> 0)
+                if nQueue = jobs.Length then return! queue.EnqueueBatch(jobs)
+                elif nQueue = 0 then return! topic.EnqueueBatch(jobs)
+                else
+                    // TODO : fix this; future MBrace.Core versions will feature mixed modes
+                    raise <| NotSupportedException("WorkItems with mixed TargetWorker are not supported.")
         }
 
         member this.Enqueue(workItem: CloudWorkItem, isClientSideEnqueue : bool): Async<unit> = async {
