@@ -88,3 +88,13 @@ type WorkItemRecord(processId : string, workItemId : string) =
         record.Type <- PrettyPrinters.Type.prettyPrintUntyped workItem.Type
         record.FaultInfo <- nullable(int FaultInfo.NoFault)
         record
+
+    member r.GetWorkItemType() =
+        let wk = enum<WorkItemKind>(r.Kind.GetValueOrDefault(-1))
+        match wk with
+        | WorkItemKind.ProcessRoot -> ProcessRoot
+        | WorkItemKind.Choice   -> ChoiceChild(r.Index.GetValueOrDefault(-1), r.MaxIndex.GetValueOrDefault(-1))
+        | WorkItemKind.Parallel -> ParallelChild(r.Index.GetValueOrDefault(-1), r.MaxIndex.GetValueOrDefault(-1))
+        | _ -> failwithf "Invalid WorkItemKind %d" <| int wk
+
+    member r.GetSize() = r.Size.GetValueOrDefault(-1L)

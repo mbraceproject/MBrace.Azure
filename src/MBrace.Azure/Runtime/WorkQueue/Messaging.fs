@@ -23,30 +23,11 @@ type internal MessagingClient =
         if message = null then 
             return None
         else 
-            let affinity = message.TryGetProperty<string> ServiceBusSettings.AffinityProperty
-            let topicDeliveryCount = message.TryGetProperty<int> ServiceBusSettings.TopicDeliveryCount
-            let deliveryCount = message.DeliveryCount + (defaultArg topicDeliveryCount 0)
-            let parentId = message.Properties.[ServiceBusSettings.ParentTaskIdProperty] :?> string
-            let batchIndex = message.TryGetProperty<int> ServiceBusSettings.BatchIndexProperty
-            let lockToken = message.LockToken
-            let blobUri = message.GetBody<string>()
-            let jobId = message.Properties.[ServiceBusSettings.WorkItemIdProperty] :?> Guid
-            let dequeueTime = DateTimeOffset.Now
-            let jobInfo = {
-                WorkItemId = jobId
-                BlobUri = blobUri
-                ConfigurationId = config
-                MessageLockId = lockToken
-                ProcessId = parentId
-                BatchIndex = batchIndex
-                TargetWorker = affinity
-                DeliveryCount = deliveryCount
-                DequeueTime = dequeueTime
-            }
-            logger.Logf LogLevel.Debug "%O : dequeued, starting lock renew loop" jobInfo
-            WorkItemLeaseMonitor.Start(message, jobInfo, logger)
+            let jobInfo = WorkItemLeaseTokenInfo.FromReceivedMessage message
+            logger.Logf LogLevel.Debug "%O : dequeued, delivery count = %d" jobInfo jobInfo.DeliveryCount 
 
-            let! procRecordT = CloudProcessRecord.GetProcessRecord(config, parentId) |> Async.StartChild
+            logger.Logf LogLevel.Debug "%O : starting lock renew loop" jobInfo
+            let monitor = WorkItemLeaseMonitor.Start(config, message, jobInfo, logger)
 
             logger.Logf LogLevel.Debug "%O : changing status to %A" jobInfo WorkItemStatus.Dequeued
             let newRecord = new WorkItemRecord(jobInfo.ProcessId, fromGuid jobInfo.WorkItemId)
@@ -60,7 +41,6 @@ type internal MessagingClient =
 
             logger.Logf LogLevel.Debug "%O : fetching fault info" jobInfo
             let! faultInfo = async {
-                logger.Logf LogLevel.Debug "%O : delivery count = %d" jobInfo jobInfo.DeliveryCount
                 let faultCount = jobInfo.DeliveryCount - 1
 
                 if faultCount = 0 then
@@ -94,13 +74,11 @@ type internal MessagingClient =
                             return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
             }
 
-            let! procRecord = procRecordT
-
             logger.Logf LogLevel.Debug "%O : extracted fault info %A" jobInfo faultInfo
             let! _record = Table.merge config.StorageAccount config.RuntimeTable newRecord
             logger.Logf LogLevel.Debug "%O : changed status successfully" jobInfo
-            let leaseToken = new WorkItemLeaseToken(jobInfo, faultInfo, procRecord.ToCloudProcessInfo()) :> ICloudWorkItemLeaseToken
-            return Some leaseToken
+            let! leaseToken = WorkItemLeaseToken.Create(config, jobInfo, monitor, faultInfo)
+            return Some (leaseToken :> ICloudWorkItemLeaseToken)
     }
 
     /// Generic work item enqueue method

@@ -9,6 +9,7 @@ open MBrace.Runtime
 open MBrace.Azure
 open MBrace.Azure.Runtime.Utilities
 
+/// Implements MBrace.Runtime.IWorkItemQueue
 [<AutoSerializable(false); Sealed>]  
 type WorkItemQueue private (queue : Queue, topic : Topic) =
 

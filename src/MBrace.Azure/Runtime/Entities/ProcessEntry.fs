@@ -82,9 +82,9 @@ type CloudProcessRecord(taskId) =
     }
 
 [<DataContract; Sealed>]
-type internal CloudProcessEntry (config : ClusterId, taskId : string, processInfo : CloudProcessInfo) =
+type internal CloudProcessEntry (config : ClusterId, processId : string, processInfo : CloudProcessInfo) =
     let [<DataMember(Name = "config")>] config = config
-    let [<DataMember(Name = "taskId")>] taskId = taskId
+    let [<DataMember(Name = "processId")>] taskId = processId
     let [<DataMember(Name = "processInfo")>] processInfo = processInfo
 
     override this.ToString() = sprintf "task:%A" taskId
