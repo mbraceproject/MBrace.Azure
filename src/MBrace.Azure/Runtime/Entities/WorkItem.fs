@@ -1,10 +1,12 @@
 ﻿namespace MBrace.Azure.Runtime
 
-open MBrace.Runtime
-open MBrace.Azure.Runtime.Utilities
-open Microsoft.WindowsAzure.Storage.Table
 open System
+
+open Microsoft.WindowsAzure.Storage.Table
+
+open MBrace.Runtime
 open MBrace.Runtime.Utils
+open MBrace.Azure.Runtime.Utilities
 
 type internal WorkItemKind =
     | ProcessRoot = 1
@@ -26,11 +28,11 @@ type internal FaultInfo =
     | IsTargetedWorkItemOfDeadWorker     = 3
 
 [<AllowNullLiteral>]
-type WorkItemRecord(parentTaskId : string, jobId : string) = 
-    inherit TableEntity(parentTaskId, jobId)
+type WorkItemRecord(processId : string, workItemId : string) = 
+    inherit TableEntity(processId, workItemId)
     
-    member val Id                 = jobId with get
-    member val ParentTaskId       = parentTaskId with get
+    member val Id                 = workItemId with get
+    member val ProcessId          = processId with get
 
     member val Affinity           = null : string with get, set
     member val Kind               = Nullable<int>() with get, set
@@ -54,7 +56,7 @@ type WorkItemRecord(parentTaskId : string, jobId : string) =
 
     new () = new WorkItemRecord(null, null)
 
-    override this.ToString() = sprintf "workItem:%A" jobId
+    override this.ToString() = sprintf "workItem:%A" workItemId
 
     member this.CloneDefault() =
         let p = new WorkItemRecord(this.PartitionKey, this.RowKey)
@@ -86,3 +88,13 @@ type WorkItemRecord(parentTaskId : string, jobId : string) =
         record.Type <- PrettyPrinters.Type.prettyPrintUntyped workItem.Type
         record.FaultInfo <- nullable(int FaultInfo.NoFault)
         record
+
+    member r.GetWorkItemType() =
+        let wk = enum<WorkItemKind>(r.Kind.GetValueOrDefault(-1))
+        match wk with
+        | WorkItemKind.ProcessRoot -> ProcessRoot
+        | WorkItemKind.Choice   -> ChoiceChild(r.Index.GetValueOrDefault(-1), r.MaxIndex.GetValueOrDefault(-1))
+        | WorkItemKind.Parallel -> ParallelChild(r.Index.GetValueOrDefault(-1), r.MaxIndex.GetValueOrDefault(-1))
+        | _ -> failwithf "Invalid WorkItemKind %d" <| int wk
+
+    member r.GetSize() = r.Size.GetValueOrDefault(-1L)

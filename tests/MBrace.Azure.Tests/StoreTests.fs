@@ -12,7 +12,7 @@ open MBrace.Azure.Tests
     
     
 [<TestFixture>]
-type ``BlobStore Tests - Remote``() = 
+type ``BlobStore Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
     let session = new RuntimeSession(remoteConfig, 4)
     
@@ -29,7 +29,7 @@ type ``BlobStore Tests - Remote``() =
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 [<TestFixture>]
-type ``BlobStore Tests - Storage Emulator``() = 
+type ``BlobStore Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
     let session = new RuntimeSession(emulatorConfig, 4)
     
@@ -46,7 +46,7 @@ type ``BlobStore Tests - Storage Emulator``() =
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess workflow
 
 [<TestFixture>]
-type ``Atom Tests - Remote``() = 
+type ``Atom Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(remoteConfig, 4)
     
@@ -61,7 +61,7 @@ type ``Atom Tests - Remote``() =
     override __.Repeats = 1
 
 [<TestFixture>]
-type ``Atom Tests - Storage Emulator``() = 
+type ``Atom Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(emulatorConfig, 4)
     
@@ -76,7 +76,7 @@ type ``Atom Tests - Storage Emulator``() =
     override __.Repeats = 3
 
 [<TestFixture>]
-type ``Queue Tests - Remote``() = 
+type ``Queue Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudQueue Tests``(parallelismFactor = 10)
     let session = new RuntimeSession(remoteConfig, 4)
     
@@ -90,7 +90,7 @@ type ``Queue Tests - Remote``() =
     override __.RunOnCurrentProcess wf = session.Runtime.RunOnCurrentProcess wf
 
 [<TestFixture>]
-type ``Dictionary Tests - Storage Emulator``() = 
+type ``Dictionary Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``CloudDictionary Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(emulatorConfig, 4)
     
@@ -105,7 +105,7 @@ type ``Dictionary Tests - Storage Emulator``() =
     override __.IsInMemoryFixture = false
 
 [<TestFixture>]
-type ``Dictionary Tests - Remote``() = 
+type ``Dictionary Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudDictionary Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(remoteConfig, 4)
     
@@ -120,7 +120,7 @@ type ``Dictionary Tests - Remote``() =
     override __.IsInMemoryFixture = false
 
 [<TestFixture>]
-type ``CloudValue Tests - Storage Emulator``() = 
+type ``CloudValue Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``CloudValue Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(emulatorConfig, 4)
     
@@ -135,7 +135,7 @@ type ``CloudValue Tests - Storage Emulator``() =
     override __.IsSupportedLevel _ = true
 
 [<TestFixture>]
-type ``CloudValue Tests - Remote``() = 
+type ``CloudValue Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudValue Tests``(parallelismFactor = 5)
     let session = new RuntimeSession(remoteConfig, 4)
     

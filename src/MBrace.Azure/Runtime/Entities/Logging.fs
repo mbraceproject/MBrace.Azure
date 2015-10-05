@@ -108,9 +108,10 @@ type private CloudTableLogWriter<'Entry when 'Entry :> TableEntity> private (tab
                 idCount <- i
                 log.RowKey <- Logger.mkRowKey loggerUUID i
                 do tbo.Insert log
+
             do!
                 table.ExecuteBatchAsync tbo
-                |> Async.AwaitTask
+                |> Async.AwaitTaskCorrect
                 |> Async.Catch
                 |> Async.Ignore
 
@@ -154,13 +155,13 @@ type private CloudTableLogWriter<'Entry when 'Entry :> TableEntity> private (tab
     static member Create(table : CloudTable, ?timespan : TimeSpan, ?logThreshold : int) = async {
         let timespan = defaultArg timespan (TimeSpan.FromMilliseconds 500.)
         let logThreshold = defaultArg logThreshold 100
-        do! table.CreateIfNotExistsAsync()   
+        do! table.CreateIfNotExistsAsyncSafe(maxRetries = 3)   
         return new CloudTableLogWriter<'Entry>(table, timespan, logThreshold)
     }
 
 /// Defines a local polling agent for subscribing table log events
 [<AutoSerializable(false)>]
-type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fetch : DateTimeOffset option -> Async<seq<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, interval : TimeSpan) =
+type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fetch : DateTimeOffset option -> Async<ICollection<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, interval : TimeSpan) =
     let event = new Event<'Entry> ()
     let loggerInfo = new Dictionary<string, int64> ()
     let isNewLogEntry (e : 'Entry) =
@@ -210,17 +211,15 @@ type private CloudTableLogPoller<'Entry when 'Entry :> TableEntity> private (fet
     interface IDisposable with
         member __.Dispose() = cts.Cancel()
 
-    static member Create(fetch : DateTimeOffset option -> Async<seq<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, ?interval) =
+    static member Create(fetch : DateTimeOffset option -> Async<ICollection<'Entry>>, getLogDate : 'Entry -> DateTimeOffset, ?interval) =
         let interval = defaultArg interval (TimeSpan.FromMilliseconds 500.)
         new CloudTableLogPoller<'Entry>(fetch, getLogDate, interval)
 
 
 /// Management object for table storage based log files
 [<AutoSerializable(false)>]
-type TableSystemLogManager (config : Configuration) =
-    let account = CloudStorageAccount.Parse config.StorageConnectionString
-    let tableClient = account.CreateCloudTableClient()
-    let table = tableClient.GetTableReference(config.RuntimeLogsTable)
+type TableSystemLogManager (clusterId : ClusterId) =
+    let table = clusterId.StorageAccount.GetTableReference(clusterId.RuntimeLogsTable)
 
     /// <summary>
     ///     Creates a local log writer using provided logger id.
@@ -229,16 +228,13 @@ type TableSystemLogManager (config : Configuration) =
     member __.CreateLogWriter(loggerId : string) = async {
         let! writer = CloudTableLogWriter<SystemLogRecord>.Create(table)
         return {
-            new obj ()
+            new IRemoteSystemLogger with
+                member __.LogEntry(e : SystemLogEntry) =
+                    let record = SystemLogRecord.FromLogEntry(loggerId, e)
+                    writer.LogEntry record
 
-                interface ISystemLogger with
-                    member __.LogEntry(e : SystemLogEntry) =
-                        let record = SystemLogRecord.FromLogEntry(loggerId, e)
-                        writer.LogEntry record
-
-                interface IDisposable with
-                    member __.Dispose() =
-                        Disposable.dispose writer
+                member __.Dispose() =
+                    Disposable.dispose writer
         }
     }
         
@@ -248,7 +244,7 @@ type TableSystemLogManager (config : Configuration) =
     /// <param name="loggerId">Constrain to specific logger identifier.</param>
     /// <param name="fromDate">Log entries start date.</param>
     /// <param name="toDate">Log entries finish date.</param>
-    member __.GetLogs(?loggerId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<seq<SystemLogRecord>> = async {
+    member __.GetLogs(?loggerId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<ICollection<SystemLogRecord>> = async {
         let query = new TableQuery<SystemLogRecord>()
         let filters = 
             [ loggerId  |> Option.map (fun pk -> TableQuery.GenerateFilterCondition("PartitionKey", QueryComparisons.Equal, Logger.mkSystemLogPartitionKey pk))
@@ -269,8 +265,8 @@ type TableSystemLogManager (config : Configuration) =
             | None -> query
             | Some f -> query.Where(f)
 
-        do! table.CreateIfNotExistsAsync()
-        return table.ExecuteQuery query
+        do! table.CreateIfNotExistsAsyncSafe(maxRetries = 3)
+        return! Table.queryAsync table query
     }
 
     /// <summary>
@@ -286,10 +282,11 @@ type TableSystemLogManager (config : Configuration) =
 
         let query = query.Select [| "RowKey" |]
 
-        do! table.CreateIfNotExistsAsync()
+        do! table.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         
+        let! entries = Table.queryAsync table query
         return!
-            table.ExecuteQuery query
+            entries
             |> Seq.groupBy (fun e -> e.PartitionKey)
             |> Seq.collect (fun (_,es) -> Seq.chunksOf 100 es)
             |> Seq.map (fun chunk ->
@@ -326,7 +323,7 @@ type TableSystemLogManager (config : Configuration) =
         }
 
     interface IRuntimeSystemLogManager with 
-        member x.CreateLogWriter(id: IWorkerId): Async<ISystemLogger> = async {
+        member x.CreateLogWriter(id: IWorkerId): Async<IRemoteSystemLogger> = async {
             return! x.CreateLogWriter(id.Id)
         }
                
@@ -358,10 +355,8 @@ type TableSystemLogManager (config : Configuration) =
 
 /// Management object for writing cloud process logs to the table store
 [<AutoSerializable(false)>]
-type TableCloudLogManager (config : Configuration) =
-    let account = CloudStorageAccount.Parse config.StorageConnectionString
-    let tableClient = account.CreateCloudTableClient()
-    let table = tableClient.GetTableReference config.UserDataTable
+type TableCloudLogManager (clusterId : ClusterId) =
+    let table = clusterId.StorageAccount.GetTableReference clusterId.UserDataTable
 
     /// <summary>
     ///     Fetches all cloud process log entries satisfying given constraints.
@@ -369,7 +364,7 @@ type TableCloudLogManager (config : Configuration) =
     /// <param name="processId">Cloud process identifier.</param>
     /// <param name="fromDate">Start date constraint.</param>
     /// <param name="toDate">Stop date constraint.</param>
-    member this.GetLogs (processId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<seq<CloudLogRecord>> =
+    member this.GetLogs (processId : string, ?fromDate : DateTimeOffset, ?toDate : DateTimeOffset) : Async<ICollection<CloudLogRecord>> =
         async {
             let query = new TableQuery<CloudLogRecord>()
             let filters = 
@@ -391,8 +386,8 @@ type TableCloudLogManager (config : Configuration) =
                 | None -> query
                 | Some f -> query.Where(f) 
 
-            do! table.CreateIfNotExistsAsync()
-            return table.ExecuteQuery query
+            do! table.CreateIfNotExistsAsyncSafe(maxRetries = 3)
+            return! Table.queryAsync table query
         }
 
     /// <summary>

@@ -13,29 +13,24 @@ open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
 
+open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Azure.Store.TableEntities
-open MBrace.Azure.Store.TableEntities.Table
 
-/// Azure Table store CloudDictionary implementation.
+/// MBrace CloudDictionary implementation on top of Azure Table Store.
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type Dictionary<'T> (tableName : string, connectionString) = 
+type TableDictionary<'T> internal (tableName : string, account : AzureStorageAccount) = 
     
-    [<DataMember(Name = "ConnectionString")>]
-    let connectionString = connectionString
+    [<DataMember(Name = "Account")>]
+    let account = account
     [<DataMember(Name = "Table")>]
     let tableName = tableName
 
-    [<IgnoreDataMember>]
-    let mutable client = Table.getClient(CloudStorageAccount.Parse connectionString)
-    [<OnDeserialized>]
-    let _onDeserialized (_ : StreamingContext) =
-        client <- Table.getClient(CloudStorageAccount.Parse connectionString)
+    let getEntitiesAsync() = Table.readAll<FatEntity> account tableName
 
     let getSeqAsync() = async {
-        let! entities = Table.readAll<FatEntity> client tableName
-        return entities
-                |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, VagabondRegistry.Instance.Serializer.UnPickle<'T>(entity.GetPayload())))
+        let serializer = VagabondRegistry.Instance.Serializer
+        let! entities = getEntitiesAsync()
+        return entities |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, serializer.UnPickle<'T>(entity.GetPayload())))
     }
 
     let getSeq() = getSeqAsync() |> Async.RunSync
@@ -49,135 +44,127 @@ type Dictionary<'T> (tableName : string, connectionString) =
         member x.IsMaterialized : bool = false
         member x.IsKnownSize: bool = false
         
-        member this.Add(key: string, value : 'T): Async<unit> = 
-            async {
-                let binary = VagabondRegistry.Instance.Serializer.Pickle value
-                let e = new FatEntity(key, String.Empty, binary)
-                do! Table.insert<FatEntity> client tableName e
-            }
+        member this.Add(key: string, value : 'T): Async<unit> = async {
+            let binary = VagabondRegistry.Instance.Serializer.Pickle value
+            let e = new FatEntity(key, String.Empty, binary)
+            do! Table.insert<FatEntity> account tableName e
+        }
         
-        member this.Transact(key: string, transacter: 'T option -> 'R * 'T, maxRetries: int option): Async<'R> = 
-            async {
-                let rec transact (e : FatEntity) (count : int) : Async<'R> = async { 
-                    match maxRetries with
-                    | Some maxRetries when count >= maxRetries -> 
-                        return raise <| exn("Maximum number of retries exceeded.")
-                    | _ -> ()
+        member this.Transact(key: string, transacter: 'T option -> 'R * 'T, maxRetries: int option): Async<'R> = async {
+            let serializer = VagabondRegistry.Instance.Serializer
+            let rec transact (e : FatEntity) (count : int) : Async<'R> = async { 
+                match maxRetries with
+                | Some maxRetries when count >= maxRetries -> 
+                    return raise <| exn("Maximum number of retries exceeded.")
+                | _ -> ()
 
-                    let value = 
-                        match e with
-                        | null -> None
-                        | e -> Some(VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload()))
+                let value = 
+                    match e with
+                    | null -> None
+                    | e -> Some(serializer.UnPickle<'T>(e.GetPayload()))
                         
-                    let returnValue, newValue = transacter value
-                    let binary = VagabondRegistry.Instance.Serializer.Pickle newValue
-                    let e' = new FatEntity(key, String.Empty, binary)
-                    match value with
-                    | None ->
-                        let! result = Async.Catch <| Table.insert<FatEntity> client tableName e'
-                        match result with
-                        | Choice1Of2 () -> return returnValue
-                        | Choice2Of2 ex when Conflict ex ->
-                            let! e = Table.read<FatEntity> client tableName key String.Empty
-                            return! transact e (count + 1)
-                        | Choice2Of2 ex -> return raise ex
-                    | Some _ ->
-                        e'.ETag <- e.ETag
-                        let! result = Async.Catch <| Table.merge<FatEntity> client tableName e'
-                        match result with
-                        | Choice1Of2 _ -> return returnValue
-                        | Choice2Of2 ex when PreconditionFailed ex -> 
-                            let! e = Table.read<FatEntity> client tableName key String.Empty
-                            return! transact e (count + 1)
-                        | Choice2Of2 ex -> return raise ex
-                }
-                let! e = Table.read<FatEntity> client tableName key String.Empty
-                return! transact e 0
+                let returnValue, newValue = transacter value
+                let binary = serializer.Pickle newValue
+                let e' = new FatEntity(key, String.Empty, binary)
+                match value with
+                | None ->
+                    let! result = Async.Catch <| Table.insert<FatEntity> account tableName e'
+                    match result with
+                    | Choice1Of2 () -> return returnValue
+                    | Choice2Of2 ex when StoreException.Conflict ex ->
+                        let! e = Table.read<FatEntity> account tableName key String.Empty
+                        return! transact e (count + 1)
+                    | Choice2Of2 ex -> return raise ex
+                | Some _ ->
+                    e'.ETag <- e.ETag
+                    let! result = Async.Catch <| Table.merge<FatEntity> account tableName e'
+                    match result with
+                    | Choice1Of2 _ -> return returnValue
+                    | Choice2Of2 ex when StoreException.PreconditionFailed ex -> 
+                        let! e = Table.read<FatEntity> account tableName key String.Empty
+                        return! transact e (count + 1)
+                    | Choice2Of2 ex -> return raise ex
             }
+            let! e = Table.read<FatEntity> account tableName key String.Empty
+            return! transact e 0
+        }
 
         member this.ContainsKey(key: string): Async<bool> = 
             async {
-                let! e = Table.read<FatEntity> client tableName key String.Empty
+                let! e = Table.read<FatEntity> account tableName key String.Empty
                 return e <> null
             }
         
-        member this.GetCount () : Async<int64> = Async.Raise(new NotSupportedException("Count property not supported."))
-        member this.GetSize () : Async<int64> = Async.Raise(new NotSupportedException("Size property not supported."))
+        member this.GetCount () : Async<int64> = async { let! entities = getEntitiesAsync() in return int64 entities.Count }
+        member this.GetSize () : Async<int64> = async { let! entities = getEntitiesAsync() in return int64 entities.Count }
 
-        member this.Dispose(): Async<unit> = 
-            async {
-                let! _ = client.GetTableReference(tableName).DeleteAsync()
-                         |> Async.AwaitTaskCorrect
-                return ()
-            }
+        member this.Dispose(): Async<unit> = async {
+            let! _ = account.TableClient.GetTableReference(tableName).DeleteAsync() |> Async.AwaitTaskCorrect
+            return ()
+        }
         
         member this.Id: string = tableName
         
-        member this.Remove(key: string): Async<bool> = 
-            async {
-                try
-                    do! Table.delete client tableName (TableEntity(key, String.Empty, ETag = "*"))
-                    return true
-                with ex -> 
-                    if NotFound ex then return false else return raise ex
-            }
+        member this.Remove(key: string): Async<bool> = async {
+            try
+                do! Table.delete account tableName (TableEntity(key, String.Empty, ETag = "*"))
+                return true
+            with ex -> 
+                if StoreException.NotFound ex then return false else return raise ex
+        }
         
-        member this.ToEnumerable(): Async<seq<Collections.Generic.KeyValuePair<string,'T>>> = 
-            async {
-                let! entities = Table.readAll<FatEntity> client tableName
-                return entities
-                       |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, VagabondRegistry.Instance.Serializer.UnPickle<'T>(entity.GetPayload())))
-            }
+        member this.ToEnumerable(): Async<seq<Collections.Generic.KeyValuePair<string,'T>>> = async {
+            return! getSeqAsync()
+        }
         
-        member this.TryAdd(key: string, value: 'T): Async<bool> = 
-            async {
-                try
-                    do! (this :> CloudDictionary<'T>).Add(key, value)
-                    return true
-                with ex ->
-                    if Conflict ex then return false else return raise ex
-            }
+        member this.TryAdd(key: string, value: 'T): Async<bool> = async {
+            try
+                do! (this :> CloudDictionary<'T>).Add(key, value)
+                return true
+            with ex ->
+                if StoreException.Conflict ex then return false else return raise ex
+        }
         
-        member x.TryFind(key: string): Async<'T option> = 
-            async {
-                let! e = Table.read<FatEntity> client tableName key String.Empty
-                match e with
-                | null -> return None
-                | e ->
-                    let value = VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload())
-                    return Some value
-            }
+        member x.TryFind(key: string): Async<'T option> = async {
+            let! e = Table.read<FatEntity> account tableName key String.Empty
+            match e with
+            | null -> return None
+            | e ->
+                let value = VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload())
+                return Some value
+        }
 
+/// CloudDictionary provider implementation on top of Azure table store.
 [<Sealed; DataContract>]
-type CloudDictionaryProvider private (connectionString : string) =
+type TableDictionaryProvider private (account : AzureStorageAccount) =
     
-    [<DataMember(Name = "ConnectionString")>]
-    let connectionString = connectionString
+    [<DataMember(Name = "Account")>]
+    let account = account
 
-    [<IgnoreDataMember>]
-    let mutable client = 
-        let acc = CloudStorageAccount.Parse(connectionString)
-        Table.getClient acc
+    /// <summary>
+    ///     Creates a TableDirectionaryProvider instance using provided Azure storage account.
+    /// </summary>
+    /// <param name="account">Azure storage account.</param>
+    static member Create(account : AzureStorageAccount) =
+        ignore account.ConnectionString // ensure that connection string is present in the current context
+        new TableDictionaryProvider(account)
 
-    [<OnDeserialized>]
-    let _onDeserialized (_ : StreamingContext) =
-        let acc = CloudStorageAccount.Parse(connectionString)
-        client <- Table.getClient acc
-
+    /// <summary>
+    ///     Creates a TableDirectionaryProvider instance using provided Azure storage connection string.
+    /// </summary>
+    /// <param name="connectionString">Azure storage connection string.</param>
     static member Create(connectionString : string) =
-        new CloudDictionaryProvider(connectionString)
+        TableDictionaryProvider.Create(AzureStorageAccount.Parse connectionString)
 
     interface ICloudDictionaryProvider with
-        member x.Id = client.BaseUri.AbsolutePath
+        member x.Id = account.TableClient.BaseUri.AbsolutePath
         member x.Name = "Table Store CloudDictionary Provider"
-        member x.Create(): Async<CloudDictionary<'T>> = 
-            async {
-                let tableName = Table.getRandomName()
-                let tableRef = client.GetTableReference(tableName)
-                let! _ = tableRef.CreateIfNotExistsAsync()
-                return new Dictionary<'T>(tableName, connectionString) :> CloudDictionary<'T>
-            }
+        member x.Create(): Async<CloudDictionary<'T>> = async {
+            let tableName = Table.getRandomName()
+            let tableRef = account.TableClient.GetTableReference(tableName)
+            do! tableRef.CreateIfNotExistsAsyncSafe(maxRetries = 3)
+            return new TableDictionary<'T>(tableName, account) :> CloudDictionary<'T>
+        }
 
         member x.IsSupportedValue(value: 'T): bool = 
-            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 TableEntityConfig.MaxPayloadSize
-        
+            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 FatEntityConfiguration.MaxPayloadSize

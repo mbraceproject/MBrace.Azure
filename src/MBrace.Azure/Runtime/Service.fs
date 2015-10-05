@@ -1,141 +1,181 @@
-﻿namespace MBrace.Azure.Runtime
+﻿namespace MBrace.Azure.Service
 
 open System
+open System.IO
 open System.Diagnostics
 open System.Threading
 
+open Nessos.FsPickler
+
 open MBrace.Core.Internals
+open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
-open MBrace.Runtime
 
-/// MBrace Runtime Service.
-type Service (config : Configuration, serviceId : string) =
-    let mutable useAppDomainIsolation = true
-    let mutable ignoreVersion         = true
-    let mutable customResources       = ResourceRegistry.Empty
-    let mutable configuration         = config
-    let mutable maxWorkItems               = Environment.ProcessorCount
-    let mutable workerAgent           = None : WorkerAgent option
-    let attachableLogger              = AttacheableLogger.Create(makeAsynchronous = true)
-    
-    let check () = 
-        match workerAgent with
-        | Some wa when wa.IsRunning -> invalidOp "Cannot change Service while it is active."
-        | _ -> ()
+/// MBrace worker service execution status
+type ServiceStatus =
+    | Stopped = 0
+    | Starting = 1
+    | Running = 2
+    | Stopping = 3
+
+/// MBrace.Azure worker service manager
+[<Sealed; AutoSerializable(false)>]
+type WorkerService (config : Configuration, workerId : string) =
+    let mutable useAppDomainIsolation   = true
+    let mutable customResources         = ResourceRegistry.Empty
+    let mutable configuration           = FsPickler.Clone config
+    let mutable maxWorkItems            = Environment.ProcessorCount
+    let mutable heartbeatThreshold      = TimeSpan.FromMinutes 5.
+    let mutable heartbeatInterval       = TimeSpan.FromSeconds 2.
+    let mutable workingDirectory        = WorkingDirectory.GetDefaultWorkingDirectoryForProcess(prefix = "mbrace.azure")
+    let mutable logFile                 = None
+    let mutable status                  = 0 // 0: stopped, 1: starting, 2: running, 3: stopping
+    let mutable subscription            = None : WorkerSubscription.Subscription option
+    let mutable cancellationTokenSource = None : CancellationTokenSource option
+    let attacheableLogger               = AttacheableLogger.Create(makeAsynchronous = true)
+
+    let trySetStarting  () = Interlocked.CompareExchange(&status, 1, 0) = 0
+    let trySetStopping  () = Interlocked.CompareExchange(&status, 3, 2) = 2
+    let checkStopped    () = if status <> 0 then invalidOp "Cannot change Service while it is active."
+    let validateInterval (i : TimeSpan) = if i < TimeSpan.FromSeconds 1. then invalidArg "interval" "Must be at least 1 second." else i
 
     /// MBrace Runtime Service.
-    new(config : Configuration) = new Service (config, guid())
+    new(config : Configuration) = new WorkerService (config, guid())
 
-    /// Get service's unique identifier.
-    member this.Id = serviceId
+    /// Get service unique identifier.
+    member this.Id = workerId
     
     /// Attach logger to worker. Return an unsubscribe token.
-    member this.AttachLogger(logger : ISystemLogger) = check(); attachableLogger.AttachLogger(logger)
-    
+    member this.AttachLogger(logger : ISystemLogger) = checkStopped(); attacheableLogger.AttachLogger(logger)
+
+    /// Gets or sets the logfile used by the service.
+    member this.LogFile
+        with get () = defaultArg logFile null
+        and set l = checkStopped (); ignore <| Path.GetFullPath l ; logFile <- Some l
+
     /// Get or set the logger verbosity.
     member this.LogLevel
-        with get () = attachableLogger.LogLevel
-        and  set l = check (); attachableLogger.LogLevel <- l
+        with get () = attacheableLogger.LogLevel
+        and  set l = checkStopped (); attacheableLogger.LogLevel <- l
+
+    /// Get or sets the worker heartbeat update interval
+    member this.HeartbeatInterval
+        with get () = heartbeatInterval
+        and set i = checkStopped (); heartbeatInterval <- validateInterval i
+
+    /// Get or sets the worker heartbeat update interval
+    member this.HeartbeatThreshold
+        with get () = heartbeatThreshold
+        and set i = checkStopped (); heartbeatThreshold <- validateInterval i
+
+    /// Gets or sets the working directory for the worker process
+    member this.WorkingDirectory
+        with get () = workingDirectory
+        and set wd = checkStopped (); workingDirectory <- Path.GetFullPath wd
 
     /// Get or set service configuration.
     member this.Configuration  
         with get () = configuration
-        and set c = check (); configuration <- c
+        and set c = checkStopped (); configuration <- FsPickler.Clone c
 
     /// Get or set off AppDomain isolation will be used.
     member this.UseAppDomainIsolation 
         with get () = useAppDomainIsolation
-        and set c = check (); useAppDomainIsolation <- c
-
-    /// Get or set iff version compatibility will be ignored.
-    member this.IgnoreVersionCompatibility
-        with get () = ignoreVersion
-        and set c = check (); ignoreVersion <- c
+        and set c = checkStopped (); useAppDomainIsolation <- c
 
     /// Get or set the maximum number of jobs that this worker may execute concurrently.
     member this.MaxConcurrentWorkItems 
         with get () = maxWorkItems
-        and set c = check (); maxWorkItems <- c
+        and set c = checkStopped (); maxWorkItems <- c
     
-    member this.IsRunning 
-        with get () =
-            match workerAgent with
-            | Some wa -> wa.IsRunning
-            | None -> false
+    /// Gets the current service status
+    member this.Status : ServiceStatus = enum status
 
     /// Register a CloudFileStoreConfiguration instance. Defaults to BlobStore with configuration's storage connection string.
     member this.RegisterStoreConfiguration(store : ICloudFileStore) =
-        check () ; customResources <- customResources.Register(store)
+        checkStopped () ; customResources <- customResources.Register(store)
 
     /// Register a CloudAtomConfiguration instance. Defaults to table store implementation with configuration's storage connection string.
     member this.RegisterAtomProvider(atom : ICloudAtomProvider) = 
-        check () ; customResources <- customResources.Register(atom)
+        checkStopped () ; customResources <- customResources.Register(atom)
     
     /// Register a CloudQueueConfiguration instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
     member this.RegisterQueueProvider(channel : ICloudQueueProvider) = 
-        check () ; customResources <- customResources.Register(channel)
+        checkStopped () ; customResources <- customResources.Register(channel)
 
     /// Register an ICloudChannelProvider instance. Defaults to Service Bus queue implementation with configuration's Service Bus connection string.
     member this.RegisterDictionaryProvider(dictionary : ICloudDictionaryProvider) = 
-        check () ; customResources <- customResources.Register(dictionary)
+        checkStopped () ; customResources <- customResources.Register(dictionary)
 
     /// Add a custom resource in workers ResourceRegistry.
     member this.RegisterResource(resource : 'TResource) = 
-        check () ; customResources <- customResources.Register(resource)
+        checkStopped () ; customResources <- customResources.Register(resource)
     
-    /// Start Service and worker loop as a Task.
-    member this.StartAsTask() : Tasks.Task = Async.StartAsTask(this.StartAsync()) :> _
-    
-    /// Start Service and worker loop as a Task.
-    member this.StartAsTask(ct : CancellationToken) : Tasks.Task = Async.StartAsTask(this.StartAsync(), cancellationToken = ct) :> _     
-    
-    /// Asynchronously start Service and worker loop.
-    member this.StartAsync() : Async<unit> =
-        async {
-            try
-                let sw = Stopwatch.StartNew()
-                let tableLogManager = new TableSystemLogManager(config)
-                let! tableLogger = tableLogManager.CreateLogWriter(serviceId)
-                let _ = attachableLogger.AttachLogger(tableLogger)
+    /// Asynchronously starts the service with specified configuration
+    member this.StartAsync() : Async<unit> = async {
+        if not <| trySetStarting() then invalidOp "MBrace.Azure.Service is already running."
+        try
+            let sw = Stopwatch.StartNew()
+            attacheableLogger.LogInfof "Starting MBrace.Azure.Service %A" workerId
+            if not ProcessConfiguration.IsInitialized then
+                ProcessConfiguration.InitAsWorker(this.WorkingDirectory)
 
-                attachableLogger.LogInfof "Starting MBrace.Azure.Runtime.Service %A" serviceId
+            match logFile with
+            | Some lf ->
+                let fullPath = Path.Combine(workingDirectory, lf) |> Path.GetFullPath
+                let logger = FileSystemLogger.Create(fullPath, showDate = true, append = true)
+                let _ = attacheableLogger.AttachLogger logger in ()
+            | None -> ()
 
-                let! agent = Initializer.Init(config, this.Id, attachableLogger, this.UseAppDomainIsolation, this.MaxConcurrentWorkItems, customResources)
-                workerAgent <- Some agent
-                sw.Stop()
-                attachableLogger.LogInfof "Service %A started in %.3f seconds" serviceId sw.Elapsed.TotalSeconds
-                return ()
-            with ex ->
-                attachableLogger.LogErrorf "Service Start for %A failed with %A" this.Id ex
-                // TODO : finalize
-                return! Async.Raise ex
-        }
+            let! sub = WorkerSubscription.initialize config this.Id attacheableLogger heartbeatInterval heartbeatThreshold this.UseAppDomainIsolation this.MaxConcurrentWorkItems customResources
+            sw.Stop()
+            attacheableLogger.LogInfof "Service %A started in %.3f seconds" workerId sw.Elapsed.TotalSeconds
+            subscription <- Some sub
+            status <- int ServiceStatus.Running 
+            return ()
+        with e ->
+            subscription |> Option.iter (fun sub -> try sub.Dispose() with _ -> ())
+            subscription <- None
+            status <- int ServiceStatus.Stopped
+            attacheableLogger.LogErrorf "Service Start for %A failed with %A" this.Id e
+            return! Async.Raise e
+    }
 
-    /// Start Service.
+    /// Asynchronously starts the service with specified configuration
+    member this.StartAsTask() = this.StartAsync() |> Async.StartAsTask
+
+    /// Starts the worker service with specified configuration
     member this.Start() = Async.RunSync(this.StartAsync())
 
-    /// Start service and block.
-    member this.Run() =
-        Async.RunSync(async {
-            do! this.StartAsync()
-            while this.IsRunning do
-                do! Async.Sleep 1000
-        })
+    /// Starts the worker service with specified configuration and blocks the thread until stopped.
+    member this.Run() : unit =
+        this.Start()
+        let cts = new CancellationTokenSource()
+        cancellationTokenSource <- Some cts
+        Thread.Diverge(cts.Token)
 
-    /// Stop Service and worker loop. Wait for any pending jobs.
-    member this.StopAsync () =
-        async {
-            try
-                attachableLogger.LogInfof "Stopping Service %A." serviceId
-                do! workerAgent.Value.Stop()
-                attachableLogger.LogInfof "Service %A stopped." serviceId
-            with ex ->
-                // TODO : Handle error
-                attachableLogger.LogErrorf "Service Stop for %A failed with %A" this.Id ex
-                return! Async.Raise ex
-        }
+    /// Asynchronously stops the worker service
+    member this.StopAsync ()  : Async<unit> = async {
+        if not <| trySetStopping() then invalidOp "MBrace.Azure.Service is not running."
+        try
+            attacheableLogger.LogInfof "Stopping Service %A." workerId
+            subscription |> Option.iter (fun s -> s.Dispose())
+            cancellationTokenSource |> Option.iter (fun c -> c.Cancel())
+            subscription <- None
+            cancellationTokenSource <- None
+            status <- int ServiceStatus.Stopped
+            attacheableLogger.LogInfof "Service %A stopped." workerId
+        with e ->
+            status <- int ServiceStatus.Running
+            attacheableLogger.LogErrorf "Service Stop for %A failed with %A" this.Id e
+            return! Async.Raise e
+    }
 
-    /// Stop Service and worker loop. Wait for any pending jobs.
+    /// Asynchronously stops the worker service
+    member this.StopAsTask() = this.StopAsync() |> Async.StartAsTask
+
+    /// Stops the worker service
     member this.Stop () = Async.RunSync(this.StopAsync())

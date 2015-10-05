@@ -117,7 +117,7 @@ module ``MBrace Azure Vagabond Tests (FSI)`` =
                 let selectEnv name = System.Environment.GetEnvironmentVariable(name, System.EnvironmentVariableTarget.User)
                 new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
         """
-        fsi.EvalInteraction <| "AzureCluster.LocalWorkerExecutable <- @\"" + workerExe + "\""
+        fsi.EvalInteraction <| "AzureWorker.LocalExecutable <- @\"" + workerExe + "\""
         fsi.EvalInteraction <| sprintf "let cluster = AzureCluster.InitOnCurrentMachine(config, %d)" clusterSize
         fsi.EvalInteraction "cluster.AttachLogger(new ConsoleLogger())"
 
@@ -135,7 +135,7 @@ module ``MBrace Azure Vagabond Tests (FSI)`` =
     let stopFsiSession () =
         FsiSession.Value.Interrupt()
         FsiSession.Value.EvalInteraction "cluster.KillAllLocalWorkers()"
-        FsiSession.Value.EvalInteraction "cluster.Reset(true,true,true,true,true,true,false)"
+        FsiSession.Value.EvalInteraction "cluster.Reset(deleteUserData = true, deleteAssemblyData = true, force = true)"
         FsiSession.Stop()
 
     [<Test>]

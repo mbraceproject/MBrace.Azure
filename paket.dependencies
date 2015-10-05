@@ -1,8 +1,8 @@
 source https://www.nuget.org/api/v2
 
 nuget FAKE
-nuget MBrace.Core 0.11.2-alpha
-nuget MBrace.Runtime 0.11.2-alpha
+nuget MBrace.Core 0.11.8-alpha
+nuget MBrace.Runtime 0.11.8-alpha
 nuget MBrace.Tests
 nuget WindowsAzure.ServiceBus ~> 2.5.2
 nuget WindowsAzure.Storage ~> 4.3.0
@@ -10,6 +10,7 @@ nuget Nuget.CommandLine
 nuget NUnit ~> 2.6.4
 nuget NUnit.Runners
 nuget FSharp.Compiler.Service 1.3.1.2
-nuget MathNet.Numerics ~> 3.8.0
+nuget MathNet.Numerics ~> 3.7.0
 nuget MathNet.Numerics.FSharp
 nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
+nuget Argu ~> 1.1.0

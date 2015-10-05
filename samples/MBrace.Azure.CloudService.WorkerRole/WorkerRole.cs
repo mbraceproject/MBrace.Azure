@@ -7,19 +7,17 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Azure;
 using Microsoft.WindowsAzure;
-using Microsoft.WindowsAzure.Diagnostics;
 using Microsoft.WindowsAzure.ServiceRuntime;
 using Microsoft.WindowsAzure.Storage;
 using MBrace.Azure;
-using MBrace.Azure.Store;
-using MBrace.Azure.Runtime;
+using MBrace.Azure.Service;
 
 namespace MBrace.Azure.CloudService.WorkerRole
 {
     public class WorkerRole : RoleEntryPoint
     {
-        private Service _svc;
         private Configuration _config;
+        private WorkerService _svc;
 
         public override void Run()
         {
@@ -28,24 +26,23 @@ namespace MBrace.Azure.CloudService.WorkerRole
 
         public override bool OnStart()
         {
-
             // Increase disk quota for mbrace filesystem cache.
             string customTempLocalResourcePath = RoleEnvironment.GetLocalResource("LocalMBraceCache").RootPath;
-            Environment.SetEnvironmentVariable("TMP", customTempLocalResourcePath);
-            Environment.SetEnvironmentVariable("TEMP", customTempLocalResourcePath);
+            string storageConnectionString = CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString");
+            string serviceBusConnectionString = CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString");
 
-            // Set the maximum number of concurrent connections
             ServicePointManager.DefaultConnectionLimit = 512;
-
-            Config.InitWorkerGlobalState();
 
             bool result = base.OnStart();
 
-            _config = new Configuration(CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString"), CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"));
+            _config = new Configuration(storageConnectionString, serviceBusConnectionString);
             _svc = 
                 RoleEnvironment.IsEmulated ? 
-                new Service(_config) : // Avoid long service names when using emulator
-                new Service(_config, serviceId: RoleEnvironment.CurrentRoleInstance.Id.Split('.').Last());
+                new WorkerService(_config) : // Avoid long service names when using emulator
+                new WorkerService(_config, workerId: RoleEnvironment.CurrentRoleInstance.Id.Split('.').Last());
+
+            _svc.WorkingDirectory = customTempLocalResourcePath;
+            _svc.LogFile = "logs.txt";
             _svc.MaxConcurrentWorkItems = Environment.ProcessorCount * 8;
 
             RoleEnvironment.Changed += RoleEnvironment_Changed;
@@ -68,7 +65,9 @@ namespace MBrace.Azure.CloudService.WorkerRole
                 if (item.ConfigurationSettingName == "MBrace.ServiceBusConnectionString"
                     || item.ConfigurationSettingName == "MBrace.StorageConnectionString")
                 {
-                    _config = new Configuration(CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString"), CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString"));
+                    string storageConnectionString = CloudConfigurationManager.GetSetting("MBrace.StorageConnectionString");
+                    string serviceBusConnectionString = CloudConfigurationManager.GetSetting("MBrace.ServiceBusConnectionString");
+                    _config = new Configuration(storageConnectionString, serviceBusConnectionString);
                     _svc.Stop();
                     _svc.Configuration = _config;
                     _svc.Start();

@@ -10,6 +10,7 @@ open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Tests
 
+#nowarn "444"
 #nowarn "445" // 'Reset'
 
 [<AbstractClass; TestFixture>]
@@ -81,6 +82,13 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
         ra.Count |> shouldBe (fun i -> i > 0)
 
     [<Test>]
+    member __.``Runtime : additional resources`` () =
+        let cluster = session.Runtime
+        let res = (42, "forty-two")
+        cluster.Run(Cloud.GetResource<int * string>(), additionalResources = resource { yield res })
+        |> shouldEqual res
+
+    [<Test>]
     member __.``Runtime : Cluster Log Observable`` () =
         let cluster = session.Runtime
         let ra = new ResizeArray<SystemLogEntry>()
@@ -109,11 +117,11 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
         ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
 
 
-type ``Cloud Tests - Compute Emulator`` () =
+type ``Cloud Tests - Compute Emulator - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 0))
 
-type ``Cloud Tests - Storage Emulator`` () =
+type ``Cloud Tests - Standalone Cluster - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 4))
 
-type ``Cloud Tests - Standalone`` () =
+type ``Cloud Tests - Standalone Cluster - Remote Storage`` () =
     inherit ``Azure Cloud Tests``(RuntimeSession(remoteConfig, 4))
