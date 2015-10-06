@@ -123,9 +123,10 @@ type AzureCluster private (manager : ClusterManager) =
     member this.KillAllLocalWorkers() : unit = this.Workers |> Seq.iter (ignore << this.KillLocalWorker)
 
     /// <summary>
-    /// Delete and re-activate runtime state.
-    /// Using 'Reset' may cause unexpected behavior in clients and workers.
-    /// Workers should be restarted manually.</summary>
+    ///     Delete and re-activate runtime state.
+    ///     Using 'Reset' may cause unexpected behavior in clients and workers.
+    ///     Workers should be restarted manually.
+    /// </summary>
     /// <param name="deleteQueues">Delete Configuration queue and topic. Defaults to true.</param>
     /// <param name="deleteRuntimeState">Delete Configuration table and containers. Defaults to true.</param>
     /// <param name="deleteLogs">Delete Configuration logs table. Defaults to true.</param>
@@ -142,9 +143,10 @@ type AzureCluster private (manager : ClusterManager) =
                                 ?force = force, ?reactivate = reactivate)
 
     /// <summary>
-    /// Delete and re-activate runtime state.
-    /// Using 'Reset' may cause unexpected behavior in clients and workers.
-    /// Workers should be restarted manually.</summary>
+    ///     Delete and re-activate runtime state.
+    ///     Using 'Reset' may cause unexpected behavior in clients and workers.
+    ///     Workers should be restarted manually.
+    /// </summary>
     /// <param name="deleteQueues">Delete Configuration queue and topic. Defaults to true.</param>
     /// <param name="deleteRuntimeState">Delete Configuration table and containers. Defaults to true.</param>
     /// <param name="deleteLogs">Delete Configuration logs table. Defaults to true.</param>
@@ -160,6 +162,22 @@ type AzureCluster private (manager : ClusterManager) =
                                 ?deleteUserData = deleteUserData, ?deleteAssemblyData = deleteAssemblyData, 
                                 ?force = force, ?reactivate = reactivate)
         |> Async.RunSync
+
+    /// <summary>
+    ///     Culls cluster workers that have stopped sending heartbeats
+    ///     for a duration larger than the supplied threshold parameter.
+    /// </summary>
+    /// <param name="heartbeatThreshold">Stopped heartbeat cull threshold.</param>
+    member this.CullNonResponsiveWorkersAsync(heartbeatThreshold : TimeSpan) : Async<unit> =
+        manager.WorkerManager.CullNonResponsiveWorkers(heartbeatThreshold)
+
+    /// <summary>
+    ///     Culls cluster workers that have stopped sending heartbeats
+    ///     for a duration larger than the supplied threshold parameter.
+    /// </summary>
+    /// <param name="heartbeatThreshold">Stopped heartbeat cull threshold.</param>
+    member this.CullNonResponsiveWorkers(heartbeatThreshold : TimeSpan) : unit =
+        this.CullNonResponsiveWorkersAsync(heartbeatThreshold) |> Async.RunSync
 
 
     /// <summary>
