@@ -1,5 +1,6 @@
 ﻿namespace MBrace.Azure.Tests
 
+open System
 open System.Threading
 
 open NUnit.Framework
@@ -32,28 +33,45 @@ module Utils =
     let emulatorConfig = new Configuration("UseDevelopmentStorage=true", selectEnv "azureservicebusconn")
 
 
-type RuntimeSession(config : MBrace.Azure.Configuration, localWorkers : int) =
+type ClusterSession(config : MBrace.Azure.Configuration, workerCount : int) =
 
     static do AzureWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
     
+    let lockObj = obj ()
     let mutable state = None
 
     member __.Start () =
+        lock lockObj (fun () ->
         match state with
         | Some _ -> invalidOp "MBrace runtime already initialized."
         | None -> 
             let runtime = 
-                if localWorkers < 1 then
+                if workerCount < 1 then
                     AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
                 else
-                    AzureCluster.InitOnCurrentMachine(config, localWorkers, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
-            state <- Some runtime
+                    AzureCluster.InitOnCurrentMachine(config, workerCount, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+            state <- Some runtime)
 
     member __.Stop () =
-        state |> Option.iter (fun r -> (r.KillAllLocalWorkers() ; r.Reset(deleteUserData = true, deleteAssemblyData = true, force = true, reactivate = false)))
-        state <- None
+        lock lockObj (fun () ->
+            match state with
+            | None -> ()
+            | Some r -> 
+                r.KillAllLocalWorkers() 
+                r.Reset(deleteUserData = true, deleteAssemblyData = true, force = true, reactivate = false)
+                state <- None)
 
-    member __.Runtime =
+    member __.cluster =
         match state with
         | None -> invalidOp "MBrace runtime not initialized."
         | Some r -> r
+
+    member __.Chaos() =
+        lock lockObj (fun () ->
+            let cluster = __.cluster
+            cluster.KillAllLocalWorkers()
+            Thread.Sleep 6000
+            cluster.CullNonResponsiveWorkers(TimeSpan.FromSeconds 5.)
+            while cluster.Workers.Length <> 0 do Thread.Sleep 500
+            cluster.AttachLocalWorkers(workerCount)
+            while cluster.Workers.Length <> workerCount do Thread.Sleep 500)

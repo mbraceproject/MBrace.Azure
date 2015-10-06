@@ -9,6 +9,8 @@ open System.Diagnostics
 open System.IO
 open System.Net
 
+open Nessos.FsPickler
+
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
@@ -98,11 +100,20 @@ type AzureWorker private () =
 /// <summary>
 ///     Windows Azure Cluster management client. Provides methods for management, execution and debugging of MBrace processes in Azure.
 /// </summary>
-[<AutoSerializable(false)>]
+[<AutoSerializable(false); NoEquality; NoComparison>]
 type AzureCluster private (manager : ClusterManager) =
     inherit MBraceClient(manager)
 
     static do ProcessConfiguration.InitAsClient()
+
+    /// Gets the Azure storage account name used by the cluster
+    member this.StorageAccount = manager.Configuration.StorageAccount
+    /// Gets the Azure service bus account name used by the cluster
+    member this.ServiceBusAccount = manager.Configuration.ServiceBusAccount
+
+    /// Gets a copy of the configuration object used for the runtime
+    [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]
+    member this.Configuration = FsPickler.Clone manager.Configuration
 
     /// <summary>
     ///     Kill worker process if running on local machine.
@@ -238,6 +249,20 @@ type AzureCluster private (manager : ClusterManager) =
                                     ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?background : bool) : unit =
         ignore <| AzureWorker.Spawn(manager.Configuration, ?workerId = workerId, ?workingDirectory = workingDirectory, ?maxWorkItems = maxWorkItems, ?logFile = logFile, 
                             ?logLevel = logLevel, ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold, ?background = background)
+
+    /// <summary>
+    ///     Spawns worker instances in the local machine, subscribed to the current cluster configuration.
+    /// </summary>
+    /// <param name="workerCount">Number of local workers to spawn.</param>
+    /// <param name="maxWorkItems">Maximum number of concurrent jobs per worker.</param>
+    /// <param name="logFile">Specify local path to system logfile for worker process.</param>
+    /// <param name="logLevel">Client and local worker logger verbosity level.</param>
+    /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
+    /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
+    /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
+    member this.AttachLocalWorkers(workerCount : int, ?maxWorkItems : int, ?logLevel : LogLevel, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?background : bool) : unit =
+        ignore <| AzureWorker.SpawnMultiple(workerCount, config = manager.Configuration, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?background = background,
+                                                ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
 
     /// <summary>
     ///     Initialize a new local runtime instance with supplied worker count and return a handle.

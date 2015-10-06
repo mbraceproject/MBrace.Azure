@@ -14,7 +14,7 @@ open MBrace.Azure.Tests
 #nowarn "445" // 'Reset'
 
 [<AbstractClass; TestFixture>]
-type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
+type ``Azure Cloud Tests`` (session : ClusterSession) as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 15000)
     
     let session = session 
@@ -30,24 +30,24 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
     member __.Fini () = session.Stop()
 
     override __.Run (workflow : Cloud<'T>) = 
-        session.Runtime.RunAsync (workflow)
+        session.cluster.RunAsync (workflow)
         |> Async.Catch
         |> Async.RunSync
 
     override __.Run (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
-            let runtime = session.Runtime
+            let runtime = session.cluster
             let cts = runtime.CreateCancellationTokenSource()
             try return! runtime.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
             finally cts.Cancel()
         } |> Async.RunSync
 
     override __.RunWithLogs(workflow : Cloud<unit>) =
-        let cloudProcess = session.Runtime.Submit workflow
+        let cloudProcess = session.cluster.Submit workflow
         do cloudProcess.Result
         cloudProcess.GetLogs () |> Array.map CloudLogEntry.Format
 
-    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Runtime.RunOnCurrentProcess(workflow)
+    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.cluster.RunOnCurrentProcess(workflow)
 
     override __.IsTargetWorkerSupported = true
     override __.IsSiftedWorkflowSupported = true
@@ -57,7 +57,7 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
 
     [<Test>]
     member __.``Runtime : Get worker count`` () =
-        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.Runtime.Workers |> Seq.length)
+        run (Cloud.GetWorkerCount()) |> Choice.shouldEqual (session.cluster.Workers |> Seq.length)
 
     [<Test>]
     member __.``Runtime : Get current worker`` () =
@@ -73,7 +73,7 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
 
     [<Test>]
     member __.``Runtime : Worker Log Observable`` () =
-        let cluster = session.Runtime
+        let cluster = session.cluster
         let worker = cluster.Workers.[0]
         let ra = new ResizeArray<SystemLogEntry>()
         use d = worker.SystemLogs.Subscribe ra.Add
@@ -83,14 +83,14 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
 
     [<Test>]
     member __.``Runtime : additional resources`` () =
-        let cluster = session.Runtime
+        let cluster = session.cluster
         let res = (42, "forty-two")
         cluster.Run(Cloud.GetResource<int * string>(), additionalResources = resource { yield res })
         |> shouldEqual res
 
     [<Test>]
     member __.``Runtime : Cluster Log Observable`` () =
-        let cluster = session.Runtime
+        let cluster = session.cluster
         let ra = new ResizeArray<SystemLogEntry>()
         use d = cluster.SystemLogs.Subscribe ra.Add
         cluster.Run(Cloud.ParallelEverywhere(cloud { return 42 }) |> Cloud.Ignore)
@@ -111,17 +111,17 @@ type ``Azure Cloud Tests`` (session : RuntimeSession) as self =
         }
 
         let ra = new ResizeArray<CloudLogEntry>()
-        let job = session.Runtime.Submit(workflow)
+        let job = session.cluster.Submit(workflow)
         use d = job.Logs.Subscribe(fun e -> ra.Add(e))
         do job.Result
         ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
 
 
 type ``Cloud Tests - Compute Emulator - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 0))
+    inherit ``Azure Cloud Tests``(ClusterSession(emulatorConfig, 0))
 
 type ``Cloud Tests - Standalone Cluster - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(RuntimeSession(emulatorConfig, 4))
+    inherit ``Azure Cloud Tests``(ClusterSession(emulatorConfig, 4))
 
 type ``Cloud Tests - Standalone Cluster - Remote Storage`` () =
-    inherit ``Azure Cloud Tests``(RuntimeSession(remoteConfig, 4))
+    inherit ``Azure Cloud Tests``(ClusterSession(remoteConfig, 4))
