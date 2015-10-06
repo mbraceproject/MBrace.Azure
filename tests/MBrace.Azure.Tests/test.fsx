@@ -15,8 +15,8 @@ let config =
     new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
 
 
-AzureCluster.LocalWorkerExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
-let cluster = AzureCluster.InitOnCurrentMachine(config, 2, 32, logger = ConsoleLogger(true), logLevel = LogLevel.Debug, heartbeatThreshold = TimeSpan.FromSeconds 30.)
+AzureWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
+let cluster = AzureCluster.InitOnCurrentMachine(config, 2, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
 //let cluster = AzureCluster.Connect(config, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
 cluster.Reset(deleteUserData = true, deleteAssemblyData = true, force = true)
 cluster.KillAllLocalWorkers()

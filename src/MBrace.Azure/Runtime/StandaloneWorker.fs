@@ -20,7 +20,7 @@ module StandaloneWorker =
             let proc = Process.GetCurrentProcess()
             let workerId = 
                 match cli.WorkerId with
-                | None -> sprintf "%s-pid%d" (System.Net.Dns.GetHostName()) proc.Id
+                | None -> sprintf "%s-p%d" (System.Net.Dns.GetHostName()) proc.Id
                 | Some n -> n
 
             let svc = new WorkerService(config, workerId)

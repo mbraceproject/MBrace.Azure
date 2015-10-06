@@ -42,17 +42,17 @@ type ClusterSession(config : MBrace.Azure.Configuration, workerCount : int) =
 
     member __.Start () =
         lock lockObj (fun () ->
-        match state with
-        | Some _ -> invalidOp "MBrace runtime already initialized."
-        | None -> 
-            let runtime = 
-                if workerCount < 1 then
-                    AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
-                else
-                    AzureCluster.InitOnCurrentMachine(config, workerCount, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+            match state with
+            | Some _ -> invalidOp "MBrace runtime already initialized."
+            | None -> 
+                let runtime = 
+                    if workerCount < 1 then
+                        AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+                    else
+                        AzureCluster.InitOnCurrentMachine(config, workerCount, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
 
-            while runtime.Workers.Length < workerCount do Thread.Sleep 100
-            state <- Some runtime)
+                while runtime.Workers.Length < workerCount do Thread.Sleep 100
+                state <- Some runtime)
 
     member __.Stop () =
         lock lockObj (fun () ->

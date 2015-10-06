@@ -18,7 +18,9 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
         new Random(seed)
 
     // keeps a rough track of the current active cluster size
-    let clusterSize = CacheAtom.Create(async { let! ws = workerManager.GetAllWorkers() in return ws.Length }, intervalMilliseconds = 10000)
+    let clusterSize = 
+        let getter = async { try let! ws = workerManager.GetAllWorkers() in return ws.Length with _ -> return 3 }
+        CacheAtom.Create(getter, intervalMilliseconds = 10000)
 
     let cleanupWorkerQueue (worker : IWorkerId) = async {
         let subscription = topic.GetSubscription(worker)
@@ -53,7 +55,7 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
         // perform cleanup every 20 seconds with a probability of 1/N,
         // where N is the current active cluster size
         do! Async.Sleep 20000
-        if random.Next(0, clusterSize.Value) <> 0 then return! loop() else
+        if random.Next(0, clusterSize.Value) > 0 then return! loop() else
 
         let! result = Async.Catch <| async {
             let! workersToCheck = workerManager.GetInactiveWorkers()
