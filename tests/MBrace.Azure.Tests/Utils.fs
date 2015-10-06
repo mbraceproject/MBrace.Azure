@@ -50,6 +50,8 @@ type ClusterSession(config : MBrace.Azure.Configuration, workerCount : int) =
                     AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
                 else
                     AzureCluster.InitOnCurrentMachine(config, workerCount, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+
+            while runtime.Workers.Length < workerCount do Thread.Sleep 100
             state <- Some runtime)
 
     member __.Stop () =
@@ -61,17 +63,18 @@ type ClusterSession(config : MBrace.Azure.Configuration, workerCount : int) =
                 r.Reset(deleteUserData = true, deleteAssemblyData = true, force = true, reactivate = false)
                 state <- None)
 
-    member __.cluster =
+    member __.Cluster =
         match state with
         | None -> invalidOp "MBrace runtime not initialized."
         | Some r -> r
 
     member __.Chaos() =
         lock lockObj (fun () ->
-            let cluster = __.cluster
+            let cluster = __.Cluster
             cluster.KillAllLocalWorkers()
-            Thread.Sleep 6000
-            cluster.CullNonResponsiveWorkers(TimeSpan.FromSeconds 5.)
-            while cluster.Workers.Length <> 0 do Thread.Sleep 500
+            while cluster.Workers.Length <> 0 do 
+                Thread.Sleep 1000
+                cluster.CullNonResponsiveWorkers(TimeSpan.FromSeconds 5.)
+
             cluster.AttachLocalWorkers(workerCount)
             while cluster.Workers.Length <> workerCount do Thread.Sleep 500)

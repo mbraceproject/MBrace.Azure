@@ -29,10 +29,10 @@ type ``Azure CloudFlow Tests`` (session : ClusterSession) as self =
     override __.IsSupportedStorageLevel _ = true
 
     override __.Run (workflow : Cloud<'T>) = 
-        session.cluster.Run(workflow)
+        session.Cluster.Run(workflow)
 
     override __.RunOnCurrentProcess(workflow : Cloud<'T>) = 
-        session.cluster.RunOnCurrentProcess(workflow)
+        session.Cluster.RunOnCurrentProcess(workflow)
 
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3

@@ -87,7 +87,7 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
 
     interface IWorkerManager with
         member this.DeclareWorkerStatus(workerId: IWorkerId, status: CloudWorkItemExecutionStatus): Async<unit> = async {
-            logger.LogInfof "Changing worker %O status to %A" clusterId status
+            logger.LogInfof "Changing worker %O status to %A" workerId status
             let record = new WorkerRecord(workerId.Id)
             record.ETag <- "*"
             record.Status <- pickle status
