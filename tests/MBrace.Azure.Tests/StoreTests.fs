@@ -13,7 +13,7 @@ open MBrace.Azure.Tests
 [<TestFixture>]
 type ``BlobStore Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
-    let session = new ClusterSession(remoteConfig, 4)
+    let session = new LocalClusterSession(remoteConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -30,7 +30,7 @@ type ``BlobStore Tests - Standalone Cluster - Remote Storage``() =
 [<TestFixture>]
 type ``BlobStore Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
-    let session = new ClusterSession(emulatorConfig, 4)
+    let session = new LocalClusterSession(emulatorConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -47,7 +47,7 @@ type ``BlobStore Tests - Standalone Cluster - Storage Emulator``() =
 [<TestFixture>]
 type ``Atom Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
-    let session = new ClusterSession(remoteConfig, 4)
+    let session = new LocalClusterSession(remoteConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -62,7 +62,7 @@ type ``Atom Tests - Standalone Cluster - Remote Storage``() =
 [<TestFixture>]
 type ``Atom Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
-    let session = new ClusterSession(emulatorConfig, 4)
+    let session = new LocalClusterSession(emulatorConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -77,7 +77,7 @@ type ``Atom Tests - Standalone Cluster - Storage Emulator``() =
 [<TestFixture>]
 type ``Queue Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudQueue Tests``(parallelismFactor = 10)
-    let session = new ClusterSession(remoteConfig, 4)
+    let session = new LocalClusterSession(remoteConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -91,7 +91,7 @@ type ``Queue Tests - Standalone Cluster - Remote Storage``() =
 [<TestFixture>]
 type ``Dictionary Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``CloudDictionary Tests``(parallelismFactor = 5)
-    let session = new ClusterSession(emulatorConfig, 4)
+    let session = new LocalClusterSession(emulatorConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -106,7 +106,7 @@ type ``Dictionary Tests - Standalone Cluster - Storage Emulator``() =
 [<TestFixture>]
 type ``Dictionary Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudDictionary Tests``(parallelismFactor = 5)
-    let session = new ClusterSession(remoteConfig, 4)
+    let session = new LocalClusterSession(remoteConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -121,7 +121,7 @@ type ``Dictionary Tests - Standalone Cluster - Remote Storage``() =
 [<TestFixture>]
 type ``CloudValue Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``CloudValue Tests``(parallelismFactor = 5)
-    let session = new ClusterSession(emulatorConfig, 4)
+    let session = new LocalClusterSession(emulatorConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -136,7 +136,7 @@ type ``CloudValue Tests - Standalone Cluster - Storage Emulator``() =
 [<TestFixture>]
 type ``CloudValue Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``CloudValue Tests``(parallelismFactor = 5)
-    let session = new ClusterSession(remoteConfig, 4)
+    let session = new LocalClusterSession(remoteConfig, 4)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()

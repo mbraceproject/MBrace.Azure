@@ -38,14 +38,40 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
             Info = workerInfo
         } 
 
+    /// Gets all worker records.
+    member this.GetAllWorkers(): Async<WorkerState []> = async { 
+        let! records = Table.queryPK<WorkerRecord> clusterId.StorageAccount clusterId.RuntimeTable WorkerRecord.DefaultPartitionKey
+        let state = records |> Seq.map mkWorkerState |> Seq.toArray
+        return state
+    }
+
     /// 'Running' workers that fail to give heartbeats.
     member this.GetNonResponsiveWorkers (?heartbeatThreshold : TimeSpan) : Async<WorkerState []> = async {
-        let! workers = this.GetAllWorkers()
         let now = DateTimeOffset.Now
+        let! workers = this.GetAllWorkers()
         return workers |> Array.filter (fun w -> 
                             match w.ExecutionStatus with
                             | CloudWorkItemExecutionStatus.Running when now - w.LastHeartbeat > defaultArg heartbeatThreshold w.Info.HeartbeatThreshold -> true
                             | _ -> false)
+    }
+
+    /// Workers that fail to give heartbeats.
+    member this.GetInactiveWorkers () : Async<WorkerState []> = async {
+        let now = DateTimeOffset.Now
+        let! workers = this.GetAllWorkers()
+        return workers |> Array.filter (fun w -> now - w.LastHeartbeat > w.Info.HeartbeatThreshold)
+    }
+
+    /// Get workers that are active and actively sending heartbeats
+    member this.GetAvailableWorkers(): Async<WorkerState []> = async { 
+        let now = DateTimeOffset.Now
+        let! workers = this.GetAllWorkers()
+        return 
+            workers 
+            |> Array.filter (fun w -> 
+                match w.ExecutionStatus with
+                | CloudWorkItemExecutionStatus.Running when now - w.LastHeartbeat <= w.Info.HeartbeatThreshold -> true
+                | _ -> false)
     }
 
     /// Culls workers that have stopped sending heartbeats in a timespan larger than specified threshold
@@ -65,19 +91,6 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
         }
 
         do! nonResponsiveWorkers |> Seq.map cullWorker |> Async.Parallel |> Async.Ignore
-    }
-
-    /// Workers that fail to give heartbeats.
-    member this.GetInactiveWorkers () : Async<WorkerState []> = async {
-        let! workers = this.GetAllWorkers()
-        let now = DateTimeOffset.Now
-        return workers |> Array.filter (fun w -> now - w.LastHeartbeat > w.Info.HeartbeatThreshold)
-    }
-
-    member this.GetAllWorkers(): Async<WorkerState []> = async { 
-        let! records = Table.queryPK<WorkerRecord> clusterId.StorageAccount clusterId.RuntimeTable WorkerRecord.DefaultPartitionKey
-        let state = records |> Seq.map mkWorkerState |> Seq.toArray
-        return state
     }
 
     member this.UnsubscribeWorker(workerId : IWorkerId) = async {
@@ -113,16 +126,7 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
             return ()            
         }
         
-        member this.GetAvailableWorkers(): Async<WorkerState []> = async { 
-            let! workers = this.GetAllWorkers()
-            return 
-                workers 
-                |> Seq.filter (fun w -> DateTimeOffset.Now - w.LastHeartbeat <= w.Info.HeartbeatThreshold)
-                |> Seq.filter (fun w -> match w.ExecutionStatus with
-                                        | CloudWorkItemExecutionStatus.Running -> true
-                                        | _ -> false)
-                |> Seq.toArray
-        }
+        member this.GetAvailableWorkers(): Async<WorkerState []> = this.GetAvailableWorkers()
         
         member this.SubmitPerformanceMetrics(workerId: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = async {
             let record = new WorkerRecord(workerId.Id)

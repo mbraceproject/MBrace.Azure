@@ -33,26 +33,28 @@ module Utils =
     let emulatorConfig = new Configuration("UseDevelopmentStorage=true", selectEnv "azureservicebusconn")
 
 
-type ClusterSession(config : MBrace.Azure.Configuration, workerCount : int) =
+type LocalClusterSession(config : MBrace.Azure.Configuration, workerCount : int, ?heartbeatThreshold : TimeSpan) =
 
     static do AzureWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
     
+    let heartbeatThreshold = defaultArg heartbeatThreshold (TimeSpan.FromSeconds 10.)
     let lockObj = obj ()
     let mutable state = None
+
+    let attachWorkers (cluster : AzureCluster) =
+        if workerCount > 0 then
+            cluster.AttachLocalWorkers(workerCount = workerCount, logLevel = LogLevel.Debug, heartbeatThreshold = heartbeatThreshold)
 
     member __.Start () =
         lock lockObj (fun () ->
             match state with
             | Some _ -> invalidOp "MBrace runtime already initialized."
             | None -> 
-                let runtime = 
-                    if workerCount < 1 then
-                        AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
-                    else
-                        AzureCluster.InitOnCurrentMachine(config, workerCount, maxWorkItems = 32, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
-
-                while runtime.Workers.Length < workerCount do Thread.Sleep 100
-                state <- Some runtime)
+                let cluster = AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
+                cluster.Reset(force = false, deleteUserData = true, deleteAssemblyData = true, reactivate = true)
+                do attachWorkers cluster
+                while cluster.Workers.Length < workerCount do Thread.Sleep 100
+                state <- Some cluster)
 
     member __.Stop () =
         lock lockObj (fun () ->
@@ -72,9 +74,6 @@ type ClusterSession(config : MBrace.Azure.Configuration, workerCount : int) =
         lock lockObj (fun () ->
             let cluster = __.Cluster
             cluster.KillAllLocalWorkers()
-            while cluster.Workers.Length <> 0 do 
-                Thread.Sleep 1000
-                cluster.CullNonResponsiveWorkers(TimeSpan.FromSeconds 5.)
-
-            cluster.AttachLocalWorkers(workerCount)
-            while cluster.Workers.Length <> workerCount do Thread.Sleep 500)
+            while cluster.Workers.Length > 0 do Thread.Sleep 500
+            attachWorkers cluster
+            while cluster.Workers.Length < workerCount do Thread.Sleep 500)

@@ -19,7 +19,7 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
 
     // keeps a rough track of the current active cluster size
     let clusterSize = 
-        let getter = async { try let! ws = workerManager.GetAllWorkers() in return ws.Length with _ -> return 3 }
+        let getter = async { try let! ws = workerManager.GetAvailableWorkers() in return ws.Length with _ -> return 2 }
         CacheAtom.Create(getter, intervalMilliseconds = 10000)
 
     let cleanupWorkerQueue (worker : IWorkerId) = async {
@@ -44,28 +44,22 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
                 |> Seq.map (fun m -> async { do! m.CompleteAsync() })
                 |> Async.Parallel 
                 |> Async.Ignore
-
-            return true
-        else
-            return false
     }
 
     // WorkItem queue maintenance : periodically check for non-responsive workers and cleanup their queue
     let rec loop () = async {
-        // perform cleanup every 20 seconds with a probability of 1/N,
-        // where N is the current active cluster size
-        do! Async.Sleep 20000
-        if random.Next(0, clusterSize.Value) > 0 then return! loop() else
+        do! Async.Sleep 10000
+        if random.Next(0, min clusterSize.Value 4) = 0 then return! loop() else
+
+        logger.LogInfo "TopicMonitor : starting topic maintenance."
 
         let! result = Async.Catch <| async {
             let! workersToCheck = workerManager.GetInactiveWorkers()
-            let! results = workersToCheck |> Seq.map (fun w -> cleanupWorkerQueue w.Id) |> Async.Parallel
-            return results |> Array.exists id
+            do! workersToCheck |> Seq.map (fun w -> cleanupWorkerQueue w.Id) |> Async.Parallel |> Async.Ignore
         }
 
         match result with
-        | Choice1Of2 true -> logger.LogInfo "TopicMonitor : maintenance complete."
-        | Choice1Of2 _ -> ()
+        | Choice1Of2 () -> logger.LogInfo "TopicMonitor : maintenance complete."
         | Choice2Of2 ex -> logger.Logf LogLevel.Error "TopicMonitor : maintenance error:  %A" ex
 
         return! loop ()   

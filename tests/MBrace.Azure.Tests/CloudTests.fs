@@ -17,10 +17,8 @@ open MBrace.Azure.Tests
 #nowarn "444"
 
 [<AbstractClass; TestFixture>]
-type ``Azure Cloud Tests`` (session : ClusterSession) as self =
+type ``Azure Cloud Tests`` (session : LocalClusterSession) as self =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 15000)
-    
-    let session = session 
 
     let run (wf : Cloud<'T>) = self.Run wf
 
@@ -58,7 +56,14 @@ type ``Azure Cloud Tests`` (session : ClusterSession) as self =
 
 
 [<AbstractClass; TestFixture>]
-type ``Azure Specialized Cloud Tests`` (session : ClusterSession) =
+type ``Azure Specialized Cloud Tests`` (session : LocalClusterSession) =
+
+    let repeats =
+#if DEBUG
+        3
+#else
+        1
+#endif
 
     let run w = session.Cluster.Run(w)
 
@@ -129,25 +134,9 @@ type ``Azure Specialized Cloud Tests`` (session : ClusterSession) =
         do job.Result
         ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
 
-
     [<Test>]
-    member __.``2. Fault Tolerance : map/reduce`` () =
-        repeat 3 (fun () ->
-            let cluster = session.Cluster
-            let f = cluster.Store.Atom.Create(false)
-            let t = cluster.Submit(cloud {
-                do! f.Force true
-                return! WordCount.run 20 WordCount.mapReduceRec
-            }, faultPolicy = FaultPolicy.InfiniteRetries())
-            while not f.Value do Thread.Sleep 1000
-            do Thread.Sleep 1000
-            session.Chaos()
-            t.Result |> shouldEqual 100)
-
-
-    [<Test>]
-    member __.``2. Fault Tolerance : Custom fault policy 1`` () =
-        repeat 5 (fun () ->
+    member __.``2. Fault Tolerance : Custom fault policy`` () =
+        repeat repeats (fun () ->
             let cluster = session.Cluster
             let f = cluster.Store.Atom.Create(false)
             let t = cluster.Submit(cloud {
@@ -159,25 +148,27 @@ type ``Azure Specialized Cloud Tests`` (session : ClusterSession) =
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
-    member __.``2. Fault Tolerance : Custom fault policy 2`` () =
-        repeat 5 (fun () ->
+    member __.``2. Fault Tolerance : Custom fault policy nested`` () =
+        repeat repeats (fun () ->
             let cluster = session.Cluster
             let f = cluster.Store.Atom.Create(false)
-            let t = cluster.Submit(cloud {
-                return! 
-                    Cloud.WithFaultPolicy FaultPolicy.NoRetry
-                        (cloud { 
-                            do! f.Force(true) 
-                            return! Cloud.Sleep 20000 <||> Cloud.Sleep 20000
-                        })
-            })
+            let computation () = cloud {
+                let child () = cloud { 
+                    do! f.Force true 
+                    do! Cloud.Sleep 20000
+                }
+
+                return! Cloud.WithFaultPolicy FaultPolicy.NoRetry (child () <||> child ())
+            }
+
+            let t = cluster.Submit(computation (), faultPolicy = FaultPolicy.InfiniteRetries())
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
 
     [<Test>]
     member __.``2. Fault Tolerance : targeted workers`` () =
-        repeat 5(fun () ->
+        repeat repeats (fun () ->
             let cluster = session.Cluster
             let f = cluster.Store.Atom.Create(false)
             let wf () = cloud {
@@ -198,7 +189,7 @@ type ``Azure Specialized Cloud Tests`` (session : ClusterSession) =
     member __.``2. Fault Tolerance : fault data`` () =
         session.Cluster.Run(Cloud.TryGetFaultData()) |> shouldBe Option.isNone
 
-        repeat 5 (fun () ->
+        repeat repeats (fun () ->
             let cluster = session.Cluster
             let f = cluster.Store.Atom.Create(false)
             let t = 
@@ -215,7 +206,7 @@ type ``Azure Specialized Cloud Tests`` (session : ClusterSession) =
 
     [<Test>]
     member __.``2. Fault Tolerance : protected parallel workflows`` () =
-        repeat 5 (fun () ->
+        repeat repeats (fun () ->
             let cluster = session.Cluster
             let f = cluster.Store.Atom.Create(false)
             let task i = cloud {
@@ -235,22 +226,36 @@ type ``Azure Specialized Cloud Tests`` (session : ClusterSession) =
             |> Array.forall (function FaultException _ -> true | _ -> false)
             |> shouldEqual true)
 
+    [<Test>]
+    member __.``2. Fault Tolerance : map/reduce`` () =
+        repeat 2 (fun () ->
+            let cluster = session.Cluster
+            let f = cluster.Store.Atom.Create(false)
+            let t = cluster.Submit(cloud {
+                do! f.Force true
+                return! WordCount.run 20 WordCount.mapReduceRec
+            }, faultPolicy = FaultPolicy.InfiniteRetries())
+            while not f.Value do Thread.Sleep 1000
+            do Thread.Sleep 1000
+            session.Chaos()
+            t.Result |> shouldEqual 100)
+
 
 
 type ``Cloud Tests - Compute Emulator - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(ClusterSession(emulatorConfig, 0))
+    inherit ``Azure Cloud Tests``(LocalClusterSession(emulatorConfig, 0))
 
 type ``Cloud Tests - Standalone Cluster - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(ClusterSession(emulatorConfig, 4))
+    inherit ``Azure Cloud Tests``(LocalClusterSession(emulatorConfig, 4))
 
 type ``Cloud Tests - Standalone Cluster - Remote Storage`` () =
-    inherit ``Azure Cloud Tests``(ClusterSession(remoteConfig, 4))
+    inherit ``Azure Cloud Tests``(LocalClusterSession(remoteConfig, 4))
 
 type ``Specialized Cloud Tests - Compute Emulator - Storage Emulator`` () =
-    inherit ``Azure Specialized Cloud Tests``(ClusterSession(emulatorConfig, 0))
+    inherit ``Azure Specialized Cloud Tests``(LocalClusterSession(emulatorConfig, 0))
 
 type ``Specialized Cloud Tests - Standalone Cluster - Storage Emulator`` () =
-    inherit ``Azure Specialized Cloud Tests``(ClusterSession(emulatorConfig, 4))
+    inherit ``Azure Specialized Cloud Tests``(LocalClusterSession(emulatorConfig, 4))
 
 type ``Specialized Cloud Tests - Standalone Cluster - Remote Storage`` () =
-    inherit ``Azure Specialized Cloud Tests``(ClusterSession(remoteConfig, 4))
+    inherit ``Azure Specialized Cloud Tests``(LocalClusterSession(remoteConfig, 4))

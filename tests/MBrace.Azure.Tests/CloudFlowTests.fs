@@ -11,7 +11,7 @@ open MBrace.Azure.Tests
 open NUnit.Framework
 
 [<AbstractClass; TestFixture>]
-type ``Azure CloudFlow Tests`` (session : ClusterSession) as self =
+type ``Azure CloudFlow Tests`` (session : LocalClusterSession) as self =
     inherit ``CloudFlow tests`` ()
 
     let session = session
@@ -38,10 +38,10 @@ type ``Azure CloudFlow Tests`` (session : ClusterSession) as self =
     override __.FsCheckMaxNumberOfIOBoundTests = 3
 
 type ``CloudFlow Tests - Compute Emulator - Remote Storage`` () =
-    inherit ``Azure CloudFlow Tests``(ClusterSession(emulatorConfig, 0))
+    inherit ``Azure CloudFlow Tests``(LocalClusterSession(emulatorConfig, 0))
 
 type ``CloudFlow Tests - Standalone Cluster - Storage Emulator`` () =
-    inherit ``Azure CloudFlow Tests``(ClusterSession(emulatorConfig, 4))
+    inherit ``Azure CloudFlow Tests``(LocalClusterSession(emulatorConfig, 4))
         
 type ``CloudFlow Tests - Standalone Cluster - Remote Storage`` () =
-    inherit ``Azure CloudFlow Tests``(ClusterSession(remoteConfig, 4))
+    inherit ``Azure CloudFlow Tests``(LocalClusterSession(remoteConfig, 4))
