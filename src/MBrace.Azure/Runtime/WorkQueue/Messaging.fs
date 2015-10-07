@@ -37,36 +37,27 @@ type internal MessagingClient =
                 newRecord.DeliveryCount <- nullable workInfo.DeliveryCount
                 newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
 
+                // determine the fault info for the dequeued work item
                 let! faultInfo = async {
                     let faultCount = workInfo.DeliveryCount - 1
+                    match workInfo.TargetWorker with
+                    | Some target when target <> localWorkerId.Id -> 
+                        // a targeted work item that has been dequeued by a different worker is to be declared faulted
+                        newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
+                        return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
 
-                    if faultCount = 0 then
-                        match workInfo.TargetWorker with
-                        | Some target when target <> localWorkerId.Id ->
-                            newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
-                            return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
-                        | _ -> return NoFault
-
-                    else
+                    | _ when faultCount = 0 -> return NoFault
+                    | _ ->
                         let! oldRecord = Table.read<WorkItemRecord> clusterId.StorageAccount clusterId.RuntimeTable workInfo.ProcessId (fromGuid workInfo.WorkItemId)
-                        // two cases:
                         match enum<FaultInfo> oldRecord.FaultInfo.Value with
-                        // either worker declared workItem faulted
-                        | FaultInfo.FaultDeclaredByWorker ->
+                        | FaultInfo.FaultDeclaredByWorker -> // a fault exception has been set by the executing worker
                             let lastExc = ProcessConfiguration.Serializer.UnPickle<ExceptionDispatchInfo>(oldRecord.LastException)
                             let lastWorker = new WorkerId(oldRecord.CurrentWorker)
                             return FaultDeclaredByWorker(faultCount, lastExc, lastWorker)
-                        // or worker died
-                        | _ ->
-                            match workInfo.TargetWorker with
-                            | None ->
-                                return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(oldRecord.CurrentWorker))
-                            | Some target when target = localWorkerId.Id ->
-                                newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingWorkItem)
-                                return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(oldRecord.CurrentWorker))
-                            | Some target ->
-                                newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
-                                return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
+                        | _ -> // a worker has died while previously dequeueing the worker
+                            newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingWorkItem)
+                            let previousWorker = match oldRecord.CurrentWorker with null -> "<unknown>" | w -> w
+                            return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(previousWorker))
                 }
 
                 logger.Logf LogLevel.Debug "%O : extracted fault info %A" workInfo faultInfo
