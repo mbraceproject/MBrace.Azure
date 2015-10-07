@@ -21,62 +21,64 @@ type internal MessagingClient =
         if message = null then 
             return None
         else 
-            let jobInfo = WorkItemLeaseTokenInfo.FromReceivedMessage message
-            logger.Logf LogLevel.Debug "%O : dequeued, delivery count = %d" jobInfo jobInfo.DeliveryCount 
+            let workInfo = WorkItemLeaseTokenInfo.FromReceivedMessage message
+            logger.Logf LogLevel.Debug "%O : dequeued, delivery count = %d" workInfo workInfo.DeliveryCount 
 
-            logger.Logf LogLevel.Debug "%O : starting lock renew loop" jobInfo
-            let monitor = WorkItemLeaseMonitor.Start(clusterId, message, jobInfo, logger)
+            logger.Logf LogLevel.Debug "%O : starting lock renew loop" workInfo
+            let monitor = WorkItemLeaseMonitor.Start(clusterId, message, workInfo, logger)
 
-            logger.Logf LogLevel.Debug "%O : changing status to %A" jobInfo WorkItemStatus.Dequeued
-            let newRecord = new WorkItemRecord(jobInfo.ProcessId, fromGuid jobInfo.WorkItemId)
-            newRecord.ETag <- "*"
-            newRecord.Completed <- nullable false
-            newRecord.DequeueTime <- nullable jobInfo.DequeueTime
-            newRecord.Status <- nullable(int WorkItemStatus.Dequeued)
-            newRecord.CurrentWorker <- localWorkerId.Id
-            newRecord.DeliveryCount <- nullable jobInfo.DeliveryCount
-            newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
+            try
+                let newRecord = new WorkItemRecord(workInfo.ProcessId, fromGuid workInfo.WorkItemId)
+                newRecord.ETag <- "*"
+                newRecord.Completed <- nullable false
+                newRecord.DequeueTime <- nullable workInfo.DequeueTime
+                newRecord.Status <- nullable(int WorkItemStatus.Dequeued)
+                newRecord.CurrentWorker <- localWorkerId.Id
+                newRecord.DeliveryCount <- nullable workInfo.DeliveryCount
+                newRecord.FaultInfo <- nullable(int FaultInfo.NoFault)
 
-            logger.Logf LogLevel.Debug "%O : fetching fault info" jobInfo
-            let! faultInfo = async {
-                let faultCount = jobInfo.DeliveryCount - 1
+                let! faultInfo = async {
+                    let faultCount = workInfo.DeliveryCount - 1
 
-                if faultCount = 0 then
-                    match jobInfo.TargetWorker with
-                    | None -> return NoFault
-                    | Some target when target = localWorkerId.Id -> return NoFault
-                    | Some target ->
-                        newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
-                        return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
-                else
-                    let! oldRecord = Table.read<WorkItemRecord> clusterId.StorageAccount clusterId.RuntimeTable jobInfo.ProcessId (fromGuid jobInfo.WorkItemId)
-                    // two cases:
-                    match enum<FaultInfo> oldRecord.FaultInfo.Value with
-                    // either worker declared workItem faulted
-                    | FaultInfo.FaultDeclaredByWorker ->
-                        let lastExc =
-                            if oldRecord.LastException = null then Unchecked.defaultof<_>
-                            else ProcessConfiguration.Serializer.UnPickle<ExceptionDispatchInfo>(oldRecord.LastException)
-                        let lastWorker = new WorkerId(oldRecord.CurrentWorker)
-                        return FaultDeclaredByWorker(faultCount, lastExc, lastWorker)
-                    // or worker died
-                    | _ ->
-                        match jobInfo.TargetWorker with
-                        | None ->
-                            return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(oldRecord.CurrentWorker))
-                        | Some target when target = localWorkerId.Id ->
-                            newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingWorkItem)
-                            return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(oldRecord.CurrentWorker))
-                        | Some target ->
+                    if faultCount = 0 then
+                        match workInfo.TargetWorker with
+                        | Some target when target <> localWorkerId.Id ->
                             newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
                             return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
-            }
+                        | _ -> return NoFault
 
-            logger.Logf LogLevel.Debug "%O : extracted fault info %A" jobInfo faultInfo
-            let! _record = Table.merge clusterId.StorageAccount clusterId.RuntimeTable newRecord
-            logger.Logf LogLevel.Debug "%O : changed status successfully" jobInfo
-            let! leaseToken = WorkItemLeaseToken.Create(clusterId, jobInfo, monitor, faultInfo)
-            return Some (leaseToken :> ICloudWorkItemLeaseToken)
+                    else
+                        let! oldRecord = Table.read<WorkItemRecord> clusterId.StorageAccount clusterId.RuntimeTable workInfo.ProcessId (fromGuid workInfo.WorkItemId)
+                        // two cases:
+                        match enum<FaultInfo> oldRecord.FaultInfo.Value with
+                        // either worker declared workItem faulted
+                        | FaultInfo.FaultDeclaredByWorker ->
+                            let lastExc = ProcessConfiguration.Serializer.UnPickle<ExceptionDispatchInfo>(oldRecord.LastException)
+                            let lastWorker = new WorkerId(oldRecord.CurrentWorker)
+                            return FaultDeclaredByWorker(faultCount, lastExc, lastWorker)
+                        // or worker died
+                        | _ ->
+                            match workInfo.TargetWorker with
+                            | None ->
+                                return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(oldRecord.CurrentWorker))
+                            | Some target when target = localWorkerId.Id ->
+                                newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingWorkItem)
+                                return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(oldRecord.CurrentWorker))
+                            | Some target ->
+                                newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
+                                return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
+                }
+
+                logger.Logf LogLevel.Debug "%O : extracted fault info %A" workInfo faultInfo
+                logger.Logf LogLevel.Debug "%O : changing status to %A" workInfo WorkItemStatus.Dequeued
+                let! _record = Table.merge clusterId.StorageAccount clusterId.RuntimeTable newRecord
+                logger.Logf LogLevel.Debug "%O : changed status successfully" workInfo
+                let! leaseToken = WorkItemLeaseToken.Create(clusterId, workInfo, monitor, faultInfo)
+                return Some (leaseToken :> ICloudWorkItemLeaseToken)
+
+            with e ->
+                monitor.CompleteWith Abandon // in case of dequeue exception, abandon lease renew loop
+                return! Async.Raise e
     }
 
     /// Generic work item enqueue method

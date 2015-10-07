@@ -48,21 +48,20 @@ type internal LeaseAction =
 
 /// Periodically renews lock for supplied work item, releases lock if specified as completed.
 [<Sealed; AutoSerializable(false)>]
-type internal WorkItemLeaseMonitor private (id : ClusterId, message : BrokeredMessage, info : WorkItemLeaseTokenInfo, logger : ISystemLogger) =
+type internal WorkItemLeaseMonitor private (clusterId : ClusterId, message : BrokeredMessage, info : WorkItemLeaseTokenInfo, logger : ISystemLogger) =
 
     let rec renewLoop (inbox : MailboxProcessor<LeaseAction>) = async {
         let! msg = inbox.TryReceive(timeout = 10)
         match msg with
         | None ->
-            let! renewResult =
-                async {
-                    do! message.RenewLockAsync()
-                    let record = new WorkItemRecord(info.ProcessId, fromGuid info.WorkItemId)
-                    record.RenewLockTime <- nullable DateTimeOffset.Now
-                    record.ETag <- "*"
-                    let! _updated = Table.merge id.StorageAccount id.RuntimeTable record
-                    return ()
-                } |> Async.Catch
+            let! renewResult = Async.Catch <| async {
+                do! message.RenewLockAsync()
+                let record = new WorkItemRecord(info.ProcessId, fromGuid info.WorkItemId)
+                record.RenewLockTime <- nullable DateTimeOffset.Now
+                record.ETag <- "*"
+                let! _updated = Table.merge clusterId.StorageAccount clusterId.RuntimeTable record
+                return ()
+            }
 
             match renewResult with
             | Choice1Of2 () ->
@@ -82,10 +81,10 @@ type internal WorkItemLeaseMonitor private (id : ClusterId, message : BrokeredMe
         | Some Complete ->
             match info.TargetWorker with
             | None -> 
-                let queue = id.ServiceBusAccount.CreateQueueClient(id.RuntimeQueue, ReceiveMode.PeekLock)
+                let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.RuntimeQueue, ReceiveMode.PeekLock)
                 return! queue.CompleteAsync(info.MessageLockId)
             | Some affinity -> 
-                let subscription = id.ServiceBusAccount.CreateSubscriptionClient(id.RuntimeTopic, affinity)
+                let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.RuntimeTopic, affinity)
                 return! subscription.CompleteAsync(info.MessageLockId)
 
             logger.Logf LogLevel.Info "%A : completed" info
@@ -94,10 +93,10 @@ type internal WorkItemLeaseMonitor private (id : ClusterId, message : BrokeredMe
         | Some Abandon ->
             match info.TargetWorker with
             | None -> 
-                let queue = id.ServiceBusAccount.CreateQueueClient(id.RuntimeQueue, ReceiveMode.PeekLock)
+                let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.RuntimeQueue, ReceiveMode.PeekLock)
                 return! queue.AbandonAsync(info.MessageLockId)
             | Some affinity -> 
-                let subscription = id.ServiceBusAccount.CreateSubscriptionClient(id.RuntimeTopic, affinity)
+                let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.RuntimeTopic, affinity)
                 return! subscription.AbandonAsync(info.MessageLockId)
 
             logger.Logf LogLevel.Info "%A : abandoned" info
@@ -107,7 +106,7 @@ type internal WorkItemLeaseMonitor private (id : ClusterId, message : BrokeredMe
     let cts = new CancellationTokenSource()
     let mbox = MailboxProcessor.Start(renewLoop, cts.Token)
 
-    member __.Complete(action) = mbox.Post action
+    member __.CompleteWith(action) = mbox.Post action
 
     interface IDisposable with member __.Dispose() = cts.Cancel()
 
@@ -117,7 +116,7 @@ type internal WorkItemLeaseMonitor private (id : ClusterId, message : BrokeredMe
 /// Implements ICloudWorkItemLeaseToken
 type internal WorkItemLeaseToken =
     {
-        Id              : ClusterId
+        ClusterId       : ClusterId
         CompleteAction  : MarshaledAction<LeaseAction> // ensures that LeaseMonitor is serializable across AppDomains
         WorkItemType    : CloudWorkItemType
         WorkItemSize    : int64
@@ -136,7 +135,7 @@ with
             record.CompletionTime <- nullable(DateTimeOffset.Now)
             record.Completed <- nullable true
             record.ETag <- "*" 
-            let! _record = Table.merge this.Id.StorageAccount this.Id.RuntimeTable record
+            let! _record = Table.merge this.ClusterId.StorageAccount this.ClusterId.RuntimeTable record
             return ()
         }
         
@@ -152,14 +151,14 @@ with
             record.LastException <- ProcessConfiguration.Serializer.Pickle edi
             record.FaultInfo <- nullable(int FaultInfo.FaultDeclaredByWorker)
             record.ETag <- "*"
-            let! _record = Table.merge this.Id.StorageAccount this.Id.RuntimeTable record
+            let! _record = Table.merge this.ClusterId.StorageAccount this.ClusterId.RuntimeTable record
             return () 
         }
         
         member this.FaultInfo : CloudWorkItemFaultInfo = this.FaultInfo
         
         member this.GetWorkItem() : Async<CloudWorkItem> = async { 
-            let! payload = BlobPersist.ReadPersistedClosure<MessagePayload>(this.Id, this.LeaseInfo.BlobUri)
+            let! payload = BlobPersist.ReadPersistedClosure<MessagePayload>(this.ClusterId, this.LeaseInfo.BlobUri)
             match payload with
             | Single item -> return item
             | Batch items -> return items.[Option.get this.LeaseInfo.BatchIndex]
@@ -177,19 +176,19 @@ with
             | Some w -> Some(WorkerId(w) :> _)
         
         member this.Process : ICloudProcessEntry = 
-            new CloudProcessEntry(this.Id, this.LeaseInfo.ProcessId, this.ProcessInfo) :> _
+            new CloudProcessEntry(this.ClusterId, this.LeaseInfo.ProcessId, this.ProcessInfo) :> _
         
         member this.Type : string = this.TypeName
 
     /// Creates a new WorkItemLeaseToken with supplied configuration parameters
-    static member Create(id : ClusterId, info : WorkItemLeaseTokenInfo, monitor : WorkItemLeaseMonitor, faultInfo : CloudWorkItemFaultInfo) = async {
-        let! processRecordT = CloudProcessRecord.GetProcessRecord(id, info.ProcessId) |> Async.StartChild
-        let! workRecord = Table.read<WorkItemRecord> id.StorageAccount id.RuntimeTable info.ProcessId (fromGuid info.WorkItemId)
+    static member Create(clusterId : ClusterId, info : WorkItemLeaseTokenInfo, monitor : WorkItemLeaseMonitor, faultInfo : CloudWorkItemFaultInfo) = async {
+        let! processRecordT = CloudProcessRecord.GetProcessRecord(clusterId, info.ProcessId) |> Async.StartChild
+        let! workRecord = Table.read<WorkItemRecord> clusterId.StorageAccount clusterId.RuntimeTable info.ProcessId (fromGuid info.WorkItemId)
         let! processRecord = processRecordT
 
         return {
-            Id = id
-            CompleteAction = MarshaledAction.Create monitor.Complete
+            ClusterId = clusterId
+            CompleteAction = MarshaledAction.Create monitor.CompleteWith
             WorkItemSize = workRecord.GetSize()
             WorkItemType = workRecord.GetWorkItemType()
             TypeName = workRecord.Type
