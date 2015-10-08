@@ -56,6 +56,7 @@ type internal MessagingClient =
                             return FaultDeclaredByWorker(faultCount, lastExc, lastWorker)
                         | _ -> // a worker has died while previously dequeueing the worker
                             newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingWorkItem)
+                            // account for cases where worker died before even updating the work item record
                             let previousWorker = match oldRecord.CurrentWorker with null -> "<unknown>" | w -> w
                             return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(previousWorker))
                 }

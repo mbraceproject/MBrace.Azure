@@ -196,7 +196,7 @@ type ``Azure Specialized Cloud Tests`` (session : LocalClusterSession) =
                 cluster.Submit(
                     cloud {
                         do! f.Force true
-                        do! Cloud.Sleep 5000
+                        do! Cloud.Sleep 20000
                         return! Cloud.TryGetFaultData()
                     })
 
@@ -208,19 +208,20 @@ type ``Azure Specialized Cloud Tests`` (session : LocalClusterSession) =
     member __.``2. Fault Tolerance : protected parallel workflows`` () =
         repeat repeats (fun () ->
             let cluster = session.Cluster
-            let f = cluster.Store.Atom.Create(false)
+            let workerCount = cluster.Workers.Length
+            let f = cluster.Store.Atom.Create 0
             let task i = cloud {
-                do! f.Force true
-                do! Cloud.Sleep 5000
+                let! _ = CloudAtom.Incr f
+                do! Cloud.Sleep 20000
                 return i
             }
 
             let cloudProcess =
-                [for i in 1 .. 10 -> task i]
+                [for i in 1 .. workerCount -> task i]
                 |> Cloud.ProtectedParallel
                 |> cluster.Submit
 
-            while not f.Value do Thread.Sleep 1000
+            while f.Value < workerCount do Thread.Sleep 1000
             session.Chaos()
             cloudProcess.Result 
             |> Array.forall (function FaultException _ -> true | _ -> false)
