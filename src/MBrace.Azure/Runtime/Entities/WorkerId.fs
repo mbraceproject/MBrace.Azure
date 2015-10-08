@@ -38,7 +38,6 @@ type WorkerRecord(workerId : string) =
     member val ProcessName          = Unchecked.defaultof<string> with get, set
     member val InitializationTime   = Nullable<DateTimeOffset>() with get, set
     member val LastHeartbeat        = Nullable<DateTimeOffset>() with get, set
-    member val ConfigurationId      = Unchecked.defaultof<byte []> with get, set
     member val MaxWorkItems         = Nullable<int>()   with get, set
     member val ActiveWorkItems      = Nullable<int>()   with get, set
     member val ProcessorCount       = Nullable<int>()   with get, set
@@ -51,7 +50,7 @@ type WorkerRecord(workerId : string) =
     member val HeartbeatInterval    = Nullable<int64>() with get, set
     member val HeartbeatThreshold   = Nullable<int64>() with get, set
     member val Version              = Unchecked.defaultof<string> with get, set
-    member val Status               = Unchecked.defaultof<byte []> with get, set
+    member val Status               = Unchecked.defaultof<string> with get, set
     
     new () = new WorkerRecord(null)
 

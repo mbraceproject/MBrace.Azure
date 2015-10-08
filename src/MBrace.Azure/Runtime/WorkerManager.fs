@@ -14,8 +14,8 @@ open MBrace.Runtime
 [<AutoSerializable(false)>]
 type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
 
-    let pickle (value : 'T) = ProcessConfiguration.BinarySerializer.Pickle(value)
-    let unpickle (value : byte []) = ProcessConfiguration.BinarySerializer.UnPickle<'T>(value)
+    let pickle (value : 'T) = ProcessConfiguration.JsonSerializer.PickleToString(value)
+    let unpickle (value : string) = ProcessConfiguration.JsonSerializer.UnPickleOfString<'T>(value)
 
     let mkWorkerState (record : WorkerRecord) =
         let workerInfo =
@@ -149,7 +149,6 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
             record.Version <- ProcessConfiguration.Version.ToString(4)
             record.MaxWorkItems <- nullable info.MaxWorkItemCount
             record.ProcessorCount <- nullable info.ProcessorCount
-            record.ConfigurationId <- pickle clusterId
             record.HeartbeatInterval <- nullable info.HeartbeatInterval.Ticks
             record.HeartbeatThreshold <- nullable info.HeartbeatThreshold.Ticks
             do! Table.insertOrReplace<WorkerRecord> clusterId.StorageAccount clusterId.RuntimeTable record //Worker might restart but keep id.

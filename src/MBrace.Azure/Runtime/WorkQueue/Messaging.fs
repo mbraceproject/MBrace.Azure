@@ -51,7 +51,7 @@ type internal MessagingClient =
                         let! oldRecord = Table.read<WorkItemRecord> clusterId.StorageAccount clusterId.RuntimeTable workInfo.ProcessId (fromGuid workInfo.WorkItemId)
                         match enum<FaultInfo> oldRecord.FaultInfo.Value with
                         | FaultInfo.FaultDeclaredByWorker -> // a fault exception has been set by the executing worker
-                            let lastExc = ProcessConfiguration.BinarySerializer.UnPickle<ExceptionDispatchInfo>(oldRecord.LastException)
+                            let lastExc = ProcessConfiguration.JsonSerializer.UnPickleOfString<ExceptionDispatchInfo>(oldRecord.LastException)
                             let lastWorker = new WorkerId(oldRecord.CurrentWorker)
                             return FaultDeclaredByWorker(faultCount, lastExc, lastWorker)
                         | _ -> // a worker has died while previously dequeueing the worker

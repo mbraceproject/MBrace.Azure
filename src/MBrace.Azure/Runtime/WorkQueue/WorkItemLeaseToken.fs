@@ -148,7 +148,7 @@ with
             record.CompletionTime <- nullableDefault
             // there exists a remote possibility that fault exceptions might be of arbitrary size
             // should probably persist payload to blob as done with results
-            record.LastException <- ProcessConfiguration.BinarySerializer.Pickle edi
+            record.LastException <- ProcessConfiguration.JsonSerializer.PickleToString edi
             record.FaultInfo <- nullable(int FaultInfo.FaultDeclaredByWorker)
             record.ETag <- "*"
             let! _record = Table.merge this.ClusterId.StorageAccount this.ClusterId.RuntimeTable record
