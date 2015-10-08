@@ -51,7 +51,7 @@ type ProcessConfiguration private () =
     static member IsInitialized = !isInitialized
 
     /// Default FsPicklerSerializer instance.
-    static member Serializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
+    static member BinarySerializer = checkInitialized() ; VagabondRegistry.Instance.Serializer
 
     /// Default FsPicklerJsonSerializer instance.
     static member JsonSerializer = checkInitialized() ; jsonSerializer

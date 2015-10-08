@@ -10,6 +10,7 @@ open Microsoft.ServiceBus.Messaging
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils.PrettyPrinters
 
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
@@ -38,20 +39,21 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
         }
         
         member x.Enqueue(message: 'T): Async<unit> = async {
-            let bin = VagabondRegistry.Instance.Serializer.Pickle message
-            use ms = new MemoryStream(bin) in ms.Position <- 0L
+            let bin = ProcessConfiguration.BinarySerializer.Pickle message
+            use ms = new MemoryStream(bin) 
+            do ms.Position <- 0L
             let msg = new BrokeredMessage(ms)
             do! client.SendAsync(msg)
         }
         
         member x.EnqueueBatch(messages: seq<'T>): Async<unit> = async {
-            return!
-                messages
-                |> Seq.map (fun item ->
-                    let bin = VagabondRegistry.Instance.Serializer.Pickle item
-                    use ms = new MemoryStream(bin) in ms.Position <- 0L
-                    new BrokeredMessage(ms))
-                |> client.SendBatchAsync
+            let serializer = ProcessConfiguration.BinarySerializer
+            let createMsg (item : 'T) =
+                let bin = serializer.Pickle item
+                let ms = new MemoryStream(bin) in ms.Position <- 0L
+                new BrokeredMessage(ms)
+
+            return! messages |> Seq.map createMsg |> client.SendBatchAsync
         }
         
         member x.TryDequeue(): Async<'T option> = async {
@@ -60,7 +62,14 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
             | null -> return None
             | msg ->
                 use stream = msg.GetBody<Stream>()
-                return Some(VagabondRegistry.Instance.Serializer.Deserialize<'T>(stream))
+                return Some(ProcessConfiguration.BinarySerializer.Deserialize<'T>(stream))
+        }
+
+        member x.DequeueBatch(maxItems : int) : Async<'T []> = async {
+            let serializer = ProcessConfiguration.BinarySerializer
+            let readBody (msg : BrokeredMessage) = use stream = msg.GetBody<Stream>() in serializer.Deserialize<'T>(stream)
+            let! messages = client.ReceiveBatchAsync(maxItems, TimeSpan.FromMilliseconds 50.)
+            return messages |> Seq.map readBody |> Seq.toArray
         }
         
         member x.Dequeue(?timeout: int): Async<'T> = async {
@@ -82,7 +91,7 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
                     aux ()
 
             use stream = msg.GetBody<Stream>()
-            return VagabondRegistry.Instance.Serializer.Deserialize<'T>(stream)
+            return ProcessConfiguration.BinarySerializer.Deserialize<'T>(stream)
         }
 
         member x.Dispose(): Async<unit> = async {
@@ -100,24 +109,28 @@ type ServiceBusQueueProvider private (account : AzureServiceBusAccount) =
     let account = account
 
     interface ICloudQueueProvider with
-        member x.CreateUniqueContainerName() : string = ""
-        member x.DefaultContainer = ""
-        member x.WithDefaultContainer _ = x :> _
-        member x.DisposeContainer(queuePath : string) : Async<unit> = async { do! account.NamespaceManager.DeleteQueueAsync(queuePath) }
-
-        member __.Name = "Service Bus Channel Provider"
-        
         member __.Id = account.AccountName
+        member __.Name = "Azure ServiceBus CloudQueue Provider"
+        member __.GetRandomQueueName() = sprintf "cloudQueue-%O" <| mkUUID()
 
-        member __.CreateQueue<'T> (_ : string) =
-            async {
-                let queuePath = sprintf "queue_%s" <| guid()
-                let qd = new QueueDescription(queuePath)
-                qd.SupportOrdering <- true
-                qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
-                do! account.NamespaceManager.CreateQueueAsync(qd)
-                return new ServiceBusQueue<'T>(queuePath, account) :> CloudQueue<'T>
-            }
+        member __.CreateQueue<'T> (queueId : string) = async {
+            Validate.queueName queueId
+            let qd = new QueueDescription(queueId)
+            qd.SupportOrdering <- true
+            qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
+            qd.UserMetadata <- Type.prettyPrint<'T>
+            do! account.NamespaceManager.CreateQueueAsync(qd)
+            return new ServiceBusQueue<'T>(queueId, account) :> CloudQueue<'T>
+        }
+
+        member __.GetQueueById<'T> (queueId : string) : Async<CloudQueue<'T>> = async {
+            Validate.queueName queueId
+            let! (qd : QueueDescription) = account.NamespaceManager.GetQueueAsync queueId
+            if qd.UserMetadata = Type.prettyPrint<'T> then
+                return new ServiceBusQueue<'T>(queueId, account) :> CloudQueue<'T>
+            else
+                return invalidOp "Expected queue type '%s' but was '%s'" Type.prettyPrint<'T> qd.UserMetadata
+        }
 
     /// <summary>
     ///     Creates an Azure Service bus Queue provider using provided azure service bus account.

@@ -38,7 +38,7 @@ type BlobValue<'T> internal (account : AzureStorageAccount, container : string, 
     member __.GetValue() : Async<'T> = async { 
         let container = account.BlobClient.GetContainerReference(container)
         use! s = container.GetBlockBlobReference(path).OpenReadAsync()
-        return ProcessConfiguration.Serializer.Deserialize<'T>(s) 
+        return ProcessConfiguration.BinarySerializer.Deserialize<'T>(s) 
     }
 
     /// Try reading the persisted value, returning Some t if file exists, None if it doesn't exist.
@@ -49,7 +49,7 @@ type BlobValue<'T> internal (account : AzureStorageAccount, container : string, 
         let! exists = b.ExistsAsync()
         if exists then
             use! s = b.OpenReadAsync()
-            let value = ProcessConfiguration.Serializer.Deserialize<'T>(s)
+            let value = ProcessConfiguration.BinarySerializer.Deserialize<'T>(s)
             return Some value
         else
             return None
@@ -79,7 +79,7 @@ type BlobValue<'T> internal (account : AzureStorageAccount, container : string, 
 
         let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
         use! stream = b.OpenWriteAsync(null, options, OperationContext(), Async.DefaultCancellationToken)
-        ProcessConfiguration.Serializer.Serialize<'T>(stream, value)
+        ProcessConfiguration.BinarySerializer.Serialize<'T>(stream, value)
         do! stream.FlushAsync()
         stream.Dispose()
 

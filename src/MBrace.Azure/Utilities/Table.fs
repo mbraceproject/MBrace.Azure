@@ -11,19 +11,26 @@ open MBrace.Azure.Runtime
 [<RequireQualifiedAccess>]
 module Table =
 
-    let getRandomName () =
-        // See http://blogs.msdn.com/b/jmstall/archive/2014/06/12/azure-storage-naming-rules.aspx
-        let alpha = [|'a'..'z'|]
-        let alphaNumeric = Array.append alpha [|'0'..'9'|]
-        let maxLen = 63
-        let randOf =
-            let rand = new Random(int DateTime.Now.Ticks)
-            fun (x : char []) -> x.[rand.Next(0, x.Length)]
+    let private random = new Random(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode (obj()))
+    let private alpha = [|'a'..'z'|]
+    let private alphaNumeric = Array.append alpha [|'0'..'9'|]
+    let private randOf (x : char []) = x.[random.Next(0, x.Length)]
 
+    // See http://blogs.msdn.com/b/jmstall/archive/2014/06/12/azure-storage-naming-rules.aspx
+    let getRandomName () =
+        let alphaNumericLenth = 63 - 1
         let name = 
-            [| yield randOf alpha
-               for _i = 1 to maxLen-1 do yield randOf alphaNumeric |]
+            [| yield randOf alpha // first character must be alphabet
+               for _i = 1 to alphaNumericLenth do yield randOf alphaNumeric |]
+
         new String(name)
+
+    let getRandomNameWithPrefix (prefix : string) =
+        Validate.tableName prefix
+        if prefix.Length > 15 then invalidArg "prefix" "must be less than 15 characters"
+        let alphaNumericLenth = 63 - prefix.Length
+        let suffix = String([| for _i = 1 to alphaNumericLenth do yield randOf alphaNumeric |])
+        prefix + suffix
 
     let private exec<'U> (config : AzureStorageAccount) table op : Async<obj> = 
         async {

@@ -56,7 +56,7 @@ type ClusterId =
 with
 
     member this.Id =
-        let hash = ProcessConfiguration.Serializer.ComputeHash this
+        let hash = ProcessConfiguration.BinarySerializer.ComputeHash this
         sprintf "AzureCluster-%s" <| Convert.ToBase64String hash.Hash
                     
     interface IRuntimeId with

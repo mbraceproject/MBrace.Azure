@@ -14,9 +14,15 @@ open MBrace.Runtime
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Utilities
 
+[<AutoOpen>]
+module private TableAtomConfig =
+    
+    [<Literal>]
+    let defaultRowKey = ""
+
 /// CloudAtom implementation on top of Azure table store.
 [<AutoSerializable(true) ; Sealed; DataContract>]
-type TableAtom<'T> internal (table : string, partitionKey : string, rowKey : string, account : AzureStorageAccount) =
+type TableAtom<'T> internal (table : string, partitionKey : string, account : AzureStorageAccount) =
     
     [<DataMember(Name = "StorageAccount")>]
     let account = account
@@ -24,21 +30,19 @@ type TableAtom<'T> internal (table : string, partitionKey : string, rowKey : str
     let table = table
     [<DataMember(Name = "PartitionKey")>]
     let partitionKey = partitionKey
-    [<DataMember(Name = "RowKey")>]
-    let rowKey = rowKey
     
     let getValueAsync() = async {
-        let! e = Table.read<FatEntity> account table partitionKey rowKey
-        let value = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload())
+        let! e = Table.read<FatEntity> account table partitionKey defaultRowKey
+        let value = ProcessConfiguration.BinarySerializer.UnPickle<'T> (e.GetPayload())
         return value
     } 
 
     interface CloudAtom<'T> with
-
-        member this.Id = sprintf "%s/%s/%s" table partitionKey rowKey
+        member this.Container = table
+        member this.Id = partitionKey
         
         member x.Transact(transaction: 'T -> 'R * 'T, maxRetries: int option): Async<'R> = async {
-            let serializer = VagabondRegistry.Instance.Serializer
+            let serializer = ProcessConfiguration.BinarySerializer
             let interval = let r = new Random() in r.Next(2,10)
             let maxInterval = 5000
             let maxRetries = defaultArg maxRetries Int32.MaxValue
@@ -46,8 +50,8 @@ type TableAtom<'T> internal (table : string, partitionKey : string, rowKey : str
                 if count >= maxRetries then
                     return raise <| exn("Maximum number of retries exceeded.")
                 else
-                    let! e = Table.read<FatEntity> account table partitionKey rowKey
-                    let oldValue = VagabondRegistry.Instance.Serializer.UnPickle<'T> (e.GetPayload()) 
+                    let! e = Table.read<FatEntity> account table partitionKey defaultRowKey
+                    let oldValue = ProcessConfiguration.BinarySerializer.UnPickle<'T> (e.GetPayload()) 
                     let returnValue, newValue = transaction oldValue
                     let newBinary = serializer.Pickle newValue
                     let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = e.ETag)
@@ -63,13 +67,13 @@ type TableAtom<'T> internal (table : string, partitionKey : string, rowKey : str
         } 
 
         member this.Dispose(): Async<unit> = async {
-            let! e = Table.read<FatEntity> account table partitionKey rowKey
+            let! e = Table.read<FatEntity> account table partitionKey defaultRowKey
             return! Table.delete<FatEntity> account table e
         }
 
         member this.Force(newValue: 'T): Async<unit> = async {
-            let! e = Table.read<FatEntity> account table partitionKey rowKey
-            let newBinary = VagabondRegistry.Instance.Serializer.Pickle newValue
+            let! e = Table.read<FatEntity> account table partitionKey defaultRowKey
+            let newBinary = ProcessConfiguration.BinarySerializer.Pickle newValue
             let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")
             let! _ = Table.merge account table e
             return ()
@@ -109,7 +113,7 @@ type TableAtomProvider private (account : AzureStorageAccount, defaultTable : st
     interface ICloudAtomProvider with
         member this.Id = account.TableClient.StorageUri.PrimaryUri.ToString()
             
-        member this.Name = "Azure Table Storage Atom Provider"
+        member this.Name = "Azure Table Storage CloudAtom Provider"
         
         member this.DefaultContainer = defaultTable
         member this.WithDefaultContainer (table : string) = 
@@ -117,15 +121,24 @@ type TableAtomProvider private (account : AzureStorageAccount, defaultTable : st
             new TableAtomProvider(account, table) :> _
 
         member this.IsSupportedValue(value: 'T) : bool = 
-            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 FatEntityConfiguration.MaxPayloadSize
+            ProcessConfiguration.BinarySerializer.ComputeSize value <= int64 FatEntityConfiguration.MaxPayloadSize
         
-        member this.CreateUniqueContainerName() = Table.getRandomName()
+        member this.GetRandomContainerName() = Table.getRandomNameWithPrefix "cloudAtom"
+        member this.GetRandomAtomIdentifier() = sprintf "cloudAtom-%s" <| mkUUID()
 
-        member this.CreateAtom(table : string, initial: 'T) = async {
-            let binary = VagabondRegistry.Instance.Serializer.Pickle initial
-            let e = new FatEntity(guid(), String.Empty, binary)
+        member this.CreateAtom<'T>(table : string, partitionKey : string, initial: 'T) = async {
+            Validate.tableName table
+            let binary = ProcessConfiguration.BinarySerializer.Pickle initial
+            let e = new FatEntity(partitionKey, defaultRowKey, binary)
             do! Table.insert<FatEntity> account table e
-            return new TableAtom<'T>(table, e.PartitionKey, e.RowKey, account) :> CloudAtom<'T>
+            return new TableAtom<'T>(table, e.PartitionKey, account) :> CloudAtom<'T>
+        }
+
+        member this.GetAtomById<'T>(table : string, partitionKey : String) = async {
+            let! e = Table.read<FatEntity> account table partitionKey defaultRowKey
+            let p = e.GetPayload()
+            let _ = ProcessConfiguration.BinarySerializer.UnPickle<'T>(p)
+            return new TableAtom<'T>(table, partitionKey, account) :> CloudAtom<'T>
         }
 
         member this.DisposeContainer(table : string) = async {

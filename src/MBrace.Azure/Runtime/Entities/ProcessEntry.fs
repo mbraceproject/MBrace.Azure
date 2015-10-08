@@ -51,7 +51,7 @@ type CloudProcessRecord(taskId) =
     static member DefaultPartitionKey = "task"
 
     static member CreateNew(taskId : string, info : CloudProcessInfo) =
-        let serializer = ProcessConfiguration.Serializer
+        let serializer = ProcessConfiguration.BinarySerializer
         let record = new CloudProcessRecord(taskId)
         record.Completed <- nullable false
         record.StartTime <- nullableDefault
@@ -67,7 +67,7 @@ type CloudProcessRecord(taskId) =
         record
 
     member record.ToCloudProcessInfo() =
-        let serializer = ProcessConfiguration.Serializer
+        let serializer = ProcessConfiguration.BinarySerializer
         {
             Name = match record.Name with null -> None | name -> Some name
             CancellationTokenSource = serializer.UnPickle record.CancellationTokenSource

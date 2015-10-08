@@ -14,8 +14,8 @@ open MBrace.Runtime
 [<AutoSerializable(false)>]
 type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
 
-    let pickle (value : 'T) = ProcessConfiguration.Serializer.Pickle(value)
-    let unpickle (value : byte []) = ProcessConfiguration.Serializer.UnPickle<'T>(value)
+    let pickle (value : 'T) = ProcessConfiguration.BinarySerializer.Pickle(value)
+    let unpickle (value : byte []) = ProcessConfiguration.BinarySerializer.UnPickle<'T>(value)
 
     let mkWorkerState (record : WorkerRecord) =
         let workerInfo =
@@ -51,7 +51,7 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
         let! workers = this.GetAllWorkers()
         return workers |> Array.filter (fun w -> 
                             match w.ExecutionStatus with
-                            | CloudWorkItemExecutionStatus.Running when now - w.LastHeartbeat > defaultArg heartbeatThreshold w.Info.HeartbeatThreshold -> true
+                            | WorkerExecutionStatus.Running when now - w.LastHeartbeat > defaultArg heartbeatThreshold w.Info.HeartbeatThreshold -> true
                             | _ -> false)
     }
 
@@ -70,7 +70,7 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
             workers 
             |> Array.filter (fun w -> 
                 match w.ExecutionStatus with
-                | CloudWorkItemExecutionStatus.Running when now - w.LastHeartbeat <= w.Info.HeartbeatThreshold -> true
+                | WorkerExecutionStatus.Running when now - w.LastHeartbeat <= w.Info.HeartbeatThreshold -> true
                 | _ -> false)
     }
 
@@ -83,9 +83,8 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
         let cullWorker(worker : WorkerState) = async {
             try 
                 logger.Logf LogLevel.Info "WorkerManager : culling inactive worker '%O'" worker.Id.Id
-                let e = new FaultException(sprintf "Worker '%O' failed to give heartbeat." worker.Id)
                 // TODO : change QueueFault to WorkerDeath
-                do! (this :> IWorkerManager).DeclareWorkerStatus(worker.Id, QueueFault <| ExceptionDispatchInfo.Capture e)
+                do! (this :> IWorkerManager).DeclareWorkerStatus(worker.Id, WorkerExecutionStatus.WorkerDeath)
             with e ->
                 logger.Logf LogLevel.Warning "WorkerManager : failed to change status for worker '%O':\n%O" worker.Id e
         }
@@ -95,11 +94,11 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
 
     member this.UnsubscribeWorker(workerId : IWorkerId) = async {
         logger.Logf LogLevel.Info "Unsubscribing worker %O" workerId
-        return! (this :> IWorkerManager).DeclareWorkerStatus(workerId, CloudWorkItemExecutionStatus.Stopped)
+        return! (this :> IWorkerManager).DeclareWorkerStatus(workerId, WorkerExecutionStatus.Stopped)
     }
 
     interface IWorkerManager with
-        member this.DeclareWorkerStatus(workerId: IWorkerId, status: CloudWorkItemExecutionStatus): Async<unit> = async {
+        member this.DeclareWorkerStatus(workerId: IWorkerId, status: WorkerExecutionStatus): Async<unit> = async {
             logger.LogInfof "Changing worker %O status to %A" workerId status
             let record = new WorkerRecord(workerId.Id)
             record.ETag <- "*"
@@ -146,7 +145,7 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
             record.InitializationTime <- nullable joined
             record.LastHeartbeat <- nullable joined
             record.ActiveWorkItems <- nullable 0
-            record.Status <- pickle CloudWorkItemExecutionStatus.Running
+            record.Status <- pickle WorkerExecutionStatus.Running
             record.Version <- ProcessConfiguration.Version.ToString(4)
             record.MaxWorkItems <- nullable info.MaxWorkItemCount
             record.ProcessorCount <- nullable info.ProcessorCount

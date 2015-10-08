@@ -211,7 +211,7 @@ type ``Azure Specialized Cloud Tests`` (session : LocalClusterSession) =
             let workerCount = cluster.Workers.Length
             let f = cluster.Store.Atom.Create 0
             let task i = cloud {
-                let! _ = CloudAtom.Incr f
+                let! _ = CloudAtom.Increment f
                 do! Cloud.Sleep 20000
                 return i
             }

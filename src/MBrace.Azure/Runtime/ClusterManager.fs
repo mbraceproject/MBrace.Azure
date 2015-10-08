@@ -181,7 +181,7 @@ with
         return {
             ClusterId = clusterId
             Configuration = configuration
-            Serializer = ProcessConfiguration.Serializer :> FsPicklerSerializer
+            Serializer = ProcessConfiguration.BinarySerializer :> FsPicklerSerializer
             Logger = logger
             Resources = resources
             WorkerManager = workerManager

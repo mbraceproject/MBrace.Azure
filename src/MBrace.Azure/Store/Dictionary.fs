@@ -28,7 +28,7 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
     let getEntitiesAsync() = Table.readAll<FatEntity> account tableName
 
     let getSeqAsync() = async {
-        let serializer = VagabondRegistry.Instance.Serializer
+        let serializer = ProcessConfiguration.BinarySerializer
         let! entities = getEntitiesAsync()
         return entities |> Seq.map (fun entity -> new KeyValuePair<_,_>(entity.PartitionKey, serializer.UnPickle<'T>(entity.GetPayload())))
     }
@@ -45,13 +45,13 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
         member x.IsKnownSize: bool = false
         
         member this.Add(key: string, value : 'T): Async<unit> = async {
-            let binary = VagabondRegistry.Instance.Serializer.Pickle value
+            let binary = ProcessConfiguration.BinarySerializer.Pickle value
             let e = new FatEntity(key, String.Empty, binary)
             do! Table.insert<FatEntity> account tableName e
         }
         
         member this.Transact(key: string, transacter: 'T option -> 'R * 'T, maxRetries: int option): Async<'R> = async {
-            let serializer = VagabondRegistry.Instance.Serializer
+            let serializer = ProcessConfiguration.BinarySerializer
             let rec transact (e : FatEntity) (count : int) : Async<'R> = async { 
                 match maxRetries with
                 | Some maxRetries when count >= maxRetries -> 
@@ -130,7 +130,7 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
             match e with
             | null -> return None
             | e ->
-                let value = VagabondRegistry.Instance.Serializer.UnPickle<'T>(e.GetPayload())
+                let value = ProcessConfiguration.BinarySerializer.UnPickle<'T>(e.GetPayload())
                 return Some value
         }
 
@@ -158,13 +158,23 @@ type TableDictionaryProvider private (account : AzureStorageAccount) =
 
     interface ICloudDictionaryProvider with
         member x.Id = account.TableClient.BaseUri.AbsolutePath
-        member x.Name = "Table Store CloudDictionary Provider"
-        member x.Create(): Async<CloudDictionary<'T>> = async {
-            let tableName = Table.getRandomName()
+        member x.Name = "Azure TableStore CloudDictionary Provider"
+        member x.GetRandomDictionaryId() = Table.getRandomNameWithPrefix "cloudDictionary"
+        member x.CreateDictionary<'T>(tableName : string): Async<CloudDictionary<'T>> = async {
+            Validate.tableName tableName
             let tableRef = account.TableClient.GetTableReference(tableName)
             do! tableRef.CreateIfNotExistsAsyncSafe(maxRetries = 3)
             return new TableDictionary<'T>(tableName, account) :> CloudDictionary<'T>
         }
 
+        member x.GetById<'T>(tableName : string) : Async<CloudDictionary<'T>> = async {
+            Validate.tableName tableName
+            let tableRef = account.TableClient.GetTableReference(tableName)
+            let! exists = tableRef.ExistsAsync()
+            if exists then return new TableDictionary<'T>(tableName, account) :> CloudDictionary<'T>
+            else
+                return invalidOp <| sprintf "Could not locate CloudDictionary table '%s' in storage account '%s'" tableName account.AccountName
+        }
+
         member x.IsSupportedValue(value: 'T): bool = 
-            VagabondRegistry.Instance.Serializer.ComputeSize value <= int64 FatEntityConfiguration.MaxPayloadSize
+            ProcessConfiguration.BinarySerializer.ComputeSize value <= int64 FatEntityConfiguration.MaxPayloadSize
