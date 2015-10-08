@@ -34,6 +34,7 @@ type CloudProcess = MBrace.Runtime.CloudProcess
 /// Represents a distributed computation that is being executed by an MBrace runtime
 type CloudProcess<'T> = MBrace.Runtime.CloudProcess<'T>
 
+/// Local Azure Standalone worker management methods
 [<AutoSerializable(false); AbstractClass; Sealed>]
 type AzureWorker private () =
     
@@ -103,13 +104,15 @@ type AzureWorker private () =
 [<AutoSerializable(false); NoEquality; NoComparison>]
 type AzureCluster private (manager : ClusterManager) =
     inherit MBraceClient(manager)
-
     static do ProcessConfiguration.InitAsClient()
+    let hashId = manager.ClusterId.Hash
 
     /// Gets the Azure storage account name used by the cluster
     member this.StorageAccount = manager.Configuration.StorageAccount
     /// Gets the Azure service bus account name used by the cluster
     member this.ServiceBusAccount = manager.Configuration.ServiceBusAccount
+    /// Cluster configuration hash identifier
+    member this.Hash = hashId
 
     /// Gets a copy of the configuration object used for the runtime
     [<DebuggerBrowsable(DebuggerBrowsableState.Never)>]

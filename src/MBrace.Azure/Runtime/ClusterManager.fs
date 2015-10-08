@@ -114,10 +114,8 @@ with
         let logger = AttacheableLogger.Create(makeAsynchronous = false)
         match systemLogger with Some l -> logger.AttachLogger l |> ignore | None -> ()
 
-        logger.LogInfof "Activating cluster configuration:\n\tStorage: %s\n\tServiceBus: %s" configuration.StorageAccount configuration.ServiceBusAccount
-
         let clusterId = ClusterId.Activate configuration
-        do logger.LogInfof "RuntimeManager Id = %A" clusterId.Id
+        logger.LogInfof "Activating cluster configuration:\n\tStorage: %s\n\tServiceBus: %s\n\tHashcode: %s" configuration.StorageAccount configuration.ServiceBusAccount clusterId.Hash
 
         logger.LogInfof "Initializing Azure store entities"
         do! clusterId.InitializeAllStoreResources(maxRetries = 20, retryInterval = 3000)

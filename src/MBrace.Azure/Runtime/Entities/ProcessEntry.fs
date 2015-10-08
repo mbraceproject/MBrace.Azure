@@ -162,7 +162,7 @@ type internal CloudProcessEntry (clusterId : ClusterId, processId : string, proc
                     | WorkItemStatus.Faulted   -> (a, c, f + 1)
                     | WorkItemStatus.Dequeued
                     | WorkItemStatus.Started   -> (a + 1, c, f)
-                    | WorkItemStatus.Completed -> (a, c+1, f)
+                    | WorkItemStatus.Completed -> (a, c + 1, f)
                     | _ as s -> failwith "Invalid WorkItemStatus %A" s) (0, 0, 0)
 
             return 

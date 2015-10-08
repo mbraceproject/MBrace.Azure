@@ -54,13 +54,10 @@ type ClusterId =
         OptimizeClosureSerialization : bool
     }
 with
-
-    member this.Id =
-        let hash = ProcessConfiguration.BinarySerializer.ComputeHash this
-        sprintf "AzureCluster-%s" <| Convert.ToBase64String hash.Hash
-                    
     interface IRuntimeId with
-        member this.Id = this.Id
+        member this.Id = sprintf "Azure Cluster [Storage: %s, ServiceBus: %s]" this.StorageAccount.AccountName this.ServiceBusAccount.AccountName
+
+    member this.Hash = FsPickler.ComputeHash(this).Hash |> Convert.ToBase64String
 
     member private this.DeleteTable(tableName : string) = async {
         let! _ = this.StorageAccount.TableClient.GetTableReference(tableName).DeleteIfExistsAsync()
