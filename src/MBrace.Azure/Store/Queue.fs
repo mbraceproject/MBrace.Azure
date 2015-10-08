@@ -68,27 +68,27 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
         member x.DequeueBatch(maxItems : int) : Async<'T []> = async {
             let serializer = ProcessConfiguration.BinarySerializer
             let readBody (msg : BrokeredMessage) = use stream = msg.GetBody<Stream>() in serializer.Deserialize<'T>(stream)
-            let! messages = client.ReceiveBatchAsync(maxItems, TimeSpan.FromMilliseconds 50.)
+            let! messages = client.ReceiveBatchAsync(maxItems)
             return messages |> Seq.map readBody |> Seq.toArray
         }
         
         member x.Dequeue(?timeout: int): Async<'T> = async {
-            let! msg =
+            let! msg = async {
                 match timeout with 
                 | Some timeout -> 
-                    async {
-                        let timeout = TimeSpan.FromMilliseconds(float timeout)
-                        let! msg = client.ReceiveAsync(timeout)
-                        if msg <> null then return msg
-                        else return! Async.Raise(TimeoutException())
-                    }
+                    let timeout = TimeSpan.FromMilliseconds(float timeout)
+                    let! msg = client.ReceiveAsync(timeout)
+                    if msg <> null then return msg
+                    else return! Async.Raise(TimeoutException())
+
                 | None -> 
                     let rec aux _ = async {
                         let! msg = client.ReceiveAsync()
                         if msg <> null then return msg
                         else return! aux ()
                     }
-                    aux ()
+                    return! aux ()
+            }
 
             use stream = msg.GetBody<Stream>()
             return ProcessConfiguration.BinarySerializer.Deserialize<'T>(stream)
@@ -119,7 +119,7 @@ type ServiceBusQueueProvider private (account : AzureServiceBusAccount) =
             qd.SupportOrdering <- true
             qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
             qd.UserMetadata <- Type.prettyPrint<'T>
-            do! account.NamespaceManager.CreateQueueAsync(qd)
+            do! account.NamespaceManager.CreateQueueAsync qd
             return new ServiceBusQueue<'T>(queueId, account) :> CloudQueue<'T>
         }
 
