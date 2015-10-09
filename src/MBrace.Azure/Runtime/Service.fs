@@ -147,10 +147,10 @@ type WorkerService (config : Configuration, workerId : string) =
     /// Asynchronously starts the service with specified configuration
     member this.StartAsTask() = this.StartAsync() |> Async.StartAsTask
 
-    /// Starts the worker service with specified configuration
+    /// Synchronously starts the worker service with specified configuration
     member this.Start() = Async.RunSync(this.StartAsync())
 
-    /// Starts the worker service with specified configuration and blocks the thread until stopped.
+    /// Synchronously starts the worker service with specified configuration and blocks the calling thread until stopped.
     member this.Run() : unit =
         this.Start()
         let cts = new CancellationTokenSource()
@@ -177,5 +177,5 @@ type WorkerService (config : Configuration, workerId : string) =
     /// Asynchronously stops the worker service
     member this.StopAsTask() = this.StopAsync() |> Async.StartAsTask
 
-    /// Stops the worker service
+    /// Synchronously stops the worker service
     member this.Stop () = Async.RunSync(this.StopAsync())
