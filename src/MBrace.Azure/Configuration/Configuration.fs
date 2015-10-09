@@ -6,7 +6,14 @@ open MBrace.Azure.Runtime
 
 /// Azure Configuration Builder. Used to specify MBrace.Azure cluster storage configuration.
 [<AutoSerializable(true); Sealed; NoEquality; NoComparison>]
-type Configuration(storageConnectionString : string, serviceBusConnectionString : string) = 
+type Configuration(storageConnectionString : string, serviceBusConnectionString : string) =
+
+    static let getEnv (envName:string) =
+        let aux found target =
+            if String.IsNullOrWhiteSpace found then Environment.GetEnvironmentVariable(envName, target)
+            else found
+
+        Array.fold aux null [|EnvironmentVariableTarget.Process; EnvironmentVariableTarget.User; EnvironmentVariableTarget.Machine|]        
 
     let mutable _storageAccountName = null
     let mutable _storageConnectionString = null
@@ -132,3 +139,29 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     member __.UserDataTable
         with get () = userDataTable
         and set udt = Validate.tableName udt ; userDataTable <- udt
+
+    /// Gets or sets or the local environment Azure storage connection string
+    static member EnvironmentStorageConnectionString
+        with get () = 
+            match getEnv "AzureStorageConnectionString" with
+            | null | "" -> invalidOp "unset Azure Storage connection string environment variable."
+            | conn -> conn
+
+        and set conn =
+            let _ = AzureStorageAccount.Parse conn
+            Environment.SetEnvironmentVariable("AzureStorageConnectionString", conn, EnvironmentVariableTarget.User)
+
+    /// Gets or sets or the local environment Azure service bus connection string
+    static member EnvironmentServiceBusConnectionString
+        with get () = 
+            match getEnv "AzureServiceBusConnectionString" with
+            | null | "" -> invalidOp "unset Azure ServiceBus connection string environment variable."
+            | conn -> conn
+
+        and set conn =
+            let _ = AzureServiceBusAccount.Parse conn
+            Environment.SetEnvironmentVariable("AzureServiceBusConnectionString", conn, EnvironmentVariableTarget.User)
+
+    /// Creates a configuration object by reading connection string information from the local environment variables.
+    static member FromEnvironmentVariables() =
+        new Configuration(Configuration.EnvironmentStorageConnectionString, Configuration.EnvironmentServiceBusConnectionString)

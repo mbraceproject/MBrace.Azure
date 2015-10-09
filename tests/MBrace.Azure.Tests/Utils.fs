@@ -17,20 +17,9 @@ open MBrace.Core.Tests
 
 [<AutoOpenAttribute>]
 module Utils =
-    open System
 
-    let private selectEnv name =
-        (Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User),
-          Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Machine),
-            Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.Process))
-        |> function 
-           | s, _, _ when not <| String.IsNullOrEmpty(s) -> s
-           | _, s, _ when not <| String.IsNullOrEmpty(s) -> s
-           | _, _, s when not <| String.IsNullOrEmpty(s) -> s
-           | _ -> failwithf "Variable %A not found" name
-
-    let remoteConfig = new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
-    let emulatorConfig = new Configuration("UseDevelopmentStorage=true", selectEnv "azureservicebusconn")
+    let remoteConfig = Configuration.FromEnvironmentVariables()
+    let emulatorConfig = new Configuration("UseDevelopmentStorage=true", Configuration.EnvironmentServiceBusConnectionString)
 
 
 type LocalClusterSession(config : MBrace.Azure.Configuration, workerCount : int, ?heartbeatThreshold : TimeSpan) =

@@ -115,7 +115,7 @@ with
         match systemLogger with Some l -> logger.AttachLogger l |> ignore | None -> ()
 
         let clusterId = ClusterId.Activate configuration
-        logger.LogInfof "Activating cluster configuration:\n\tStorage: %s\n\tServiceBus: %s\n\tHashcode: %s" configuration.StorageAccount configuration.ServiceBusAccount clusterId.Hash
+        logger.LogInfof "Activating cluster configuration:\n\tStorage: %s\n\tServiceBus: %s\n\tConfiguration Hash: %s" configuration.StorageAccount configuration.ServiceBusAccount clusterId.Hash
 
         logger.LogInfof "Initializing Azure store entities"
         do! clusterId.InitializeAllStoreResources(maxRetries = 20, retryInterval = 3000)

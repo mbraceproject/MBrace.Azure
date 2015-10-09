@@ -10,10 +10,7 @@ open MBrace.Core
 open MBrace.Azure
 open System
 
-let config = 
-    let selectEnv name = Environment.GetEnvironmentVariable(name,EnvironmentVariableTarget.User)
-    new Configuration(selectEnv "azurestorageconn", selectEnv "azureservicebusconn")
-
+let config = Configuration.FromEnvironmentVariables()
 
 AzureWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
 let cluster = AzureCluster.InitOnCurrentMachine(config, workerCount = 4, logger = ConsoleLogger(true), logLevel = LogLevel.Debug)
