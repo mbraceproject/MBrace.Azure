@@ -34,14 +34,6 @@
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling, Version=6.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8\Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling.Data, Version=6.0.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35, processorArchitecture=MSIL">
-      <HintPath>..\..\packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45\Microsoft.Practices.EnterpriseLibrary.TransientFaultHandling.Data.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="Microsoft.WindowsAzure.Diagnostics, Version=2.7.0.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35">
       <Private>True</Private>
     </Reference>
