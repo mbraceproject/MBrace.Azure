@@ -11,7 +11,7 @@ open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
 open MBrace.Core.Tests
 
 [<TestFixture>]
-module ``MBrace Azure Vagabond Tests (FSI)`` =
+module ``Vagabond Tests (FSI)`` =
 
     let clusterSize = 2
 

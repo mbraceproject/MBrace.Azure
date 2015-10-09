@@ -22,7 +22,7 @@ module Utils =
     let emulatorConfig = new Configuration("UseDevelopmentStorage=true", Configuration.EnvironmentServiceBusConnectionString)
 
 
-type LocalClusterSession(config : MBrace.Azure.Configuration, workerCount : int, ?heartbeatThreshold : TimeSpan) =
+type LocalClusterSession(config : MBrace.Azure.Configuration, localWorkerCount : int, ?heartbeatThreshold : TimeSpan) =
 
     static do AzureWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
     
@@ -31,8 +31,7 @@ type LocalClusterSession(config : MBrace.Azure.Configuration, workerCount : int,
     let mutable state = None
 
     let attachWorkers (cluster : AzureCluster) =
-        if workerCount > 0 then
-            cluster.AttachLocalWorkers(workerCount = workerCount, logLevel = LogLevel.Debug, heartbeatThreshold = heartbeatThreshold)
+        cluster.AttachLocalWorkers(workerCount = localWorkerCount, logLevel = LogLevel.Debug, heartbeatThreshold = heartbeatThreshold)
 
     member __.Start () =
         lock lockObj (fun () ->
@@ -40,9 +39,11 @@ type LocalClusterSession(config : MBrace.Azure.Configuration, workerCount : int,
             | Some _ -> invalidOp "MBrace runtime already initialized."
             | None -> 
                 let cluster = AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
-                cluster.Reset(force = false, deleteUserData = true, deleteAssemblyData = true, reactivate = true)
-                do attachWorkers cluster
-                while cluster.Workers.Length < workerCount do Thread.Sleep 100
+                if localWorkerCount > 0 then 
+                    cluster.Reset(force = false, deleteUserData = true, deleteAssemblyData = true, reactivate = true)
+                    attachWorkers cluster
+
+                while cluster.Workers.Length < localWorkerCount do Thread.Sleep 100
                 state <- Some cluster)
 
     member __.Stop () =
@@ -50,8 +51,10 @@ type LocalClusterSession(config : MBrace.Azure.Configuration, workerCount : int,
             match state with
             | None -> ()
             | Some r -> 
-                r.KillAllLocalWorkers() 
-                r.Reset(deleteUserData = true, deleteAssemblyData = true, force = true, reactivate = false)
+                if localWorkerCount > 0 then 
+                    r.KillAllLocalWorkers()
+                    r.Reset(deleteUserData = true, deleteAssemblyData = true, force = true, reactivate = false)
+
                 state <- None)
 
     member __.Cluster =
@@ -60,9 +63,10 @@ type LocalClusterSession(config : MBrace.Azure.Configuration, workerCount : int,
         | Some r -> r
 
     member __.Chaos() =
+        if localWorkerCount < 1 then () else
         lock lockObj (fun () ->
             let cluster = __.Cluster
             cluster.KillAllLocalWorkers()
             while cluster.Workers.Length > 0 do Thread.Sleep 500
             attachWorkers cluster
-            while cluster.Workers.Length < workerCount do Thread.Sleep 500)
+            while cluster.Workers.Length < localWorkerCount do Thread.Sleep 500)

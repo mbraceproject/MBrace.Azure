@@ -45,3 +45,6 @@ type ``CloudFlow Tests - Standalone Cluster - Storage Emulator`` () =
         
 type ``CloudFlow Tests - Standalone Cluster - Remote Storage`` () =
     inherit ``Azure CloudFlow Tests``(LocalClusterSession(remoteConfig, 4))
+
+type ``CloudFlow Tests - Remote Cluster - Remote Storage`` () =
+    inherit ``Azure CloudFlow Tests``(LocalClusterSession(remoteConfig, 0))

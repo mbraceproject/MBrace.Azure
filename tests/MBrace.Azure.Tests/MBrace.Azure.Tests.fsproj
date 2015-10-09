@@ -72,6 +72,7 @@
     <Compile Include="Utils.fs" />
     <Compile Include="StoreTests.fs" />
     <Compile Include="CloudTests.fs" />
+    <Compile Include="RuntimeTests.fs" />
     <Compile Include="CloudFlowTests.fs" />
     <Compile Include="VagabondTests.fs" />
     <Content Include="paket.references" />
