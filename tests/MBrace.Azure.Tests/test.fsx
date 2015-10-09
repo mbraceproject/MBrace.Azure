@@ -33,7 +33,7 @@ worker.ShowSystemLogs()
 cluster.ShowProcesses()
 cluster.ClearAllProcesses()
 
-let proc = cluster.Submit(cloud { return 42}, target = worker)
+let proc = cluster.Submit(cloud { return 42 }, target = worker)
 
 // Test fault data
 cluster.Submit(

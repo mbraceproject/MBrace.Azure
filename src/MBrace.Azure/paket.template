@@ -18,6 +18,7 @@ references
 	MBrace.Azure.dll
 files
 	../../nuget/MBrace.Azure.fsx ==>
+	../../bin/FSharp.Core.dll ==> tools
 	../../bin/Newtonsoft.Json.dll ==> tools
     ../../bin/FsPickler.dll ==> tools
     ../../bin/FsPickler.Json.dll ==> tools

@@ -29,8 +29,8 @@ namespace MBrace.Azure.CloudService.WorkerRole
             bool result = base.OnStart();
 
             _config = new Configuration(storageConnectionString, serviceBusConnectionString);
-            _svc = 
-                RoleEnvironment.IsEmulated ? 
+            _svc =
+                RoleEnvironment.IsEmulated ?
                 new WorkerService(_config) : // Avoid long service names when using emulator
                 new WorkerService(_config, workerId: RoleEnvironment.CurrentRoleInstance.Id.Split('.').Last());
 
@@ -48,7 +48,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
             foreach (var item in e.Changes.OfType<RoleEnvironmentTopologyChange>())
             {
                 if (item.RoleName == RoleEnvironment.CurrentRoleInstance.Role.Name)
-                { 
+                {
                     // take any action needed on instance count modification; gracefully shrink etc
                 }
             }

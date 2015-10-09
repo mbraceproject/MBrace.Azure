@@ -1,10 +1,10 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <ServiceConfiguration serviceName="MBrace.Azure.CloudService" xmlns="http://schemas.microsoft.com/ServiceHosting/2008/10/ServiceConfiguration" osFamily="4" osVersion="*" schemaVersion="2015-04.2.6">
-  <Role name="MBrace.Azure.CloudService.WorkerRole">
-    <Instances count="10" />
+  <Role name="MBrace.Azure.WorkerRole">
+    <Instances count="1" />
     <ConfigurationSettings>
-      <Setting name="MBrace.ServiceBusConnectionString" value="" />
-      <Setting name="MBrace.StorageConnectionString" value="UseDevelopmentStorage=true" />
+      <Setting name="MBrace.ServiceBusConnectionString" value="Endpoint=sb://eirikur-localtests.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=2Vq0BO5h4xPUJ55RzXR+A6ptqRLClpyudvM73uLyFKI=" />
+      <Setting name="MBrace.StorageConnectionString" value="DefaultEndpointsProtocol=https;AccountName=eirikurlocaltests;AccountKey=Fyu09Ufho4v+3IiDE2yGgcLW/3iFUfFn0NsmhrFQd4+L+kSGEwrUD1VEalitP5u/sPsCf+ciGcX88skksfvL5g==" />
       <Setting name="Microsoft.WindowsAzure.Plugins.Diagnostics.ConnectionString" value="UseDevelopmentStorage=true" />
     </ConfigurationSettings>
   </Role>

@@ -1,5 +1,6 @@
-MBrace.Core
+﻿MBrace.Core
 MBrace.Runtime
 Newtonsoft.Json
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
+FSharp.Core
