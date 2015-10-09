@@ -151,7 +151,7 @@ type internal MessagingClient =
 type internal Subscription (clusterId : ClusterId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
     do 
         let nsClient = clusterId.ServiceBusAccount.NamespaceManager
-        let topic = clusterId.RuntimeTopic
+        let topic = clusterId.WorkItemTopic
         let affinity = targetWorkerId.Id
         if not <| nsClient.SubscriptionExists(topic, affinity) then 
             logger.Logf LogLevel.Info "Creating new subscription for %A" affinity
@@ -166,12 +166,12 @@ type internal Subscription (clusterId : ClusterId, targetWorkerId : IWorkerId, l
             ()
             
 
-    let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.RuntimeTopic, targetWorkerId.Id)
+    let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.WorkItemTopic, targetWorkerId.Id)
 
     member this.TargetWorkerId = targetWorkerId
 
     member this.GetMessageCountAsync() = async {
-        let! (descr : SubscriptionDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetSubscriptionAsync(clusterId.RuntimeTopic, targetWorkerId.Id)
+        let! (descr : SubscriptionDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetSubscriptionAsync(clusterId.WorkItemTopic, targetWorkerId.Id)
         return descr.MessageCount
     }
 
@@ -189,10 +189,10 @@ type internal Subscription (clusterId : ClusterId, targetWorkerId : IWorkerId, l
 /// Topic client implementation
 [<Sealed; AutoSerializable(false)>]
 type internal Topic (clusterId : ClusterId, logger : ISystemLogger) = 
-    let topic = clusterId.ServiceBusAccount.CreateTopicClient(clusterId.RuntimeTopic)
+    let topic = clusterId.ServiceBusAccount.CreateTopicClient(clusterId.WorkItemTopic)
 
     member this.GetMessageCountAsync() = async {
-        let! (td : TopicDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetTopicAsync(clusterId.RuntimeTopic)
+        let! (td : TopicDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetTopicAsync(clusterId.WorkItemTopic)
         return td.MessageCountDetails.ActiveMessageCount
     }
 
@@ -205,28 +205,28 @@ type internal Topic (clusterId : ClusterId, logger : ISystemLogger) =
         MessagingClient.Enqueue(clusterId, logger, workItem, allowNewSifts, topic.SendAsync)
 
     static member Create(config, logger : ISystemLogger) = async { 
-        let! exists = config.ServiceBusAccount.NamespaceManager.TopicExistsAsync(config.RuntimeTopic)
+        let! exists = config.ServiceBusAccount.NamespaceManager.TopicExistsAsync(config.WorkItemTopic)
         if not exists then 
-            logger.Logf LogLevel.Info "Creating new topic %A" config.RuntimeTopic
+            logger.Logf LogLevel.Info "Creating new ServiceBus topic %A" config.WorkItemTopic
             let metadata = Metadata.Create config
-            let qd = new TopicDescription(config.RuntimeTopic)
+            let qd = new TopicDescription(config.WorkItemTopic)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- ServiceBusSettings.MaxTTL
             qd.UserMetadata <- Metadata.ToJson metadata
             do! config.ServiceBusAccount.NamespaceManager.CreateTopicAsync(qd)
         else
-            logger.Logf  LogLevel.Info "Topic %A exists." config.RuntimeTopic
+            logger.Logf  LogLevel.Info "Topic %A already exists." config.WorkItemTopic
         return new Topic(config, logger)
     }
 
 /// Queue client implementation
 [<Sealed; AutoSerializable(false)>]
 type internal Queue (clusterId : ClusterId, logger : ISystemLogger) = 
-    let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.RuntimeQueue, ReceiveMode.PeekLock)
+    let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.WorkItemQueue, ReceiveMode.PeekLock)
 
     member this.GetMessageCountAsync() = async {
-        let! (qd : QueueDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetQueueAsync(clusterId.RuntimeQueue)
+        let! (qd : QueueDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetQueueAsync(clusterId.WorkItemQueue)
         return qd.MessageCount
     }
 
@@ -243,11 +243,11 @@ type internal Queue (clusterId : ClusterId, logger : ISystemLogger) =
         
     static member Create(clusterId : ClusterId, logger : ISystemLogger) = async { 
         let ns = clusterId.ServiceBusAccount.NamespaceManager
-        let! exists = ns.QueueExistsAsync(clusterId.RuntimeQueue)
+        let! exists = ns.QueueExistsAsync(clusterId.WorkItemQueue)
         if not exists then 
-            logger.Logf LogLevel.Info "Creating new queue %A" clusterId.RuntimeQueue
+            logger.Logf LogLevel.Info "Creating new ServiceBus queue %A" clusterId.WorkItemQueue
             let metadata = Metadata.Create clusterId
-            let qd = new QueueDescription(clusterId.RuntimeQueue)
+            let qd = new QueueDescription(clusterId.WorkItemQueue)
             qd.EnableBatchedOperations <- true
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- ServiceBusSettings.MaxTTL 
@@ -256,6 +256,6 @@ type internal Queue (clusterId : ClusterId, logger : ISystemLogger) =
             qd.UserMetadata <- Metadata.ToJson metadata
             do! ns.CreateQueueAsync(qd)
         else
-            logger.Logf LogLevel.Info "Queue %A exists." clusterId.RuntimeQueue
+            logger.Logf LogLevel.Info "Queue %A already exists." clusterId.WorkItemQueue
         return new Queue(clusterId, logger)
     }

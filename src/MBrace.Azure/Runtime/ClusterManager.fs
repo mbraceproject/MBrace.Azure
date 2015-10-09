@@ -75,7 +75,7 @@ with
                 return! Async.Raise exc
             
         if deleteQueues then 
-            logger.LogWarningf "Deleting Queues %A, %A." clusterId.RuntimeQueue clusterId.RuntimeTable
+            logger.LogWarningf "Deleting Queues %A, %A." clusterId.WorkItemQueue clusterId.RuntimeTable
             do! clusterId.ClearRuntimeQueues()
             
         if deleteRuntimeState then 

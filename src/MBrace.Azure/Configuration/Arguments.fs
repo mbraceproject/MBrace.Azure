@@ -120,8 +120,8 @@ with
                 yield Use_Suffix_Id config.UseSuffixId
                 yield Optimize_Closure_Serialization config.OptimizeClosureSerialization
 
-                yield Runtime_Queue config.RuntimeQueue
-                yield Runtime_Topic config.RuntimeTopic
+                yield Runtime_Queue config.WorkItemQueue
+                yield Runtime_Topic config.WorkItemTopic
 
                 yield Runtime_Container config.RuntimeContainer
                 yield User_Data_Container config.UserDataContainer
@@ -154,11 +154,11 @@ with
         parseResult.IterResult(<@ Force_Version @>, fun v -> config.Version <- v)
         parseResult.IterResult(<@ Suffix_Id @>, fun id -> config.SuffixId <- id)
         parseResult.IterResult(<@ Use_Version_Suffix @>, fun b -> config.UseVersionSuffix <- b)
-        parseResult.IterResult(<@ Use_Suffix_Id @>, fun b -> config.UseVersionSuffix <- b)
+        parseResult.IterResult(<@ Use_Suffix_Id @>, fun b -> config.UseSuffixId <- b)
         parseResult.IterResult(<@ Optimize_Closure_Serialization @>, fun o -> config.OptimizeClosureSerialization <- o)
 
-        parseResult.IterResult(<@ Runtime_Queue @>, fun q -> config.RuntimeQueue <- q)
-        parseResult.IterResult(<@ Runtime_Topic @>, fun t -> config.RuntimeTopic <- t)
+        parseResult.IterResult(<@ Runtime_Queue @>, fun q -> config.WorkItemQueue <- q)
+        parseResult.IterResult(<@ Runtime_Topic @>, fun t -> config.WorkItemTopic <- t)
 
         parseResult.IterResult(<@ Runtime_Container @>, fun c -> config.RuntimeContainer <- c)
         parseResult.IterResult(<@ User_Data_Container @>, fun c -> config.UserDataContainer <- c)

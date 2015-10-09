@@ -38,14 +38,14 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     let mutable version = typeof<Configuration>.Assembly.GetName().Version
 
     // Default Service Bus Configuration
-    let mutable runtimeQueue        = "MBraceQueue"
-    let mutable runtimeTopic        = "MBraceTopic"
+    let mutable workItemQueue        = "MBraceWorkItemQueue"
+    let mutable workItemTopic        = "MBraceWorkItemTopic"
 
     // Default Blob Storage Containers
     let mutable runtimeContainer    = "mbraceruntimedata"
     let mutable userDataContainer   = "mbraceuserdata"
-    let mutable cloudValueContainer = "cloudvalue"
-    let mutable assemblyContainer   = "vagabond"
+    let mutable cloudValueContainer = "mbracecloudvalue"
+    let mutable assemblyContainer   = "mbraceassemblies"
 
     // Default Table Storage tables
     let mutable userDataTable       = "MBraceUserData"
@@ -63,8 +63,8 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     /// Runtime identifier, used for runtime isolation when using the same storage/servicebus accounts. Defaults to 0.
     member val SuffixId             = 0us with get, set
 
-    /// Append runtime id to given configuration e.g. $RuntimeQueue$Version$Id. Defaults to true.
-    member val UseSuffixId          = true with get, set
+    /// Append runtime id to given configuration e.g. $RuntimeQueue$Version$Id. Defaults to false.
+    member val UseSuffixId          = false with get, set
 
     /// Specifies wether the cluster should optimize closure serialization. Defaults to true.
     member val OptimizeClosureSerialization = true with get, set
@@ -89,15 +89,15 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
 
     // #region Service Bus
 
-    /// Service Bus queue used by the runtime.
-    member __.RuntimeQueue
-        with get () = runtimeQueue
-        and set rq = Validate.queueName rq ; runtimeQueue <- rq
+    /// Service Bus work item queue used by the runtime.
+    member __.WorkItemQueue
+        with get () = workItemQueue
+        and set rq = Validate.queueName rq ; workItemQueue <- rq
 
-    /// Service Bus topic used by the runtime.
-    member __.RuntimeTopic
-        with get () = runtimeTopic
-        and set rt = Validate.queueName rt ; runtimeTopic <- rt
+    /// Service Bus work item topic used by the runtime.
+    member __.WorkItemTopic
+        with get () = workItemTopic
+        and set rt = Validate.queueName rt ; workItemTopic <- rt
 
 
     // #region Blob Storage

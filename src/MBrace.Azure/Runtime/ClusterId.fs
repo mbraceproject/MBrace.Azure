@@ -29,9 +29,9 @@ type ClusterId =
         ServiceBusAccount : AzureServiceBusAccount
 
         /// Service Bus Queue.
-        RuntimeQueue : string
+        WorkItemQueue : string
         /// Service Bus Topic.
-        RuntimeTopic : string
+        WorkItemTopic : string
 
         /// Runtime blob container.
         RuntimeContainer : string
@@ -101,8 +101,8 @@ with
     member this.ClearRuntimeQueues() = async {
         do!
             [|
-                Async.AwaitTaskCorrect(this.ServiceBusAccount.NamespaceManager.DeleteQueueAsync this.RuntimeQueue)
-                Async.AwaitTaskCorrect(this.ServiceBusAccount.NamespaceManager.DeleteTopicAsync this.RuntimeTopic)
+                Async.AwaitTaskCorrect(this.ServiceBusAccount.NamespaceManager.DeleteQueueAsync this.WorkItemQueue)
+                Async.AwaitTaskCorrect(this.ServiceBusAccount.NamespaceManager.DeleteTopicAsync this.WorkItemTopic)
             |]
             |> Async.Parallel
             |> Async.Ignore
@@ -138,31 +138,34 @@ with
     static member Activate(configuration : Configuration) =
         ProcessConfiguration.EnsureInitialized()
         let version = Version.Parse configuration.Version
-        let versionPostfix = sprintf "%dx%dx" version.Major version.Minor
 
-        let appendVersionAndId (text : string) =
+        let appendVersionAndSuffixId (text : string) =
             sprintf "%s%s%s" text 
-                (if configuration.UseVersionSuffix then versionPostfix else "") 
-                (if configuration.UseSuffixId then sprintf "%05d" configuration.SuffixId else "")
+                (if configuration.UseVersionSuffix then sprintf "v%dv%d" version.Major version.Minor else "") 
+                (if configuration.UseSuffixId then sprintf "s%05d" configuration.SuffixId else "")
+
+        let appendSuffixId (text : string) =
+            sprintf "%s%s" text
+                (if configuration.UseSuffixId then sprintf "s%05d" configuration.SuffixId else "")
 
         {
-            Version                 = version.ToString(4)
-            StorageAccount          = AzureStorageAccount.Parse configuration.StorageConnectionString
-            ServiceBusAccount       = AzureServiceBusAccount.Parse configuration.ServiceBusConnectionString
+            Version                         = version.ToString(4)
+            StorageAccount                  = AzureStorageAccount.Parse configuration.StorageConnectionString
+            ServiceBusAccount               = AzureServiceBusAccount.Parse configuration.ServiceBusConnectionString
 
-            RuntimeQueue            = appendVersionAndId configuration.RuntimeQueue
-            RuntimeTopic            = appendVersionAndId configuration.RuntimeTopic
+            WorkItemQueue                   = appendVersionAndSuffixId configuration.WorkItemQueue
+            WorkItemTopic                   = appendVersionAndSuffixId configuration.WorkItemTopic
 
-            RuntimeContainer        = appendVersionAndId configuration.RuntimeContainer
-            VagabondContainer       = appendVersionAndId configuration.AssemblyContainer
-            CloudValueContainer     = appendVersionAndId configuration.CloudValueContainer
-            UserDataContainer       = appendVersionAndId configuration.UserDataContainer
+            RuntimeContainer                = appendVersionAndSuffixId configuration.RuntimeContainer
+            VagabondContainer               = configuration.AssemblyContainer
+            CloudValueContainer             = appendVersionAndSuffixId configuration.CloudValueContainer
+            UserDataContainer               = appendSuffixId configuration.UserDataContainer
 
-            RuntimeTable            = appendVersionAndId configuration.RuntimeTable
-            RuntimeLogsTable        = appendVersionAndId configuration.RuntimeLogsTable
-            UserDataTable           = appendVersionAndId configuration.UserDataTable
+            RuntimeTable                    = appendVersionAndSuffixId configuration.RuntimeTable
+            RuntimeLogsTable                = appendVersionAndSuffixId configuration.RuntimeLogsTable
+            UserDataTable                   = appendSuffixId configuration.UserDataTable
 
-            OptimizeClosureSerialization            = configuration.OptimizeClosureSerialization
+            OptimizeClosureSerialization    = configuration.OptimizeClosureSerialization
         }
 
 
@@ -172,8 +175,7 @@ type ConfigurationRegistry private () =
     static let registry = new ConcurrentDictionary<ClusterId * Type, obj>()
 
     static member Register<'T>(clusterId : ClusterId, item : 'T) : unit =
-        registry.TryAdd((clusterId, typeof<'T>), item :> obj)
-        |> ignore
+        ignore <| registry.TryAdd((clusterId, typeof<'T>), item :> obj)
 
     static member Resolve<'T>(clusterId : ClusterId) : 'T =
         let mutable result = null

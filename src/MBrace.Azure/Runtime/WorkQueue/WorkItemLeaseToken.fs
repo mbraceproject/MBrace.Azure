@@ -81,10 +81,10 @@ type internal WorkItemLeaseMonitor private (clusterId : ClusterId, message : Bro
         | Some Complete ->
             match info.TargetWorker with
             | None -> 
-                let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.RuntimeQueue, ReceiveMode.PeekLock)
+                let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.WorkItemQueue, ReceiveMode.PeekLock)
                 return! queue.CompleteAsync(info.MessageLockId)
             | Some affinity -> 
-                let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.RuntimeTopic, affinity)
+                let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.WorkItemTopic, affinity)
                 return! subscription.CompleteAsync(info.MessageLockId)
 
             logger.Logf LogLevel.Info "%A : completed" info
@@ -93,10 +93,10 @@ type internal WorkItemLeaseMonitor private (clusterId : ClusterId, message : Bro
         | Some Abandon ->
             match info.TargetWorker with
             | None -> 
-                let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.RuntimeQueue, ReceiveMode.PeekLock)
+                let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.WorkItemQueue, ReceiveMode.PeekLock)
                 return! queue.AbandonAsync(info.MessageLockId)
             | Some affinity -> 
-                let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.RuntimeTopic, affinity)
+                let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.WorkItemTopic, affinity)
                 return! subscription.AbandonAsync(info.MessageLockId)
 
             logger.Logf LogLevel.Info "%A : abandoned" info
