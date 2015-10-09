@@ -54,8 +54,8 @@ type ClusterId =
         OptimizeClosureSerialization : bool
     }
 with
-    interface IRuntimeId with
-        member this.Id = sprintf "Azure Cluster [Storage: %s, ServiceBus: %s]" this.StorageAccount.AccountName this.ServiceBusAccount.AccountName
+    member this.Id = sprintf "{Storage = \"%s\"; ServiceBus = \"%s\"}" this.StorageAccount.AccountName this.ServiceBusAccount.AccountName
+    interface IRuntimeId with member this.Id = this.Id
 
     member this.Hash = FsPickler.ComputeHash(this).Hash |> Convert.ToBase64String
 

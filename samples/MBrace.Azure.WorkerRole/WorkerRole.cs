@@ -40,7 +40,7 @@ namespace MBrace.Azure.CloudService.WorkerRole
                 _svc =
                     RoleEnvironment.IsEmulated ?
                     new WorkerService(_config, String.Format("computeEmulator-{0}", Guid.NewGuid().ToString("N").Substring(0,30))) :
-                    new WorkerService(_config, workerId: RoleEnvironment.CurrentRoleInstance.Id.Split('.').Last());
+                    new WorkerService(_config, workerId: Environment.MachineName);
 
                 _svc.WorkingDirectory = customTempLocalResourcePath;
                 _svc.LogFile = "logs.txt";
