@@ -6,5 +6,5 @@ test:
   assemblies:
     - MBrace.Azure.Tests.dll
 
-  categories
+  categories:
     - AppVeyor
