@@ -170,7 +170,6 @@ type internal CloudProcessEntry (clusterId : ClusterId, processId : string, proc
                     Status = enum (record.Status.GetValueOrDefault(-1))
                     Info = (this :> ICloudProcessEntry).Info
                     ExecutionTime = execTime // TODO : dequeued vs running time?
-                    MaxActiveWorkItemCount = -1
                     ActiveWorkItemCount = active
                     CompletedWorkItemCount = completed
                     FaultedWorkItemCount = faulted

@@ -31,8 +31,8 @@ type ``Azure CloudFlow Tests`` (session : LocalClusterSession) as self =
     override __.Run (workflow : Cloud<'T>) = 
         session.Cluster.Run(workflow)
 
-    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = 
-        session.Cluster.RunOnCurrentProcess(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = 
+        session.Cluster.RunLocally(workflow)
 
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3

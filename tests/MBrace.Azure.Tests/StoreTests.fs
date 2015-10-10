@@ -28,7 +28,7 @@ type ``Azure BlobStore Tests``(config : Configuration, workerCount : int) =
     override __.Serializer = session.Cluster.GetResource<ISerializer>()
     override __.IsCaseSensitive = false
     override __.Run(workflow : Cloud<'T>) = session.Cluster.Run workflow
-    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Cluster.RunOnCurrentProcess workflow
+    override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
 
 [<TestFixture>]
 type ``BlobStore Tests - Standalone Cluster - Remote Storage``() =
@@ -59,7 +59,7 @@ type ``Azure CloudAtom Tests``(config : Configuration, workerCount : int) =
     
     override __.IsSupportedNamedLookup = true
     override __.Run wf = session.Cluster.Run wf
-    override __.RunOnCurrentProcess wf = session.Cluster.RunOnCurrentProcess wf
+    override __.RunLocally wf = session.Cluster.RunLocally wf
     override __.Repeats = 1
 
 [<TestFixture>]
@@ -91,7 +91,7 @@ type ``Azure CloudQueue Tests``(config : Configuration, workerCount : int) =
     member __.Fini() = session.Stop()
     
     override __.Run wf = session.Cluster.Run wf
-    override __.RunOnCurrentProcess wf = session.Cluster.RunOnCurrentProcess wf
+    override __.RunLocally wf = session.Cluster.RunLocally wf
     override __.IsSupportedNamedLookup = true
 
 [<TestFixture>]
@@ -118,7 +118,7 @@ type ``Azure CloudDictionary Tests``(config : Configuration, workerCount : int) 
     member __.Fini() = session.Stop()
     
     override __.Run wf = session.Cluster.Run wf
-    override __.RunOnCurrentProcess wf = session.Cluster.RunOnCurrentProcess wf
+    override __.RunLocally wf = session.Cluster.RunLocally wf
     override __.IsInMemoryFixture = false
     override __.IsSupportedNamedLookup = true
 
@@ -150,7 +150,7 @@ type ``Azure CloudValue Tests``(config : Configuration, workerCount : int) =
     member __.Fini() = session.Stop()
     
     override __.Run wf = session.Cluster.Run wf
-    override __.RunOnCurrentProcess wf = session.Cluster.RunOnCurrentProcess wf
+    override __.RunLocally wf = session.Cluster.RunLocally wf
     override __.IsSupportedLevel _ = true
 
 [<TestFixture>]

@@ -89,7 +89,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
         }
 
         let ra = new ResizeArray<CloudLogEntry>()
-        let job = session.Cluster.Submit(workflow)
+        let job = session.Cluster.CreateProcess(workflow)
         use d = job.Logs.Subscribe(fun e -> ra.Add(e))
         do job.Result
         ra |> Seq.filter (fun e -> e.Message.Contains "Work item") |> Seq.length |> shouldEqual 2000
@@ -99,7 +99,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
         repeat repeats (fun () ->
             let cluster = session.Cluster
             let f = cluster.Store.Atom.Create(false)
-            let t = cluster.Submit(cloud {
+            let t = cluster.CreateProcess(cloud {
                 do! f.Force true
                 do! Cloud.Sleep 20000
             }, faultPolicy = FaultPolicy.NoRetry)
@@ -121,7 +121,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
                 return! Cloud.WithFaultPolicy FaultPolicy.NoRetry (child () <||> child ())
             }
 
-            let t = cluster.Submit(computation (), faultPolicy = FaultPolicy.InfiniteRetries())
+            let t = cluster.CreateProcess(computation (), faultPolicy = FaultPolicy.InfiniteRetries())
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
             Choice.protect (fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>)
@@ -135,7 +135,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
                 let! current = Cloud.CurrentWorker
                 // targeted work items should fail regardless of fault policy
                 return! 
-                    Cloud.StartAsCloudProcess(cloud { 
+                    Cloud.CreateProcess(cloud { 
                         do! f.Force true 
                         do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetries())
             }
@@ -153,7 +153,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
             let cluster = session.Cluster
             let f = cluster.Store.Atom.Create(false)
             let t = 
-                cluster.Submit(
+                cluster.CreateProcess(
                     cloud {
                         do! f.Force true
                         do! Cloud.Sleep 20000
@@ -179,7 +179,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
             let cloudProcess =
                 [for i in 1 .. workerCount -> task i]
                 |> Cloud.ProtectedParallel
-                |> cluster.Submit
+                |> cluster.CreateProcess
 
             while f.Value < workerCount do Thread.Sleep 1000
             session.Chaos()
@@ -192,7 +192,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
         repeat 2 (fun () ->
             let cluster = session.Cluster
             let f = cluster.Store.Atom.Create(false)
-            let t = cluster.Submit(cloud {
+            let t = cluster.CreateProcess(cloud {
                 do! f.Force true
                 return! WordCount.run 20 WordCount.mapReduceRec
             }, faultPolicy = FaultPolicy.InfiniteRetries())

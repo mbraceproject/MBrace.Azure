@@ -36,11 +36,11 @@ type ``Azure Cloud Tests`` (session : LocalClusterSession) as self =
         } |> Async.RunSync
 
     override __.RunWithLogs(workflow : Cloud<unit>) =
-        let cloudProcess = session.Cluster.Submit workflow
+        let cloudProcess = session.Cluster.CreateProcess workflow
         do cloudProcess.Result
         cloudProcess.GetLogs () |> Array.map CloudLogEntry.Format
 
-    override __.RunOnCurrentProcess(workflow : Cloud<'T>) = session.Cluster.RunOnCurrentProcess(workflow)
+    override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally(workflow)
 
     override __.IsTargetWorkerSupported = true
     override __.IsSiftedWorkflowSupported = true

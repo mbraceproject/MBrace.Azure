@@ -19,7 +19,7 @@ cluster.Reset(deleteUserData = true, deleteAssemblyData = true, force = true)
 cluster.KillAllLocalWorkers()
 cluster.Workers
 
-let ct = cluster.Submit (cloud { return! Cloud.ParallelEverywhere(Cloud.CurrentWorker) })
+let ct = cluster.CreateProcess (cloud { return! Cloud.ParallelEverywhere(Cloud.CurrentWorker) })
 
 ct.ShowInfo()
 ct.Result
@@ -30,10 +30,10 @@ worker.ShowSystemLogs()
 cluster.ShowProcesses()
 cluster.ClearAllProcesses()
 
-let proc = cluster.Submit(cloud { return 42 }, target = worker)
+let proc = cluster.CreateProcess(cloud { return 42 }, target = worker)
 
 // Test fault data
-cluster.Submit(
+cluster.CreateProcess(
     cloud { 
         do! Cloud.Sleep 10000
         return! Cloud.TryGetFaultData()
