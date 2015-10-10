@@ -9,15 +9,14 @@ open Microsoft.FSharp.Compiler.Interactive.Shell
 open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
 
 open MBrace.Core.Tests
+open MBrace.Azure
+open MBrace.Azure.Tests
 
-[<TestFixture>]
-module ``Vagabond Tests (FSI)`` =
-
-    let clusterSize = 2
-
-    let is64BitProcess = IntPtr.Size = 8
+[<AutoOpen>]
+module private VagabondTestUtils =
 
     let runsOnMono = lazy(Type.GetType("Mono.Runtime") <> null)
+    let is64BitProcess = IntPtr.Size = 8
 
     // by default, NUnit copies test assemblies to a temp directory
     // use Directory.GetCurrentDirectory to gain access to the original build directory
@@ -57,21 +56,21 @@ module ``Vagabond Tests (FSI)`` =
             match value.ReflectionValue with
             | :? 'T as result when result = expected -> ()
             | result -> raise <| new AssertionException(sprintf "expected %A, got %A." expected result)
-            
+
     type FsiSession private () =
         static let container = ref None
 
         static member Start () =
             lock container (fun () ->
                 match !container with
-                | Some _ -> invalidOp "an fsi session is already running."
+                | Some _ -> invalidOp "An fsi session is already running. Please restart nunit-agent before starting a new session."
                 | None ->
                     let dummy = new StringReader("")
                     let fsiConfig = FsiEvaluationSession.GetDefaultConfiguration()
                     let fsi = FsiEvaluationSession.Create(fsiConfig, [| "fsi.exe" ; "--noninteractive" |], dummy, Console.Out, Console.Error)
-                    container := Some fsi; fsi)
+                    container := Some fsi)
 
-        static member Stop () =
+        static member Clear () =
             lock container (fun () ->
                 match !container with
                 | None -> invalidOp "No fsi sessions are running"
@@ -79,44 +78,13 @@ module ``Vagabond Tests (FSI)`` =
                     // need a 'stop' operation here
                     container := None)
 
-
         static member Value =
             match !container with
             | None -> invalidOp "No fsi session is running."
             | Some fsi -> fsi
 
-
-    [<TestFixtureSetUp>]
-    let initFsiSession () =
-
-        let fsi = FsiSession.Start()
-        let workerExe = __SOURCE_DIRECTORY__ + "../../../bin/mbrace.azureworker.exe"
-
-        // add dependencies
-
-        fsi.AddReferences 
-            [
-                "MBrace.Core.dll"
-                "MBrace.Flow.dll"
-                "MBrace.Runtime.dll"
-                "FsPickler.dll"
-                "Mono.Cecil.dll"
-                "Vagabond.dll"
-                "MBrace.Azure.dll"
-
-                "../packages/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
-                "../packages/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
-            ]
-
-        fsi.EvalInteraction "open MBrace.Core"
-        fsi.EvalInteraction "open MBrace.Library"
-        fsi.EvalInteraction "open MBrace.Flow"
-        fsi.EvalInteraction "open MBrace.Azure"
-        fsi.EvalInteraction "let config = Configuration.FromEnvironmentVariables()"
-        fsi.EvalInteraction <| "AzureWorker.LocalExecutable <- @\"" + workerExe + "\""
-        fsi.EvalInteraction <| sprintf "let cluster = AzureCluster.InitOnCurrentMachine(config, %d)" clusterSize
-        fsi.EvalInteraction "cluster.AttachLogger(new ConsoleLogger())"
-
+[<AbstractClass; TestFixture>]
+type ``Vagabond Azure Tests (FSI)``(config : Configuration, localWorkerCount : int) =
 
     let defineQuotationEvaluator (fsi : FsiEvaluationSession) =
         fsi.EvalInteraction """
@@ -126,22 +94,58 @@ module ``Vagabond Tests (FSI)`` =
             let eval (e : Expr<'T>) = LeafExpressionConverter.EvaluateQuotation e :?> 'T
         """
 
+    [<TestFixtureSetUp>]
+    member __.InitFsiSession () =
+        FsiSession.Start()
+        let fsi = FsiSession.Value
+
+        // add dependencies
+        fsi.AddReferences 
+            [
+                "MBrace.Core.dll"
+                "MBrace.Flow.dll"
+                "MBrace.Runtime.dll"
+                "FsPickler.dll"
+                "Mono.Cecil.dll"
+                "Vagabond.dll"
+                "MBrace.Azure.dll"
+                "MBrace.Azure.Tests.dll"
+
+                "../packages/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
+                "../packages/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
+            ]
+
+        fsi.EvalInteraction "open MBrace.Core"
+        fsi.EvalInteraction "open MBrace.Library"
+        fsi.EvalInteraction "open MBrace.Flow"
+        fsi.EvalInteraction "open MBrace.Azure"
+        fsi.EvalInteraction "open MBrace.Azure.Tests"
+        fsi.EvalInteraction <| sprintf "let config = new Configuration(%A, %A)" config.StorageConnectionString config.ServiceBusConnectionString
+        fsi.EvalInteraction <| sprintf "let session = new ClusterSession(config, %d)" localWorkerCount
+        fsi.EvalInteraction "session.Start()"
+        fsi.EvalInteraction "let cluster = session.Cluster"
+
 
     [<TestFixtureTearDown>]
-    let stopFsiSession () =
-        FsiSession.Value.Interrupt()
-        FsiSession.Value.EvalInteraction "cluster.KillAllLocalWorkers()"
-        FsiSession.Value.EvalInteraction "cluster.Reset(deleteUserData = true, deleteAssemblyData = true, force = true)"
-        FsiSession.Stop()
+    member __.StopFsiSession () =
+        let fsi = FsiSession.Value
+        fsi.Interrupt()
+        fsi.EvalInteraction "session.Stop()"
 
     [<Test>]
-    let ``01. Simple cloud workflow`` () =
+    member __.``01. Simple cloud workflow`` () =
         let fsi = FsiSession.Value
 
         "cloud { return 42 } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 42
 
     [<Test>]
-    let ``02. Simple data dependency`` () =
+    member __.``01. Simple Parallel cloud workflow`` () =
+        let fsi = FsiSession.Value
+
+        "cloud { let! results = Cloud.Parallel [for i in 1 .. 100 -> cloud { return i }] in return Array.sum results } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 5050
+
+    [<Test>]
+    member __.``02. Simple data dependency`` () =
         let fsi = FsiSession.Value
 
         "let x = cloud { return 17 + 25 } |> cluster.Run" |> fsi.EvalInteraction
@@ -149,7 +153,7 @@ module ``Vagabond Tests (FSI)`` =
         "cloud { return x } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 42
 
     [<Test>]
-    let ``03. Updating data dependency in single interaction`` () =
+    member __.``03. Updating data dependency in single interaction`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction """
@@ -161,7 +165,7 @@ module ``Vagabond Tests (FSI)`` =
         fsi.EvalExpression "!x" |> shouldEqual 10
 
     [<Test>]
-    let ``04. Updating data dependency across interactions`` () =
+    member __.``04. Updating data dependency across interactions`` () =
         let fsi = FsiSession.Value
 
         "let mutable x = 0" |> fsi.EvalInteraction
@@ -172,7 +176,7 @@ module ``Vagabond Tests (FSI)`` =
 
 
     [<Test>]
-    let ``05. Quotation literal`` () =
+    member __.``05. Quotation literal`` () =
         let fsi = FsiSession.Value
 
         defineQuotationEvaluator fsi
@@ -180,7 +184,7 @@ module ``Vagabond Tests (FSI)`` =
         "cloud { return eval <@ if true then 1 else 0 @> } |> cluster.Run" |> fsi.EvalExpression |> shouldEqual 1
 
     [<Test>]
-    let ``06. Cross-slice Quotation literal`` () =
+    member __.``06. Cross-slice Quotation literal`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction "let x = 41"
@@ -193,7 +197,7 @@ module ``Vagabond Tests (FSI)`` =
 
 
     [<Test>]
-    let ``07. Custom type`` () =
+    member __.``07. Custom type`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction """
@@ -220,7 +224,7 @@ module ``Vagabond Tests (FSI)`` =
         """ |> fsi.EvalExpression |> shouldEqual 63
 
     [<Test>]
-    let ``08. Persisting custom type to store`` () =
+    member __.``08. Persisting custom type to store`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction """
@@ -234,7 +238,7 @@ module ``Vagabond Tests (FSI)`` =
         fsi.EvalExpression "toInt cv.Value" |> shouldEqual 3
 
     [<Test>]
-    let ``09. Large static data dependency`` () =
+    member __.``09. Large static data dependency`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction "let large = [|1L .. 1000000L|]"
@@ -242,7 +246,7 @@ module ``Vagabond Tests (FSI)`` =
         fsi.EvalExpression "cloud { return large.Length } |> cluster.Run" |> shouldEqual 1000000
 
     [<Test>]
-    let ``10. Large static data dependency updated value`` () =
+    member __.``10. Large static data dependency updated value`` () =
 
         let fsi = FsiSession.Value
 
@@ -253,7 +257,7 @@ module ``Vagabond Tests (FSI)`` =
             fsi.EvalExpression "cloud { return large.[499999] } |> cluster.Run" |> shouldEqual i
 
     [<Test>]
-    let ``11. Sifting large static binding`` () =
+    member __.``11. Sifting large static binding`` () =
         let fsi = FsiSession.Value
 
         fsi.EvalInteraction "let large = [|1L .. 10000000L|]"
@@ -277,7 +281,7 @@ module ``Vagabond Tests (FSI)`` =
         fsi.EvalExpression "test large" |> shouldEqual true
 
     [<Test>]
-    let ``12. Native Dependencies`` () =
+    member __.``12. Native Dependencies`` () =
         if is64BitProcess && not runsOnMono.Value then
             let fsi = FsiSession.Value
 
@@ -312,3 +316,20 @@ module ``Vagabond Tests (FSI)`` =
             """
 
             fsi.EvalInteraction code'
+
+
+[<TestFixture; Category("AppVeyor")>]
+type ``Vagabond Tests (FSI) - Standalone Cluster - Remote Storage``() =
+    inherit ``Vagabond Azure Tests (FSI)``(mkRemoteConfig(), if isAppVeyorInstance then 1 else 2)
+
+[<TestFixture>]
+type ``Vagabond Tests (FSI) - Remote Cluster - Remote Storage``() =
+    inherit ``Vagabond Azure Tests (FSI)``(mkRemoteConfig(), 0)
+
+[<TestFixture>]
+type ``Vagabond Tests (FSI) - Standalone Cluster - Storage Emulator``() =
+    inherit ``Vagabond Azure Tests (FSI)``(mkEmulatorConfig(), 2)
+
+[<TestFixture>]
+type ``Vagabond Tests (FSI) - Compute Emulator - Storage Emulator``() =
+    inherit ``Vagabond Azure Tests (FSI)``(mkEmulatorConfig(), 0)
