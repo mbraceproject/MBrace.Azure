@@ -28,6 +28,7 @@ files
 	../../bin/Mono.Cecil.dll ==> tools
 	../../bin/Vagabond.AssemblyParser.dll ==> tools
 	../../bin/Vagabond.dll ==> tools
+	../../bin/Argu.dll ==> tools
 	../../bin/System.Spatial.dll ==> tools
 	../../bin/Microsoft.Data.Edm.dll ==> tools
 	../../bin/Microsoft.Data.OData.dll ==> tools
