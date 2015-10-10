@@ -203,8 +203,6 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
             t.Result |> shouldEqual 100)
 
 
-type ``Runtime Tests - Compute Emulator - Storage Emulator`` () =
-    inherit ``Azure Runtime Tests``(mkEmulatorConfig (), 0)
 
 type ``Runtime Tests - Standalone Cluster - Storage Emulator`` () =
     inherit ``Azure Runtime Tests``(mkEmulatorConfig (), 4)

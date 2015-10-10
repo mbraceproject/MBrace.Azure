@@ -1,3 +1,8 @@
+### 0.12.0-beta
+* Refactor MBrace.Azure internals.
+* Improve MBrace.Azure public APIs.
+* Multiple bugfixes and improvements.
+
 ### 0.10.6-alpha
 * Fix packaging issue.
 
