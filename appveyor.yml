@@ -2,4 +2,9 @@ version: 0.0.1.{build}
 
 configuration: Release
 
-test: off
+test:
+	assemblies:
+		- MBrace.Azure.Tests.dll
+
+	categories:
+		- AppVeyor
