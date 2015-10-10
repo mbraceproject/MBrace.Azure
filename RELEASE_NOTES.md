@@ -1,3 +1,6 @@
+### 0.12.2-beta
+* Fix packaging issue.
+
 ### 0.12.1-beta
 * Fix packaging issue.
 
