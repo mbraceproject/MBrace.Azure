@@ -14,9 +14,9 @@ open MBrace.Azure.Tests
 // BlobStore tests
 
 [<AbstractClass; TestFixture>]
-type ``Azure BlobStore Tests``(config : Configuration, workerCount : int) = 
+type ``Azure BlobStore Tests``(config : Configuration, localWorkers : int) = 
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
-    let session = new LocalClusterSession(config, workerCount)
+    let session = new ClusterSession(config, localWorkers)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -32,24 +32,24 @@ type ``Azure BlobStore Tests``(config : Configuration, workerCount : int) =
 
 [<TestFixture>]
 type ``BlobStore Tests - Standalone Cluster - Remote Storage``() =
-    inherit ``Azure BlobStore Tests``(remoteConfig, 4)
+    inherit ``Azure BlobStore Tests``(mkRemoteConfig (), 4)
 
 [<TestFixture>]
 type ``BlobStore Tests - Standalone Cluster - Storage Emulator``() = 
-    inherit ``Azure BlobStore Tests``(emulatorConfig, 4)
+    inherit ``Azure BlobStore Tests``(mkEmulatorConfig (), 4)
 
 [<TestFixture>]
 type ``BlobStore Tests - Remote Cluster - Remote Storage``() = 
-    inherit ``Azure BlobStore Tests``(remoteConfig, 0)
+    inherit ``Azure BlobStore Tests``(mkRemoteConfig (), 0)
 
 
 // CloudAtom tests
 
 
 [<AbstractClass; TestFixture>]
-type ``Azure CloudAtom Tests``(config : Configuration, workerCount : int) = 
+type ``Azure CloudAtom Tests``(config : Configuration, localWorkers : int) = 
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
-    let session = new LocalClusterSession(config, workerCount)
+    let session = new ClusterSession(config, localWorkers)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -64,25 +64,25 @@ type ``Azure CloudAtom Tests``(config : Configuration, workerCount : int) =
 
 [<TestFixture>]
 type ``CloudAtom Tests - Standalone Cluster - Remote Storage``() = 
-    inherit ``Azure CloudAtom Tests``(remoteConfig, 4)
+    inherit ``Azure CloudAtom Tests``(mkRemoteConfig (), 4)
 
 [<TestFixture>]
 type ``CloudAtom Tests - Standalone Cluster - Storage Emulator``() = 
-    inherit ``Azure CloudAtom Tests``(emulatorConfig, 4)
+    inherit ``Azure CloudAtom Tests``(mkEmulatorConfig (), 4)
     override __.Repeats = 3
 
 [<TestFixture>]
 type ``CloudAtom Tests - Remote Cluster - Remote Storage``() = 
-    inherit ``Azure CloudAtom Tests``(remoteConfig, 0)
+    inherit ``Azure CloudAtom Tests``(mkRemoteConfig (), 0)
 
 
 // CloudQueue Tests
 
 
 [<AbstractClass; TestFixture>]
-type ``Azure CloudQueue Tests``(config : Configuration, workerCount : int) = 
+type ``Azure CloudQueue Tests``(config : Configuration, localWorkers : int) = 
     inherit ``CloudQueue Tests``(parallelismFactor = 10)
-    let session = new LocalClusterSession(config, workerCount)
+    let session = new ClusterSession(config, localWorkers)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -96,20 +96,20 @@ type ``Azure CloudQueue Tests``(config : Configuration, workerCount : int) =
 
 [<TestFixture>]
 type ``CloudQueue Tests - Standalone Cluster - Remote Storage``() = 
-    inherit ``Azure CloudQueue Tests``(remoteConfig, 4)
+    inherit ``Azure CloudQueue Tests``(mkRemoteConfig (), 4)
 
 [<TestFixture>]
 type ``CloudQueue Tests - Remote Cluster - Remote Storage``() = 
-    inherit ``Azure CloudQueue Tests``(remoteConfig, 0)
+    inherit ``Azure CloudQueue Tests``(mkRemoteConfig (), 0)
 
 
 // CloudDictionary tests
 
 
 [<AbstractClass; TestFixture>]
-type ``Azure CloudDictionary Tests``(config : Configuration, workerCount : int) = 
+type ``Azure CloudDictionary Tests``(config : Configuration, localWorkers : int) = 
     inherit ``CloudDictionary Tests``(parallelismFactor = 5)
-    let session = new LocalClusterSession(emulatorConfig, 4)
+    let session = new ClusterSession(config, localWorkers)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -124,24 +124,24 @@ type ``Azure CloudDictionary Tests``(config : Configuration, workerCount : int) 
 
 [<TestFixture>]
 type ``CloudDictionary Tests - Standalone Cluster - Storage Emulator``() = 
-    inherit ``Azure CloudDictionary Tests``(emulatorConfig, 4)
+    inherit ``Azure CloudDictionary Tests``(mkEmulatorConfig (), 4)
 
 [<TestFixture>]
 type ``CloudDictionary Tests - Standalone Cluster - Remote Storage``() = 
-    inherit ``Azure CloudDictionary Tests``(remoteConfig, 4)
+    inherit ``Azure CloudDictionary Tests``(mkRemoteConfig (), 4)
 
 [<TestFixture>]
 type ``CloudDictionary Tests - Remote Cluster - Remote Storage``() = 
-    inherit ``Azure CloudDictionary Tests``(remoteConfig, 0)
+    inherit ``Azure CloudDictionary Tests``(mkRemoteConfig (), 0)
 
 
 // CloudValue tests
 
 
 [<AbstractClass; TestFixture>]
-type ``Azure CloudValue Tests``(config : Configuration, workerCount : int) = 
+type ``Azure CloudValue Tests``(config : Configuration, localWorkers : int) = 
     inherit ``CloudValue Tests``(parallelismFactor = 5)
-    let session = new LocalClusterSession(emulatorConfig, 4)
+    let session = new ClusterSession(config, localWorkers)
     
     [<TestFixtureSetUp>]
     member __.Init() = session.Start()
@@ -155,12 +155,12 @@ type ``Azure CloudValue Tests``(config : Configuration, workerCount : int) =
 
 [<TestFixture>]
 type ``CloudValue Tests - Standalone Cluster - Storage Emulator``() = 
-    inherit ``Azure CloudValue Tests``(emulatorConfig, 4)
+    inherit ``Azure CloudValue Tests``(mkEmulatorConfig (), 4)
 
 [<TestFixture>]
 type ``CloudValue Tests - Standalone Cluster - Remote Storage``() = 
-    inherit ``Azure CloudValue Tests``(remoteConfig, 4)
+    inherit ``Azure CloudValue Tests``(mkRemoteConfig (), 4)
 
 [<TestFixture>]
 type ``CloudValue Tests - Remote Cluster - Remote Storage``() = 
-    inherit ``Azure CloudValue Tests``(remoteConfig, 0)
+    inherit ``Azure CloudValue Tests``(mkRemoteConfig (), 0)

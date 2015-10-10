@@ -18,11 +18,11 @@ open MBrace.Core.Tests
 [<AutoOpenAttribute>]
 module Utils =
 
-    let remoteConfig = Configuration.FromEnvironmentVariables()
-    let emulatorConfig = new Configuration("UseDevelopmentStorage=true", Configuration.EnvironmentServiceBusConnectionString)
+    let mkRemoteConfig () = Configuration.FromEnvironmentVariables()
+    let mkEmulatorConfig () = new Configuration("UseDevelopmentStorage=true", Configuration.EnvironmentServiceBusConnectionString)
 
 
-type LocalClusterSession(config : MBrace.Azure.Configuration, localWorkerCount : int, ?heartbeatThreshold : TimeSpan) =
+type ClusterSession(config : MBrace.Azure.Configuration, localWorkerCount : int, ?heartbeatThreshold : TimeSpan) =
 
     static do AzureWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
     

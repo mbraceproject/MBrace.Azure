@@ -16,7 +16,7 @@ open MBrace.Azure.Tests
 #nowarn "444"
 
 [<AbstractClass; TestFixture>]
-type ``Azure Runtime Tests`` (session : LocalClusterSession) =
+type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
 
     let repeats =
 #if DEBUG
@@ -25,6 +25,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
         1
 #endif
 
+    let session = new ClusterSession(config, localWorkers)
     let run w = session.Cluster.Run(w)
 
     [<TestFixtureSetUp>]
@@ -168,7 +169,7 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
     member __.``2. Fault Tolerance : protected parallel workflows`` () =
         repeat repeats (fun () ->
             let cluster = session.Cluster
-            let workerCount = cluster.Workers.Length
+            let localWorkers = cluster.Workers.Length
             let f = cluster.Store.Atom.Create 0
             let task i = cloud {
                 let! _ = CloudAtom.Increment f
@@ -177,11 +178,11 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
             }
 
             let cloudProcess =
-                [for i in 1 .. workerCount -> task i]
+                [for i in 1 .. localWorkers -> task i]
                 |> Cloud.ProtectedParallel
                 |> cluster.CreateProcess
 
-            while f.Value < workerCount do Thread.Sleep 1000
+            while f.Value < localWorkers do Thread.Sleep 1000
             session.Chaos()
             cloudProcess.Result 
             |> Array.forall (function FaultException _ -> true | _ -> false)
@@ -203,10 +204,10 @@ type ``Azure Runtime Tests`` (session : LocalClusterSession) =
 
 
 type ``Runtime Tests - Compute Emulator - Storage Emulator`` () =
-    inherit ``Azure Runtime Tests``(LocalClusterSession(emulatorConfig, 0))
+    inherit ``Azure Runtime Tests``(mkEmulatorConfig (), 0)
 
 type ``Runtime Tests - Standalone Cluster - Storage Emulator`` () =
-    inherit ``Azure Runtime Tests``(LocalClusterSession(emulatorConfig, 4))
+    inherit ``Azure Runtime Tests``(mkEmulatorConfig (), 4)
 
 type ``Runtime Tests - Standalone Cluster - Remote Storage`` () =
-    inherit ``Azure Runtime Tests``(LocalClusterSession(remoteConfig, 4))
+    inherit ``Azure Runtime Tests``(mkRemoteConfig (), 4)

@@ -11,10 +11,9 @@ open MBrace.Azure
 open MBrace.Azure.Tests
 
 [<AbstractClass; TestFixture>]
-type ``Azure Cloud Tests`` (session : LocalClusterSession) as self =
+type ``Azure Cloud Tests`` (config : Configuration, localWorkers : int) =
     inherit ``Cloud Tests`` (parallelismFactor = 20, delayFactor = 15000)
-
-    let run (wf : Cloud<'T>) = self.Run wf
+    let session = new ClusterSession(config, localWorkers)
 
     [<TestFixtureSetUp>]
     member __.Init () = session.Start()
@@ -49,13 +48,13 @@ type ``Azure Cloud Tests`` (session : LocalClusterSession) as self =
     override __.UsesSerialization = true
 
 type ``Cloud Tests - Compute Emulator - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(LocalClusterSession(emulatorConfig, 0))
+    inherit ``Azure Cloud Tests``(mkEmulatorConfig (), 0)
 
 type ``Cloud Tests - Standalone Cluster - Storage Emulator`` () =
-    inherit ``Azure Cloud Tests``(LocalClusterSession(emulatorConfig, 4))
+    inherit ``Azure Cloud Tests``(mkEmulatorConfig (), 4)
 
 type ``Cloud Tests - Standalone Cluster - Remote Storage`` () =
-    inherit ``Azure Cloud Tests``(LocalClusterSession(remoteConfig, 4))
+    inherit ``Azure Cloud Tests``(mkRemoteConfig (), 4)
 
 type ``Cloud Tests - Remote Cluster - Remote Storage`` () =
-    inherit ``Azure Cloud Tests``(LocalClusterSession(remoteConfig, 0))
+    inherit ``Azure Cloud Tests``(mkRemoteConfig (), 0)
