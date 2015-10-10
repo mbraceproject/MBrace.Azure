@@ -6,6 +6,7 @@
 #r @"tools\Mono.Cecil.dll"
 #r @"tools\Vagabond.AssemblyParser.dll"
 #r @"tools\Vagabond.dll"
+#r @"tools\Argu.dll"
 #r @"tools\Microsoft.Data.Edm.dll"
 #r @"tools\Microsoft.Data.OData.dll"
 #r @"tools\Microsoft.Data.Services.Client.dll"
