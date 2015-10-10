@@ -142,7 +142,7 @@ type ``Vagabond Azure Tests (FSI)``(config : Configuration, localWorkerCount : i
     member __.``01. Simple Parallel cloud workflow`` () =
         let fsi = FsiSession.Value
 
-        "cloud { let! results = Cloud.Parallel [for i in 1 .. 100 -> cloud { return i }] in return Array.sum results } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 5050
+        "cloud { let! results = Cloud.Parallel [for i in 1 .. 10 -> cloud { return i }] in return Array.sum results } |> cluster.Run" |> fsi.TryEvalExpression |> shouldEqual 55
 
     [<Test>]
     member __.``02. Simple data dependency`` () =
