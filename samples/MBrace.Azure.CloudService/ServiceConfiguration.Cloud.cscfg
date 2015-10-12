@@ -3,9 +3,9 @@
   <Role name="MBrace.Azure.WorkerRole">
     <Instances count="4" />
     <ConfigurationSettings>
-      <Setting name="MBrace.StorageConnectionString" value="" />
-      <Setting name="MBrace.ServiceBusConnectionString" value="" />
-      <Setting name="Microsoft.WindowsAzure.Plugins.Diagnostics.ConnectionString" value="UseDevelopmentStorage=true" />
+      <Setting name="MBrace.StorageConnectionString" value="DefaultEndpointsProtocol=https;AccountName=eirikmbracefelix;AccountKey=5vOs0dvteQ1qHLBOY+PMwy58p6/LPjgwuQTBf2bH6s7ByOeyMq/kCMvX0z93scBr+dFk+/xjzSf71cvC63FHwA==" />
+      <Setting name="MBrace.ServiceBusConnectionString" value="Endpoint=sb://eirikmbracefelix.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=/Qvnx7ck2q34cfZnsXrlftB8dNsL6sN6QovHvi1KC54=" />
+      <Setting name="Microsoft.WindowsAzure.Plugins.Diagnostics.ConnectionString" value="DefaultEndpointsProtocol=https;AccountName=eirikmbrace;AccountKey=WCuP3CexSkC/xO+SJXZGqnwiflQ2sEWYxwmjs/g2G+MktbgVBbL0YuUrhVrDiRgRI9cp02Cue9kDY+VbhfBJZA==" />
     </ConfigurationSettings>
   </Role>
 </ServiceConfiguration>

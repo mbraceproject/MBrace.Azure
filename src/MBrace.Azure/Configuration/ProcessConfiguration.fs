@@ -36,7 +36,7 @@ type ProcessConfiguration private () =
                 let _ = WorkingDirectory.CreateWorkingDirectory(workingDirectory, cleanup = populateDirs)
                 let vagabondDir = Path.Combine(workingDirectory, "vagabond")
                 if populateDirs then ignore <| WorkingDirectory.CreateWorkingDirectory(vagabondDir, cleanup = false)
-                VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance)
+                VagabondRegistry.Initialize(vagabondDir, isClientSession = isClientInstance, forceLocalFSharpCore = true)
                 objectCache <- InMemoryCache.Create(name = "MBrace.Azure object cache")
                 localFileStore <- FileSystemStore.Create(rootPath = Path.Combine(workingDirectory, "localStore"), create = populateDirs)
                 jsonSerializer <- FsPickler.CreateJsonSerializer(indent = false, omitHeader = true, typeConverter = VagabondRegistry.Instance.TypeConverter)

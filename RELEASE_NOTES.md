@@ -1,3 +1,6 @@
+### 0.12.3-beta
+* Add support for forced local FSharp.Core binding redirects.
+
 ### 0.12.2-beta
 * Fix packaging issue.
 

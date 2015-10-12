@@ -97,6 +97,7 @@ Target "RunTests" (fun _ ->
             DisableShadowCopy = false
             ToolPath = nunitPath
             Framework = "4.5"
+            IncludeCategory = "AppVeyor"
             TimeOut = TimeSpan.FromMinutes 60. })
 )
 
@@ -155,10 +156,8 @@ Target "Help" (fun _ -> PrintTargets() )
 "Build"
   ==> "PrepareRelease"
   ==> "NuGet"
-  ==> "Release"
-
-"NuGet" 
   ==> "NuGetPush"
+  ==> "Release"
 
 //// start build
 RunTargetOrDefault "Default"
