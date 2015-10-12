@@ -30,15 +30,15 @@ type ``Azure BlobStore Tests``(config : Configuration, localWorkers : int) =
     override __.Run(workflow : Cloud<'T>) = session.Cluster.Run workflow
     override __.RunLocally(workflow : Cloud<'T>) = session.Cluster.RunLocally workflow
 
-[<TestFixture>]
+[<TestFixture; Category("Standalone Cluster")>]
 type ``BlobStore Tests - Standalone Cluster - Remote Storage``() =
     inherit ``Azure BlobStore Tests``(mkRemoteConfig (), 4)
 
-[<TestFixture>]
+[<TestFixture; Category("Storage Emulator")>]
 type ``BlobStore Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``Azure BlobStore Tests``(mkEmulatorConfig (), 4)
 
-[<TestFixture>]
+[<TestFixture; Category("Remote Cluster")>]
 type ``BlobStore Tests - Remote Cluster - Remote Storage``() = 
     inherit ``Azure BlobStore Tests``(mkRemoteConfig (), 0)
 
@@ -62,16 +62,16 @@ type ``Azure CloudAtom Tests``(config : Configuration, localWorkers : int) =
     override __.RunLocally wf = session.Cluster.RunLocally wf
     override __.Repeats = 1
 
-[<TestFixture>]
+[<TestFixture; Category("Standalone Cluster")>]
 type ``CloudAtom Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``Azure CloudAtom Tests``(mkRemoteConfig (), 4)
 
-[<TestFixture>]
+[<TestFixture; Category("Storage Emulator")>]
 type ``CloudAtom Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``Azure CloudAtom Tests``(mkEmulatorConfig (), 4)
     override __.Repeats = 3
 
-[<TestFixture>]
+[<TestFixture; Category("Remote Cluster")>]
 type ``CloudAtom Tests - Remote Cluster - Remote Storage``() = 
     inherit ``Azure CloudAtom Tests``(mkRemoteConfig (), 0)
 
@@ -94,11 +94,11 @@ type ``Azure CloudQueue Tests``(config : Configuration, localWorkers : int) =
     override __.RunLocally wf = session.Cluster.RunLocally wf
     override __.IsSupportedNamedLookup = true
 
-[<TestFixture>]
+[<TestFixture; Category("Standalone Cluster")>]
 type ``CloudQueue Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``Azure CloudQueue Tests``(mkRemoteConfig (), 4)
 
-[<TestFixture>]
+[<TestFixture; Category("Remote Cluster")>]
 type ``CloudQueue Tests - Remote Cluster - Remote Storage``() = 
     inherit ``Azure CloudQueue Tests``(mkRemoteConfig (), 0)
 
@@ -122,15 +122,15 @@ type ``Azure CloudDictionary Tests``(config : Configuration, localWorkers : int)
     override __.IsInMemoryFixture = false
     override __.IsSupportedNamedLookup = true
 
-[<TestFixture>]
+[<TestFixture; Category("Storage Emulator")>]
 type ``CloudDictionary Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``Azure CloudDictionary Tests``(mkEmulatorConfig (), 4)
 
-[<TestFixture>]
+[<TestFixture; Category("Standalone Cluster")>]
 type ``CloudDictionary Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``Azure CloudDictionary Tests``(mkRemoteConfig (), 4)
 
-[<TestFixture>]
+[<TestFixture; Category("Remote Cluster")>]
 type ``CloudDictionary Tests - Remote Cluster - Remote Storage``() = 
     inherit ``Azure CloudDictionary Tests``(mkRemoteConfig (), 0)
 
@@ -153,14 +153,14 @@ type ``Azure CloudValue Tests``(config : Configuration, localWorkers : int) =
     override __.RunLocally wf = session.Cluster.RunLocally wf
     override __.IsSupportedLevel _ = true
 
-[<TestFixture>]
+[<TestFixture; Category("Storage Emulator")>]
 type ``CloudValue Tests - Standalone Cluster - Storage Emulator``() = 
     inherit ``Azure CloudValue Tests``(mkEmulatorConfig (), 4)
 
-[<TestFixture>]
+[<TestFixture; Category("Standalone Cluster")>]
 type ``CloudValue Tests - Standalone Cluster - Remote Storage``() = 
     inherit ``Azure CloudValue Tests``(mkRemoteConfig (), 4)
 
-[<TestFixture>]
+[<TestFixture; Category("Remote Cluster")>]
 type ``CloudValue Tests - Remote Cluster - Remote Storage``() = 
     inherit ``Azure CloudValue Tests``(mkRemoteConfig (), 0)

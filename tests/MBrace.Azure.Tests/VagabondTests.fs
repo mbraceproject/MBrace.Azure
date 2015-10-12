@@ -318,18 +318,18 @@ type ``Vagabond Azure Tests (FSI)``(config : Configuration, localWorkerCount : i
             fsi.EvalInteraction code'
 
 
-[<TestFixture; Category("AppVeyor")>]
+[<TestFixture; Category("AppVeyor"); Category("Standalone Cluster")>]
 type ``Vagabond Tests (FSI) - Standalone Cluster - Remote Storage``() =
     inherit ``Vagabond Azure Tests (FSI)``(mkRemoteConfig(), if isAppVeyorInstance then 1 else 2)
 
-[<TestFixture>]
+[<TestFixture; Category("Remote Cluster")>]
 type ``Vagabond Tests (FSI) - Remote Cluster - Remote Storage``() =
     inherit ``Vagabond Azure Tests (FSI)``(mkRemoteConfig(), 0)
 
-[<TestFixture>]
+[<TestFixture; Category("Storage Emulator")>]
 type ``Vagabond Tests (FSI) - Standalone Cluster - Storage Emulator``() =
     inherit ``Vagabond Azure Tests (FSI)``(mkEmulatorConfig(), 2)
 
-[<TestFixture>]
+[<TestFixture; Category("Compute Emulator")>]
 type ``Vagabond Tests (FSI) - Compute Emulator - Storage Emulator``() =
     inherit ``Vagabond Azure Tests (FSI)``(mkEmulatorConfig(), 0)

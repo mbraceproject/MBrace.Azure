@@ -202,10 +202,10 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
             session.Chaos()
             t.Result |> shouldEqual 100)
 
-
-
+[<Category("Storage Emulator")>]
 type ``Runtime Tests - Standalone Cluster - Storage Emulator`` () =
     inherit ``Azure Runtime Tests``(mkEmulatorConfig (), 4)
 
+[<Category("Standalone Cluster")>]
 type ``Runtime Tests - Standalone Cluster - Remote Storage`` () =
     inherit ``Azure Runtime Tests``(mkRemoteConfig (), 4)

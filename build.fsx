@@ -97,7 +97,7 @@ Target "RunTests" (fun _ ->
             DisableShadowCopy = false
             ToolPath = nunitPath
             Framework = "4.5"
-            IncludeCategory = "AppVeyor"
+            IncludeCategory = "Standalone Cluster"
             TimeOut = TimeSpan.FromMinutes 60. })
 )
 

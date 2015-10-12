@@ -32,14 +32,18 @@ type ``Azure CloudFlow Tests`` (config : Configuration, localWorkers : int) =
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3
 
+[<Category("Compute Emulator")>]
 type ``CloudFlow Tests - Compute Emulator - Remote Storage`` () =
     inherit ``Azure CloudFlow Tests``(mkEmulatorConfig (), 0)
 
+[<Category("Storage Emulator")>]
 type ``CloudFlow Tests - Standalone Cluster - Storage Emulator`` () =
     inherit ``Azure CloudFlow Tests``(mkEmulatorConfig (), 4)
         
+[<Category("Standalone Cluster")>]
 type ``CloudFlow Tests - Standalone Cluster - Remote Storage`` () =
     inherit ``Azure CloudFlow Tests``(mkRemoteConfig (), 4)
 
+[<Category("Remote Cluster")>]
 type ``CloudFlow Tests - Remote Cluster - Remote Storage`` () =
     inherit ``Azure CloudFlow Tests``(mkRemoteConfig (), 0)

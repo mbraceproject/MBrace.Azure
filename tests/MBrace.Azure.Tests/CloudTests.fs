@@ -47,14 +47,18 @@ type ``Azure Cloud Tests`` (config : Configuration, localWorkers : int) =
     override __.Repeats = 1
     override __.UsesSerialization = true
 
+[<Category("Compute Emulator")>]
 type ``Cloud Tests - Compute Emulator - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(mkEmulatorConfig (), 0)
 
+[<Category("Storage Emulator")>]
 type ``Cloud Tests - Standalone Cluster - Storage Emulator`` () =
     inherit ``Azure Cloud Tests``(mkEmulatorConfig (), 4)
 
+[<Category("Standalone Cluster")>]
 type ``Cloud Tests - Standalone Cluster - Remote Storage`` () =
     inherit ``Azure Cloud Tests``(mkRemoteConfig (), 4)
 
+[<Category("Remote Cluster")>]
 type ``Cloud Tests - Remote Cluster - Remote Storage`` () =
     inherit ``Azure Cloud Tests``(mkRemoteConfig (), 0)
