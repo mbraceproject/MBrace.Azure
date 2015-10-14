@@ -9,7 +9,7 @@ copyright
 summary
     An MBrace cluster implementation on top of Azure PaaS.
 	Bundles a standalone executable for setup of local worker instances.
-licenseurl https://github.com/mbraceproject/MBrace.Azure/blob/master/License.md
+licenseurl https://github.com/mbraceproject/MBrace.Azure/blob/master/LICENSE.md
 projecturl http://www.m-brace.net/
 iconurl https://avatars2.githubusercontent.com/u/9674757
 tags
