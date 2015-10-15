@@ -1,14 +1,18 @@
 ﻿namespace MBrace.Azure.Runtime.Utilities
 
 open System
-open System.Runtime.Serialization
-open MBrace.Azure.Runtime
-open MBrace.Azure.Runtime.Utilities
 open System.IO
-open MBrace.Azure
+open System.Runtime.Serialization
+
 open Microsoft.WindowsAzure.Storage.Blob
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
+
+open MBrace.Core.Internals
+open MBrace.Runtime.Utils
+open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Utilities
+open MBrace.Azure
 
 /// Represents a value that has been persisted to blob store
 [<Sealed; DataContract>]

@@ -29,6 +29,11 @@ type ``Azure CloudFlow Tests`` (config : Configuration, localWorkers : int) =
     override __.RunLocally(workflow : Cloud<'T>) = 
         session.Cluster.RunLocally(workflow)
 
+    override __.RunWithLogs(workflow : Cloud<unit>) =
+        let cloudProcess = session.Cluster.CreateProcess workflow
+        do cloudProcess.Result
+        cloudProcess.GetLogs () |> Array.map CloudLogEntry.Format
+
     override __.FsCheckMaxNumberOfTests = 3
     override __.FsCheckMaxNumberOfIOBoundTests = 3
 

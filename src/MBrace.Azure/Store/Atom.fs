@@ -41,7 +41,7 @@ type TableAtom<'T> internal (table : string, partitionKey : string, account : Az
         member this.Container = table
         member this.Id = partitionKey
         
-        member x.Transact(transaction: 'T -> 'R * 'T, maxRetries: int option): Async<'R> = async {
+        member x.TransactAsync(transaction: 'T -> 'R * 'T, maxRetries: int option): Async<'R> = async {
             let serializer = ProcessConfiguration.BinarySerializer
             let interval = let r = new Random() in r.Next(2,10)
             let maxInterval = 5000
@@ -71,7 +71,7 @@ type TableAtom<'T> internal (table : string, partitionKey : string, account : Az
             return! Table.delete<FatEntity> account table e
         }
 
-        member this.Force(newValue: 'T): Async<unit> = async {
+        member this.ForceAsync(newValue: 'T): Async<unit> = async {
             let! e = Table.read<FatEntity> account table partitionKey defaultRowKey
             let newBinary = ProcessConfiguration.BinarySerializer.Pickle newValue
             let e = new FatEntity(e.PartitionKey, String.Empty, newBinary, ETag = "*")

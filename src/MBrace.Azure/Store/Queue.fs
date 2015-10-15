@@ -33,12 +33,12 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
 
     interface CloudQueue<'T> with
         member x.Id: string = queuePath
-        member x.Count: Async<int64> = async {
+        member x.GetCountAsync (): Async<int64> = async {
             let! (qd : QueueDescription) = account.NamespaceManager.GetQueueAsync(queuePath)
             return qd.MessageCount
         }
         
-        member x.Enqueue(message: 'T): Async<unit> = async {
+        member x.EnqueueAsync(message: 'T): Async<unit> = async {
             let bin = ProcessConfiguration.BinarySerializer.Pickle message
             use ms = new MemoryStream(bin) 
             do ms.Position <- 0L
@@ -46,7 +46,7 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
             do! client.SendAsync(msg)
         }
         
-        member x.EnqueueBatch(messages: seq<'T>): Async<unit> = async {
+        member x.EnqueueBatchAsync(messages: seq<'T>): Async<unit> = async {
             let serializer = ProcessConfiguration.BinarySerializer
             let createMsg (item : 'T) =
                 let bin = serializer.Pickle item
@@ -56,7 +56,7 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
             return! messages |> Seq.map createMsg |> client.SendBatchAsync
         }
         
-        member x.TryDequeue(): Async<'T option> = async {
+        member x.TryDequeueAsync(): Async<'T option> = async {
             let! (msg : BrokeredMessage) = client.ReceiveAsync()
             match msg with
             | null -> return None
@@ -65,14 +65,14 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
                 return Some(ProcessConfiguration.BinarySerializer.Deserialize<'T>(stream))
         }
 
-        member x.DequeueBatch(maxItems : int) : Async<'T []> = async {
+        member x.DequeueBatchAsync(maxItems : int) : Async<'T []> = async {
             let serializer = ProcessConfiguration.BinarySerializer
             let readBody (msg : BrokeredMessage) = use stream = msg.GetBody<Stream>() in serializer.Deserialize<'T>(stream)
             let! messages = client.ReceiveBatchAsync(maxItems)
             return messages |> Seq.map readBody |> Seq.toArray
         }
         
-        member x.Dequeue(?timeout: int): Async<'T> = async {
+        member x.DequeueAsync(?timeout: int): Async<'T> = async {
             let! msg = async {
                 match timeout with 
                 | Some timeout -> 

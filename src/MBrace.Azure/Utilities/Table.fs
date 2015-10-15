@@ -6,6 +6,8 @@ open System.Collections.Generic
 open Microsoft.WindowsAzure.Storage
 open Microsoft.WindowsAzure.Storage.Table
 
+open MBrace.Core.Internals
+open MBrace.Runtime.Utils
 open MBrace.Azure.Runtime
 
 [<RequireQualifiedAccess>]

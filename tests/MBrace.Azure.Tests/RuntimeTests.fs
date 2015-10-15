@@ -6,6 +6,7 @@ open System.Threading
 open NUnit.Framework
 
 open MBrace.Core
+open MBrace.Core.BuilderAsyncExtensions
 open MBrace.Library.Protected
 open MBrace.Core.Internals
 open MBrace.Core.Tests
@@ -99,9 +100,9 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
     member __.``2. Fault Tolerance : Custom fault policy`` () =
         repeat repeats (fun () ->
             let cluster = session.Cluster
-            let f = cluster.Store.Atom.Create(false)
+            let f = cluster.Store.CloudAtom.Create(false)
             let t = cluster.CreateProcess(cloud {
-                do! f.Force true
+                do! f.ForceAsync true
                 do! Cloud.Sleep 20000
             }, faultPolicy = FaultPolicy.NoRetry)
             while not f.Value do Thread.Sleep 1000
@@ -112,10 +113,10 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
     member __.``2. Fault Tolerance : Custom fault policy nested`` () =
         repeat repeats (fun () ->
             let cluster = session.Cluster
-            let f = cluster.Store.Atom.Create(false)
+            let f = cluster.Store.CloudAtom.Create(false)
             let computation () = cloud {
                 let child () = cloud { 
-                    do! f.Force true 
+                    do! f.ForceAsync true 
                     do! Cloud.Sleep 20000
                 }
 
@@ -131,13 +132,13 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
     member __.``2. Fault Tolerance : targeted workers`` () =
         repeat repeats (fun () ->
             let cluster = session.Cluster
-            let f = cluster.Store.Atom.Create(false)
+            let f = cluster.Store.CloudAtom.Create(false)
             let wf () = cloud {
                 let! current = Cloud.CurrentWorker
                 // targeted work items should fail regardless of fault policy
                 return! 
                     Cloud.CreateProcess(cloud { 
-                        do! f.Force true 
+                        do! f.ForceAsync true 
                         do! Cloud.Sleep 20000 }, target = current, faultPolicy = FaultPolicy.InfiniteRetries())
             }
 
@@ -152,11 +153,11 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
 
         repeat repeats (fun () ->
             let cluster = session.Cluster
-            let f = cluster.Store.Atom.Create(false)
+            let f = cluster.Store.CloudAtom.Create(false)
             let t = 
                 cluster.CreateProcess(
                     cloud {
-                        do! f.Force true
+                        do! f.ForceAsync true
                         do! Cloud.Sleep 20000
                         return! Cloud.TryGetFaultData()
                     })
@@ -170,7 +171,7 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
         repeat repeats (fun () ->
             let cluster = session.Cluster
             let localWorkers = cluster.Workers.Length
-            let f = cluster.Store.Atom.Create 0
+            let f = cluster.Store.CloudAtom.Create 0
             let task i = cloud {
                 let! _ = CloudAtom.Increment f
                 do! Cloud.Sleep 20000
@@ -192,9 +193,9 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
     member __.``2. Fault Tolerance : map/reduce`` () =
         repeat 2 (fun () ->
             let cluster = session.Cluster
-            let f = cluster.Store.Atom.Create(false)
+            let f = cluster.Store.CloudAtom.Create(false)
             let t = cluster.CreateProcess(cloud {
-                do! f.Force true
+                do! f.ForceAsync true
                 return! WordCount.run 20 WordCount.mapReduceRec
             }, faultPolicy = FaultPolicy.InfiniteRetries())
             while not f.Value do Thread.Sleep 1000

@@ -44,13 +44,13 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
         member x.IsMaterialized : bool = false
         member x.IsKnownSize: bool = false
         
-        member this.Add(key: string, value : 'T): Async<unit> = async {
+        member this.AddAsync(key: string, value : 'T): Async<unit> = async {
             let binary = ProcessConfiguration.BinarySerializer.Pickle value
             let e = new FatEntity(key, String.Empty, binary)
             do! Table.insert<FatEntity> account tableName e
         }
         
-        member this.Transact(key: string, transacter: 'T option -> 'R * 'T, maxRetries: int option): Async<'R> = async {
+        member this.TransactAsync(key: string, transacter: 'T option -> 'R * 'T, maxRetries: int option): Async<'R> = async {
             let serializer = ProcessConfiguration.BinarySerializer
             let rec transact (e : FatEntity) (count : int) : Async<'R> = async { 
                 match maxRetries with
@@ -89,14 +89,14 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
             return! transact e 0
         }
 
-        member this.ContainsKey(key: string): Async<bool> = 
+        member this.ContainsKeyAsync(key: string): Async<bool> = 
             async {
                 let! e = Table.read<FatEntity> account tableName key String.Empty
                 return e <> null
             }
         
-        member this.GetCount () : Async<int64> = async { let! entities = getEntitiesAsync() in return int64 entities.Count }
-        member this.GetSize () : Async<int64> = async { let! entities = getEntitiesAsync() in return int64 entities.Count }
+        member this.GetCountAsync () : Async<int64> = async { let! entities = getEntitiesAsync() in return int64 entities.Count }
+        member this.GetSizeAsync () : Async<int64> = async { let! entities = getEntitiesAsync() in return int64 entities.Count }
 
         member this.Dispose(): Async<unit> = async {
             let! _ = account.TableClient.GetTableReference(tableName).DeleteAsync() |> Async.AwaitTaskCorrect
@@ -105,7 +105,7 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
         
         member this.Id: string = tableName
         
-        member this.Remove(key: string): Async<bool> = async {
+        member this.RemoveAsync(key: string): Async<bool> = async {
             try
                 do! Table.delete account tableName (TableEntity(key, String.Empty, ETag = "*"))
                 return true
@@ -113,19 +113,19 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
                 if StoreException.NotFound ex then return false else return raise ex
         }
         
-        member this.ToEnumerable(): Async<seq<Collections.Generic.KeyValuePair<string,'T>>> = async {
+        member this.GetEnumerableAsync(): Async<seq<Collections.Generic.KeyValuePair<string,'T>>> = async {
             return! getSeqAsync()
         }
         
-        member this.TryAdd(key: string, value: 'T): Async<bool> = async {
+        member this.TryAddAsync(key: string, value: 'T): Async<bool> = async {
             try
-                do! (this :> CloudDictionary<'T>).Add(key, value)
+                do! (this :> CloudDictionary<'T>).AddAsync(key, value) // this is wrong!
                 return true
             with ex ->
                 if StoreException.Conflict ex then return false else return raise ex
         }
         
-        member x.TryFind(key: string): Async<'T option> = async {
+        member x.TryFindAsync(key: string): Async<'T option> = async {
             let! e = Table.read<FatEntity> account tableName key String.Empty
             match e with
             | null -> return None

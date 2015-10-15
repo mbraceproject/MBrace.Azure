@@ -5,6 +5,7 @@ open System.Threading
 
 open Microsoft.ServiceBus.Messaging
 
+open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils
 

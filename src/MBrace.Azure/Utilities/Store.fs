@@ -3,6 +3,7 @@ module MBrace.Azure.Runtime.Utilities.StoreUtils
 
 open System
 
+open MBrace.Core.Internals
 open MBrace.Runtime.Utils.Retry
 
 open Microsoft.WindowsAzure.Storage
