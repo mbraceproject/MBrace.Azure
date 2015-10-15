@@ -1,3 +1,6 @@
+### 0.13.0-beta
+* Update to support the latest MBrace.Core release.
+
 ### 0.12.3-beta
 * Add support for forced local FSharp.Core binding redirects.
 
