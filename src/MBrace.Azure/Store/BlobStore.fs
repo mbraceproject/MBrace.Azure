@@ -266,7 +266,8 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 }
                 do! aux null
                 return 
-                    this.Combine(container, blobs)
+                    blobs
+                    |> Seq.map (fun b -> this.Combine(container, b))
                     |> Seq.map normalizePath
                     |> Seq.toArray
 

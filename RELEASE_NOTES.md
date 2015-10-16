@@ -1,3 +1,6 @@
+### 0.13.1-beta
+* Minor improvements and bugfixes.
+
 ### 0.13.0-beta
 * Update to support the latest MBrace.Core release.
 

@@ -106,8 +106,8 @@ type AzureWorker private () =
 ///     Windows Azure Cluster management client. Provides methods for management, execution and debugging of MBrace processes in Azure.
 /// </summary>
 [<AutoSerializable(false); NoEquality; NoComparison>]
-type AzureCluster private (manager : ClusterManager) =
-    inherit MBraceClient(manager)
+type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy option) =
+    inherit MBraceClient(manager, match faultPolicy with None -> FaultPolicy.NoRetry | Some fp -> fp)
     static do ProcessConfiguration.InitAsClient()
     let hashId = manager.ClusterId.Hash
 
@@ -197,50 +197,6 @@ type AzureCluster private (manager : ClusterManager) =
     member this.CullNonResponsiveWorkers(heartbeatThreshold : TimeSpan) : unit =
         this.CullNonResponsiveWorkersAsync(heartbeatThreshold) |> Async.RunSync
 
-
-    /// <summary>
-    ///     Connects to an MBrace-on-Azure cluster as identified by provided configuration object.
-    ///     If successful returns a management handle object to the cluster.
-    /// </summary>
-    /// <param name="config">Runtime configuration.</param>
-    /// <param name="clientId">MBrace.Azure client instance identifier.</param>
-    /// <param name="clientId">Custom client id for this instance.</param>
-    /// <param name="logger">Custom logger to attach in client.</param>
-    /// <param name="logLevel">Logger verbosity level.</param>
-    static member ConnectAsync (config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : Async<AzureCluster> = async {
-        let hostProc = Diagnostics.Process.GetCurrentProcess()
-        let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
-        let! manager = ClusterManager.Create(config, ?systemLogger = logger)
-        let! storageLogger = manager.SystemLoggerManager.CreateLogWriter(clientId)
-        let _ = manager.LocalLoggerManager.AttachLogger(storageLogger)
-        logLevel |> Option.iter (fun l -> manager.LocalLoggerManager.LogLevel <- l)
-        return new AzureCluster(manager)
-    }
-
-    /// <summary>
-    ///     Connects to an MBrace-on-Azure cluster as identified by provided configuration object.
-    ///     If successful returns a management handle object to the cluster.
-    /// </summary>
-    /// <param name="config">Runtime configuration.</param>
-    /// <param name="clientId">MBrace.Azure client instance identifier.</param>
-    /// <param name="logger">Custom logger to attach in client.</param>
-    /// <param name="logLevel">Logger verbosity level.</param>
-    static member Connect (config : Configuration, ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster =
-        AzureCluster.ConnectAsync(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
-        |> Async.RunSync
-
-    /// <summary>
-    ///     Connects to an MBrace-on-Azure cluster as identified by provided store and service bus connection strings.
-    ///     If successful returns a management handle object to the cluster.
-    /// </summary>
-    /// <param name="storageConnectionString">Azure Storage connection string.</param>
-    /// <param name="serviceBusConnectionString">Azure Service Bus connection string.</param>
-    /// <param name="clientId">MBrace.Azure client instance identifier.</param>
-    /// <param name="logger">Custom logger to attach in client.</param>
-    /// <param name="logLevel">Logger verbosity level.</param>
-    static member Connect(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
-        AzureCluster.Connect(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
-
     /// <summary>
     ///     Spawns a worker instance in the local machine, subscribed to the current cluster configuration.
     /// </summary>
@@ -271,20 +227,68 @@ type AzureCluster private (manager : ClusterManager) =
         ignore <| AzureWorker.SpawnMultiple(workerCount, config = manager.Configuration, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?background = background,
                                                 ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
 
+
+    /// <summary>
+    ///     Connects to an MBrace-on-Azure cluster as identified by provided configuration object.
+    ///     If successful returns a management handle object to the cluster.
+    /// </summary>
+    /// <param name="config">Runtime configuration.</param>
+    /// <param name="clientId">MBrace.Azure client instance identifier.</param>
+    /// <param name="clientId">Custom client id for this instance.</param>
+    /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    static member ConnectAsync (config : Configuration, ?clientId : string, ?faultPolicy : FaultPolicy, ?logger : ISystemLogger, ?logLevel : LogLevel) : Async<AzureCluster> = async {
+        let hostProc = Diagnostics.Process.GetCurrentProcess()
+        let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
+        let! manager = ClusterManager.Create(config, ?systemLogger = logger)
+        let! storageLogger = manager.SystemLoggerManager.CreateLogWriter(clientId)
+        let _ = manager.LocalLoggerManager.AttachLogger(storageLogger)
+        logLevel |> Option.iter (fun l -> manager.LocalLoggerManager.LogLevel <- l)
+        return new AzureCluster(manager, faultPolicy)
+    }
+
+    /// <summary>
+    ///     Connects to an MBrace-on-Azure cluster as identified by provided configuration object.
+    ///     If successful returns a management handle object to the cluster.
+    /// </summary>
+    /// <param name="config">Runtime configuration.</param>
+    /// <param name="clientId">MBrace.Azure client instance identifier.</param>
+    /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    static member Connect (config : Configuration, ?clientId : string, ?faultPolicy : FaultPolicy, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster =
+        AzureCluster.ConnectAsync(config, ?clientId = clientId, ?faultPolicy = faultPolicy, ?logger = logger, ?logLevel = logLevel)
+        |> Async.RunSync
+
+    /// <summary>
+    ///     Connects to an MBrace-on-Azure cluster as identified by provided store and service bus connection strings.
+    ///     If successful returns a management handle object to the cluster.
+    /// </summary>
+    /// <param name="storageConnectionString">Azure Storage connection string.</param>
+    /// <param name="serviceBusConnectionString">Azure Service Bus connection string.</param>
+    /// <param name="clientId">MBrace.Azure client instance identifier.</param>
+    /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    static member Connect(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?faultPolicy : FaultPolicy, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
+        AzureCluster.Connect(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?faultPolicy = faultPolicy, ?logger = logger, ?logLevel = logLevel)
+
     /// <summary>
     ///     Initialize a new local runtime instance with supplied worker count and return a handle.
     /// </summary>
     /// <param name="config">Azure runtime configuration.</param>
     /// <param name="workerCount">Number of local workers to spawn.</param>
     /// <param name="clientId">MBrace.Azure client instance identifier.</param>
+    /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     /// <param name="maxWorkItems">Maximum number of concurrent jobs per worker.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
-    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?clientId : string, ?maxWorkItems : int, ?logger : ISystemLogger, 
+    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?clientId : string, ?faultPolicy : FaultPolicy, ?maxWorkItems : int, ?logger : ISystemLogger, 
                                             ?logLevel : LogLevel, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?background : bool) : AzureCluster =
         let _ = AzureWorker.SpawnMultiple(workerCount, config, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?background = background,
                                                 ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
 
-        AzureCluster.Connect(config, ?clientId = clientId, ?logger = logger, ?logLevel = logLevel)
+        AzureCluster.Connect(config, ?clientId = clientId, ?faultPolicy = faultPolicy, ?logger = logger, ?logLevel = logLevel)
