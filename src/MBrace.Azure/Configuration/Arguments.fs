@@ -12,8 +12,8 @@ open MBrace.Runtime
 /// Argu configuration schema
 type private AzureArguments =
     // General-purpose arguments
-    | [<AltCommandLine("-m")>] Max_Work_Items of int
     | [<AltCommandLine("-w")>] Worker_Id of string
+    | [<AltCommandLine("-m")>] Max_Work_Items of int
     | Heartbeat_Interval of float
     | Heartbeat_Threshold of float
     | [<AltCommandLine("-L")>] Log_Level of int
@@ -44,7 +44,7 @@ with
     interface IArgParserTemplate with
         member arg.Usage =
             match arg with
-            | Log_Level _ -> "Log level for worker system logs. Defaults to Info."
+            | Log_Level _ -> "Log level for worker system logs. Critical = 1, Error = 2, Warning = 3, Info = 4, Debug = 5. Defaults to info."
             | Log_File _ -> "Specify a log file to write worker system logs."
             | Max_Work_Items _ -> "Specify maximum number of concurrent work items."
             | Heartbeat_Interval _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 1 second."

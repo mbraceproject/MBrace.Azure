@@ -1,9 +1,11 @@
 ﻿namespace MBrace.Azure.Service
 
 open System
+open System.Threading
 open System.Diagnostics
 
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Azure
 open MBrace.Azure.Runtime
 open MBrace.Azure.Runtime.Arguments
@@ -38,5 +40,4 @@ module StandaloneWorker =
 
         with e ->
             printfn "Unhandled exception : %O" e
-            let _ = System.Console.ReadKey()
-            1
+            Thread.Diverge()
