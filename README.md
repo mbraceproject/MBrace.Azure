@@ -19,6 +19,9 @@ You can also follow the official MBrace twitter account [@mbracethecloud](https:
 Development of MBrace.Azure requires Visual Studio 2015 and Azure SDK 2.7 installed on your computer.
 You can build the project either from Visual Studio or by running `build.cmd Build` if using cmd/powershell or `./build.sh Build` if using bash/sh.
 
+Before attempting to test MBrace.Azure on your machine, please make sure that your local time setting is correct.
+A significant time offset might create issues when attempting to deploy or communicate with an Azure cluster.
+
 ### Creating and Installing Azure Connection Strings
 
 In order to use MBrace.Azure or run any of its unit tests, you must have access to an Azure account.
