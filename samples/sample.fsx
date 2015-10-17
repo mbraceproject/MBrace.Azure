@@ -38,7 +38,7 @@ CloudFlow.OfHttpFileByLine "https://raw.githubusercontent.com/mbraceproject/MBra
 |> CloudFlow.collect (fun line -> line.Split(' '))
 |> CloudFlow.filter (fun w -> w.Length > 3)
 |> CloudFlow.countBy id
-|> CloudFlow.take 10
+|> CloudFlow.sortBy (fun (_,c) -> -c) 10
 |> CloudFlow.toArray
 |> cluster.Run
 
