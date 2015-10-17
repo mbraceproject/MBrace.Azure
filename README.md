@@ -68,5 +68,5 @@ This project is subject to the [Apache Licence, Version 2.0](LICENSE.md).
 
 ## Build Status
 
-Head (branch master), Build only
+Head (branch master), Build & Vagabond tests
   * Windows/.NET [![Build status](https://ci.appveyor.com/api/projects/status/f0nt1f1ih0cwsa0o/branch/master?svg=true)](https://ci.appveyor.com/project/nessos/mbrace-azure/branch/master)
