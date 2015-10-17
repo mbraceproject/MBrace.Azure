@@ -7,7 +7,8 @@ open MBrace.Azure.Runtime
 /// Azure Configuration Builder. Used to specify MBrace.Azure cluster storage configuration.
 [<AutoSerializable(true); Sealed; NoEquality; NoComparison>]
 type Configuration(storageConnectionString : string, serviceBusConnectionString : string) =
-
+    static let storageEnv = "AzureStorageConnectionString"
+    static let serviceBusEnv = "AzureServiceBusConnectionString"
     static let getEnv (envName:string) =
         let aux found target =
             if String.IsNullOrWhiteSpace found then Environment.GetEnvironmentVariable(envName, target)
@@ -143,24 +144,26 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     /// Gets or sets or the local environment Azure storage connection string
     static member EnvironmentStorageConnectionString
         with get () = 
-            match getEnv "AzureStorageConnectionString" with
+            match getEnv storageEnv with
             | null | "" -> invalidOp "unset Azure Storage connection string environment variable."
             | conn -> conn
 
         and set conn =
             let _ = AzureStorageAccount.Parse conn
-            Environment.SetEnvironmentVariable("AzureStorageConnectionString", conn, EnvironmentVariableTarget.User)
+            Environment.SetEnvironmentVariable(storageEnv, conn, EnvironmentVariableTarget.User)
+            Environment.SetEnvironmentVariable(storageEnv, conn, EnvironmentVariableTarget.Process)
 
     /// Gets or sets or the local environment Azure service bus connection string
     static member EnvironmentServiceBusConnectionString
         with get () = 
-            match getEnv "AzureServiceBusConnectionString" with
+            match getEnv serviceBusEnv with
             | null | "" -> invalidOp "unset Azure ServiceBus connection string environment variable."
             | conn -> conn
 
         and set conn =
             let _ = AzureServiceBusAccount.Parse conn
-            Environment.SetEnvironmentVariable("AzureServiceBusConnectionString", conn, EnvironmentVariableTarget.User)
+            Environment.SetEnvironmentVariable(serviceBusEnv, conn, EnvironmentVariableTarget.User)
+            Environment.SetEnvironmentVariable(serviceBusEnv, conn, EnvironmentVariableTarget.Process)
 
     /// Creates a configuration object by reading connection string information from the local environment variables.
     static member FromEnvironmentVariables() =
