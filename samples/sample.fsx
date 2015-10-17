@@ -37,6 +37,7 @@ open MBrace.Flow
 CloudFlow.OfHttpFileByLine "https://raw.githubusercontent.com/mbraceproject/MBrace.Azure/master/README.md"
 |> CloudFlow.collect (fun line -> line.Split(' '))
 |> CloudFlow.filter (fun w -> w.Length > 3)
+|> CloudFlow.map (fun w -> w.ToLower())
 |> CloudFlow.countBy id
 |> CloudFlow.sortBy (fun (_,c) -> -c) 10
 |> CloudFlow.toArray
