@@ -52,6 +52,15 @@ Tests found here are separated in 4 categories:
   3. `Standalone Cluster` run using local Azure worker processes and an Azure-hosted storage account.
   4. `Remote Cluster` run using Azure-hosted worker instances, which need to be initialized manually.
 
+## License
+
+This project is subject to the [Apache Licence, Version 2.0](LICENSE.md).
+
+## Maintainers
+
+  * [@eiriktsarpalis](https://twitter.com/eiriktsarpalis)
+  * [@krontogiannis](https://twitter.com/krontogiannis)
+
 ## Build Status
 
 Head (branch master), Build only
