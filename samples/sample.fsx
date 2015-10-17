@@ -9,7 +9,7 @@ open MBrace.Core
 open MBrace.Azure
 
 // gather connection string info from environment
-//Configuration.EnvironmentServiceBusConnectionString <- "save your storage connection string"
+//Configuration.EnvironmentStorageConnectionString <- "save your storage connection string"
 //Configuration.EnvironmentServiceBusConnectionString <- "save your service bus connection string"
 let config = Configuration.FromEnvironmentVariables()
 
