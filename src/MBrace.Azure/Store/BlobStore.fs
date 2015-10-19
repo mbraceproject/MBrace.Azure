@@ -366,18 +366,34 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 return raise <| new FileNotFoundException(path, e)
         }
 
-        member this.CopyOfStream(source: Stream, path: string) : Async<unit> = async {
+        member this.UploadFromStream(path: string, source: Stream) : Async<unit> = async {
             let path = normalizePath path
             let! blob = getBlobReference account path
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
             do! blob.UploadFromStreamAsync(source, null, options, OperationContext()).ContinueWith ignore
         }
         
-        member this.CopyToStream(path: string, target: Stream) : Async<unit> = async {
+        member this.DownloadToStream(path: string, target: Stream) : Async<unit> = async {
             try
                 let path = normalizePath path
                 let! blob = getBlobReference account path
                 do! blob.DownloadToStreamAsync(target).ContinueWith ignore
             with e when StoreException.NotFound e ->
                 return raise <| new FileNotFoundException(path, e)
+        }
+
+        member this.UploadFromLocalFile(source : string, target : string) : Async<unit> = async {
+            let target = normalizePath target
+            let! blob = getBlobReference account target
+            let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
+            do! blob.UploadFromFileAsync(source, FileMode.Open, null, options, OperationContext())
+        }
+
+        member this.DownloadToLocalFile(source : string, target : string) : Async<unit> = async {
+            let source = normalizePath source
+            let! blob = getBlobReference account source
+            let! exists = blob.ExistsAsync()
+            if not exists then raise <| new FileNotFoundException(source)
+            let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
+            do! blob.DownloadToFileAsync(target, FileMode.Create, null, options, OperationContext())
         }

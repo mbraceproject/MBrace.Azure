@@ -44,7 +44,7 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
         member x.IsMaterialized : bool = false
         member x.IsKnownSize: bool = false
         
-        member this.AddAsync(key: string, value : 'T): Async<unit> = async {
+        member this.ForceAddAsync(key: string, value : 'T): Async<unit> = async {
             let binary = ProcessConfiguration.BinarySerializer.Pickle value
             let e = new FatEntity(key, String.Empty, binary)
             do! Table.insert<FatEntity> account tableName e
@@ -119,7 +119,7 @@ type TableDictionary<'T> internal (tableName : string, account : AzureStorageAcc
         
         member this.TryAddAsync(key: string, value: 'T): Async<bool> = async {
             try
-                do! (this :> CloudDictionary<'T>).AddAsync(key, value) // this is wrong!
+                do! (this :> CloudDictionary<'T>).ForceAddAsync(key, value) // this is wrong!
                 return true
             with ex ->
                 if StoreException.Conflict ex then return false else return raise ex
