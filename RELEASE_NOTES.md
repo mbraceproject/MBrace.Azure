@@ -1,3 +1,6 @@
+### 0.14.1-beta
+* Update to support MBrace.Core 0.14.1
+
 ### 0.14.0-beta
 * Update to support MBrace.Core 0.14
 
