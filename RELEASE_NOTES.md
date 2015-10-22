@@ -1,3 +1,6 @@
+### 0.15.1-beta
+* Fix client performance issues.
+
 ### 0.15.0-beta
 * Update to support MBrace.Core 0.15
 
