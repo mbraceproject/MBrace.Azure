@@ -1,3 +1,6 @@
+### 0.15.2-beta
+* Fix CloudFlow performance issues.
+
 ### 0.15.1-beta
 * Fix client performance issues.
 
