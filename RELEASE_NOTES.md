@@ -1,3 +1,6 @@
+### 0.16.0-beta
+* Update to latest MBrace.Core
+
 ### 0.15.2-beta
 * Fix CloudFlow performance issues.
 
