@@ -125,7 +125,8 @@ with
         let atomProvider = TableAtomProvider.Create(clusterId.StorageAccount, defaultTable = clusterId.UserDataTable)
         let dictionaryProvider = TableDictionaryProvider.Create(clusterId.StorageAccount)
         let queueProvider = ServiceBusQueueProvider.Create(clusterId.ServiceBusAccount)
-        let serializer = VagabondFsPicklerBinarySerializer()
+        let serializer = FsPicklerBinarySerializer()
+        let jsonSerializer = FsPicklerJsonSerializer()
 
         let cloudValueProvider =
             let cloudValueStore = (fileStore :> ICloudFileStore).WithDefaultDirectory clusterId.CloudValueContainer
@@ -144,6 +145,7 @@ with
             yield dictionaryProvider :> ICloudDictionaryProvider
             yield queueProvider :> ICloudQueueProvider
             yield serializer :> ISerializer
+            yield jsonSerializer :> ITextSerializer
         }
 
         logger.LogInfo "Creating worker manager"

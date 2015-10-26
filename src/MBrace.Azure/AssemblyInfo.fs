@@ -6,7 +6,7 @@ open System.Reflection
 [<assembly: AssemblyCompanyAttribute("Nessos Information Technologies")>]
 [<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")>]
 [<assembly: AssemblyTrademarkAttribute("MBrace")>]
-[<assembly: AssemblyMetadataAttribute("Release Signature","Version 0.15.2, Git Hash 510589, Build Date 23102015 09:56 +03:00")>]
+[<assembly: AssemblyMetadataAttribute("Release Signature","Version 0.15.2, Git Hash f9e22a, Build Date 23102015 15:13 +03:00")>]
 [<assembly: AssemblyVersionAttribute("0.15.2")>]
 [<assembly: AssemblyFileVersionAttribute("0.15.2")>]
 do ()

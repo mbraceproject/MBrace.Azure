@@ -34,9 +34,13 @@ type CloudProcess = MBrace.Runtime.CloudProcess
 /// Represents a distributed computation that is being executed by an MBrace runtime
 type CloudProcess<'T> = MBrace.Runtime.CloudProcess<'T>
 /// FsPickler Binary Serializer implementation
-type BinarySerializer = MBrace.Runtime.VagabondFsPicklerBinarySerializer
+type FsPicklerBinarySerializer = MBrace.Runtime.FsPicklerBinarySerializer
+/// FsPickler Xml Serializer implementation
+type FsPicklerXmlSerializer = MBrace.Runtime.FsPicklerXmlSerializer
 /// FsPickler Json Serializer implementation
-type JsonSerializer = MBrace.Runtime.VagabondFsPicklerJsonSerializer
+type FsPicklerJsonSerializer = MBrace.Runtime.FsPicklerJsonSerializer
+/// Json.NET serializer implementation
+type JsonDotNetSerializer = MBrace.Runtime.JsonDotNetSerializer
 
 /// Local Azure Standalone worker management methods
 [<AutoSerializable(false); AbstractClass; Sealed>]

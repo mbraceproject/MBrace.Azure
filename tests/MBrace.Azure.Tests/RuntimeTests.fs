@@ -203,6 +203,27 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
             session.Chaos()
             t.Result |> shouldEqual 100)
 
+
+    [<Test>]
+    member __.``2. Fault Tolerance : faulted process status `` () =
+        repeat repeats (fun () ->
+            let runtime = session.Cluster
+            let f = runtime.Store.CloudAtom.Create(false)
+            let wf () = cloud {
+                let worker () = cloud {
+                    do! f.ForceAsync true 
+                    do! Cloud.Sleep 60000
+                }
+
+                return! Cloud.ParallelEverywhere(worker())
+            }
+
+            let t = runtime.CreateProcess (wf (), faultPolicy = FaultPolicy.NoRetry)
+            while not f.Value do Thread.Sleep 1000
+            session.Chaos()
+            Choice.protect(fun () -> t.Result) |> Choice.shouldFailwith<_, FaultException>
+            t.Status |> shouldEqual CloudProcessStatus.Faulted)
+
 [<Category("Storage Emulator")>]
 type ``Runtime Tests - Standalone Cluster - Storage Emulator`` () =
     inherit ``Azure Runtime Tests``(mkEmulatorConfig (), 4)

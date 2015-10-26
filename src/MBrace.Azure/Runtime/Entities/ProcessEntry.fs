@@ -101,6 +101,15 @@ type internal CloudProcessEntry (clusterId : ClusterId, processId : string, proc
                 do! Async.Sleep 200
                 return! tcs.AwaitResult()
         }
+
+        member this.WaitAsync(): Async<unit> = async {
+            let! record = CloudProcessRecord.GetProcessRecord(clusterId, taskId)
+            // result uri has been populated, hence computation has completed
+            if record.ResultUri <> null then return ()
+            else
+                do! Async.Sleep 200
+                return! (this :> ICloudProcessEntry).WaitAsync()
+        }
         
         member this.IncrementCompletedWorkItemCount(): Async<unit> = async { return () }
         member this.IncrementFaultedWorkItemCount(): Async<unit> = async { return () }
