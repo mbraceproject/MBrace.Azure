@@ -25,7 +25,7 @@ type internal WorkItemLeaseTokenInfo =
         TargetWorker : string option
         DequeueTime : DateTimeOffset
     }
-with
+
     override this.ToString() = sprintf "leaseinfo:%A" this.WorkItemId
 
     static member FromReceivedMessage(message : BrokeredMessage) =
@@ -125,7 +125,7 @@ type internal WorkItemLeaseToken =
         LeaseInfo       : WorkItemLeaseTokenInfo
         ProcessInfo     : CloudProcessInfo
     }
-with
+
     interface ICloudWorkItemLeaseToken with
         member this.DeclareCompleted() : Async<unit> = async {
             this.CompleteAction.Invoke Complete

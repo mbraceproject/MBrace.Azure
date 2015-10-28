@@ -40,7 +40,7 @@ type private AzureArguments =
     | Runtime_Table of string
     | Runtime_Logs_Table of string
     | User_Data_Table of string
-with
+
     interface IArgParserTemplate with
         member arg.Usage =
             match arg with
@@ -83,7 +83,7 @@ type ArgumentConfiguration =
         HeartbeatThreshold : TimeSpan option
         WorkingDirectory : string option
     }
-with
+
     /// Creates a configuration object using supplied parameters.
     static member Create(?config : Configuration, ?workingDirectory : string, ?maxWorkItems : int, ?workerId : string, ?logLevel : LogLevel, 
                             ?logfile : string, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =

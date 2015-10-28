@@ -54,7 +54,7 @@ type ClusterId =
         /// should be optimized using closure sifting.
         OptimizeClosureSerialization : bool
     }
-with
+
     member this.Id = sprintf "{Storage = \"%s\"; ServiceBus = \"%s\"}" this.StorageAccount.AccountName this.ServiceBusAccount.AccountName
     interface IRuntimeId with member this.Id = this.Id
 
