@@ -322,7 +322,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 let blobs = sub.ListBlobs(true)
                 do! blobs |> Seq.map (fun b -> async {
                         let p = b.Uri.Segments |> Array.last
-                        let! blob = getBlobReference account (Path.Combine(container.Name,p))
+                        let! blob = getBlobReference account (normalizePath <| Path.Combine(container.Name,p))
                         let! _ = blob.DeleteIfExistsAsync()
                         ()
                     })
