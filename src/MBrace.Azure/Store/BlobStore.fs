@@ -40,7 +40,7 @@ module private BlobUtils =
             Container : Container
             SubDirectory : string option
         }
-    with
+
         static member Parse(path : string) =
             let path = ensureRooted path    
             let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
@@ -62,7 +62,7 @@ module private BlobUtils =
             Container : Container
             BlobName : string 
         }
-    with
+
         static member Validate(path : string) =
             ignore <| StorePath.Parse path
 

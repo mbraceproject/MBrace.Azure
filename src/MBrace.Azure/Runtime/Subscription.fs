@@ -21,7 +21,7 @@ module WorkerSubscription =
             StoreLoggerSubscription : IDisposable
             TopicMonitor : IDisposable
         }
-    with
+
         member s.Dispose() =
             Disposable.dispose s.Agent
             Disposable.dispose s.WorkItemEvaluator

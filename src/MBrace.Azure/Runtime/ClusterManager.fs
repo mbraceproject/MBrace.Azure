@@ -32,7 +32,7 @@ type ClusterManager =
         CounterFactory          : TableCounterFactory
         ResultAggregatorFactory : TableResultAggregatorFactory
     }
-with
+
     interface IRuntimeManager with
         member r.Id                       = r.ClusterId :> _
         member r.Serializer               = r.Serializer
