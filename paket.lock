@@ -59,7 +59,7 @@ NUGET
       System.Spatial (5.6.4)
     Microsoft.Data.Services.Client (5.6.4) - framework: >= net40
       Microsoft.Data.OData (5.6.4)
-    Microsoft.Net.Http (2.2.29) - framework: portable-net45+wp80+wpa81+win, >= net40
+    Microsoft.Net.Http (2.2.29)
       Microsoft.Bcl (>= 1.1.10)
       Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.WindowsAzure.Common (1.4.1)
@@ -70,7 +70,7 @@ NUGET
       Microsoft.Bcl.Build (>= 1.0.14) - framework: portable-net45+wp80+wpa81+win, >= net40
       Microsoft.Net.Http (>= 2.2.22) - framework: portable-net45+wp80+wpa81+win, >= net40
       Newtonsoft.Json (>= 6.0.4) - framework: portable-net45+wp80+wpa81+win, >= net40
-    Microsoft.WindowsAzure.ConfigurationManager (3.1.0)
+    Microsoft.WindowsAzure.ConfigurationManager (3.1.0) - framework: >= net40
     Microsoft.WindowsAzure.Management (4.1.1)
       Microsoft.Azure.Common (>= 2.0.4 < 3.0)
     Microsoft.WindowsAzure.Management.Compute (12.3.1)
@@ -103,10 +103,12 @@ NUGET
     Microsoft.WindowsAzure.Management.WebSites (4.0.0)
       Microsoft.WindowsAzure.Common (>= 1.3.0 < 2.0)
     Mono.Cecil (0.9.6.1)
-    Newtonsoft.Json (7.0.1)
+    Newtonsoft.Json (7.0.1) - framework: wpv8.0, >= net40
     NuGet.CommandLine (2.8.6)
     NUnit (2.6.4)
     NUnit.Runners (2.6.4)
+    Octokit (0.16.0)
+      Microsoft.Net.Http
     Streams (0.4.1)
     System.Spatial (5.6.4) - framework: winv4.5, wpv8.1, wpv8.0, >= net40
     TaskParallelLibrary (1.0.2856) - framework: net35
@@ -120,3 +122,8 @@ NUGET
       Microsoft.Data.Services.Client (>= 5.6.2) - framework: >= net40
       Microsoft.WindowsAzure.ConfigurationManager (>= 1.8.0.0) - framework: >= net40
       Newtonsoft.Json (>= 5.0.8) - framework: wpv8.0, >= net40
+GITHUB
+  remote: fsharp/FAKE
+  specs:
+    modules/Octokit/Octokit.fsx (494c549c61dc15ab798b7b92cb4ac6e981267f49)
+      Octokit

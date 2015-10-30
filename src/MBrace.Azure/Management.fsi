@@ -67,7 +67,7 @@ type Management =
     /// <param name="StorageAccount">The name of the storage ccount to use. Defaults to reusing a suitable existing account if available, otherwise creates a new one.</param>
     /// <param name="CloudServicePackage">An explicit cloud service package to use.</param>
     /// <param name="ClusterLabel">The label to give the deployment of the cloud service.</param>
-    static member CreateCluster : pubSettingsFile : string * region : string * ?ClusterName : string *  ?Subscription : string *  ?MBraceVersion : string * ?VMCount: int * ?StorageAccount: string * ?VMSize: string * ?CloudServicePackage : string * ?ClusterLabel : string -> string
+    static member CreateCluster : pubSettingsFile : string * region : string * ?ClusterName : string *  ?Subscription : string *  ?MBraceVersion : string * ?VMCount: int * ?StorageAccount: string * ?VMSize: string * ?CloudServicePackage : string * ?ClusterLabel : string -> Configuration
 
     /// <summary>Delete the given cluster from the subscription from the pubsettings file</summary>
     /// <param name="pubSettingsFile">The path to the pubsettings file. Download from https://manage.windowsazure.com/publishsettings</param>

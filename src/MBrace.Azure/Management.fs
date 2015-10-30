@@ -14,87 +14,60 @@ open System.IO
 open System.Xml.Linq
 open System.Collections.Generic
 
-/// Represents the result of a computation.
-type private Result<'TSuccess, 'TMessage> = 
-    /// Represents the result of a successful computation.
-    | Ok of 'TSuccess * 'TMessage list
-    /// Represents the result of a failed computation.
-    | Bad of 'TMessage list
-
-    /// Converts the result into a string.
-    override this.ToString() =
-        match this with
-        | Ok(v,msgs) -> sprintf "OK: %A - %s" v (String.Join(Environment.NewLine, msgs |> Seq.map (fun x -> x.ToString())))
-        | Bad(msgs) -> sprintf "Error: %s" (String.Join(Environment.NewLine, msgs |> Seq.map (fun x -> x.ToString())))    
-
-/// Basic combinators and operators for error handling.
-[<AutoOpen>]
-module private Trial =  
-    let ok x = Ok(x, [])
-    let pass x = Ok(x, [])
-    let info msg = printfn "%s" msg; Ok((),[msg])
-    let fail msg = printfn "Error: %s" msg; Bad([ msg ])
-    let protect f = (fun x -> try f x with e -> fail e.Message)
-    let either fSuccess fFailure trialResult = 
-        match trialResult with
-        | Ok(x, msgs) -> fSuccess (x, msgs)
-        | Bad(msgs) -> fFailure (msgs)
-
-    let returnOrFail result = 
-        let raiseExn msgs = 
-            msgs
-            |> Seq.map (sprintf "%O")
-            |> String.concat (Environment.NewLine + "   ")
-            |> failwith
-        either fst raiseExn result
-
-    let mergeMessages msgs result = 
-        let fSuccess (x, msgs2) = Ok(x, msgs @ msgs2)
-        let fFailure errs = Bad(errs @ msgs)
-        either fSuccess fFailure result
-
-    let bind f result = 
-        let fSuccess (x, msgs) = f x |> mergeMessages msgs
-        let fFailure (msgs) = Bad msgs
-        either fSuccess fFailure result
-
-    let apply wrappedFunction result = 
-        match wrappedFunction, result with
-        | Ok(f, msgs1), Ok(x, msgs2) -> Ok(f x, msgs1 @ msgs2)
-        | Bad errs, Ok _ -> Bad(errs)
-        | Ok _, Bad errs -> Bad(errs)
-        | Bad errs1, Bad errs2 -> Bad(errs1 @ errs2)
-
-    let lift f result = apply (ok f) result
-
-    /// Converts an option into a Result.
-    let failIfNone message result = 
-        match result with
-        | Some x -> ok x
-        | None -> fail message
-
-    /// Builder type for error handling computation expressions.
-    type TrialBuilder() = 
-        member __.Zero() = ok()
-        member __.Bind(m, f) = bind f m
-        member __.Return(x) = ok x
-        member __.ReturnFrom(x) = x
-        member __.Combine (a, b) = bind (protect b) a
-        member __.Delay f = protect f
-        member __.Run f = protect f ()
-        member __.TryWith (body, handler) = try body() with e -> handler e
-        member __.TryFinally (body, compensation) = try body() finally compensation()
-        member x.Using(d:#IDisposable, body) =
-            x.TryFinally ((fun () -> body d), fun () -> match d with null -> () | d -> d.Dispose())
-        member x.While (guard, body) =
-            if not (guard ()) then x.Zero()
-            else bind (fun () -> x.While(guard, body)) (body())
-
-    let trial = TrialBuilder()
-
-
 [<AutoOpen>]
 module private Details = 
+
+    let urlForPackage mbraceNugetVersionTag vmSize = 
+        sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceNugetVersionTag vmSize
+        //sprintf "https://github.com/mbraceproject/bits/raw/master/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize
+
+    type Result<'TSuccess, 'TMessage> = 
+        | Ok of 'TSuccess * 'TMessage list
+        | Bad of 'TMessage list
+
+    /// Basic combinators and operators for error handling.
+    [<AutoOpen>]
+    module Trial =  
+        let ok x = Ok(x, [])
+        let info msg = printfn "%s" msg; Ok((),[msg])
+        let fail msg = printfn "Error: %s" msg; Bad([ msg ])
+        let protect f = (fun x -> try f x with e -> fail e.Message)
+
+        let returnOrFail result = 
+            match result with
+            | Ok(x, _msgs) -> x
+            | Bad(msgs) -> 
+                let msg = msgs |> Seq.map (sprintf "%O") |> String.concat (Environment.NewLine + "   ")
+                failwith msg
+
+        let mergeMessages msgs result = 
+            match result with
+            | Ok(x, msgs2) -> Ok(x, msgs @ msgs2)
+            | Bad(msgs2) ->  Bad(msgs @ msgs2)
+
+        let bind f result = 
+            match result with
+            | Ok(x, msgs2) -> f x |> mergeMessages msgs2
+            | Bad(errs) ->  Bad errs
+
+        /// Builder type for error handling computation expressions.
+        type TrialBuilder() = 
+            member __.Zero() = ok()
+            member __.Bind(m, f) = bind f m
+            member __.Return(x) = ok x
+            member __.ReturnFrom(x) = x
+            member __.Combine (a, b) = bind (protect b) a
+            member __.Delay f = protect f
+            member __.Run f = protect f ()
+            member __.TryWith (body, handler) = try body() with e -> handler e
+            member __.TryFinally (body, compensation) = try body() finally compensation()
+            member x.Using(d:#IDisposable, body) =
+                x.TryFinally ((fun () -> body d), fun () -> match d with null -> () | d -> d.Dispose())
+            member x.While (guard, body) =
+                if not (guard ()) then x.Zero()
+                else bind (fun () -> x.While(guard, body)) (body())
+
+        let trial = TrialBuilder()
 
     let resourcePrefix = "mbrace"
     let generateResourceName() = resourcePrefix + (Guid.NewGuid().ToString() |> Seq.take 8 |> Seq.toArray |> (fun c -> String(c)))
@@ -320,11 +293,12 @@ module private Details =
             Nodes : Node list }
 
         let validateClusterName (client:AzureClient) clusterName =
-            let result = client.Compute.HostedServices.CheckNameAvailability clusterName
-            if result.IsAvailable then ok clusterName
-            else fail result.Reason
+            trial { 
+                let result = client.Compute.HostedServices.CheckNameAvailability clusterName
+                if not result.IsAvailable then return! fail result.Reason
+            }
 
-        let getClusterDetails clusterName (client:AzureClient) =
+        let getConnectionStrings clusterName (client:AzureClient) =
             let service = client.Compute.HostedServices.GetDetailed clusterName
             let storageConnectionString = service.Properties.ExtendedProperties.["StorageAccountConnectionString"]
             let serviceBusConnectionString = service.Properties.ExtendedProperties.["ServiceBusConnectionString"]
@@ -366,6 +340,8 @@ module private Details =
 
         let createMBraceCluster(clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) (client:AzureClient) =
           trial {
+            do! validateClusterName client clusterName 
+
             let extendedProperties =
                 [ "StorageAccountName", storageAccountName
                   "StorageAccountConnectionString", storageConnectionString
@@ -484,8 +460,7 @@ type Management() =
                | _ -> 
                    let mbraceVersion = defaultArg MBraceVersion mbracePackageVersion
                    do! info (sprintf "using MBrace version %s" mbraceVersion)
-                   //let uri = defaultArg CloudServicePackage (sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize)
-                   let uri = defaultArg CloudServicePackage (sprintf "https://github.com/mbraceproject/bits/raw/master/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize)
+                   let uri = defaultArg CloudServicePackage (urlForPackage mbraceVersion vmSize)
                    use wc = new System.Net.WebClient() 
                    let tmp = System.IO.Path.GetTempFileName() 
                    do! info (sprintf "downloading cloud service package from %s" uri)
@@ -513,8 +488,10 @@ type Management() =
     
            let clusterLabel = defaultArg ClusterLabel (sprintf "MBrace cluster %s, MBrace.Azure version %s"  clusterName mbracePackageVersion)
            do! Clusters.createMBraceCluster(clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) client
-           return clusterName
 
+           let config = Configuration(storageConnectionString, serviceBusConnectionString)
+
+           return config
         }  |> Trial.returnOrFail
 
     static member DeleteCluster(pubSettingsFile, clusterName, ?Subscription) =
