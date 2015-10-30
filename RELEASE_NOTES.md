@@ -1,4 +1,4 @@
-### 0.17.0-beta
+### 0.16.1-beta
 * Add provisioning API
 
 ### 0.16.0-beta
