@@ -1,3 +1,6 @@
+### 0.17.0-beta
+* Add provisioning API
+
 ### 0.16.0-beta
 * Update to latest MBrace.Core
 

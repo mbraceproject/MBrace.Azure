@@ -222,8 +222,8 @@ Target "Help" (fun _ -> PrintTargets() )
 "Build"
   ==> "BuildPackages"
   ==> "PrepareRelease"
-//  ==> "NuGet"
-//  ==> "ReleaseNuGet"
+  ==> "NuGet"
+  ==> "ReleaseNuGet"
   ==> "ReleaseGitHub"
   ==> "Release"
 
