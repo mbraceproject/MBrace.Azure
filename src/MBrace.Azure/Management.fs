@@ -379,6 +379,7 @@ module private Details =
             if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
                 return! fail "error: HTTP request for creation operation was not accepted"
           }
+
         let deleteMBraceCluster clusterName (client:AzureClient) =
             trial {
                 let service = client.Compute.HostedServices.GetDetailed clusterName
@@ -444,28 +445,34 @@ type VMSizes() =
      static member Standard_D5_v2 = "Standard_D5_v2"
 
 type Management() = 
-    static let mbracePackageVersion = System.AssemblyVersionInformation.Version
+    static let defaultMBraceVersion = 
+        try 
+            let attr = System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttributes(typeof<System.Reflection.AssemblyInformationalVersionAttribute>,false)
+            match attr  with
+            | [| :? System.Reflection.AssemblyInformationalVersionAttribute as a |] -> a.InformationalVersion
+            | _ -> System.AssemblyVersionInformation.Version
+        with _ -> System.AssemblyVersionInformation.Version
 
     static member CreateCluster(pubSettingsFile, region, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize, ?CloudServicePackage, ?ClusterLabel) =
        trial { 
            let vmSize = defaultArg VMSize VMSizes.Large
            do! info (sprintf "using vm size %s" vmSize)
-           let! packagePath = 
+           let! packagePath, infoString = 
              trial { 
                match CloudServicePackage with 
                | Some uriOrPath when System.Uri(uriOrPath).IsFile ->  
                    let path = System.Uri(uriOrPath).LocalPath
                    do! info (sprintf "using cloud service package from %s" path)
-                   return path
+                   return path, "custom"
                | _ -> 
-                   let mbraceVersion = defaultArg MBraceVersion mbracePackageVersion
-                   do! info (sprintf "using MBrace version %s" mbraceVersion)
+                   let mbraceVersion = defaultArg MBraceVersion defaultMBraceVersion
+                   do! info (sprintf "using MBrace version tag %s" mbraceVersion)
                    let uri = defaultArg CloudServicePackage (urlForPackage mbraceVersion vmSize)
                    use wc = new System.Net.WebClient() 
                    let tmp = System.IO.Path.GetTempFileName() 
                    do! info (sprintf "downloading cloud service package from %s" uri)
                    wc.DownloadFile(uri, tmp)
-                   return tmp
+                   return tmp, mbraceVersion
             }
            let! client = Credentials.connectToAzure Subscription pubSettingsFile 
            let clusterName = defaultArg ClusterName (generateResourceName())
@@ -486,7 +493,8 @@ type Management() =
            let numInstances = defaultArg VMCount 2
            let config = Clusters.buildMBraceConfig clusterName numInstances storageConnectionString serviceBusConnectionString
     
-           let clusterLabel = defaultArg ClusterLabel (sprintf "MBrace cluster %s, MBrace.Azure version %s"  clusterName mbracePackageVersion)
+
+           let clusterLabel = defaultArg ClusterLabel (sprintf "MBrace cluster %s, package %s"  clusterName infoString)
            do! Clusters.createMBraceCluster(clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) client
 
            let config = Configuration(storageConnectionString, serviceBusConnectionString)
