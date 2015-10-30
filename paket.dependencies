@@ -16,3 +16,6 @@ nuget MathNet.Numerics ~> 3.7.0
 nuget MathNet.Numerics.FSharp
 nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
 nuget Argu ~> 1.0
+nuget Microsoft.WindowsAzure.Management.Libraries
+nuget Microsoft.WindowsAzure.Management.ServiceBus
+nuget Microsoft.Bcl.Async
