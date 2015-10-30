@@ -484,7 +484,8 @@ type Management() =
                | _ -> 
                    let mbraceVersion = defaultArg MBraceVersion mbracePackageVersion
                    do! info (sprintf "using MBrace version %s" mbraceVersion)
-                   let uri = defaultArg CloudServicePackage (sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize)
+                   //let uri = defaultArg CloudServicePackage (sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize)
+                   let uri = defaultArg CloudServicePackage (sprintf "https://github.com/mbraceproject/bits/raw/master/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize)
                    use wc = new System.Net.WebClient() 
                    let tmp = System.IO.Path.GetTempFileName() 
                    do! info (sprintf "downloading cloud service package from %s" uri)
