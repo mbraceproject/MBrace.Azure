@@ -1,7 +1,6 @@
 ﻿
 namespace MBrace.Azure
 
-open FSharp.Data
 open Microsoft.Azure
 open Microsoft.WindowsAzure.Management
 open Microsoft.WindowsAzure.Management.Compute
@@ -98,7 +97,7 @@ module private Trial =
 module private Details = 
 
     let resourcePrefix = "mbrace"
-    let generateResourceName() = resourcePrefix + (Guid.NewGuid().ToString() |> Seq.take 8 |> Seq.toArray |> String)
+    let generateResourceName() = resourcePrefix + (Guid.NewGuid().ToString() |> Seq.take 8 |> Seq.toArray |> (fun c -> String(c)))
     let defaultExtendedProperties = dict [ "IsMBraceAsset", "true"]
     let isMBraceAsset (extendedProperties:IDictionary<string, string>) = extendedProperties.ContainsKey "IsMBraceAsset"
 
