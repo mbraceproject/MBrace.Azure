@@ -75,14 +75,17 @@ let csdefForSize size = "samples" @@ "MBrace.Azure.CloudService" @@ "ServiceDefi
 let cspkgAfterBuild configuration = ("samples" @@ "MBrace.Azure.CloudService" @@ "bin" @@ configuration + "_AzureSDK" @@ "app.publish" @@ "MBrace.Azure.CloudService.cspkg")
 let cspkgAfterCopy size = ("bin" @@ "MBrace.Azure.CloudService-" + size + ".cspkg")
 
+// See https://azure.microsoft.com/en-gb/documentation/articles/cloud-services-sizes-specs/
 let vmSizes = 
     [ yield "ExtraSmall"; 
       yield "Small"; 
       yield "Medium"; 
       yield "Large"; 
       for i in 5 .. 11 -> "A" + string i; 
-      for i in 1 .. 14 -> "Standard_D" + string i 
-      for i in 1 .. 14 -> "Standard_D" + string i + "_v2" 
+      for i in 1 .. 4 -> "Standard_D" + string i 
+      for i in 11 .. 14 -> "Standard_D" + string i 
+      for i in 1 .. 5 -> "Standard_D" + string i + "_v2" 
+      for i in 11 .. 14 -> "Standard_D" + string i + "_v2" 
     ]
 
 Target "Build" (fun _ ->
@@ -213,18 +216,18 @@ Target "Release" DoNothing
 Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
-"Clean"
-  ==> "AssemblyInfo"
-  ==> "Build"
-  ==> "RunTests"
-  ==> "Default"
+//"Clean"
+//  ==> "AssemblyInfo"
+//  ==> "Build"
+//  ==> "RunTests"
+//  ==> "Default"
 
-"Build"
-  ==> "BuildPackages"
-  ==> "PrepareRelease"
-  ==> "NuGet"
-  ==> "ReleaseNuGet"
-  ==> "ReleaseGitHub"
+//"Build"
+//  ==> "BuildPackages"
+//  ==> "PrepareRelease"
+//  ==> "NuGet"
+//"ReleaseNuGet"
+"ReleaseGitHub"
   ==> "Release"
 
 //// start build
