@@ -10,8 +10,9 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MBrace.Azure.CloudService</RootNamespace>
     <AssemblyName>MBrace.Azure.CloudService</AssemblyName>
-    <StartDevelopmentStorage>True</StartDevelopmentStorage>
     <Name>MBrace.Azure.CloudService</Name>
+    <ServiceVMSize Condition=" '$(ServiceVMSize)' == '' ">Large</ServiceVMSize>
+    <PackageEnableRemoteDebugger>False</PackageEnableRemoteDebugger>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -32,7 +33,7 @@
   </PropertyGroup>
   <!-- Items for the project -->
   <ItemGroup>
-    <ServiceDefinition Include="ServiceDefinition.csdef" />
+    <ServiceDefinition Include="ServiceDefinition$(ServiceVMSize).csdef" />
     <ServiceConfiguration Include="ServiceConfiguration.Local.cscfg" />
     <ServiceConfiguration Include="ServiceConfiguration.Cloud.cscfg" />
   </ItemGroup>

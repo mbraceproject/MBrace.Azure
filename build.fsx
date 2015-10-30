@@ -23,7 +23,8 @@ let buildDate = DateTime.UtcNow
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
 let nugetVersion = release.NugetVersion
 
-let gitHome = "https://github.com/mbraceproject"
+let gitOwner = "mbraceproject"
+let gitHome = "https://github.com/" + gitOwner
 let gitName = "MBrace.Azure"
 
 // Generate assembly info files with the right version & up-to-date information
@@ -40,6 +41,7 @@ Target "AssemblyInfo" (fun _ ->
                     release.AssemblyVersion
                     gitHash 
                     (buildDate.ToString "ddMMyyyy HH:mm zzz"))
+            Attribute.InformationalVersion release.NugetVersion
             Attribute.Version release.AssemblyVersion
             Attribute.FileVersion release.AssemblyVersion
         |]
@@ -68,6 +70,21 @@ Target "Clean" (fun _ ->
 
 let configuration = environVarOrDefault "Configuration" "Release"
 
+let csdefTemplate = "samples" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition.csdef"
+let csdefForSize size = "samples" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition" + size + ".csdef"
+let cspkgAfterBuild configuration = ("samples" @@ "MBrace.Azure.CloudService" @@ "bin" @@ configuration + "_AzureSDK" @@ "app.publish" @@ "MBrace.Azure.CloudService.cspkg")
+let cspkgAfterCopy size = ("bin" @@ "MBrace.Azure.CloudService-" + size + ".cspkg")
+
+let vmSizes = 
+    [ yield "ExtraSmall"; 
+      yield "Small"; 
+      yield "Medium"; 
+      yield "Large"; 
+      for i in 5 .. 11 -> "A" + string i; 
+      for i in 1 .. 14 -> "Standard_D" + string i 
+      for i in 1 .. 14 -> "Standard_D" + string i + "_v2" 
+    ]
+
 Target "Build" (fun _ ->
     // Build the rest of the project
     { BaseDirectory = __SOURCE_DIRECTORY__
@@ -75,6 +92,20 @@ Target "Build" (fun _ ->
       Excludes = [] } 
     |> MSBuild "" "Build" ["Configuration", configuration]
     |> Log "AppBuild-Output: "
+)
+
+// Build lots of packages for differet VM sizes
+Target "BuildPackages" (fun _ ->
+    for size in vmSizes do
+        csdefTemplate |> CopyFile (csdefForSize size)
+        (csdefForSize size) |> ReplaceInFile (fun s -> s.Replace("vmsize=\"Large\"", "vmsize=\"" + size + "\"" ))
+        { BaseDirectory = __SOURCE_DIRECTORY__
+          Includes = [ "samples" @@ "MBrace.Azure.CloudService" @@ "MBrace.Azure.CloudService.ccproj" ]
+          Excludes = [] } 
+        |> MSBuild "" "Publish" ["Configuration", configuration + "_AzureSDK"; "ServiceVMSize", size]
+        |> Log "AppPackage-Output: "
+        (cspkgAfterBuild configuration) |> CopyFile (cspkgAfterCopy size)
+
 )
 
 // --------------------------------------------------------------------------------------
@@ -118,7 +149,7 @@ Target "NuGet" (fun _ ->
             ReleaseNotes = toLines release.Notes })
 )
 
-Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" }))
+Target "ReleaseNuGet" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" }))
 
 // --------------------------------------------------------------------------------------
 // documentation
@@ -139,6 +170,41 @@ Target "ReleaseDocs" (fun _ ->
     Branches.push tempDocsDir
 )
 
+
+#load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
+open Octokit
+
+Target "ReleaseGitHub" (fun _ ->
+    let user =
+        match getBuildParam "github-user" with
+        | s when not (String.IsNullOrWhiteSpace s) -> s
+        | _ -> getUserInput "Username: "
+    let pw =
+        match getBuildParam "github-pw" with
+        | s when not (String.IsNullOrWhiteSpace s) -> s
+        | _ -> getUserPassword "Password: "
+    let remote =
+        Git.CommandHelper.getGitResult "" "remote -v"
+        |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
+        |> Seq.tryFind (fun (s: string) -> s.Contains(gitOwner + "/" + gitName))
+        |> function None -> gitHome + "/" + gitName | Some (s: string) -> s.Split().[0]
+
+    //StageAll ""
+    Git.Commit.Commit "" (sprintf "Bump version to %s" release.NugetVersion)
+    Branches.pushBranch "" remote (Information.getBranchName "")
+
+    Branches.tag "" release.NugetVersion
+    Branches.pushTag "" remote release.NugetVersion
+    
+    // release on github
+    createClient user pw
+    |> createDraft gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes 
+    |> List.foldBack (cspkgAfterCopy >> uploadFile) vmSizes
+    |> releaseDraft
+    |> Async.RunSynchronously
+)
+
+
 // --------------------------------------------------------------------------------------
 // Run all targets by default. Invoke 'build <Target>' to override
 
@@ -154,9 +220,11 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "Default"
 
 "Build"
+  ==> "BuildPackages"
   ==> "PrepareRelease"
-  ==> "NuGet"
-  ==> "NuGetPush"
+//  ==> "NuGet"
+//  ==> "ReleaseNuGet"
+  ==> "ReleaseGitHub"
   ==> "Release"
 
 //// start build
