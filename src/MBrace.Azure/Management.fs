@@ -27,7 +27,7 @@ module private Details =
 
     /// Basic combinators and operators for error handling.
     [<AutoOpen>]
-    module Trial =  
+    module Trial =
         let ok x = Ok(x, [])
         let info msg = printfn "%s" msg; Ok((),[msg])
         let fail msg = printfn "Error: %s" msg; Bad([ msg ])
@@ -396,53 +396,53 @@ module private Details =
 
 
 type Regions() = 
-    static member South_Central_US = "South Central US"
-    static member West_US = "West US"
-    static member Central_US = "Central US"
-    static member East_US = "East US"
-    static member East_US_2 = "East US 2"
-    static member North_Europe = "North Europe"
-    static member West_Europe = "West Europe"
-    static member Southeast_Asia = "Southeast Asia"
-    static member East_Asia = "East Asia"
+    static member ``South Central US`` = "South Central US"
+    static member ``West US`` = "West US"
+    static member ``Central US`` = "Central US"
+    static member ``East US`` = "East US"
+    static member ``East US 2`` = "East US 2"
+    static member ``North Europe`` = "North Europe"
+    static member ``West Europe`` = "West Europe"
+    static member ``Southeast Asia`` = "Southeast Asia"
+    static member ``East Asia`` = "East Asia"
 
 
 
 type VMSizes() = 
-     static member A10 = "A10"
-     static member A11 = "A11"
-     static member A5 = "A5"
-     static member A6 = "A6"
-     static member A7 = "A7"
-     static member A8 = "A8"
-     static member A9 = "A9"
-     static member A4 = "ExtraLarge" // A4
-     static member A0 = "ExtraSmall" // A0
-     static member A3 = "Large" // A3
-     static member A2 = "Medium" // A2
-     static member A1 = "Small" // A1
-     static member ExtraLarge = "ExtraLarge" // A4
-     static member Large = "Large" // A3
-     static member Medium = "Medium" // A2
-     static member Small = "Small" // A1
-     static member ExtraSmall = "ExtraSmall" // A0
-     static member Standard_D1 = "Standard_D1"
-     static member Standard_D11 = "Standard_D11"
-     static member Standard_D11_v2 = "Standard_D11_v2"
-     static member Standard_D12 = "Standard_D12"
-     static member Standard_D12_v2 = "Standard_D12_v2"
-     static member Standard_D13 = "Standard_D13"
-     static member Standard_D13_v2 = "Standard_D13_v2"
-     static member Standard_D14 = "Standard_D14"
-     static member Standard_D14_v2 = "Standard_D14_v2"
-     static member Standard_D1_v2 = "Standard_D1_v2"
-     static member Standard_D2 = "Standard_D2"
-     static member Standard_D2_v2 = "Standard_D2_v2"
-     static member Standard_D3 = "Standard_D3"
-     static member Standard_D3_v2 = "Standard_D3_v2";
-     static member Standard_D4 = "Standard_D4"
-     static member Standard_D4_v2 = "Standard_D4_v2"
-     static member Standard_D5_v2 = "Standard_D5_v2"
+    static member A10 = "A10"
+    static member A11 = "A11"
+    static member A5 = "A5"
+    static member A6 = "A6"
+    static member A7 = "A7"
+    static member A8 = "A8"
+    static member A9 = "A9"
+    static member A4 = "ExtraLarge" // A4
+    static member A0 = "ExtraSmall" // A0
+    static member A3 = "Large" // A3
+    static member A2 = "Medium" // A2
+    static member A1 = "Small" // A1
+    static member ``Extra Large`` = "ExtraLarge" // A4
+    static member Large = "Large" // A3
+    static member Medium = "Medium" // A2
+    static member Small = "Small" // A1
+    static member ``ExtraSmall`` = "ExtraSmall" // A0
+    static member ``Standard D1`` = "Standard_D1"
+    static member ``Standard D11`` = "Standard_D11"
+    static member ``Standard D11 v2`` = "Standard_D11_v2"
+    static member ``Standard D12`` = "Standard_D12"
+    static member ``Standard D12 v2`` = "Standard_D12_v2"
+    static member ``Standard D13`` = "Standard_D13"
+    static member ``Standard D13 v2`` = "Standard_D13_v2"
+    static member ``Standard D14`` = "Standard_D14"
+    static member ``Standard D14 v2`` = "Standard_D14_v2"
+    static member ``Standard D1 v2`` = "Standard_D1_v2"
+    static member ``Standard D2`` = "Standard_D2"
+    static member ``Standard D2 v2`` = "Standard_D2_v2"
+    static member ``Standard D3`` = "Standard_D3"
+    static member ``Standard D3 v2`` = "Standard_D3_v2";
+    static member ``Standard D4`` = "Standard_D4"
+    static member ``Standard D4 v2`` = "Standard_D4_v2"
+    static member ``Standard D5 v2`` = "Standard_D5_v2"
 
 type Management() = 
     static let defaultMBraceVersion = 
@@ -460,7 +460,7 @@ type Management() =
            let! packagePath, infoString = 
              trial { 
                match CloudServicePackage with 
-               | Some uriOrPath when System.Uri(uriOrPath).IsFile ->  
+               | Some uriOrPath when System.Uri(uriOrPath).IsFile ->
                    let path = System.Uri(uriOrPath).LocalPath
                    do! info (sprintf "using cloud service package from %s" path)
                    return path, "custom"
