@@ -11,7 +11,6 @@
     <RootNamespace>MBrace.Azure.CloudService</RootNamespace>
     <AssemblyName>MBrace.Azure.CloudService</AssemblyName>
     <Name>MBrace.Azure.CloudService</Name>
-    <ServiceVMSize Condition=" '$(ServiceVMSize)' == '' ">Large</ServiceVMSize>
     <PackageEnableRemoteDebugger>False</PackageEnableRemoteDebugger>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
