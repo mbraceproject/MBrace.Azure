@@ -6,8 +6,7 @@ using System.Reflection;
 [assembly: AssemblyCompanyAttribute("Nessos Information Technologies")]
 [assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")]
 [assembly: AssemblyTrademarkAttribute("MBrace")]
-[assembly: AssemblyMetadataAttribute("Release Signature","Version 0.16.1, Git Hash 9ba999, Build Date 30102015 16:13 +00:00")]
-[assembly: AssemblyInformationalVersionAttribute("0.16.1-beta")]
+[assembly: AssemblyMetadataAttribute("Release Signature","Version 0.16.1, Git Hash 0d2d9b, Build Date 02112015 14:16 +00:00")]
 [assembly: AssemblyVersionAttribute("0.16.1")]
 [assembly: AssemblyFileVersionAttribute("0.16.1")]
 namespace System {
