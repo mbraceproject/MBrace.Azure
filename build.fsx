@@ -48,7 +48,7 @@ Target "AssemblyInfo" (fun _ ->
     !! "./src/**/AssemblyInfo.fs" |> Seq.iter (fun infoFile -> 
         CreateFSharpAssemblyInfo infoFile attributes
         let infoFileText = File.ReadAllText infoFile
-        let infoFileText = infoFileText + "\n    let [<Literal>] ReleaseTag = \"" + release.NugetVersion + "\"" 
+        let infoFileText = infoFileText + "\r\n    let [<Literal>] ReleaseTag = \"" + release.NugetVersion + "\"\r\n" 
         File.WriteAllText(infoFile,infoFileText))
     !! "./samples/**/AssemblyInfo.fs" |> Seq.iter (fun info -> 
         CreateFSharpAssemblyInfo info attributes)

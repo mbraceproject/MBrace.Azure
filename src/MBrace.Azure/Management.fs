@@ -445,7 +445,7 @@ type VMSizes() =
      static member Standard_D5_v2 = "Standard_D5_v2"
 
 type Management() = 
-    static let defaultMBraceVersion = SystemAssemblyVersionInformation.ReleaseTag
+    static let defaultMBraceVersion = System.AssemblyVersionInformation.ReleaseTag
 
     static member CreateCluster(pubSettingsFile, region, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize, ?CloudServicePackage, ?ClusterLabel) =
        trial { 
