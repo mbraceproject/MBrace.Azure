@@ -45,16 +45,15 @@ Target "AssemblyInfo" (fun _ ->
             Attribute.FileVersion release.AssemblyVersion
         |]
 
-    !! "./src/**/AssemblyInfo.fs"
-    |> Seq.iter (fun infoFile -> 
+    !! "./src/**/AssemblyInfo.fs" |> Seq.iter (fun infoFile -> 
         CreateFSharpAssemblyInfo infoFile attributes
         let infoFileText = File.ReadAllText infoFile
-        let infoFileText = infoFileText + "\n+    let [<Literal>] ReleaseTag = \"" + release.NugetVersion + "\"" 
+        let infoFileText = infoFileText + "\n    let [<Literal>] ReleaseTag = \"" + release.NugetVersion + "\"" 
         File.WriteAllText(infoFile,infoFileText))
-    !! "./samples/**/AssemblyInfo.fs"
-    |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info attributes)
-    !! "./samples/**/AssemblyInfo.cs"
-    |> Seq.iter (fun info -> CreateCSharpAssemblyInfo info attributes)
+    !! "./samples/**/AssemblyInfo.fs" |> Seq.iter (fun info -> 
+        CreateFSharpAssemblyInfo info attributes)
+    !! "./samples/**/AssemblyInfo.cs" |> Seq.iter (fun info -> 
+        CreateCSharpAssemblyInfo info attributes)
 )
 
 
