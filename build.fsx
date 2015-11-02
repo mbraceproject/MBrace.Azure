@@ -41,13 +41,16 @@ Target "AssemblyInfo" (fun _ ->
                     release.AssemblyVersion
                     gitHash 
                     (buildDate.ToString "ddMMyyyy HH:mm zzz"))
-            Attribute.InformationalVersion release.NugetVersion
             Attribute.Version release.AssemblyVersion
             Attribute.FileVersion release.AssemblyVersion
         |]
 
     !! "./src/**/AssemblyInfo.fs"
-    |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info attributes)
+    |> Seq.iter (fun infoFile -> 
+        CreateFSharpAssemblyInfo infoFile attributes
+        let infoFileText = File.ReadAllText infoFile
+        let infoFileText = infoFileText + "\n+    let [<Literal>] ReleaseTag = \"" + release.NugetVersion + "\"" 
+        File.WriteAllText(infoFile,infoFileText))
     !! "./samples/**/AssemblyInfo.fs"
     |> Seq.iter (fun info -> CreateFSharpAssemblyInfo info attributes)
     !! "./samples/**/AssemblyInfo.cs"

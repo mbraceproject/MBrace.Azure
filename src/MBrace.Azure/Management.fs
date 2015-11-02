@@ -445,13 +445,7 @@ type VMSizes() =
      static member Standard_D5_v2 = "Standard_D5_v2"
 
 type Management() = 
-    static let defaultMBraceVersion = 
-        try 
-            let attr = System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttributes(typeof<System.Reflection.AssemblyInformationalVersionAttribute>,false)
-            match attr  with
-            | [| :? System.Reflection.AssemblyInformationalVersionAttribute as a |] -> a.InformationalVersion
-            | _ -> System.AssemblyVersionInformation.Version
-        with _ -> System.AssemblyVersionInformation.Version
+    static let defaultMBraceVersion = SystemAssemblyVersionInformation.ReleaseTag
 
     static member CreateCluster(pubSettingsFile, region, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize, ?CloudServicePackage, ?ClusterLabel) =
        trial { 
