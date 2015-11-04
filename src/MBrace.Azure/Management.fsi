@@ -5,15 +5,15 @@ namespace MBrace.Azure
 [<Class>]
 /// The regions in which Azure clusters can be created
 type Regions = 
-    static member ``South Central US`` : string
-    static member ``West US`` : string
-    static member ``Central US`` : string
-    static member ``East US`` : string
-    static member ``East US 2`` : string
-    static member ``North Europe`` : string
-    static member ``West Europe`` : string
-    static member ``Southeast Asia`` : string
-    static member ``East Asia`` : string
+    static member South_Central_US : string
+    static member West_US : string
+    static member Central_US : string
+    static member East_US : string
+    static member East_US_2 : string
+    static member North_Europe : string
+    static member West_Europe : string
+    static member Southeast_Asia : string
+    static member East_Asia : string
 
 [<Class>]
 /// The VM sizes for Azure clusters 
@@ -35,28 +35,28 @@ type VMSizes =
     static member A2 : string
     /// Same as Small
     static member A1 : string
-    static member ``Extra Large`` : string
+    static member Extra_Large : string
     static member Large : string
     static member Medium : string
     static member Small : string
-    static member ``ExtraSmall`` : string
-    static member ``Standard D1`` : string
-    static member ``Standard D11`` : string
-    static member ``Standard D11 v2`` : string
-    static member ``Standard D12`` : string
-    static member ``Standard D12 v2`` : string
-    static member ``Standard D13`` : string
-    static member ``Standard D13 v2`` : string
-    static member ``Standard D14`` : string
-    static member ``Standard D14 v2`` : string
-    static member ``Standard D1 v2`` : string
-    static member ``Standard D2`` : string
-    static member ``Standard D2 v2`` : string
-    static member ``Standard D3`` : string
-    static member ``Standard D3 v2`` : string
-    static member ``Standard D4`` : string
-    static member ``Standard D4 v2`` : string
-    static member ``Standard D5 v2`` : string
+    static member Extra_Small : string
+    static member Standard_D1 : string
+    static member Standard_D11 : string
+    static member Standard_D11_v2 : string
+    static member Standard_D12 : string
+    static member Standard_D12_v2 : string
+    static member Standard_D13 : string
+    static member Standard_D13_v2 : string
+    static member Standard_D14 : string
+    static member Standard_D14_v2 : string
+    static member Standard_D1_v2 : string
+    static member Standard_D2 : string
+    static member Standard_D2_v2 : string
+    static member Standard_D3 : string
+    static member Standard_D3_v2 : string
+    static member Standard_D4 : string
+    static member Standard_D4_v2 : string
+    static member Standard_D5_v2 : string
 
 
 [<Class>]
