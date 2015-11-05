@@ -397,10 +397,10 @@ module private Details =
 
 type Regions() = 
     static member South_Central_US = "South Central US"
-    static member West US = "West US"
+    static member West_US = "West US"
     static member Central_US = "Central US"
     static member East_US = "East US"
-    static member East_US = "East US 2"
+    static member East_US_2 = "East US 2"
     static member North_Europe = "North Europe"
     static member West_Europe = "West Europe"
     static member Southeast_Asia = "Southeast Asia"
