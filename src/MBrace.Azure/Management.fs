@@ -18,6 +18,61 @@ open Microsoft.WindowsAzure.Management.Storage.Models
 open Microsoft.WindowsAzure.Management.ServiceBus
 open Microsoft.WindowsAzure.Management.ServiceBus.Models
 
+/// Azure Region string identifier
+type Region = string
+/// Azure VM type string identifier
+type VMSize = string
+
+/// Collection of preset Azure Region identifiers
+type Regions = 
+    static member South_Central_US  : Region = "South Central US"
+    static member West_US           : Region = "West US"
+    static member Central_US        : Region = "Central US"
+    static member East_US           : Region = "East US"
+    static member East_US_2         : Region = "East US 2"
+    static member North_Europe      : Region = "North Europe"
+    static member West_Europe       : Region = "West Europe"
+    static member Southeast_Asia    : Region = "Southeast Asia"
+    static member East_Asia         : Region = "East Asia"
+
+/// Collection of preset Azure VM type identifiers
+type VMSizes = 
+    static member A10               : VMSize = "A10"
+    static member A11               : VMSize = "A11"
+    static member A5                : VMSize = "A5"
+    static member A6                : VMSize = "A6"
+    static member A7                : VMSize = "A7"
+    static member A8                : VMSize = "A8"
+    static member A9                : VMSize = "A9"
+    static member A4                : VMSize = "ExtraLarge"
+    static member A0                : VMSize = "ExtraSmall"
+    static member A3                : VMSize = "Large"
+    static member A2                : VMSize = "Medium"
+    static member A1                : VMSize = "Small"
+    static member Extra_Large       : VMSize = "ExtraLarge"
+    static member Large             : VMSize = "Large"
+    static member Medium            : VMSize = "Medium"
+    static member Small             : VMSize = "Small"
+    static member Extra_Small       : VMSize = "ExtraSmall"
+    static member Standard_D1       : VMSize = "Standard_D1"
+    static member Standard_D11      : VMSize = "Standard_D11"
+    static member Standard_D11_v2   : VMSize = "Standard_D11_v2"
+    static member Standard_D12      : VMSize = "Standard_D12"
+    static member Standard_D12_v2   : VMSize = "Standard_D12_v2"
+    static member Standard_D13      : VMSize = "Standard_D13"
+    static member Standard_D13_v2   : VMSize = "Standard_D13_v2"
+    static member Standard_D14      : VMSize = "Standard_D14"
+    static member Standard_D14_v2   : VMSize = "Standard_D14_v2"
+    static member Standard_D1_v2    : VMSize = "Standard_D1_v2"
+    static member Standard_D2       : VMSize = "Standard_D2"
+    static member Standard_D2_v2    : VMSize = "Standard_D2_v2"
+    static member Standard_D3       : VMSize = "Standard_D3"
+    static member Standard_D3_v2    : VMSize = "Standard_D3_v2"
+    static member Standard_D4       : VMSize = "Standard_D4"
+    static member Standard_D4_v2    : VMSize = "Standard_D4_v2"
+    static member Standard_D5_v2    : VMSize = "Standard_D5_v2"
+
+
 [<AutoOpen>]
 module private Details = 
 
@@ -355,59 +410,10 @@ module private Details =
                 logger.Logf LogLevel.Info "No MBrace cluster called %s found" clusterName
         }
 
-
-
-type Regions = 
-    static member South_Central_US = "South Central US"
-    static member West_US = "West US"
-    static member Central_US = "Central US"
-    static member East_US = "East US"
-    static member East_US_2 = "East US 2"
-    static member North_Europe = "North Europe"
-    static member West_Europe = "West Europe"
-    static member Southeast_Asia = "Southeast Asia"
-    static member East_Asia = "East Asia"
-
-type VMSizes = 
-    static member A10 = "A10"
-    static member A11 = "A11"
-    static member A5 = "A5"
-    static member A6 = "A6"
-    static member A7 = "A7"
-    static member A8 = "A8"
-    static member A9 = "A9"
-    static member A4 = "ExtraLarge" // A4
-    static member A0 = "ExtraSmall" // A0
-    static member A3 = "Large" // A3
-    static member A2 = "Medium" // A2
-    static member A1 = "Small" // A1
-    static member Extra_Large = "ExtraLarge" // A4
-    static member Large = "Large" // A3
-    static member Medium = "Medium" // A2
-    static member Small = "Small" // A1
-    static member Extra_Small = "ExtraSmall" // A0
-    static member Standard_D1 = "Standard_D1"
-    static member Standard_D11 = "Standard_D11"
-    static member Standard_D11_v2 = "Standard_D11_v2"
-    static member Standard_D12 = "Standard_D12"
-    static member Standard_D12_v2 = "Standard_D12_v2"
-    static member Standard_D13 = "Standard_D13"
-    static member Standard_D13_v2 = "Standard_D13_v2"
-    static member Standard_D14 = "Standard_D14"
-    static member Standard_D14_v2 = "Standard_D14_v2"
-    static member Standard_D1_v2 = "Standard_D1_v2"
-    static member Standard_D2 = "Standard_D2"
-    static member Standard_D2_v2 = "Standard_D2_v2"
-    static member Standard_D3 = "Standard_D3"
-    static member Standard_D3_v2 = "Standard_D3_v2";
-    static member Standard_D4 = "Standard_D4"
-    static member Standard_D4_v2 = "Standard_D4_v2"
-    static member Standard_D5_v2 = "Standard_D5_v2"
-
 type Management() = 
     static let defaultMBraceVersion = System.AssemblyVersionInformation.ReleaseTag
 
-    static member CreateCluster(pubSettingsFile, region, ?logger : ISystemLogger, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize, ?CloudServicePackage, ?ClusterLabel) = async { 
+    static member CreateCluster(pubSettingsFile, region : Region, ?logger : ISystemLogger, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize : VMSize, ?CloudServicePackage, ?ClusterLabel) = async { 
         let logger = match logger with Some l -> l | None -> new NullLogger() :> _
         let vmSize = defaultArg VMSize VMSizes.Large
         logger.Logf LogLevel.Info "using vm size %s" vmSize
