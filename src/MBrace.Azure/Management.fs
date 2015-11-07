@@ -121,10 +121,10 @@ module private ManagementImpl =
 
     let urlForPackage mbraceNugetVersionTag vmSize = 
         sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceNugetVersionTag vmSize
-        //sprintf "https://github.com/mbraceproject/bits/raw/master/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize
 
     let resourcePrefix = "mbrace"
     let generateResourceName() = resourcePrefix + Guid.NewGuid().ToString("N").[..7]
+    let defaultMBraceVersion = System.AssemblyVersionInformation.ReleaseTag
     let defaultExtendedProperties = dict [ "IsMBraceAsset", "true"]
     let isMBraceAsset (extendedProperties:IDictionary<string, string>) = extendedProperties.ContainsKey "IsMBraceAsset"
 
@@ -377,7 +377,11 @@ module private ManagementImpl =
       </Role>
     </ServiceConfiguration>""" serviceName instances storageConnection serviceBusConnection
 
-        let createMBraceCluster (logger : ISystemLogger, clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) (client:SubscriptionClient) = async {
+        let prepareMBraceServiceDeployment (logger : ISystemLogger) (clusterName : string) (clusterLabel : string) 
+                                            (region : Region) (packagePath : string) (config : string) 
+                                            (storageAccountName : string) (storageConnectionString : string) 
+                                            (serviceBusNamespace : string) (serviceBusConnectionString : string) (client:SubscriptionClient) = async {
+
             do! validateClusterName client clusterName 
 
             let extendedProperties =
@@ -398,27 +402,32 @@ module private ManagementImpl =
                 packageBlob.Properties.Length <> FileInfo(packagePath).Length
 
             if (not (packageBlob.Exists()) || blobSizesDoNotMatch()) then
-                logger.Logf LogLevel.Info "uploading package %s" packagePath
-                packageBlob.UploadFromFile(packagePath, FileMode.Open)
+                logger.Logf LogLevel.Info "uploading package %A" packagePath
+                do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open)
         
             logger.Logf LogLevel.Info "scheduling cluster creation:\n  cluster %s\n  package uri %s\n  config %s" clusterName (packageBlob.Uri.ToString()) config
-            let! (createOp : AzureOperationResponse) =
-                client.Compute.Deployments.BeginCreatingAsync(
-                    clusterName,
-                    DeploymentSlot.Production,
-                    DeploymentCreateParameters(
-                        Label = clusterLabel,
-                        Name = clusterName,
-                        PackageUri = packageBlob.Uri,
-                        Configuration = config,
-                        StartDeployment = Nullable true,
-                        TreatWarningsAsError = Nullable true))
-
-            if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
-                return failwith "error: HTTP request for creation operation was not accepted"
+            return DeploymentCreateParameters(
+                Label = clusterLabel,
+                Name = clusterName,
+                PackageUri = packageBlob.Uri,
+                Configuration = config,
+                StartDeployment = Nullable true,
+                TreatWarningsAsError = Nullable true)
           }
 
-        let deleteMBraceCluster (logger : ISystemLogger) clusterName (client:SubscriptionClient) = async {
+        let beginDeploy (slot : DeploymentSlot) (deployParams : DeploymentCreateParameters) (client : SubscriptionClient) = async {
+            let! (createOp : AzureOperationResponse) = client.Compute.Deployments.BeginCreatingAsync(deployParams.Name, slot, deployParams)
+            if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
+                return failwith "error: HTTP request for creation operation was not accepted"
+        }
+
+        let deploy (slot : DeploymentSlot) (deployParams : DeploymentCreateParameters) (client : SubscriptionClient) = async {
+            let! (createOp : OperationStatusResponse) = client.Compute.Deployments.CreateAsync(deployParams.Name, slot, deployParams)
+            if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
+                return failwith "error: HTTP request for creation operation was not accepted"
+        }            
+
+        let deleteMBraceCluster (logger : ISystemLogger) (clusterName:string) (client:SubscriptionClient) = async {
             let service = client.Compute.HostedServices.GetDetailed clusterName
             if service.Properties.ExtendedProperties |> isMBraceAsset then
                 logger.Logf LogLevel.Info "deleting cluster %s" clusterName
@@ -427,37 +436,40 @@ module private ManagementImpl =
                 let deleteOp = client.Compute.HostedServices.Delete clusterName
                 if deleteOp.StatusCode <> Net.HttpStatusCode.OK then return failwith (deleteOp.StatusCode.ToString()) 
             else
-                logger.Logf LogLevel.Info "No MBrace cluster called %s found" clusterName
+                logger.Logf LogLevel.Info "No MBrace cluster called %A found" clusterName
         }
 
-type Management() = 
-    static let defaultMBraceVersion = System.AssemblyVersionInformation.ReleaseTag
+        let downloadServicePackage (logger : ISystemLogger) (vmSize : VMSize) (mbraceVersion : string option) (uri : string option) = async {
+            let uri, version =
+                match uri with
+                | Some u -> Uri u, None
+                | None ->
+                    let mbraceVersion = defaultArg mbraceVersion defaultMBraceVersion
+                    urlForPackage mbraceVersion vmSize |> Uri, Some mbraceVersion
+
+            if uri.IsFile then
+                logger.Logf LogLevel.Info "using cloud service package from %A" uri.LocalPath 
+                return uri.LocalPath, version
+            else
+                use wc = new System.Net.WebClient()
+                let tmp = System.IO.Path.GetTempFileName()
+                logger.Logf LogLevel.Info "downloading cloud service package from %A" uri
+                do! wc.DownloadFileTaskAsync(uri, tmp)
+                return tmp, version
+        }
+
+type Management =
 
     static member CreateCluster(pubSettingsFile, region : Region, ?logger : ISystemLogger, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize : VMSize, ?CloudServicePackage, ?ClusterLabel) = async { 
-        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-        let vmSize = defaultArg VMSize VMSizes.Large
-        logger.Logf LogLevel.Info "using vm size %s" vmSize
-        let! packagePath, infoString = async { 
-            match CloudServicePackage with 
-            | Some uriOrPath when System.Uri(uriOrPath).IsFile ->
-                let path = System.Uri(uriOrPath).LocalPath
-                logger.Logf LogLevel.Info "using cloud service package from %s" path
-                return path, "custom"
-            | _ -> 
-                let mbraceVersion = defaultArg MBraceVersion defaultMBraceVersion
-                logger.Logf LogLevel.Info "using MBrace version tag %s" mbraceVersion
-                let uri = defaultArg CloudServicePackage (urlForPackage mbraceVersion vmSize)
-                use wc = new System.Net.WebClient() 
-                let tmp = System.IO.Path.GetTempFileName() 
-                logger.Logf LogLevel.Info "downloading cloud service package from %s" uri
-                wc.DownloadFile(uri, tmp)
-                return tmp, mbraceVersion
-        }
-
         let pubSettings = PublishSettings.ParseFile pubSettingsFile
         let pubClient = PubSettingsClient.Activate pubSettings.Subscriptions
         let client = pubClient.GetClientByIdOrDefault(?id = Subscription) 
         let clusterName = defaultArg ClusterName (generateResourceName())
+        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
+        let vmSize = defaultArg VMSize VMSizes.Large
+        logger.Logf LogLevel.Info "using vm size %s" vmSize
+        let! packagePath, versionInfo = Clusters.downloadServicePackage logger vmSize MBraceVersion CloudServicePackage
+
         logger.Logf LogLevel.Info "using cluster name %s" clusterName
         let! storageAccountName = async {
             match StorageAccount with 
@@ -466,18 +478,16 @@ type Management() =
         }
 
         let! storageConnectionString = Storage.getMBraceStorageConnectionString storageAccountName client
-        logger.Logf LogLevel.Info "using storage account name %s" storageAccountName
-        logger.Logf LogLevel.Info "using storage connection string %s..." storageConnectionString.[0..20]
+        logger.Logf LogLevel.Info "using storage account name %A" storageAccountName
         let! serviceBusNamespace, serviceBusConnectionString = ServiceBus.getDefaultMBraceNamespace logger region client
-        logger.Logf LogLevel.Info "using service bus namespace %s" serviceBusNamespace
-        logger.Logf LogLevel.Info "using service bus connection string %s..." serviceBusConnectionString.[0..20]
+        logger.Logf LogLevel.Info "using service bus account %A" serviceBusNamespace
 
         let numInstances = defaultArg VMCount 2
         let config = Clusters.buildMBraceConfig clusterName numInstances storageConnectionString serviceBusConnectionString
 
-        let clusterLabel = defaultArg ClusterLabel (sprintf "MBrace cluster %s, package %s"  clusterName infoString)
-        do! Clusters.createMBraceCluster(logger, clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) client
-
+        let clusterLabel = defaultArg ClusterLabel (sprintf "MBrace cluster %A, package %s"  clusterName (defaultArg versionInfo "custom"))
+        let! deployInfo = Clusters.prepareMBraceServiceDeployment logger clusterName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
+        do! Clusters.beginDeploy DeploymentSlot.Production deployInfo client
         let config = Configuration(storageConnectionString, serviceBusConnectionString)
 
         return config
