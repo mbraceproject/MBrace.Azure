@@ -1,5 +1,13 @@
-﻿
-namespace MBrace.Azure
+﻿namespace MBrace.Azure
+
+open System
+open System.Collections.Generic
+open System.IO
+open System.Security.Cryptography.X509Certificates
+open System.Xml.Linq
+
+open MBrace.Core.Internals
+open MBrace.Runtime
 
 open Microsoft.Azure
 open Microsoft.WindowsAzure.Management
@@ -8,11 +16,7 @@ open Microsoft.WindowsAzure.Management.Compute.Models
 open Microsoft.WindowsAzure.Management.Storage
 open Microsoft.WindowsAzure.Management.Storage.Models
 open Microsoft.WindowsAzure.Management.ServiceBus
-open System.Security.Cryptography.X509Certificates
-open System
-open System.IO
-open System.Xml.Linq
-open System.Collections.Generic
+open Microsoft.WindowsAzure.Management.ServiceBus.Models
 
 [<AutoOpen>]
 module private Details = 
@@ -21,60 +25,13 @@ module private Details =
         sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceNugetVersionTag vmSize
         //sprintf "https://github.com/mbraceproject/bits/raw/master/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize
 
-    type Result<'TSuccess, 'TMessage> = 
-        | Ok of 'TSuccess * 'TMessage list
-        | Bad of 'TMessage list
-
-    /// Basic combinators and operators for error handling.
-    [<AutoOpen>]
-    module Trial =
-        let ok x = Ok(x, [])
-        let info msg = printfn "%s" msg; Ok((),[msg])
-        let fail msg = printfn "Error: %s" msg; Bad([ msg ])
-        let protect f = (fun x -> try f x with e -> fail e.Message)
-
-        let returnOrFail result = 
-            match result with
-            | Ok(x, _msgs) -> x
-            | Bad(msgs) -> 
-                let msg = msgs |> Seq.map (sprintf "%O") |> String.concat (Environment.NewLine + "   ")
-                failwith msg
-
-        let mergeMessages msgs result = 
-            match result with
-            | Ok(x, msgs2) -> Ok(x, msgs @ msgs2)
-            | Bad(msgs2) ->  Bad(msgs @ msgs2)
-
-        let bind f result = 
-            match result with
-            | Ok(x, msgs2) -> f x |> mergeMessages msgs2
-            | Bad(errs) ->  Bad errs
-
-        /// Builder type for error handling computation expressions.
-        type TrialBuilder() = 
-            member __.Zero() = ok()
-            member __.Bind(m, f) = bind f m
-            member __.Return(x) = ok x
-            member __.ReturnFrom(x) = x
-            member __.Combine (a, b) = bind (protect b) a
-            member __.Delay f = protect f
-            member __.Run f = protect f ()
-            member __.TryWith (body, handler) = try body() with e -> handler e
-            member __.TryFinally (body, compensation) = try body() finally compensation()
-            member x.Using(d:#IDisposable, body) =
-                x.TryFinally ((fun () -> body d), fun () -> match d with null -> () | d -> d.Dispose())
-            member x.While (guard, body) =
-                if not (guard ()) then x.Zero()
-                else bind (fun () -> x.While(guard, body)) (body())
-
-        let trial = TrialBuilder()
-
     let resourcePrefix = "mbrace"
     let generateResourceName() = resourcePrefix + (Guid.NewGuid().ToString() |> Seq.take 8 |> Seq.toArray |> (fun c -> String(c)))
     let defaultExtendedProperties = dict [ "IsMBraceAsset", "true"]
     let isMBraceAsset (extendedProperties:IDictionary<string, string>) = extendedProperties.ContainsKey "IsMBraceAsset"
 
     //type PubSettings = XmlProvider< """<?xml version="1.0" encoding="utf-8"?><PublishData><PublishProfile SchemaVersion="2.0" PublishMethod="AzureServiceManagementAPI"><Subscription ServiceManagementUrl="https://management.core.windows.net" Id="de495429-2562-5242-81c8-54e236a5db4d" Name="Your First Subscription" ManagementCertificate="FIODSFSDIUS" /><Subscription ServiceManagementUrl="https://management.core.windows.net" Id="e156f021-460a-42fb-8a52-2878fbf83a25" Name="Second Subscription" ManagementCertificate="BLAH"/></PublishProfile></PublishData> """>
+    [<AutoSerializable(false)>]
     type Subscription = 
         { Name : string; Id : string;  ManagementCertificate: string; ServiceManagementUrl:string }
         static member LoadX(doc:XElement) = 
@@ -87,12 +44,14 @@ module private Details =
               ManagementCertificate = mc
               ServiceManagementUrl = sm }
 
+    [<AutoSerializable(false)>]
     type PublishProfile = 
         { Subscriptions: Subscription [] }
         static member LoadX(doc:XElement) = 
             let subs = [| for s in doc.Elements(XName.op_Implicit "Subscription") -> Subscription.LoadX s |]
             { Subscriptions = subs }
 
+    [<AutoSerializable(false)>]
     type PubSettings = 
         { PublishProfile: PublishProfile }
         static member LoadX(doc:XDocument) = 
@@ -102,7 +61,7 @@ module private Details =
         static member Parse(xml:string) = PubSettings.LoadX (XDocument.Parse xml)
     //PubSettings.Parse """<?xml version="1.0" encoding="utf-8"?><PublishData><PublishProfile SchemaVersion="2.0" PublishMethod="AzureServiceManagementAPI"><Subscription     ServiceManagementUrl="https://management.core.windows.net" Id="de495429-2562-5242-81c8-54e236a5db4d" Name="Your First Subscription" ManagementCertificate="FIODSFSDIUS" /><Subscription ServiceManagementUrl="https://management.core.windows.net" Id="e156f021-460a-42fb-8a52-2878fbf83a25" Name="Second Subscription" ManagementCertificate="BLAH"/></PublishProfile></PublishData> """
 
-
+    [<AutoSerializable(false)>]
     type AzureClient =
         { Subscription : string
           Credentials : CertificateCloudCredentials
@@ -120,26 +79,23 @@ module private Details =
 
     module Credentials =
         let asCredentials (subscription:Subscription) =
-            new CertificateCloudCredentials(
-                subscription.Id,
-                new X509Certificate2(
-                    subscription.ManagementCertificate |> Convert.FromBase64String))
+            let cert = new X509Certificate2(subscription.ManagementCertificate |> Convert.FromBase64String)
+            new CertificateCloudCredentials(subscription.Id, cert)
 
         let getSubscriptions (pubSettingsFilePath:string) =
             let pubSettings = PubSettings.Parse (File.ReadAllText pubSettingsFilePath)
             pubSettings.PublishProfile.Subscriptions
 
         let connectToAzure subscriptionOpt pubSettingsFilePath =
-          trial {
             let subscriptions = getSubscriptions pubSettingsFilePath
-            if subscriptions.Length = 0 then 
-                return! fail (sprintf "no Azure subscriptions found in pubsettings file %s" pubSettingsFilePath)
+            if subscriptions.Length = 0 then
+                invalidArg "pubSettingsFilePath" <| sprintf "no Azure subscriptions found in pubsettings file %A" pubSettingsFilePath
+
             let subscription = defaultArg subscriptionOpt subscriptions.[0].Name
 
-            match subscriptions |> Seq.tryFind(fun s -> s.Name = subscription) with 
-            | None -> return! fail (sprintf "couldn't find subscription %s in %s" subscription pubSettingsFilePath)
-            | Some sub -> return sub |> asCredentials |> AzureClient.OfCredentials sub 
-        }
+            match subscriptions |> Array.tryFind(fun s -> s.Name = subscription) with 
+            | None -> invalidArg "subscriptionOpt" <| sprintf "couldn't find subscription %s in %s" subscription pubSettingsFilePath
+            | Some sub -> sub |> asCredentials |> AzureClient.OfCredentials sub
 
     module Infrastructure =
         let listRegions (client:AzureClient) =
@@ -169,117 +125,116 @@ module private Details =
             |> List.map(fun account -> account.Name)
             |> function [] -> None | h::_ -> Some h
 
-        let rec createMBraceStorageAccount region (client:AzureClient) =
-            trial {
-                let accountName = generateResourceName()
-                let availability = client.Storage.StorageAccounts.CheckNameAvailability accountName 
-                if not availability.IsAvailable then return! createMBraceStorageAccount region client
-                else
-                    let result = client.Storage.StorageAccounts.Create(StorageAccountCreateParameters(Name = accountName, AccountType = "Standard_LRS", Location = region, ExtendedProperties = defaultExtendedProperties))
-                    if result.Status = OperationStatus.Failed then 
-                        return! fail result.Error.Message
-                    else 
-                        do! info (sprintf "Created new storage account %s" accountName)
-                        return accountName }
+        let rec createMBraceStorageAccount (logger : ISystemLogger) (region : string) (client:AzureClient) = async {
+            let accountName = generateResourceName()
+            let! (availability : CheckNameAvailabilityResponse) = client.Storage.StorageAccounts.CheckNameAvailabilityAsync accountName 
+            if not availability.IsAvailable then return! createMBraceStorageAccount logger region client
+            else
+                let result = client.Storage.StorageAccounts.Create(StorageAccountCreateParameters(Name = accountName, AccountType = "Standard_LRS", Location = region, ExtendedProperties = defaultExtendedProperties))
+                if result.Status = OperationStatus.Failed then 
+                    return invalidOp result.Error.Message
+                else 
+                    logger.Logf LogLevel.Info "Created new storage account %A" accountName
+                    return accountName 
+        }
 
         let getConnectionString accountName (client:AzureClient) =
-            trial { 
-                let keys = client.Storage.StorageAccounts.GetKeys accountName
+            async { 
+                let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync accountName
                 return sprintf """DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s""" accountName keys.PrimaryKey
             }
 
         let getDeploymentContainer connectionString =
-            let blobClient =
-                let account = CloudStorageAccount.Parse connectionString
-                account.CreateCloudBlobClient()
+            let account = CloudStorageAccount.Parse connectionString
+            let blobClient = account.CreateCloudBlobClient()
             blobClient.GetContainerReference "deployments"
 
-        let configureMBraceStorageAccount connectionString = 
+        let configureMBraceStorageAccount connectionString = async {
             let container = getDeploymentContainer connectionString
-            container.CreateIfNotExists()
+            do! container.CreateIfNotExistsAsync()
+        }
 
-        let getDefaultMBraceStorageAccountName region client =
-            trial {
-                match tryFindMBraceStorage region client with
-                | Some storage -> 
-                    do! info (sprintf "Reusing existing storage account %s" storage)
-                    return storage
-                | None -> 
-                    return! createMBraceStorageAccount region client
-            }
+        let getDefaultMBraceStorageAccountName (logger : ISystemLogger) region client = async {
+            match tryFindMBraceStorage region client with
+            | Some storage -> 
+                logger.Logf LogLevel.Info "Reusing existing storage account %s" storage
+                return storage
+            | None -> 
+                return! createMBraceStorageAccount logger region client
+        }
 
-        let getMBraceStorageConnectionString accountName (client:AzureClient) =
-            trial {
-                let! connectionString = getConnectionString accountName client 
-                configureMBraceStorageAccount connectionString |> ignore
-                return connectionString
-            }
+        let getMBraceStorageConnectionString accountName (client:AzureClient) = async {
+            let! connectionString = getConnectionString accountName client 
+            configureMBraceStorageAccount connectionString |> ignore
+            return connectionString
+        }
 
     module ServiceBus =
-        let rec waitUntilState checkState ns (client:AzureClient) =
-            let status = try (client.ServiceBus.Namespaces.Get ns).Namespace.Status with ex -> ""
+        let rec waitUntilState checkState ns (client:AzureClient) = async {
+            let! result = client.ServiceBus.Namespaces.GetAsync ns |> Async.AwaitTaskCorrect |> Async.Catch
+            let status = match result with Choice1Of2 ns -> ns.Namespace.Status | Choice2Of2 _ -> ""
             if not (checkState status) then
-                Async.Sleep 2000 |> Async.RunSynchronously
-                waitUntilState checkState ns client
+                do! Async.Sleep 2000
+                return! waitUntilState checkState ns client
+        }
 
-        let rec createNamespace region (client:AzureClient) =
-            trial {
-                let namespaceName = generateResourceName()
-                do! info (sprintf "checking availability of service bus namespace %s" namespaceName)
-                let availability = client.ServiceBus.Namespaces.CheckAvailability namespaceName
-                if not availability.IsAvailable then 
-                    return! createNamespace region client
-                else
-                    do! info (sprintf "creating service bus namespace %s" namespaceName)
-                    let result = client.ServiceBus.Namespaces.Create(namespaceName, region) 
+        let rec createNamespace (logger : ISystemLogger) region (client:AzureClient) = async {
+            let namespaceName = generateResourceName()
+            logger.Logf LogLevel.Info "checking availability of service bus namespace %s" namespaceName
+            let! (availability : CheckNamespaceAvailabilityResponse) = client.ServiceBus.Namespaces.CheckAvailabilityAsync namespaceName
+            if not availability.IsAvailable then 
+                return! createNamespace logger region client
+            else
+                logger.Logf LogLevel.Info "creating service bus namespace %s" namespaceName
+                let result = client.ServiceBus.Namespaces.Create(namespaceName, region) 
 
-                    client |> waitUntilState ((=) "Active") namespaceName
+                do! client |> waitUntilState ((=) "Active") namespaceName
 
-                    if result.StatusCode <> Net.HttpStatusCode.OK then 
-                        return! fail(sprintf "Failed to create service bus: %O" result.StatusCode)
-                    else 
-                        do! info (sprintf "Created new default MBrace Service Bus namespace %s" namespaceName)
-                        return namespaceName }
+                if result.StatusCode <> Net.HttpStatusCode.OK then 
+                    return failwithf "Failed to create service bus: %O" result.StatusCode
+                else 
+                    logger.Logf LogLevel.Info "Created new default MBrace Service Bus namespace %s" namespaceName
+                    return namespaceName 
+        }
 
-        let listNamespaces region (client:AzureClient) =
-            [ for account in client.ServiceBus.Namespaces.List() do 
-                 if account.Region = region then 
-                    yield account ]
+        let listNamespaces region (client:AzureClient) = async {
+            let! (nss : ServiceBusNamespacesResponse) = client.ServiceBus.Namespaces.ListAsync()
+            return nss |> Seq.filter (fun account -> account.Region = region) |> Seq.toList
+        }
 
-        let tryFindMBraceNamespace region (client:AzureClient) =
-            client
-            |> listNamespaces region
-            |> List.filter(fun ns -> ns.Name.StartsWith resourcePrefix)
-            |> List.map(fun ns -> ns.Name)
-            |> function [] -> None | h :: _ -> Some h
+        let tryFindMBraceNamespace region (client:AzureClient) = async {
+            let! accounts = listNamespaces region client
+            return
+                accounts
+                |> Seq.filter(fun ns -> ns.Name.StartsWith resourcePrefix)
+                |> Seq.map(fun ns -> ns.Name)
+                |> Seq.tryPick Some
+        }
 
-        let getConnectionString namespaceName (client:AzureClient) =
-            trial {
-                let rule = client.ServiceBus.Namespaces.ListAuthorizationRules namespaceName |> Seq.find(fun rule -> rule.KeyName = "RootManageSharedAccessKey")
-                return sprintf """Endpoint=sb://%s.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=%s""" namespaceName rule.PrimaryKey
-            } 
+        let getConnectionString namespaceName (client:AzureClient) = async {
+            let rule = client.ServiceBus.Namespaces.ListAuthorizationRules namespaceName |> Seq.find(fun rule -> rule.KeyName = "RootManageSharedAccessKey")
+            return sprintf """Endpoint=sb://%s.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=%s""" namespaceName rule.PrimaryKey
+        } 
 
-        let findOrCreateMBraceNamespace region client = 
-            trial {
-                match tryFindMBraceNamespace region client with
-                | Some ns -> 
-                    do! info (sprintf "Reusing existing Service Bus namespace %s" ns )
-                    return ns
-                | None -> return! createNamespace region client
-            }
+        let findOrCreateMBraceNamespace (logger : ISystemLogger) region client = async {
+            let! nsOpt = tryFindMBraceNamespace region client
+            match nsOpt with
+            | Some ns -> 
+                logger.Logf LogLevel.Info "Reusing existing Service Bus namespace %A" ns
+                return ns
+            | None -> return! createNamespace logger region client
+        }
 
-        let getDefaultMBraceNamespace region client =
-            trial {
-                let! ns = findOrCreateMBraceNamespace region client
-                let! connectionString = getConnectionString ns client
-                return ns, connectionString 
-            }
+        let getDefaultMBraceNamespace (logger : ISystemLogger) region client = async {
+            let! ns = findOrCreateMBraceNamespace logger region client
+            let! connectionString = getConnectionString ns client
+            return ns, connectionString
+        }
 
-        let deleteNamespace namespaceName (client:AzureClient) =
-            trial {
-                let _response = client.ServiceBus.Namespaces.Delete namespaceName
-                client |> waitUntilState ((<>) "Removing") namespaceName
-            }
+        let deleteNamespace namespaceName (client:AzureClient) = async {
+            let! _response = client.ServiceBus.Namespaces.DeleteAsync namespaceName
+            do! client |> waitUntilState ((<>) "Removing") namespaceName
+        }
 
     module Clusters =
         open System.IO
@@ -292,38 +247,47 @@ module private Details =
             DeploymentStatus : string option
             Nodes : Node list }
 
-        let validateClusterName (client:AzureClient) clusterName =
-            trial { 
-                let result = client.Compute.HostedServices.CheckNameAvailability clusterName
-                if not result.IsAvailable then return! fail result.Reason
-            }
+        let validateClusterName (client:AzureClient) clusterName = async { 
+            let result = client.Compute.HostedServices.CheckNameAvailability clusterName
+            if not result.IsAvailable then return invalidOp result.Reason
+        }
 
-        let getConnectionStrings clusterName (client:AzureClient) =
-            let service = client.Compute.HostedServices.GetDetailed clusterName
+        let getConnectionStrings clusterName (client:AzureClient) = async {
+            let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync clusterName
             let storageConnectionString = service.Properties.ExtendedProperties.["StorageAccountConnectionString"]
             let serviceBusConnectionString = service.Properties.ExtendedProperties.["ServiceBusConnectionString"]
             let serviceBusNamespace = service.Properties.ExtendedProperties.["ServiceBusName"]
-            storageConnectionString, serviceBusConnectionString, serviceBusNamespace
+            return storageConnectionString, serviceBusConnectionString, serviceBusNamespace
+        }
 
-        let listRunningMBraceClusters (client:AzureClient) =
-            [ for service in client.Compute.HostedServices.List() do
-                 if service.Properties.ExtendedProperties |> isMBraceAsset then 
-                   let deployment =
+        let listRunningMBraceClusters (client:AzureClient) = async {
+            let! (services : HostedServiceListResponse) = client.Compute.HostedServices.ListAsync()
+            let getHostedServiceInfo (service : HostedServiceListResponse.HostedService) =
+                if service.Properties.ExtendedProperties |> isMBraceAsset then 
+                    let deployment =
                         try client.Compute.Deployments.GetBySlot(service.ServiceName, DeploymentSlot.Production) |> Some
                         with _ -> None
-                   let info = 
-                       { Name = service.ServiceName
-                         CreatedTime = service.Properties.DateCreated
-                         ServiceStatus = service.Properties.Status.ToString()
-                         DeploymentStatus = deployment |> Option.map(fun deployment -> deployment.Status.ToString())
-                         Nodes =
-                            deployment
-                            |> Option.map(fun deployment ->
-                                deployment.RoleInstances
-                                |> Seq.map(fun instance -> { Size = instance.InstanceSize; Status = instance.InstanceStatus })
-                                |> Seq.toList)
-                            |> defaultArg <| [] } 
-                   yield info  |> sprintf "%+A" ]
+
+                    let info = 
+                        {   Name = service.ServiceName
+                            CreatedTime = service.Properties.DateCreated
+                            ServiceStatus = service.Properties.Status.ToString()
+                            DeploymentStatus = deployment |> Option.map(fun deployment -> deployment.Status.ToString())
+                            Nodes =
+                                deployment
+                                |> Option.map(fun deployment ->
+                                    deployment.RoleInstances
+                                    |> Seq.map(fun instance -> { Size = instance.InstanceSize; Status = instance.InstanceStatus })
+                                    |> Seq.toList)
+                                |> defaultArg <| [] 
+                        } 
+
+                    Some (info |> sprintf "%+A")
+                else
+                    None
+
+            return services |> Seq.choose getHostedServiceInfo |> Seq.toList
+        }
 
         let buildMBraceConfig serviceName instances storageConnection serviceBusConnection =
             sprintf """<?xml version="1.0" encoding="utf-8"?>
@@ -338,8 +302,7 @@ module private Details =
       </Role>
     </ServiceConfiguration>""" serviceName instances storageConnection serviceBusConnection
 
-        let createMBraceCluster(clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) (client:AzureClient) =
-          trial {
+        let createMBraceCluster (logger : ISystemLogger, clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) (client:AzureClient) = async {
             do! validateClusterName client clusterName 
 
             let extendedProperties =
@@ -350,8 +313,8 @@ module private Details =
                 @ (defaultExtendedProperties.Keys |> Seq.map(fun key -> key, defaultExtendedProperties.[key]) |> Seq.toList)
                 |> dict
 
-            do! info (sprintf "creating cloud service %s" clusterName)
-            client.Compute.HostedServices.Create(HostedServiceCreateParameters(Location = region, ServiceName = clusterName, ExtendedProperties = extendedProperties)) |> ignore
+            logger.Logf LogLevel.Info "creating cloud service %s" clusterName
+            let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region, ServiceName = clusterName, ExtendedProperties = extendedProperties))
 
             let container = Storage.getDeploymentContainer storageConnectionString
             let packageBlob = packagePath |> Path.GetFileName |> container.GetBlockBlobReference
@@ -360,16 +323,16 @@ module private Details =
                 packageBlob.Properties.Length <> FileInfo(packagePath).Length
 
             if (not (packageBlob.Exists()) || blobSizesDoNotMatch()) then
-                do! info (sprintf "uploading package %s" packagePath)
+                logger.Logf LogLevel.Info "uploading package %s" packagePath
                 packageBlob.UploadFromFile(packagePath, FileMode.Open)
         
-            do! info (sprintf "scheduling cluster creation:\n  cluster %s\n  package uri %s\n  config %s" clusterName (packageBlob.Uri.ToString()) config)
-            let createOp = 
-                client.Compute.Deployments.BeginCreating(
+            logger.Logf LogLevel.Info "scheduling cluster creation:\n  cluster %s\n  package uri %s\n  config %s" clusterName (packageBlob.Uri.ToString()) config
+            let! (createOp : AzureOperationResponse) =
+                client.Compute.Deployments.BeginCreatingAsync(
                     clusterName,
                     DeploymentSlot.Production,
                     DeploymentCreateParameters(
-                        Label = clusterLabel, 
+                        Label = clusterLabel,
                         Name = clusterName,
                         PackageUri = packageBlob.Uri,
                         Configuration = config,
@@ -377,25 +340,24 @@ module private Details =
                         TreatWarningsAsError = Nullable true))
 
             if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
-                return! fail "error: HTTP request for creation operation was not accepted"
+                return failwith "error: HTTP request for creation operation was not accepted"
           }
 
-        let deleteMBraceCluster clusterName (client:AzureClient) =
-            trial {
-                let service = client.Compute.HostedServices.GetDetailed clusterName
-                if service.Properties.ExtendedProperties |> isMBraceAsset then
-                    do! info (sprintf "deleting cluster %s" clusterName)
-                    let deleteOp = client.Compute.Deployments.DeleteByName(clusterName, clusterName, true)
-                    if deleteOp.Status <> OperationStatus.Succeeded then return! fail deleteOp.Error.Message
-                    let deleteOp = client.Compute.HostedServices.Delete clusterName
-                    if deleteOp.StatusCode <> Net.HttpStatusCode.OK then return! fail(deleteOp.StatusCode.ToString()) 
-                else
-                    do! info (sprintf "No MBrace cluster called %s found" clusterName)
-            }
+        let deleteMBraceCluster (logger : ISystemLogger) clusterName (client:AzureClient) = async {
+            let service = client.Compute.HostedServices.GetDetailed clusterName
+            if service.Properties.ExtendedProperties |> isMBraceAsset then
+                logger.Logf LogLevel.Info "deleting cluster %s" clusterName
+                let deleteOp = client.Compute.Deployments.DeleteByName(clusterName, clusterName, true)
+                if deleteOp.Status <> OperationStatus.Succeeded then return failwith deleteOp.Error.Message
+                let deleteOp = client.Compute.HostedServices.Delete clusterName
+                if deleteOp.StatusCode <> Net.HttpStatusCode.OK then return failwith (deleteOp.StatusCode.ToString()) 
+            else
+                logger.Logf LogLevel.Info "No MBrace cluster called %s found" clusterName
+        }
 
 
 
-type Regions() = 
+type Regions = 
     static member South_Central_US = "South Central US"
     static member West_US = "West US"
     static member Central_US = "Central US"
@@ -406,9 +368,7 @@ type Regions() =
     static member Southeast_Asia = "Southeast Asia"
     static member East_Asia = "East Asia"
 
-
-
-type VMSizes() = 
+type VMSizes = 
     static member A10 = "A10"
     static member A11 = "A11"
     static member A5 = "A5"
@@ -447,68 +407,61 @@ type VMSizes() =
 type Management() = 
     static let defaultMBraceVersion = System.AssemblyVersionInformation.ReleaseTag
 
-    static member CreateCluster(pubSettingsFile, region, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize, ?CloudServicePackage, ?ClusterLabel) =
-       trial { 
-           let vmSize = defaultArg VMSize VMSizes.Large
-           do! info (sprintf "using vm size %s" vmSize)
-           let! packagePath, infoString = 
-             trial { 
-               match CloudServicePackage with 
-               | Some uriOrPath when System.Uri(uriOrPath).IsFile ->
-                   let path = System.Uri(uriOrPath).LocalPath
-                   do! info (sprintf "using cloud service package from %s" path)
-                   return path, "custom"
-               | _ -> 
-                   let mbraceVersion = defaultArg MBraceVersion defaultMBraceVersion
-                   do! info (sprintf "using MBrace version tag %s" mbraceVersion)
-                   let uri = defaultArg CloudServicePackage (urlForPackage mbraceVersion vmSize)
-                   use wc = new System.Net.WebClient() 
-                   let tmp = System.IO.Path.GetTempFileName() 
-                   do! info (sprintf "downloading cloud service package from %s" uri)
-                   wc.DownloadFile(uri, tmp)
-                   return tmp, mbraceVersion
-            }
-           let! client = Credentials.connectToAzure Subscription pubSettingsFile 
-           let clusterName = defaultArg ClusterName (generateResourceName())
-           do! info (sprintf "using cluster name %s" clusterName)
-           let! storageAccountName = 
-             trial {
-               match StorageAccount with 
-               | None -> return! Storage.getDefaultMBraceStorageAccountName region client
-               | Some s -> return s
-             }
-           let! storageConnectionString = client |> Storage.getMBraceStorageConnectionString storageAccountName 
-           do! info (sprintf "using storage account name %s" storageAccountName)
-           do! info (sprintf "using storage connection string %s..." storageConnectionString.[0..20])
-           let! serviceBusNamespace, serviceBusConnectionString = client |> ServiceBus.getDefaultMBraceNamespace region
-           do! info (sprintf "using service bus namespace %s" serviceBusNamespace)
-           do! info (sprintf "using service bus connection string %s..." serviceBusConnectionString.[0..20])
+    static member CreateCluster(pubSettingsFile, region, ?logger : ISystemLogger, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize, ?CloudServicePackage, ?ClusterLabel) = async { 
+        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
+        let vmSize = defaultArg VMSize VMSizes.Large
+        logger.Logf LogLevel.Info "using vm size %s" vmSize
+        let! packagePath, infoString = async { 
+            match CloudServicePackage with 
+            | Some uriOrPath when System.Uri(uriOrPath).IsFile ->
+                let path = System.Uri(uriOrPath).LocalPath
+                logger.Logf LogLevel.Info "using cloud service package from %s" path
+                return path, "custom"
+            | _ -> 
+                let mbraceVersion = defaultArg MBraceVersion defaultMBraceVersion
+                logger.Logf LogLevel.Info "using MBrace version tag %s" mbraceVersion
+                let uri = defaultArg CloudServicePackage (urlForPackage mbraceVersion vmSize)
+                use wc = new System.Net.WebClient() 
+                let tmp = System.IO.Path.GetTempFileName() 
+                logger.Logf LogLevel.Info "downloading cloud service package from %s" uri
+                wc.DownloadFile(uri, tmp)
+                return tmp, mbraceVersion
+        }
 
-           let numInstances = defaultArg VMCount 2
-           let config = Clusters.buildMBraceConfig clusterName numInstances storageConnectionString serviceBusConnectionString
-    
+        let client = Credentials.connectToAzure Subscription pubSettingsFile 
+        let clusterName = defaultArg ClusterName (generateResourceName())
+        logger.Logf LogLevel.Info "using cluster name %s" clusterName
+        let! storageAccountName = async {
+            match StorageAccount with 
+            | None -> return! Storage.getDefaultMBraceStorageAccountName logger region client
+            | Some s -> return s
+        }
 
-           let clusterLabel = defaultArg ClusterLabel (sprintf "MBrace cluster %s, package %s"  clusterName infoString)
-           do! Clusters.createMBraceCluster(clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) client
+        let! storageConnectionString = Storage.getMBraceStorageConnectionString storageAccountName client
+        logger.Logf LogLevel.Info "using storage account name %s" storageAccountName
+        logger.Logf LogLevel.Info "using storage connection string %s..." storageConnectionString.[0..20]
+        let! serviceBusNamespace, serviceBusConnectionString = ServiceBus.getDefaultMBraceNamespace logger region client
+        logger.Logf LogLevel.Info "using service bus namespace %s" serviceBusNamespace
+        logger.Logf LogLevel.Info "using service bus connection string %s..." serviceBusConnectionString.[0..20]
 
-           let config = Configuration(storageConnectionString, serviceBusConnectionString)
+        let numInstances = defaultArg VMCount 2
+        let config = Clusters.buildMBraceConfig clusterName numInstances storageConnectionString serviceBusConnectionString
 
-           return config
-        }  |> Trial.returnOrFail
+        let clusterLabel = defaultArg ClusterLabel (sprintf "MBrace cluster %s, package %s"  clusterName infoString)
+        do! Clusters.createMBraceCluster(logger, clusterName, clusterLabel, region, packagePath, config, storageAccountName, storageConnectionString, serviceBusNamespace, serviceBusConnectionString) client
 
-    static member DeleteCluster(pubSettingsFile, clusterName, ?Subscription) =
-       trial { 
-           let! client = Credentials.connectToAzure Subscription pubSettingsFile 
-           return! Clusters.deleteMBraceCluster clusterName client
+        let config = Configuration(storageConnectionString, serviceBusConnectionString)
 
-        }  |> Trial.returnOrFail
+        return config
+    }
 
-    static member GetClusters(pubSettingsFile, ?Subscription) =
-       trial { 
-           let! client = Credentials.connectToAzure Subscription pubSettingsFile 
-           let response = Clusters.listRunningMBraceClusters client
-           return response
+    static member DeleteCluster(pubSettingsFile, clusterName, ?Subscription, ?logger : ISystemLogger) = async { 
+        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
+        let client = Credentials.connectToAzure Subscription pubSettingsFile 
+        return! Clusters.deleteMBraceCluster logger clusterName client
+    }
 
-        }  |> Trial.returnOrFail
-
-
+    static member GetClusters(pubSettingsFile, ?Subscription) = async { 
+        let client = Credentials.connectToAzure Subscription pubSettingsFile
+        return! Clusters.listRunningMBraceClusters client
+    }

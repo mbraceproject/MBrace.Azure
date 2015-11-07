@@ -118,7 +118,6 @@
     <Compile Include="Runtime\Service.fs" />
     <Compile Include="Runtime\StandaloneWorker.fs" />
     <Compile Include="Runtime\Client.fs" />
-    <Compile Include="Management.fsi" />
     <Compile Include="Management.fs" />
     <Content Include="paket.references" />
     <None Include="paket.template" />
