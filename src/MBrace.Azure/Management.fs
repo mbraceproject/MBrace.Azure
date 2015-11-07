@@ -72,6 +72,49 @@ type VMSizes =
     static member Standard_D4_v2    : VMSize = "Standard_D4_v2"
     static member Standard_D5_v2    : VMSize = "Standard_D5_v2"
 
+/// Azure subscription record
+[<AutoSerializable(false)>]
+type Subscription = 
+    { 
+        /// Human-readable subscription name
+        Name : string
+        /// Subscription identifier
+        Id : string  
+        /// X509 management certificate
+        ManagementCertificate : string
+        /// Azure service management url
+        ServiceManagementUrl : string
+    }
+
+/// Azure publish settings record
+[<AutoSerializable(false)>]
+type PublishSettings = 
+    { 
+        /// Set of Azure subscriptions
+        Subscriptions: Subscription [] 
+    }
+
+    /// Parse publish settings found in given xml string
+    static member Parse(xml : string) = 
+        let parseSubscription (elem : XElement) = 
+            let name = elem.Attribute(XName.op_Implicit "Name").Value
+            let id = elem.Attribute(XName.op_Implicit "Id").Value
+            let mc = elem.Attribute(XName.op_Implicit "ManagementCertificate").Value
+            let smu = elem.Attribute(XName.op_Implicit "ServiceManagementUrl").Value
+            {   Name = name;
+                Id = id;
+                ManagementCertificate = mc
+                ServiceManagementUrl = smu }
+
+        let doc = XDocument.Parse xml
+        let pubData = doc.Element(XName.op_Implicit "PublishData")
+        let pubProfile = pubData.Element(XName.op_Implicit "PublishProfile")
+        let subs = [| for s in pubProfile.Elements(XName.op_Implicit "Subscription") -> parseSubscription s |]
+        { Subscriptions = subs }
+
+    /// Parse publish settings from given local file path
+    static member ParseFile(publishSettingsFile : string) =
+        PublishSettings.Parse(File.ReadAllText publishSettingsFile)
 
 [<AutoOpen>]
 module private Details = 
@@ -81,40 +124,9 @@ module private Details =
         //sprintf "https://github.com/mbraceproject/bits/raw/master/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceVersion vmSize
 
     let resourcePrefix = "mbrace"
-    let generateResourceName() = resourcePrefix + (Guid.NewGuid().ToString() |> Seq.take 8 |> Seq.toArray |> (fun c -> String(c)))
+    let generateResourceName() = resourcePrefix + Guid.NewGuid().ToString("N").[..7]
     let defaultExtendedProperties = dict [ "IsMBraceAsset", "true"]
     let isMBraceAsset (extendedProperties:IDictionary<string, string>) = extendedProperties.ContainsKey "IsMBraceAsset"
-
-    //type PubSettings = XmlProvider< """<?xml version="1.0" encoding="utf-8"?><PublishData><PublishProfile SchemaVersion="2.0" PublishMethod="AzureServiceManagementAPI"><Subscription ServiceManagementUrl="https://management.core.windows.net" Id="de495429-2562-5242-81c8-54e236a5db4d" Name="Your First Subscription" ManagementCertificate="FIODSFSDIUS" /><Subscription ServiceManagementUrl="https://management.core.windows.net" Id="e156f021-460a-42fb-8a52-2878fbf83a25" Name="Second Subscription" ManagementCertificate="BLAH"/></PublishProfile></PublishData> """>
-    [<AutoSerializable(false)>]
-    type Subscription = 
-        { Name : string; Id : string;  ManagementCertificate: string; ServiceManagementUrl:string }
-        static member LoadX(doc:XElement) = 
-            let name = doc.Attribute(XName.op_Implicit "Name").Value
-            let id = doc.Attribute(XName.op_Implicit "Id").Value
-            let mc = doc.Attribute(XName.op_Implicit "ManagementCertificate").Value
-            let sm = doc.Attribute(XName.op_Implicit "ServiceManagementUrl").Value
-            { Name = name;
-              Id = id;
-              ManagementCertificate = mc
-              ServiceManagementUrl = sm }
-
-    [<AutoSerializable(false)>]
-    type PublishProfile = 
-        { Subscriptions: Subscription [] }
-        static member LoadX(doc:XElement) = 
-            let subs = [| for s in doc.Elements(XName.op_Implicit "Subscription") -> Subscription.LoadX s |]
-            { Subscriptions = subs }
-
-    [<AutoSerializable(false)>]
-    type PubSettings = 
-        { PublishProfile: PublishProfile }
-        static member LoadX(doc:XDocument) = 
-                let publishDataXml = doc.Element(XName.op_Implicit "PublishData")
-                let publishProfileXml = publishDataXml.Element(XName.op_Implicit "PublishProfile")
-                { PublishProfile =  PublishProfile.LoadX publishProfileXml } 
-        static member Parse(xml:string) = PubSettings.LoadX (XDocument.Parse xml)
-    //PubSettings.Parse """<?xml version="1.0" encoding="utf-8"?><PublishData><PublishProfile SchemaVersion="2.0" PublishMethod="AzureServiceManagementAPI"><Subscription     ServiceManagementUrl="https://management.core.windows.net" Id="de495429-2562-5242-81c8-54e236a5db4d" Name="Your First Subscription" ManagementCertificate="FIODSFSDIUS" /><Subscription ServiceManagementUrl="https://management.core.windows.net" Id="e156f021-460a-42fb-8a52-2878fbf83a25" Name="Second Subscription" ManagementCertificate="BLAH"/></PublishProfile></PublishData> """
 
     [<AutoSerializable(false)>]
     type AzureClient =
@@ -134,15 +146,12 @@ module private Details =
 
     module Credentials =
         let asCredentials (subscription:Subscription) =
-            let cert = new X509Certificate2(subscription.ManagementCertificate |> Convert.FromBase64String)
+            let cert = new X509Certificate2(Convert.FromBase64String subscription.ManagementCertificate)
             new CertificateCloudCredentials(subscription.Id, cert)
 
-        let getSubscriptions (pubSettingsFilePath:string) =
-            let pubSettings = PubSettings.Parse (File.ReadAllText pubSettingsFilePath)
-            pubSettings.PublishProfile.Subscriptions
-
         let connectToAzure subscriptionOpt pubSettingsFilePath =
-            let subscriptions = getSubscriptions pubSettingsFilePath
+            let pubSettings = PublishSettings.ParseFile pubSettingsFilePath
+            let subscriptions = pubSettings.Subscriptions
             if subscriptions.Length = 0 then
                 invalidArg "pubSettingsFilePath" <| sprintf "no Azure subscriptions found in pubsettings file %A" pubSettingsFilePath
 
