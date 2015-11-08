@@ -14,6 +14,8 @@ let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishS
 let subscription = pubSettings.["Nessos"]
 let manager = ClusterManager.Create(subscription, Regions.West_Europe, logger = ConsoleLogger(true))
 
+manager.DeleteCluster "eiriktest"
+
 let config = manager.CreateCluster(clusterName = "eiriktest", vmCount = 2, vmSize = VMSizes.A2)
 
 let cluster = AzureCluster.Connect config

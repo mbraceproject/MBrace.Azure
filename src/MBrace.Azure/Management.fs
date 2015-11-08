@@ -175,16 +175,19 @@ module private ManagementImpl =
                   Subscriptions = clients }
 
     module Infrastructure =
-        let listRegions (client:SubscriptionClient) =
+        let listRegions (client:SubscriptionClient) = async {
             let requiredServices = [ "Compute"; "Storage" ]
-            let rolesForClient = set(client.Management.RoleSizes.List() |> Seq.map(fun r -> r.Name))
-            client.Management.Locations.List()
-            |> Seq.filter(fun location -> requiredServices |> List.forall(location.AvailableServices.Contains))
-            |> Seq.map(fun location ->
-                let rolesInLocation = set location.ComputeCapabilities.WebWorkerRoleSizes
-                location.Name, rolesForClient |> Set.intersect rolesInLocation |> Seq.toList)
-            |> Seq.toList
-
+            let! (listedRoleSizes : Models.RoleSizeListResponse) = client.Management.RoleSizes.ListAsync()
+            let! (locations : Models.LocationsListResponse) = client.Management.Locations.ListAsync()
+            let rolesForClient = listedRoleSizes |> Seq.map (fun r -> r.Name) |> set
+            return 
+                locations
+                |> Seq.filter(fun location -> requiredServices |> List.forall(location.AvailableServices.Contains))
+                |> Seq.map(fun location ->
+                    let rolesInLocation = set location.ComputeCapabilities.WebWorkerRoleSizes
+                    location.Name, rolesForClient |> Set.intersect rolesInLocation |> Seq.toList)
+                |> Seq.toList
+        }
 
     module Storage =
 
