@@ -12,12 +12,14 @@ open System
 
 let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishSettings"
 let subscription = pubSettings.["Nessos"]
-let manager = ClusterManager.Create(subscription, Regions.West_Europe, logger = ConsoleLogger(true))
+let manager = DeploymentManager.Create(subscription, Regions.West_Europe, logger = ConsoleLogger(true))
 
-manager.GetClusters()
-manager.DeleteCluster "eiriktest"
+manager.ShowDeployments()
+manager.DeleteDeployment "eiriktest"
 
-let config = manager.CreateCluster(clusterName = "eiriktest", vmCount = 2, vmSize = VMSizes.A2)
+let config = manager.BeginDeploy(serviceName = "eiriktest", vmCount = 2, vmSize = VMSizes.A2)
+
+let config = manager.GetConfiguration(serviceName = "eiriktest")
 
 let cluster = AzureCluster.Connect config
 
