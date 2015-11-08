@@ -4,10 +4,12 @@ open System
 open System.Collections.Generic
 open System.IO
 open System.Security.Cryptography.X509Certificates
+open System.Text.RegularExpressions
 open System.Xml.Linq
 
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Azure.Runtime
 
 open Microsoft.Azure
 open Microsoft.WindowsAzure.Management
@@ -86,16 +88,16 @@ type Subscription =
         ServiceManagementUrl : string
     }
 
-/// Azure publish settings record
-[<NoEquality; NoComparison; AutoSerializable(false)>]
-type PublishSettings = 
-    { 
-        /// Set of Azure subscriptions
-        Subscriptions: Subscription [] 
+type PublishSettings =
+    {
+        Subscriptions : Subscription []
     }
 
+    member ps.Item (subscriptionId : string) =
+        ps.Subscriptions |> Array.find (fun s -> s.Id = subscriptionId || s.Name.Contains subscriptionId)
+
     /// Parse publish settings found in given xml string
-    static member Parse(xml : string) = 
+    static member Parse(xml : string) : PublishSettings = 
         let parseSubscription (elem : XElement) = 
             let name = elem.Attribute(XName.op_Implicit "Name").Value
             let id = elem.Attribute(XName.op_Implicit "Id").Value
@@ -109,11 +111,11 @@ type PublishSettings =
         let doc = XDocument.Parse xml
         let pubData = doc.Element(XName.op_Implicit "PublishData")
         let pubProfile = pubData.Element(XName.op_Implicit "PublishProfile")
-        let subs = [| for s in pubProfile.Elements(XName.op_Implicit "Subscription") -> parseSubscription s |]
-        { Subscriptions = subs }
+        let subscriptions = [| for s in pubProfile.Elements(XName.op_Implicit "Subscription") -> parseSubscription s |]
+        { Subscriptions = subscriptions }
 
     /// Parse publish settings from given local file path
-    static member ParseFile(publishSettingsFile : string) =
+    static member ParseFile(publishSettingsFile : string) : PublishSettings =
         PublishSettings.Parse(File.ReadAllText publishSettingsFile)
 
 [<AutoOpen>]
@@ -158,7 +160,7 @@ module private ManagementImpl =
         member c.GetClientByIdOrDefault(?id : string) =
             match id with
             | None -> c.Default
-            | Some id -> c.Subscriptions |> Array.find (fun s -> s.Subscription.Id = id || s.Subscription.Name = id)
+            | Some id -> c.Subscriptions |> Array.find (fun s -> s.Subscription.Id = id || s.Subscription.Name.Contains id)
 
         member c.Item with get (id : string) = c.GetClientByIdOrDefault(id = id)
 
@@ -168,7 +170,7 @@ module private ManagementImpl =
             | subscriptions ->
                 let clients = subscriptions |> Array.map SubscriptionClient.Activate
                 let defaultSubscriptionId = defaultArg defaultSubscriptionId subscriptions.[0].Id
-                let defaultSubscription = clients |> Array.find (fun c -> c.Subscription.Id = defaultSubscriptionId || c.Subscription.Name = defaultSubscriptionId)
+                let defaultSubscription = clients |> Array.find (fun c -> c.Subscription.Id = defaultSubscriptionId || c.Subscription.Name.Contains defaultSubscriptionId)
                 { Default = defaultSubscription
                   Subscriptions = clients }
 
@@ -185,27 +187,43 @@ module private ManagementImpl =
 
 
     module Storage =
-        open Microsoft.WindowsAzure.Storage
 
-        let listStorageAccounts region (client:SubscriptionClient) =
-            [ for account in client.Storage.StorageAccounts.List() do
-                let hasLocationData, storageAccountLocation = account.ExtendedProperties.TryGetValue "ResourceLocation"
-                if hasLocationData && storageAccountLocation = region then 
-                   yield account ]
-
-        let tryFindMBraceStorage region (client:SubscriptionClient) =
-            client
-            |> listStorageAccounts region
-            |> List.filter(fun account -> account.ExtendedProperties |> isMBraceAsset)
-            |> List.map(fun account -> account.Name)
-            |> function [] -> None | h::_ -> Some h
-
-        let rec createMBraceStorageAccount (logger : ISystemLogger) (region : string) (client:SubscriptionClient) = async {
-            let accountName = generateResourceName()
-            let! (availability : CheckNameAvailabilityResponse) = client.Storage.StorageAccounts.CheckNameAvailabilityAsync accountName 
-            if not availability.IsAvailable then return! createMBraceStorageAccount logger region client
+        let private connectionStringRegex = new Regex("DefaultEndpointsProtocol=https;AccountName=(.+);AccountKey=(.+)", RegexOptions.Compiled)
+        let tryParseConnectionString (conn : string) =
+            let m = connectionStringRegex.Match(conn)
+            if m.Success then
+                let accountName = m.Groups.[1].Value
+                let accountKey = m.Groups.[2].Value
+                Some(accountName, accountKey)
             else
-                let result = client.Storage.StorageAccounts.Create(StorageAccountCreateParameters(Name = accountName, AccountType = "Standard_LRS", Location = region, ExtendedProperties = defaultExtendedProperties))
+                None
+
+        let mkConnectionString accountName (key : string) =
+            sprintf "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s" accountName key
+
+        let getStorageAccounts (client:SubscriptionClient) = async {
+            let! (listed : StorageAccountListResponse) = client.Storage.StorageAccounts.ListAsync()
+            return listed |> Seq.toArray
+        }
+
+        let tryFindMBraceStorage region (client:SubscriptionClient) = async {
+            let! accounts = getStorageAccounts client
+            return
+                accounts
+                |> Seq.filter (fun account -> 
+                    let hasLocationData, storageAccountLocation = account.ExtendedProperties.TryGetValue "ResourceLocation"
+                    hasLocationData && storageAccountLocation = region)
+                |> Seq.filter(fun account -> account.ExtendedProperties |> isMBraceAsset)
+                |> Seq.map(fun account -> account.Name)
+                |> Seq.tryPick Some
+        }
+
+        let rec createMBraceStorageAccount (logger : ISystemLogger) (region : string) (accountName : string) (client:SubscriptionClient) = async {
+            let! (availability : CheckNameAvailabilityResponse) = client.Storage.StorageAccounts.CheckNameAvailabilityAsync accountName 
+            if not availability.IsAvailable then return! createMBraceStorageAccount logger region accountName client
+            else
+                let storageParams = new StorageAccountCreateParameters(Name = accountName, AccountType = "Standard_LRS", Location = region, ExtendedProperties = defaultExtendedProperties)
+                let! (result : OperationStatusResponse) = client.Storage.StorageAccounts.CreateAsync(storageParams)
                 if result.Status = OperationStatus.Failed then 
                     return invalidOp result.Error.Message
                 else 
@@ -213,16 +231,21 @@ module private ManagementImpl =
                     return accountName 
         }
 
-        let getConnectionString accountName (client:SubscriptionClient) =
-            async { 
-                let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync accountName
-                return sprintf """DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s""" accountName keys.PrimaryKey
-            }
+        let getAccountInfo (id : string) (client:SubscriptionClient) = async {
+            match tryParseConnectionString id with
+            | Some(accountName, _) -> 
+                // input identified as connection string, parse and return account name
+                return accountName, id
+            | None ->
+                // input identifier as account name, recover connection string from Storage Account client
+                let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync id
+                let conn = mkConnectionString id keys.PrimaryKey
+                return id, conn
+        }
 
         let getDeploymentContainer connectionString =
-            let account = CloudStorageAccount.Parse connectionString
-            let blobClient = account.CreateCloudBlobClient()
-            blobClient.GetContainerReference "deployments"
+            let account = AzureStorageAccount.Parse connectionString
+            account.BlobClient.GetContainerReference "deployments"
 
         let configureMBraceStorageAccount connectionString = async {
             let container = getDeploymentContainer connectionString
@@ -230,21 +253,50 @@ module private ManagementImpl =
         }
 
         let getDefaultMBraceStorageAccountName (logger : ISystemLogger) region client = async {
-            match tryFindMBraceStorage region client with
+            let! result = tryFindMBraceStorage region client
+            match result with
             | Some storage -> 
                 logger.Logf LogLevel.Info "Reusing existing storage account %s" storage
                 return storage
             | None -> 
-                return! createMBraceStorageAccount logger region client
+                let accountName = generateResourceName()
+                return! createMBraceStorageAccount logger region accountName client
         }
 
-        let getMBraceStorageConnectionString accountName (client:SubscriptionClient) = async {
-            let! connectionString = getConnectionString accountName client 
-            configureMBraceStorageAccount connectionString |> ignore
-            return connectionString
+        let resolveStorageAccount (logger : ISystemLogger) (region : Region) (storageAccount : string option) (client : SubscriptionClient) = async {
+            match storageAccount with
+            | Some account -> 
+                // parse and validate storage account info
+                return! getAccountInfo account client
+            | None ->
+                let! accountName = getDefaultMBraceStorageAccountName logger region client
+                return! getAccountInfo accountName client
         }
 
     module ServiceBus =
+
+        let mkEndpoint (namespaceName : string) =
+            sprintf "sb://%s.servicebus.windows.net/" namespaceName
+
+        let mkConnectionString endpoint (key : string) =
+            sprintf "EndPoint=%s;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=%s" endpoint key
+
+        let private connectionStringRegex = new Regex("Endpoint=(.+);SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=(.+)", RegexOptions.Compiled)
+        let tryParseConnectionString (conn : string) =
+            let m = connectionStringRegex.Match(conn)
+            if m.Success then
+                let endPoint = m.Groups.[1].Value |> Uri
+                let namespaceName = endPoint.Host.Split('.').[0]
+                let accountKey = m.Groups.[2].Value
+                Some(endPoint.ToString(), namespaceName, accountKey)
+            else
+                None
+
+        let tryParseEndpoint (endpoint : string) =
+            let ok, uri = Uri.TryCreate(endpoint, UriKind.Absolute)
+            if ok && uri.Scheme = "sb" then Some (uri.Host.Split('.').[0])
+            else None
+
         let rec waitUntilState checkState ns (client:SubscriptionClient) = async {
             let! result = client.ServiceBus.Namespaces.GetAsync ns |> Async.AwaitTaskCorrect |> Async.Catch
             let status = match result with Choice1Of2 ns -> ns.Namespace.Status | Choice2Of2 _ -> ""
@@ -253,12 +305,11 @@ module private ManagementImpl =
                 return! waitUntilState checkState ns client
         }
 
-        let rec createNamespace (logger : ISystemLogger) region (client:SubscriptionClient) = async {
-            let namespaceName = generateResourceName()
+        let rec createNamespace (logger : ISystemLogger) (region : Region) (namespaceName : string) (client:SubscriptionClient) = async {
             logger.Logf LogLevel.Info "checking availability of service bus namespace %s" namespaceName
             let! (availability : CheckNamespaceAvailabilityResponse) = client.ServiceBus.Namespaces.CheckAvailabilityAsync namespaceName
             if not availability.IsAvailable then 
-                return! createNamespace logger region client
+                return! createNamespace logger region namespaceName client
             else
                 logger.Logf LogLevel.Info "creating service bus namespace %s" namespaceName
                 let result = client.ServiceBus.Namespaces.Create(namespaceName, region) 
@@ -272,24 +323,35 @@ module private ManagementImpl =
                     return namespaceName 
         }
 
-        let listNamespaces region (client:SubscriptionClient) = async {
+        let getNamespaces (client:SubscriptionClient) = async {
             let! (nss : ServiceBusNamespacesResponse) = client.ServiceBus.Namespaces.ListAsync()
-            return nss |> Seq.filter (fun account -> account.Region = region) |> Seq.toList
+            return nss |> Seq.toArray
         }
 
-        let tryFindMBraceNamespace region (client:SubscriptionClient) = async {
-            let! accounts = listNamespaces region client
+        let tryFindMBraceNamespace (region : Region) (client:SubscriptionClient) = async {
+            let! accounts = getNamespaces client
             return
                 accounts
+                |> Seq.filter (fun ns -> ns.Region = region)
                 |> Seq.filter(fun ns -> ns.Name.StartsWith resourcePrefix)
                 |> Seq.map(fun ns -> ns.Name)
                 |> Seq.tryPick Some
         }
 
-        let getConnectionString namespaceName (client:SubscriptionClient) = async {
-            let rule = client.ServiceBus.Namespaces.ListAuthorizationRules namespaceName |> Seq.find(fun rule -> rule.KeyName = "RootManageSharedAccessKey")
-            return sprintf """Endpoint=sb://%s.servicebus.windows.net/;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=%s""" namespaceName rule.PrimaryKey
-        } 
+        let getAccountInfo (id : string) (client:SubscriptionClient) = async {
+            match tryParseConnectionString id with
+            | Some(endpoint, namespaceName, _) -> 
+                // input identified as connection string, parse and return account name
+                return namespaceName, endpoint, id
+            | None ->
+                let namespaceName = defaultArg (tryParseEndpoint id) id
+                // input identifier as account name, recover connection string from Storage Account client
+                let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync(namespaceName)
+                let rootSharedAccessKey = authRules |> Seq.find (fun rule -> rule.KeyName = "RootManageSharedAccessKey")
+                let endpoint = mkEndpoint namespaceName
+                let connectionString = mkConnectionString endpoint rootSharedAccessKey.PrimaryKey
+                return namespaceName, endpoint, connectionString
+        }
 
         let findOrCreateMBraceNamespace (logger : ISystemLogger) region client = async {
             let! nsOpt = tryFindMBraceNamespace region client
@@ -297,13 +359,17 @@ module private ManagementImpl =
             | Some ns -> 
                 logger.Logf LogLevel.Info "Reusing existing Service Bus namespace %A" ns
                 return ns
-            | None -> return! createNamespace logger region client
+            | None -> 
+                let namespaceName = generateResourceName()
+                return! createNamespace logger region namespaceName client
         }
 
-        let getDefaultMBraceNamespace (logger : ISystemLogger) region client = async {
-            let! ns = findOrCreateMBraceNamespace logger region client
-            let! connectionString = getConnectionString ns client
-            return ns, connectionString
+        let resolveNamespaceInfo (logger : ISystemLogger) (region : Region) (serviceBusId : string option) (client : SubscriptionClient) = async {
+            match serviceBusId with
+            | Some id -> return! getAccountInfo id client
+            | None ->
+                let! ns = findOrCreateMBraceNamespace logger region client
+                return! getAccountInfo ns client    
         }
 
         let deleteNamespace namespaceName (client:SubscriptionClient) = async {
@@ -323,7 +389,7 @@ module private ManagementImpl =
             Nodes : Node list }
 
         let validateClusterName (client:SubscriptionClient) clusterName = async { 
-            let result = client.Compute.HostedServices.CheckNameAvailability clusterName
+            let! (result : HostedServiceCheckNameAvailabilityResponse) = client.Compute.HostedServices.CheckNameAvailabilityAsync clusterName
             if not result.IsAvailable then return invalidOp result.Reason
         }
 
@@ -381,8 +447,6 @@ module private ManagementImpl =
                                             (region : Region) (packagePath : string) (config : string) 
                                             (storageAccountName : string) (storageConnectionString : string) 
                                             (serviceBusNamespace : string) (serviceBusConnectionString : string) (client:SubscriptionClient) = async {
-
-            do! validateClusterName client clusterName 
 
             let extendedProperties =
                 [ "StorageAccountName", storageAccountName
@@ -458,53 +522,79 @@ module private ManagementImpl =
                 return tmp, version
         }
 
-type Management =
+[<Sealed; AutoSerializable(false)>]
+type ClusterManager private (pubSettings : PubSettingsClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
 
-    static member CreateCluster(pubSettingsFile, region : Region, ?logger : ISystemLogger, ?ClusterName, ?Subscription, ?MBraceVersion, ?VMCount, ?StorageAccount, ?VMSize : VMSize, ?CloudServicePackage, ?ClusterLabel) = async { 
-        let pubSettings = PublishSettings.ParseFile pubSettingsFile
-        let pubClient = PubSettingsClient.Activate pubSettings.Subscriptions
-        let client = pubClient.GetClientByIdOrDefault(?id = Subscription) 
-        let clusterName = defaultArg ClusterName (generateResourceName())
-        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-        let vmSize = defaultArg VMSize VMSizes.Large
+    let logger = AttacheableLogger.Create(?logLevel = logLevel, makeAsynchronous = false)
+    do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
+
+    let mutable defaultRegion = defaultRegion
+
+    member __.AttachLogger(l : ISystemLogger) = logger.AttachLogger l
+    member __.DefaultRegion
+        with get () = defaultRegion
+        and set reg = defaultRegion <- reg
+
+    member __.Subscriptions = pubSettings.Subscriptions |> Array.map (fun s -> s.Subscription.Name)
+    member __.DefaultSubscription = pubSettings.Default.Subscription.Name
+
+    static member Create(subscriptions : seq<Subscription>, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+        let client = PubSettingsClient.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
+        new ClusterManager(client, defaultRegion, logger, ?logLevel = logLevel)
+
+    static member Create(subscription : Subscription, defaultRegion : Region, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+        ClusterManager.Create([subscription], defaultRegion, ?logger = logger, ?logLevel = logLevel)
+
+    static member FromPublishSettingsFile(publishSettingsFile : string, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+        let pubSettings = PublishSettings.ParseFile publishSettingsFile
+        ClusterManager.Create(pubSettings.Subscriptions, defaultRegion, ?defaultSubscriptionId = defaultSubscriptionId, ?logger = logger, ?logLevel = logLevel)
+
+    member __.CreateClusterAsync(clusterName : string, vmSize : VMSize, vmCount : int, ?subscriptionId : string, ?region : Region, 
+                                        ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?clusterLabel : string) = async {
+
+        if vmCount < 1 then invalidOp "vmCount" "Must be positive value."
+        let region = defaultArg region defaultRegion
+        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
+        do! Clusters.validateClusterName client clusterName
+
         logger.Logf LogLevel.Info "using vm size %s" vmSize
-        let! packagePath, versionInfo = Clusters.downloadServicePackage logger vmSize MBraceVersion CloudServicePackage
-
+        let! packagePath, versionInfo = Clusters.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
         logger.Logf LogLevel.Info "using cluster name %s" clusterName
-        let! storageAccountName = async {
-            match StorageAccount with 
-            | None -> return! Storage.getDefaultMBraceStorageAccountName logger region client
-            | Some s -> return s
-        }
 
-        let! storageConnectionString = Storage.getMBraceStorageConnectionString storageAccountName client
+        let! storageAccountName, storageConnectionString = Storage.resolveStorageAccount logger region storageAccount client
         logger.Logf LogLevel.Info "using storage account name %A" storageAccountName
-        let! serviceBusNamespace, serviceBusConnectionString = ServiceBus.getDefaultMBraceNamespace logger region client
+        let! _, serviceBusNamespace, serviceBusConnectionString = ServiceBus.resolveNamespaceInfo logger region serviceBusAccount client
         logger.Logf LogLevel.Info "using service bus account %A" serviceBusNamespace
 
-        let numInstances = defaultArg VMCount 2
-        let config = Clusters.buildMBraceConfig clusterName numInstances storageConnectionString serviceBusConnectionString
+        let config = Clusters.buildMBraceConfig clusterName vmCount storageConnectionString serviceBusConnectionString
 
-        let clusterLabel = defaultArg ClusterLabel (sprintf "MBrace cluster %A, package %s"  clusterName (defaultArg versionInfo "custom"))
+        let clusterLabel = defaultArg clusterLabel (sprintf "MBrace cluster %A, package %s"  clusterName (defaultArg versionInfo "custom"))
         let! deployInfo = Clusters.prepareMBraceServiceDeployment logger clusterName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
         do! Clusters.beginDeploy DeploymentSlot.Production deployInfo client
-        let config = Configuration(storageConnectionString, serviceBusConnectionString)
-
-        return config
+        return new Configuration(storageConnectionString, serviceBusConnectionString)
     }
 
-    static member DeleteCluster(pubSettingsFile, clusterName, ?Subscription, ?logger : ISystemLogger) = async { 
-        let logger = match logger with Some l -> l | None -> new NullLogger() :> _
-        let pubSettings = PublishSettings.ParseFile pubSettingsFile
-        let pubClient = PubSettingsClient.Activate pubSettings.Subscriptions
-        let client = pubClient.GetClientByIdOrDefault(?id = Subscription) 
+    member __.CreateCluster(clusterName : string, vmSize : VMSize, vmCount : int, ?subscriptionId : string, ?region : Region, 
+                                        ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?clusterLabel : string) =
+        __.CreateClusterAsync(clusterName, vmSize, vmCount, ?subscriptionId = subscriptionId, ?region = region, ?mbraceVersion = mbraceVersion,
+                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?clusterLabel = clusterLabel)
+        |> Async.RunSync
+
+    member __.DeleteClusterAsync(clusterName : string, ?subscriptionId : string) = async { 
+        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId) 
         return! Clusters.deleteMBraceCluster logger clusterName client
     }
 
-    static member GetClusters(pubSettingsFile, ?Subscription) = async { 
-        let pubSettings = PublishSettings.ParseFile pubSettingsFile
-        let pubClient = PubSettingsClient.Activate pubSettings.Subscriptions
-        let client = pubClient.GetClientByIdOrDefault(?id = Subscription) 
+    member __.DeleteCluster(clusterName : string, ?subscriptionId : string) =
+        __.DeleteClusterAsync(clusterName, ?subscriptionId = subscriptionId)
+        |> Async.RunSync
+
+    member __.GetClustersAsync(?subscriptionId : string) = async { 
+        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
         let! clusters = Clusters.getRunningMBraceClusters client
         return clusters |> List.map (sprintf "%+A")
     }
+
+    member __.GetClusters(?subscriptionId : string) =
+        __.GetClustersAsync(?subscriptionId = subscriptionId)
+        |> Async.RunSync

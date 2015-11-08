@@ -10,6 +10,16 @@ open MBrace.Core
 open MBrace.Azure
 open System
 
+let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishSettings"
+let subscription = pubSettings.["Nessos"]
+let manager = ClusterManager.Create(subscription, Regions.West_Europe, logger = ConsoleLogger(true))
+
+let config = manager.CreateCluster(clusterName = "eiriktest", vmCount = 2, vmSize = VMSizes.A2)
+
+let cluster = AzureCluster.Connect config
+
+cluster.ShowWorkers()
+
 let config = Configuration.FromEnvironmentVariables()
 
 AzureWorker.LocalExecutable <- __SOURCE_DIRECTORY__ + "/../../bin/mbrace.azureworker.exe"
