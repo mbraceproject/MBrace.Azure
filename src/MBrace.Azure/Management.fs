@@ -378,11 +378,16 @@ module private ManagementImpl =
             do! client |> waitUntilState ((<>) "Removing") namespaceName
         }
 
-    module Clusters =
+    module Deployment =
         open System.IO
 
-        type Node = { Size : string; Status : string }
-        type ClusterDetails = {
+        type Node = { 
+            Id : string
+            Hostname : string
+            VMSize : VMSize 
+            Status : string }
+
+        type DeploymentDetails = {
             Name : string
             CreatedTime : DateTime
             ServiceStatus : string
@@ -394,41 +399,52 @@ module private ManagementImpl =
             if not result.IsAvailable then return invalidOp result.Reason
         }
 
-        let getConnectionStrings clusterName (client:SubscriptionClient) = async {
-            let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync clusterName
-            let storageConnectionString = service.Properties.ExtendedProperties.["StorageAccountConnectionString"]
-            let serviceBusConnectionString = service.Properties.ExtendedProperties.["ServiceBusConnectionString"]
-            let serviceBusNamespace = service.Properties.ExtendedProperties.["ServiceBusName"]
-            return storageConnectionString, serviceBusConnectionString, serviceBusNamespace
+        let tryGetDeploymentConfiguration (clusterName : string) (client : SubscriptionClient) = async {
+            let! result = client.Compute.HostedServices.GetDetailedAsync clusterName |> Async.AwaitTaskCorrect |> Async.Catch
+            match result with
+            | Choice1Of2 service when service.Properties.ExtendedProperties |> isMBraceAsset ->
+                let storageConnectionString = service.Properties.ExtendedProperties.["StorageConnectionString"]
+                let serviceBusConnectionString = service.Properties.ExtendedProperties.["ServiceBusConnectionString"]
+                let config = new Configuration(storageConnectionString, serviceBusConnectionString)
+                return Some config
+            | _ ->
+                return None
         }
 
-        let getRunningMBraceClusters (client:SubscriptionClient) = async {
+        let getRunningDeployments (client:SubscriptionClient) = async {
             let! (services : HostedServiceListResponse) = client.Compute.HostedServices.ListAsync()
-            let getHostedServiceInfo (service : HostedServiceListResponse.HostedService) =
+            let getHostedServiceInfo (service : HostedServiceListResponse.HostedService) = async {
                 if service.Properties.ExtendedProperties |> isMBraceAsset then 
-                    let deployment =
-                        try client.Compute.Deployments.GetBySlot(service.ServiceName, DeploymentSlot.Production) |> Some
-                        with _ -> None
+                    let! deployment = async {
+                        try
+                            let ds = client.Compute.Deployments
+                            let! (d : DeploymentGetResponse) = ds.GetBySlotAsync(service.ServiceName, DeploymentSlot.Production)
+                            return Some d
+                        with _ -> return None
+                    }
+
+                    let nodes =
+                        match deployment with
+                        | None -> []
+                        | Some d -> 
+                            d.RoleInstances 
+                            |> Seq.map (fun i -> { Id = i.InstanceName ; Hostname = i.HostName ; VMSize = i.InstanceSize ; Status = i.InstanceStatus }) 
+                            |> Seq.toList
 
                     let info = 
                         {   Name = service.ServiceName
                             CreatedTime = service.Properties.DateCreated
                             ServiceStatus = service.Properties.Status.ToString()
                             DeploymentStatus = deployment |> Option.map(fun deployment -> deployment.Status.ToString())
-                            Nodes =
-                                deployment
-                                |> Option.map(fun deployment ->
-                                    deployment.RoleInstances
-                                    |> Seq.map(fun instance -> { Size = instance.InstanceSize; Status = instance.InstanceStatus })
-                                    |> Seq.toList)
-                                |> defaultArg <| [] 
-                        } 
+                            Nodes = nodes } 
 
-                    Some info
+                    return Some info
                 else
-                    None
+                    return None
+            }
 
-            return services |> Seq.choose getHostedServiceInfo |> Seq.toList
+            let! info = services |> Seq.map getHostedServiceInfo |> Async.Parallel 
+            return info |> Seq.choose id |> Seq.toList
         }
 
         let buildMBraceConfig serviceName instances storageConnection serviceBusConnection =
@@ -451,7 +467,7 @@ module private ManagementImpl =
 
             let extendedProperties =
                 [ "StorageAccountName", storageAccountName
-                  "StorageAccountConnectionString", storageConnectionString
+                  "StorageConnectionString", storageConnectionString
                   "ServiceBusName", serviceBusNamespace
                   "ServiceBusConnectionString", serviceBusConnectionString ]
                 @ (defaultExtendedProperties.Keys |> Seq.map(fun key -> key, defaultExtendedProperties.[key]) |> Seq.toList)
@@ -492,13 +508,13 @@ module private ManagementImpl =
                 return failwith "error: HTTP request for creation operation was not accepted"
         }            
 
-        let deleteMBraceCluster (logger : ISystemLogger) (clusterName:string) (client:SubscriptionClient) = async {
-            let service = client.Compute.HostedServices.GetDetailed clusterName
+        let deleteMBraceDeployment (logger : ISystemLogger) (clusterName:string) (client:SubscriptionClient) = async {
+            let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync clusterName
             if service.Properties.ExtendedProperties |> isMBraceAsset then
                 logger.Logf LogLevel.Info "deleting cluster %s" clusterName
-                let deleteOp = client.Compute.Deployments.DeleteByName(clusterName, clusterName, true)
+                let! (deleteOp : OperationStatusResponse) = client.Compute.Deployments.DeleteByNameAsync(clusterName, clusterName, true)
                 if deleteOp.Status <> OperationStatus.Succeeded then return failwith deleteOp.Error.Message
-                let deleteOp = client.Compute.HostedServices.Delete clusterName
+                let! (deleteOp : AzureOperationResponse) = client.Compute.HostedServices.DeleteAsync clusterName
                 if deleteOp.StatusCode <> Net.HttpStatusCode.OK then return failwith (deleteOp.StatusCode.ToString()) 
             else
                 logger.Logf LogLevel.Info "No MBrace cluster called %A found" clusterName
@@ -543,6 +559,9 @@ type ClusterManager private (pubSettings : PubSettingsClient, defaultRegion : Re
         let client = PubSettingsClient.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
         new ClusterManager(client, defaultRegion, logger, ?logLevel = logLevel)
 
+    static member Create(publishSettings : PublishSettings, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+        ClusterManager.Create(publishSettings.Subscriptions, defaultRegion, ?logger = logger, ?defaultSubscriptionId = defaultSubscriptionId, ?logLevel = logLevel)
+
     static member Create(subscription : Subscription, defaultRegion : Region, ?logger : ISystemLogger, ?logLevel : LogLevel) =
         ClusterManager.Create([subscription], defaultRegion, ?logger = logger, ?logLevel = logLevel)
 
@@ -556,10 +575,10 @@ type ClusterManager private (pubSettings : PubSettingsClient, defaultRegion : Re
         if vmCount < 1 then invalidOp "vmCount" "Must be positive value."
         let region = defaultArg region defaultRegion
         let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
-        do! Clusters.validateClusterName client clusterName
+        do! Deployment.validateClusterName client clusterName
 
         logger.Logf LogLevel.Info "using vm size %s" vmSize
-        let! packagePath, versionInfo = Clusters.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
+        let! packagePath, versionInfo = Deployment.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
         logger.Logf LogLevel.Info "using cluster name %s" clusterName
 
         let! storageAccountName, storageConnectionString = Storage.resolveStorageAccount logger region storageAccount client
@@ -567,11 +586,11 @@ type ClusterManager private (pubSettings : PubSettingsClient, defaultRegion : Re
         let! _, serviceBusNamespace, serviceBusConnectionString = ServiceBus.resolveNamespaceInfo logger region serviceBusAccount client
         logger.Logf LogLevel.Info "using service bus account %A" serviceBusNamespace
 
-        let config = Clusters.buildMBraceConfig clusterName vmCount storageConnectionString serviceBusConnectionString
+        let config = Deployment.buildMBraceConfig clusterName vmCount storageConnectionString serviceBusConnectionString
 
         let clusterLabel = defaultArg clusterLabel (sprintf "MBrace cluster %A, package %s"  clusterName (defaultArg versionInfo "custom"))
-        let! deployInfo = Clusters.prepareMBraceServiceDeployment logger clusterName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
-        do! Clusters.beginDeploy DeploymentSlot.Production deployInfo client
+        let! deployInfo = Deployment.prepareMBraceServiceDeployment logger clusterName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
+        do! Deployment.beginDeploy DeploymentSlot.Production deployInfo client
         return new Configuration(storageConnectionString, serviceBusConnectionString)
     }
 
@@ -583,7 +602,7 @@ type ClusterManager private (pubSettings : PubSettingsClient, defaultRegion : Re
 
     member __.DeleteClusterAsync(clusterName : string, ?subscriptionId : string) = async { 
         let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId) 
-        return! Clusters.deleteMBraceCluster logger clusterName client
+        return! Deployment.deleteMBraceDeployment logger clusterName client
     }
 
     member __.DeleteCluster(clusterName : string, ?subscriptionId : string) =
@@ -592,7 +611,7 @@ type ClusterManager private (pubSettings : PubSettingsClient, defaultRegion : Re
 
     member __.GetClustersAsync(?subscriptionId : string) = async { 
         let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
-        let! clusters = Clusters.getRunningMBraceClusters client
+        let! clusters = Deployment.getRunningDeployments client
         return clusters |> List.map (sprintf "%+A")
     }
 
