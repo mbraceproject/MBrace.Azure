@@ -243,13 +243,11 @@ module private ManagementImpl =
                 return id, conn
         }
 
-        let getDeploymentContainer connectionString =
+        let getDeploymentContainer connectionString = async {
             let account = AzureStorageAccount.Parse connectionString
-            account.BlobClient.GetContainerReference "deployments"
-
-        let configureMBraceStorageAccount connectionString = async {
-            let container = getDeploymentContainer connectionString
+            let container = account.BlobClient.GetContainerReference "deployments"
             do! container.CreateIfNotExistsAsync()
+            return container
         }
 
         let getDefaultMBraceStorageAccountName (logger : ISystemLogger) region client = async {
@@ -459,7 +457,7 @@ module private ManagementImpl =
             logger.Logf LogLevel.Info "creating cloud service %s" clusterName
             let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region, ServiceName = clusterName, ExtendedProperties = extendedProperties))
 
-            let container = Storage.getDeploymentContainer storageConnectionString
+            let! container = Storage.getDeploymentContainer storageConnectionString
             let packageBlob = packagePath |> Path.GetFileName |> container.GetBlockBlobReference
             let blobSizesDoNotMatch() =
                 packageBlob.FetchAttributes()
