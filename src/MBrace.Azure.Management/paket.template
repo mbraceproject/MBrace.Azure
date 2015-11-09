@@ -1,0 +1,21 @@
+﻿type project
+id MBrace.Azure.Management
+description
+    MBrace.Azure cluster management library.
+authors
+    Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis, Isaac Abraham, Don Syme
+copyright
+    Copyright 2015
+summary
+	Contains a set of routines for deploying and managing MBrace cloud services on Azure.
+licenseurl https://github.com/mbraceproject/MBrace.Azure/blob/master/LICENSE.md
+projecturl http://www.mbrace.io/
+iconurl https://avatars2.githubusercontent.com/u/9674757
+tags
+	F#, cloud, mapreduce, distributed, azure, windowsazure
+references
+	MBrace.Azure.Management.dll
+dependencies
+	MBrace.Azure >= CURRENTVERSION
+files
+	../../nuget/MBrace.Azure.Management.fsx ==>

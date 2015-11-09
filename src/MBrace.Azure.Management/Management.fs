@@ -1,4 +1,4 @@
-﻿namespace MBrace.Azure
+﻿namespace MBrace.Azure.Management
 
 open System
 open System.Collections.Generic
@@ -6,11 +6,6 @@ open System.IO
 open System.Security.Cryptography.X509Certificates
 open System.Text.RegularExpressions
 open System.Xml.Linq
-
-open MBrace.Core.Internals
-open MBrace.Runtime
-open MBrace.Runtime.Utils.PrettyPrinters
-open MBrace.Azure.Runtime
 
 open Microsoft.Azure
 open Microsoft.WindowsAzure.Management
@@ -20,6 +15,12 @@ open Microsoft.WindowsAzure.Management.Storage
 open Microsoft.WindowsAzure.Management.Storage.Models
 open Microsoft.WindowsAzure.Management.ServiceBus
 open Microsoft.WindowsAzure.Management.ServiceBus.Models
+
+open MBrace.Core.Internals
+open MBrace.Runtime
+open MBrace.Runtime.Utils.PrettyPrinters
+open MBrace.Azure
+open MBrace.Azure.Runtime
 
 /// Azure Region string identifier
 type Region = string
