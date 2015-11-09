@@ -7,6 +7,3 @@ Vagabond
 MBrace.Runtime
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
-Microsoft.WindowsAzure.Management.Libraries
-Microsoft.WindowsAzure.Management.ServiceBus
-

@@ -17,17 +17,6 @@
 #r @"tools\MBrace.Runtime.dll"
 #r @"tools\MBrace.Azure.dll"
 
-// Needed for managment operations like provisioning:
-#r @"tools\Hyak.Common.dll"
-#r @"tools\Microsoft.Azure.Common.dll"
-#r @"tools\Microsoft.Threading.Tasks.dll"
-#r @"tools\Microsoft.Azure.Common.NetFramework.dll"
-#r @"tools\Microsoft.WindowsAzure.Management.dll"
-#r @"tools\Microsoft.WindowsAzure.Management.Compute.dll"
-#r @"tools\Microsoft.WindowsAzure.Management.Storage.dll"
-#r @"tools\Microsoft.WindowsAzure.Management.ServiceBus.dll"
-#r "System.Runtime"
-#r "System.Threading.Tasks"
 open System.IO
 open MBrace.Azure
 

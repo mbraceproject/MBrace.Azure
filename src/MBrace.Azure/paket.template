@@ -3,7 +3,7 @@ id MBrace.Azure
 description
     MBrace on Windows Azure.
 authors
-    Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis
+    Eirik Tsarpalis, Nick Palladinos, Kostas Rontogiannis, Isaac Abraham, Don Syme
 copyright
     Copyright 2015
 summary
@@ -36,15 +36,6 @@ files
 	../../bin/Microsoft.ServiceBus.dll ==> tools
 	../../bin/Microsoft.WindowsAzure.Configuration.dll ==> tools
 	../../bin/Microsoft.WindowsAzure.Storage.dll ==> tools
-	../../bin/Hyak.Common.dll ==> tools
-	../../bin/Microsoft.Azure.Common.dll ==> tools
-	../../bin/Microsoft.Azure.Common.NetFramework.dll ==> tools
-	../../bin/Microsoft.WindowsAzure.Management.dll ==> tools
-	../../bin/Microsoft.WindowsAzure.Management.Compute.dll ==> tools
-	../../bin/Microsoft.WindowsAzure.Management.Storage.dll ==> tools
-	../../bin/Microsoft.WindowsAzure.Management.ServiceBus.dll ==> tools
-	../../bin/Microsoft.WindowsAzure.Management.ServiceBus.dll ==> tools
-    ../../bin/Microsoft.Threading.Tasks.dll ==> tools
     ../../bin/MBrace.Core.dll ==> tools
 	../../bin/MBrace.Core.pdb ==> tools
 	../../bin/MBrace.Core.xml ==> tools

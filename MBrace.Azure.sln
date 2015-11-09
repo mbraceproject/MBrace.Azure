@@ -20,6 +20,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64
 		build.sh = build.sh
 		LICENSE.md = LICENSE.md
 		nuget\MBrace.Azure.fsx = nuget\MBrace.Azure.fsx
+		nuget\MBrace.Azure.Management.fsx = nuget\MBrace.Azure.Management.fsx
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
@@ -46,6 +47,8 @@ EndProject
 Project("{CC5FD16D-436D-48AD-A40C-5A424C6E3E79}") = "MBrace.Azure.CloudService", "samples\MBrace.Azure.CloudService\MBrace.Azure.CloudService.ccproj", "{39871DC6-D95E-440C-A96C-4B3514155B41}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Azure.WorkerRole", "samples\MBrace.Azure.WorkerRole\MBrace.Azure.WorkerRole.csproj", "{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Management", "src\MBrace.Azure.Management\MBrace.Azure.Management.fsproj", "{2F80E0B8-69D4-4492-A0EE-73B98C741A04}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -91,6 +94,14 @@ Global
 		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release_AzureSDK|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
 		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release_AzureSDK|Any CPU.Build.0 = Release_AzureSDK|Any CPU
 		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -102,6 +113,7 @@ Global
 		{744148AA-63A4-4E46-B782-7D9A9B7DC4A5} = {BC64BD78-3886-4FC5-A6F9-2A71A99769B9}
 		{39871DC6-D95E-440C-A96C-4B3514155B41} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
+		{2F80E0B8-69D4-4492-A0EE-73B98C741A04} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
