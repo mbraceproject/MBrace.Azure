@@ -518,13 +518,13 @@ module private ManagementImpl =
         let beginDeploy (slot : DeploymentSlot) (deployParams : DeploymentCreateParameters) (client : SubscriptionClient) = async {
             let! (createOp : AzureOperationResponse) = client.Compute.Deployments.BeginCreatingAsync(deployParams.Name, slot, deployParams)
             if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
-                return failwith "error: HTTP request for creation operation was not accepted"
+                return failwithf "error: HTTP request for creation operation %A was not accepted" deployParams.Name
         }
 
         let deploy (slot : DeploymentSlot) (deployParams : DeploymentCreateParameters) (client : SubscriptionClient) = async {
             let! (createOp : OperationStatusResponse) = client.Compute.Deployments.CreateAsync(deployParams.Name, slot, deployParams)
             if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
-                return failwith "error: HTTP request for creation operation was not accepted"
+                return failwithf "error: HTTP request for creation operation %A was not accepted" deployParams.Name
         }            
 
         let deleteMBraceDeployment (logger : ISystemLogger) (serviceName:string) (client:SubscriptionClient) = async {
