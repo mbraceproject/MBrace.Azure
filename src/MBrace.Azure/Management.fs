@@ -406,12 +406,14 @@ module private ManagementImpl =
 
         type DeploymentReporter private () =
             static let template : Field<DeploymentDetails> list =
-                [ Field.create "Name" Left (fun d -> d.Name)
-                  Field.create "Created Time" Left (fun d -> d.CreatedTime) 
-                  Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
-                  Field.create "Deployment State" Left (fun d -> defaultArg d.DeploymentStatus null)
-                  Field.create "VM size" Left (fun d -> match d.Nodes with [] -> "N/A" | h :: _ -> h.VMSize)
-                  Field.create "Instance count" Left (fun d -> if List.isEmpty d.Nodes then "N/A" else string d.Nodes.Length) ]
+                [ 
+                    Field.create "Name" Left (fun d -> d.Name)
+                    Field.create "VM size" Left (fun d -> match d.Nodes with [] -> "N/A" | h :: _ -> h.VMSize)
+                    Field.create "Instance count" Right (fun d -> if List.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
+                    Field.create "Created Time" Left (fun d -> d.CreatedTime) 
+                    Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
+                    Field.create "Deployment State" Left (fun d -> defaultArg d.DeploymentStatus null)
+                ]
 
             static member Report(deployments : DeploymentDetails list, ?title : string) =
                 Record.PrettyPrint(template, deployments, ?title = title, useBorders = false)
@@ -748,3 +750,60 @@ type DeploymentManager private (pubSettings : PubSettingsClient, defaultRegion :
     static member FromPublishSettingsFile(publishSettingsFile : string, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
         let pubSettings = PublishSettings.ParseFile publishSettingsFile
         DeploymentManager.Create(pubSettings.Subscriptions, defaultRegion, ?defaultSubscriptionId = defaultSubscriptionId, ?logger = logger, ?logLevel = logLevel)
+
+
+    //
+    //  Static APIs
+    //
+
+    /// <summary>
+    ///     Starts deployment of MBrace cloud service with supplied parameters.
+    /// </summary>
+    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
+    /// <param name="region">Azure region for deployments.</param>
+    /// <param name="vmSize">VM size used for deployment.</param>
+    /// <param name="vmCount">VM instance count.</param>
+    /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
+    /// <param name="subscriptionId">Subscription identifier for service deployment. Defaults to manager instance default subscription.</param>
+    /// <param name="region">Region for service deployment. Defaults to manager instance default region.</param>
+    /// <param name="mbraceVersion">MBrace version string used for .cspkg resolution. Defaults to current version.</param>
+    /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
+    /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
+    /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
+    /// <param name="serviceLabel">User-supplied service label.</param>
+    static member BeginDeploy(pubSettingsFile : string, region : Region, vmSize : string, vmCount : int, ?serviceName : string, ?subscriptionId : string, 
+                                ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?serviceLabel : string) =
+        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = region, ?defaultSubscriptionId = subscriptionId, logger = new ConsoleLogger(true))
+        manager.BeginDeploy(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?mbraceVersion = mbraceVersion, 
+                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
+
+
+    /// <summary>
+    ///     Deletes deployment of given name.
+    /// </summary>
+    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
+    /// <param name="serviceName">Service name to be deleted.</param>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    static member DeleteDeployment(pubSettingsFile : string, serviceName : string, ?subscriptionId : string) =
+        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = "", logger = new ConsoleLogger(true))
+        manager.DeleteDeployment(serviceName, ?subscriptionId = subscriptionId)
+
+    /// <summary>
+    ///     Gets the Azure cluster configuration assigned to the given
+    ///     MBrace service deployment.
+    /// </summary>
+    /// <param name="serviceName">Service name to be looked up.</param>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    static member GetConfiguration(pubSettingsFile : string, serviceName : string, ?subscriptionId : string) =
+        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = "", logger = new ConsoleLogger(true))
+        manager.GetConfiguration(serviceName, ?subscriptionId = subscriptionId)
+
+
+    /// <summary>
+    ///     Prints a report on deployments to stdout.
+    /// </summary>
+    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    static member ShowDeployments(pubSettingsFile : string, ?subscriptionId : string) =
+        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = "", logger = new ConsoleLogger(true))
+        manager.ShowDeployments(?subscriptionId = subscriptionId)
