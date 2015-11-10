@@ -180,14 +180,6 @@ Target "ReleaseDocs" (fun _ ->
 open Octokit
 
 Target "ReleaseGitHub" (fun _ ->
-    let user =
-        match getBuildParam "github-user" with
-        | s when not (String.IsNullOrWhiteSpace s) -> s
-        | _ -> getUserInput "Username: "
-    let pw =
-        match getBuildParam "github-pw" with
-        | s when not (String.IsNullOrWhiteSpace s) -> s
-        | _ -> getUserPassword "Password: "
     let remote =
         Git.CommandHelper.getGitResult "" "remote -v"
         |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
@@ -200,9 +192,24 @@ Target "ReleaseGitHub" (fun _ ->
 
     Branches.tag "" release.NugetVersion
     Branches.pushTag "" remote release.NugetVersion
-    
+
+    let client =
+        match Environment.GetEnvironmentVariable "OctokitToken" with
+        | null -> 
+            let user =
+                match getBuildParam "github-user" with
+                | s when not (String.IsNullOrWhiteSpace s) -> s
+                | _ -> getUserInput "Username: "
+            let pw =
+                match getBuildParam "github-pw" with
+                | s when not (String.IsNullOrWhiteSpace s) -> s
+                | _ -> getUserPassword "Password: "
+
+            createClient user pw
+        | token -> createClientWithToken token
+
     // release on github
-    createClient user pw
+    client
     |> createDraft gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes 
     |> List.foldBack (cspkgAfterCopy >> uploadFile) vmSizes
     |> releaseDraft

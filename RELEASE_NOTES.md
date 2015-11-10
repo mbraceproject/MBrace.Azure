@@ -1,3 +1,6 @@
+### 0.16.2-beta
+* Provisioning API changes and improvements.
+
 ### 0.16.1-beta
 * Add provisioning API
 
