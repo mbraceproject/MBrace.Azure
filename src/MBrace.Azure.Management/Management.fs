@@ -604,7 +604,7 @@ type DeploymentManager private (pubSettings : PubSettingsClient, defaultRegion :
                                 ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, 
                                 ?serviceLabel : string) = async {
 
-        if vmCount < 1 then invalidOp "vmCount" "Must be positive value."
+        if vmCount < 1 then invalidArg "vmCount" "must be positive value."
         let region = defaultArg region defaultRegion
         let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
         let serviceName = match serviceName with None -> generateResourceName() | Some sn -> sn
