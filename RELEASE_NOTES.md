@@ -1,3 +1,6 @@
+### 1.0.0
+* 1.0 Release
+
 ### 0.16.3-beta
 * Fix packaging issues.
 
