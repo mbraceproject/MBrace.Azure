@@ -25,19 +25,20 @@ NUGET
       MathNet.Numerics (3.7.1)
     MathNet.Numerics.MKL.Win-x64 (1.8.0)
       MathNet.Numerics (>= 2.4.0)
-    MBrace.Core (0.16.0-beta)
-    MBrace.Flow (0.16.0-beta)
-      MBrace.Core (0.16.0-beta)
+    MBrace.Core (1.0.0)
+    MBrace.Flow (1.0.0)
+      FSharp.Core
+      MBrace.Core (1.0.0)
       Streams (>= 0.4.0 < 0.5.0)
-    MBrace.Runtime (0.16.0-beta)
+    MBrace.Runtime (1.0.0)
       FsPickler (>= 1.5.0 < 1.6.0)
       FsPickler.Json (>= 1.5.0 < 1.6.0)
-      MBrace.Core (0.16.0-beta)
+      MBrace.Core (1.0.0)
       Vagabond (>= 0.12.0 < 0.13.0)
-    MBrace.Tests (0.16.0-beta)
+    MBrace.Tests (1.0.0)
       FsCheck (>= 2.0.1)
-      MBrace.Core (0.16.0-beta)
-      MBrace.Flow (0.16.0-beta)
+      MBrace.Core (1.0.0)
+      MBrace.Flow (1.0.0)
       NUnit (>= 2.6.3)
     Microsoft.Azure.Common (2.1.0)
       Hyak.Common (>= 1.0.2)
@@ -50,7 +51,7 @@ NUGET
       Newtonsoft.Json (>= 6.0.4) - framework: portable-net45+wp80+wpa81+win, >= net40
     Microsoft.Bcl (1.1.10) - framework: portable-net403+win+wpa81, portable-net45+wp80+wpa81+win, >= net40
       Microsoft.Bcl.Build (>= 1.0.14)
-    Microsoft.Bcl.Async (1.0.168) - framework: portable-net45+wp80+wpa81+win, >= net40
+    Microsoft.Bcl.Async (1.0.168) - framework: portable-net403+win+wpa81
       Microsoft.Bcl (>= 1.1.8)
     Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: portable-net403+win+wpa81, portable-net45+wp80+wpa81+win, >= net40
     Microsoft.Data.Edm (5.6.4) - framework: winv4.5, wpv8.1, wpv8.0, >= net40
@@ -59,7 +60,7 @@ NUGET
       System.Spatial (5.6.4)
     Microsoft.Data.Services.Client (5.6.4) - framework: >= net40
       Microsoft.Data.OData (5.6.4)
-    Microsoft.Net.Http (2.2.29) - framework: portable-net45+wp80+wpa81+win, >= net40
+    Microsoft.Net.Http (2.2.29) - framework: portable-net403+win+wpa81
       Microsoft.Bcl (>= 1.1.10)
       Microsoft.Bcl.Build (>= 1.0.14)
     Microsoft.WindowsAzure.Common (1.4.1)

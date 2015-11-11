@@ -1,3 +1,6 @@
+### 0.16.3-beta
+* Fix packaging issues.
+
 ### 0.16.2-beta
 * Provisioning API changes and improvements.
 
