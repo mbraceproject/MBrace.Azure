@@ -10,14 +10,14 @@ open MBrace.Azure.Runtime
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscriptions
 [<Sealed; AutoSerializable(false)>]
-type DeploymentManager private (pubSettings : SubscriptionsClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
+type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
 
     let logger = AttacheableLogger.Create(?logLevel = logLevel, makeAsynchronous = false)
     do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
 
     let syncRoot = new obj()
     let mutable defaultRegion = defaultRegion
-    let mutable pubSettings = pubSettings
+    let mutable subscriptions = subscriptions
 
     /// Attaches logger to the deployment manager instance
     member __.AttachLogger(l : ISystemLogger) = logger.AttachLogger l
@@ -27,14 +27,14 @@ type DeploymentManager private (pubSettings : SubscriptionsClient, defaultRegion
         and set reg = defaultRegion <- reg
 
     /// Lists all subscription names supplied in the current deployment manager instance
-    member __.Subscriptions = pubSettings.Subscriptions |> Array.map (fun s -> s.Subscription.Name)
+    member __.Subscriptions = subscriptions.Subscriptions |> Array.map (fun s -> s.Subscription.Name)
     /// Gets or sets the default subscription used by the deployment manager instance
     member __.DefaultSubscription 
-        with get () = pubSettings.Default.Subscription.Name
+        with get () = subscriptions.Default.Subscription.Name
         and set subId =
             lock syncRoot (fun () ->
-                let sub = pubSettings.[subId]
-                pubSettings <- { pubSettings with Default = sub })
+                let sub = subscriptions.[subId]
+                subscriptions <- { subscriptions with Default = sub })
 
     /// <summary>
     ///     Asynchronously starts deployment of MBrace cloud service with supplied parameters.
@@ -55,7 +55,7 @@ type DeploymentManager private (pubSettings : SubscriptionsClient, defaultRegion
 
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
         let region = defaultArg region defaultRegion
-        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
         let serviceName = match serviceName with None -> Common.generateResourceName() | Some sn -> sn
         do! Deployment.validateServiceName client serviceName
 
@@ -101,7 +101,7 @@ type DeploymentManager private (pubSettings : SubscriptionsClient, defaultRegion
     /// <param name="serviceName">Service name to be deleted.</param>
     /// <param name="subscriptionId">Subscription identifier from which to delete deployment. Defaults to manager instance subscription default.</param>
     member __.DeleteDeploymentAsync(serviceName : string, ?subscriptionId : string) = async { 
-        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId) 
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId) 
         return! Deployment.deleteMBraceDeployment logger serviceName client
     }
 
@@ -119,7 +119,7 @@ type DeploymentManager private (pubSettings : SubscriptionsClient, defaultRegion
     /// </summary>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
     member __.GetDeploymentsAsync(?subscriptionId : string) = async {
-        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
         let! deployments = Deployment.getRunningDeployments client
         return Deployment.DeploymentReporter.Report(deployments, title = sprintf "Subscription: %A" client.Subscription.Name)
     }
@@ -139,7 +139,7 @@ type DeploymentManager private (pubSettings : SubscriptionsClient, defaultRegion
     /// <param name="serviceName">Service name to be looked up.</param>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
     member __.GetConfigurationAsync(serviceName : string, ?subscriptionId : string) = async {
-        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
         let! result = Deployment.tryGetDeploymentConfiguration serviceName client
         match result with
         | Some config -> return config
