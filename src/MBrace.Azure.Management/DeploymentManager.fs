@@ -2,8 +2,6 @@
 
 open System
 
-open Microsoft.WindowsAzure.Management.Compute.Models
-
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils.PrettyPrinters
@@ -12,7 +10,7 @@ open MBrace.Azure.Runtime
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscriptions
 [<Sealed; AutoSerializable(false)>]
-type DeploymentManager private (pubSettings : PubSettingsClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
+type DeploymentManager private (pubSettings : SubscriptionsClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
 
     let logger = AttacheableLogger.Create(?logLevel = logLevel, makeAsynchronous = false)
     do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
@@ -58,7 +56,7 @@ type DeploymentManager private (pubSettings : PubSettingsClient, defaultRegion :
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
         let region = defaultArg region defaultRegion
         let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
-        let serviceName = match serviceName with None -> generateResourceName() | Some sn -> sn
+        let serviceName = match serviceName with None -> Common.generateResourceName() | Some sn -> sn
         do! Deployment.validateServiceName client serviceName
 
         logger.Logf LogLevel.Info "using vm size %A" vmSize
@@ -74,7 +72,7 @@ type DeploymentManager private (pubSettings : PubSettingsClient, defaultRegion :
 
         let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %s"  serviceName (defaultArg versionInfo "custom"))
         let! deployInfo = Deployment.prepareMBraceServiceDeployment logger serviceName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
-        do! Deployment.beginDeploy DeploymentSlot.Production deployInfo client
+        do! Deployment.beginDeploy false deployInfo client
         return new Configuration(storageConnectionString, serviceBusConnectionString)
     }
 
@@ -167,7 +165,7 @@ type DeploymentManager private (pubSettings : PubSettingsClient, defaultRegion :
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
     static member Create(subscriptions : seq<Subscription>, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
-        let client = PubSettingsClient.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
+        let client = SubscriptionsClient.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
         new DeploymentManager(client, defaultRegion, logger, ?logLevel = logLevel)
 
     /// <summary>
