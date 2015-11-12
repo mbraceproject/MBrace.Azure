@@ -129,7 +129,7 @@ type ServiceBusQueueProvider private (account : AzureServiceBusAccount) =
             if qd.UserMetadata = Type.prettyPrint<'T> then
                 return new ServiceBusQueue<'T>(queueId, account) :> CloudQueue<'T>
             else
-                return invalidOp "Expected queue type '%s' but was '%s'" Type.prettyPrint<'T> qd.UserMetadata
+                return invalidOp <| sprintf "Expected queue type '%s' but was '%s'" Type.prettyPrint<'T> qd.UserMetadata
         }
 
     /// <summary>

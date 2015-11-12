@@ -49,7 +49,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="Types.fs" />
     <Compile Include="Management.fs" />
+    <Compile Include="DeploymentManager.fs" />
     <None Include="test.fsx" />
     <None Include="paket.references" />
     <None Include="paket.template" />

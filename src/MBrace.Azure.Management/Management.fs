@@ -22,113 +22,11 @@ open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure
 open MBrace.Azure.Runtime
 
-/// Azure Region string identifier
-type Region = string
-/// Azure VM type string identifier
-type VMSize = string
-
-/// Collection of preset Azure Region identifiers
-type Regions = 
-    static member South_Central_US  : Region = "South Central US"
-    static member West_US           : Region = "West US"
-    static member Central_US        : Region = "Central US"
-    static member East_US           : Region = "East US"
-    static member East_US_2         : Region = "East US 2"
-    static member North_Europe      : Region = "North Europe"
-    static member West_Europe       : Region = "West Europe"
-    static member Southeast_Asia    : Region = "Southeast Asia"
-    static member East_Asia         : Region = "East Asia"
-
-/// Collection of preset Azure VM type identifiers
-type VMSizes = 
-    static member A10               : VMSize = "A10"
-    static member A11               : VMSize = "A11"
-    static member A5                : VMSize = "A5"
-    static member A6                : VMSize = "A6"
-    static member A7                : VMSize = "A7"
-    static member A8                : VMSize = "A8"
-    static member A9                : VMSize = "A9"
-    static member A4                : VMSize = "ExtraLarge"
-    static member A0                : VMSize = "ExtraSmall"
-    static member A3                : VMSize = "Large"
-    static member A2                : VMSize = "Medium"
-    static member A1                : VMSize = "Small"
-    static member Extra_Large       : VMSize = "ExtraLarge"
-    static member Large             : VMSize = "Large"
-    static member Medium            : VMSize = "Medium"
-    static member Small             : VMSize = "Small"
-    static member Extra_Small       : VMSize = "ExtraSmall"
-    static member Standard_D1       : VMSize = "Standard_D1"
-    static member Standard_D11      : VMSize = "Standard_D11"
-    static member Standard_D11_v2   : VMSize = "Standard_D11_v2"
-    static member Standard_D12      : VMSize = "Standard_D12"
-    static member Standard_D12_v2   : VMSize = "Standard_D12_v2"
-    static member Standard_D13      : VMSize = "Standard_D13"
-    static member Standard_D13_v2   : VMSize = "Standard_D13_v2"
-    static member Standard_D14      : VMSize = "Standard_D14"
-    static member Standard_D14_v2   : VMSize = "Standard_D14_v2"
-    static member Standard_D1_v2    : VMSize = "Standard_D1_v2"
-    static member Standard_D2       : VMSize = "Standard_D2"
-    static member Standard_D2_v2    : VMSize = "Standard_D2_v2"
-    static member Standard_D3       : VMSize = "Standard_D3"
-    static member Standard_D3_v2    : VMSize = "Standard_D3_v2"
-    static member Standard_D4       : VMSize = "Standard_D4"
-    static member Standard_D4_v2    : VMSize = "Standard_D4_v2"
-    static member Standard_D5_v2    : VMSize = "Standard_D5_v2"
-
-/// Azure subscription record
-[<NoEquality; NoComparison; AutoSerializable(false)>]
-type Subscription = 
-    { 
-        /// Human-readable subscription name
-        Name : string
-        /// Subscription identifier
-        Id : string  
-        /// X509 management certificate
-        ManagementCertificate : string
-        /// Azure service management url
-        ServiceManagementUrl : string
-    }
-
-/// Parsed PublishSettings record
-[<NoEquality; NoComparison; AutoSerializable(false)>]
-type PublishSettings =
-    {
-        /// Set of Azure subscriptions defined in PubSettings
-        Subscriptions : Subscription []
-    }
-
-    /// Look up subscription by id or name
-    member ps.Item (subscriptionId : string) =
-        ps.Subscriptions |> Array.find (fun s -> s.Id = subscriptionId || s.Name.Contains subscriptionId)
-
-    /// Parse publish settings found in given xml string
-    static member Parse(xml : string) : PublishSettings = 
-        let parseSubscription (elem : XElement) = 
-            let name = elem.Attribute(XName.op_Implicit "Name").Value
-            let id = elem.Attribute(XName.op_Implicit "Id").Value
-            let mc = elem.Attribute(XName.op_Implicit "ManagementCertificate").Value
-            let smu = elem.Attribute(XName.op_Implicit "ServiceManagementUrl").Value
-            {   Name = name;
-                Id = id;
-                ManagementCertificate = mc
-                ServiceManagementUrl = smu }
-
-        let doc = XDocument.Parse xml
-        let pubData = doc.Element(XName.op_Implicit "PublishData")
-        let pubProfile = pubData.Element(XName.op_Implicit "PublishProfile")
-        let subscriptions = [| for s in pubProfile.Elements(XName.op_Implicit "Subscription") -> parseSubscription s |]
-        { Subscriptions = subscriptions }
-
-    /// Parse publish settings from given local file path
-    static member ParseFile(publishSettingsFile : string) : PublishSettings =
-        PublishSettings.Parse(File.ReadAllText publishSettingsFile)
-
 [<AutoOpen>]
 module private ManagementImpl = 
 
-    let urlForPackage mbraceNugetVersionTag vmSize = 
-        sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceNugetVersionTag vmSize
+    let urlForPackage mbraceNugetVersionTag (vmSize : VMSize) = 
+        sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" mbraceNugetVersionTag vmSize.Id
 
     let resourcePrefix = "mbrace"
     let generateResourceName() = resourcePrefix + Guid.NewGuid().ToString("N").[..7]
@@ -215,23 +113,23 @@ module private ManagementImpl =
             return listed |> Seq.toArray
         }
 
-        let tryFindMBraceStorage region (client:SubscriptionClient) = async {
+        let tryFindMBraceStorage (region : Region) (client:SubscriptionClient) = async {
             let! accounts = getStorageAccounts client
             return
                 accounts
                 |> Seq.filter (fun account -> 
                     let hasLocationData, storageAccountLocation = account.ExtendedProperties.TryGetValue "ResourceLocation"
-                    hasLocationData && storageAccountLocation = region)
+                    hasLocationData && storageAccountLocation = region.Id)
                 |> Seq.filter(fun account -> account.ExtendedProperties |> isMBraceAsset)
                 |> Seq.map(fun account -> account.Name)
                 |> Seq.tryPick Some
         }
 
-        let rec createMBraceStorageAccount (logger : ISystemLogger) (region : string) (accountName : string) (client:SubscriptionClient) = async {
+        let rec createMBraceStorageAccount (logger : ISystemLogger) (region : Region) (accountName : string) (client:SubscriptionClient) = async {
             let! (availability : CheckNameAvailabilityResponse) = client.Storage.StorageAccounts.CheckNameAvailabilityAsync accountName 
             if not availability.IsAvailable then return! createMBraceStorageAccount logger region accountName client
             else
-                let storageParams = new StorageAccountCreateParameters(Name = accountName, AccountType = "Standard_LRS", Location = region, ExtendedProperties = defaultExtendedProperties)
+                let storageParams = new StorageAccountCreateParameters(Name = accountName, AccountType = "Standard_LRS", Location = region.Id, ExtendedProperties = defaultExtendedProperties)
                 let! (result : OperationStatusResponse) = client.Storage.StorageAccounts.CreateAsync(storageParams)
                 if result.Status = OperationStatus.Failed then 
                     return invalidOp result.Error.Message
@@ -259,7 +157,7 @@ module private ManagementImpl =
             return container
         }
 
-        let getDefaultMBraceStorageAccountName (logger : ISystemLogger) region client = async {
+        let getDefaultMBraceStorageAccountName (logger : ISystemLogger) (region : Region) client = async {
             let! result = tryFindMBraceStorage region client
             match result with
             | Some storage -> 
@@ -319,7 +217,7 @@ module private ManagementImpl =
                 return! createNamespace logger region namespaceName client
             else
                 logger.Logf LogLevel.Info "creating service bus namespace %s" namespaceName
-                let result = client.ServiceBus.Namespaces.Create(namespaceName, region) 
+                let result = client.ServiceBus.Namespaces.Create(namespaceName, region.Id) 
 
                 do! client |> waitUntilState ((=) "Active") namespaceName
 
@@ -339,7 +237,7 @@ module private ManagementImpl =
             let! accounts = getNamespaces client
             return
                 accounts
-                |> Seq.filter (fun ns -> ns.Region = region)
+                |> Seq.filter (fun ns -> ns.Region = region.Id)
                 |> Seq.filter(fun ns -> ns.Name.StartsWith resourcePrefix)
                 |> Seq.map(fun ns -> ns.Name)
                 |> Seq.tryPick Some
@@ -409,7 +307,7 @@ module private ManagementImpl =
             static let template : Field<DeploymentDetails> list =
                 [ 
                     Field.create "Name" Left (fun d -> d.Name)
-                    Field.create "VM size" Left (fun d -> match d.Nodes with [] -> "N/A" | h :: _ -> h.VMSize)
+                    Field.create "VM size" Left (fun d -> match d.Nodes with [] -> "N/A" | h :: _ -> h.VMSize.Id)
                     Field.create "Instance count" Right (fun d -> if List.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
                     Field.create "Created Time" Left (fun d -> d.CreatedTime) 
                     Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
@@ -448,7 +346,7 @@ module private ManagementImpl =
                         | None -> []
                         | Some d -> 
                             d.RoleInstances 
-                            |> Seq.map (fun i -> { Id = i.InstanceName ; Hostname = i.HostName ; VMSize = i.InstanceSize ; Status = i.InstanceStatus }) 
+                            |> Seq.map (fun i -> { Id = i.InstanceName ; Hostname = i.HostName ; VMSize = VMSize.Define i.InstanceSize ; Status = i.InstanceStatus }) 
                             |> Seq.toList
 
                     let info = 
@@ -494,7 +392,7 @@ module private ManagementImpl =
                 |> dict
 
             logger.Logf LogLevel.Info "creating cloud service %s" serviceName
-            let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region, ServiceName = serviceName, ExtendedProperties = extendedProperties))
+            let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties))
 
             let! container = Storage.getDeploymentContainer storageConnectionString
             let packageBlob = packagePath |> Path.GetFileName |> container.GetBlockBlobReference
@@ -558,253 +456,3 @@ module private ManagementImpl =
                 do! wc.DownloadFileTaskAsync(uri, tmp)
                 return tmp, version
         }
-
-/// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscriptions
-[<Sealed; AutoSerializable(false)>]
-type DeploymentManager private (pubSettings : PubSettingsClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
-
-    let logger = AttacheableLogger.Create(?logLevel = logLevel, makeAsynchronous = false)
-    do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
-
-    let syncRoot = new obj()
-    let mutable defaultRegion = defaultRegion
-    let mutable pubSettings = pubSettings
-
-    /// Attaches logger to the deployment manager instance
-    member __.AttachLogger(l : ISystemLogger) = logger.AttachLogger l
-    /// Gets or sets the default region used by the client instance
-    member __.DefaultRegion
-        with get () = defaultRegion
-        and set reg = defaultRegion <- reg
-
-    /// Lists all subscription names supplied in the current deployment manager instance
-    member __.Subscriptions = pubSettings.Subscriptions |> Array.map (fun s -> s.Subscription.Name)
-    /// Gets or sets the default subscription used by the deployment manager instance
-    member __.DefaultSubscription 
-        with get () = pubSettings.Default.Subscription.Name
-        and set subId =
-            lock syncRoot (fun () ->
-                let sub = pubSettings.[subId]
-                pubSettings <- { pubSettings with Default = sub })
-
-    /// <summary>
-    ///     Asynchronously starts deployment of MBrace cloud service with supplied parameters.
-    /// </summary>
-    /// <param name="vmSize">VM size used for deployment.</param>
-    /// <param name="vmCount">VM instance count.</param>
-    /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
-    /// <param name="subscriptionId">Subscription identifier for service deployment. Defaults to manager instance default subscription.</param>
-    /// <param name="region">Region for service deployment. Defaults to manager instance default region.</param>
-    /// <param name="mbraceVersion">MBrace version string used for .cspkg resolution. Defaults to current version.</param>
-    /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
-    /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
-    /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
-    /// <param name="serviceLabel">User-supplied service label.</param>
-    member __.BeginDeployAsync(vmSize : VMSize, vmCount : int, ?serviceName : string, ?subscriptionId : string, ?region : Region, 
-                                ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, 
-                                ?serviceLabel : string) = async {
-
-        if vmCount < 1 then invalidArg "vmCount" "must be positive value."
-        let region = defaultArg region defaultRegion
-        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
-        let serviceName = match serviceName with None -> generateResourceName() | Some sn -> sn
-        do! Deployment.validateServiceName client serviceName
-
-        logger.Logf LogLevel.Info "using vm size %s" vmSize
-        let! packagePath, versionInfo = Deployment.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
-        logger.Logf LogLevel.Info "using cluster name %s" serviceName
-
-        let! storageAccountName, storageConnectionString = Storage.resolveStorageAccount logger region storageAccount client
-        logger.Logf LogLevel.Info "using storage account name %A" storageAccountName
-        let! _, serviceBusNamespace, serviceBusConnectionString = ServiceBus.resolveNamespaceInfo logger region serviceBusAccount client
-        logger.Logf LogLevel.Info "using service bus account %A" serviceBusNamespace
-
-        let config = Deployment.buildMBraceConfig serviceName vmCount storageConnectionString serviceBusConnectionString
-
-        let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %s"  serviceName (defaultArg versionInfo "custom"))
-        let! deployInfo = Deployment.prepareMBraceServiceDeployment logger serviceName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
-        do! Deployment.beginDeploy DeploymentSlot.Production deployInfo client
-        return new Configuration(storageConnectionString, serviceBusConnectionString)
-    }
-
-    /// <summary>
-    ///     Starts deployment of MBrace cloud service with supplied parameters.
-    /// </summary>
-    /// <param name="vmSize">VM size used for deployment.</param>
-    /// <param name="vmCount">VM instance count.</param>
-    /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
-    /// <param name="subscriptionId">Subscription identifier for service deployment. Defaults to manager instance default subscription.</param>
-    /// <param name="region">Region for service deployment. Defaults to manager instance default region.</param>
-    /// <param name="mbraceVersion">MBrace version string used for .cspkg resolution. Defaults to current version.</param>
-    /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
-    /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
-    /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
-    /// <param name="serviceLabel">User-supplied service label.</param>
-    member __.BeginDeploy(vmSize : VMSize, vmCount : int, ?serviceName : string, ?subscriptionId : string, ?region : Region, 
-                                        ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?serviceLabel : string) =
-        __.BeginDeployAsync(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?region = region, ?mbraceVersion = mbraceVersion,
-                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
-        |> Async.RunSync
-
-    /// <summary>
-    ///     Asynchronously deletes deployment of given name.
-    /// </summary>
-    /// <param name="serviceName">Service name to be deleted.</param>
-    /// <param name="subscriptionId">Subscription identifier from which to delete deployment. Defaults to manager instance subscription default.</param>
-    member __.DeleteDeploymentAsync(serviceName : string, ?subscriptionId : string) = async { 
-        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId) 
-        return! Deployment.deleteMBraceDeployment logger serviceName client
-    }
-
-    /// <summary>
-    ///     Deletes deployment of given name.
-    /// </summary>
-    /// <param name="serviceName">Service name to be deleted.</param>
-    /// <param name="subscriptionId">Subscription identifier from which to delete deployment. Defaults to manager instance subscription default.</param>
-    member __.DeleteDeployment(serviceName : string, ?subscriptionId : string) =
-        __.DeleteDeploymentAsync(serviceName, ?subscriptionId = subscriptionId)
-        |> Async.RunSync
-
-    /// <summary>
-    ///     Asynchronously gets a printed report on deployments.
-    /// </summary>
-    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.GetDeploymentsAsync(?subscriptionId : string) = async {
-        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
-        let! deployments = Deployment.getRunningDeployments client
-        return Deployment.DeploymentReporter.Report(deployments, title = sprintf "Subscription: %A" client.Subscription.Name)
-    }
-
-    /// <summary>
-    ///     Prints a report on deployments to stdout.
-    /// </summary>
-    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.ShowDeployments(?subscriptionId : string) =
-        let info = __.GetDeploymentsAsync(?subscriptionId = subscriptionId) |> Async.RunSync
-        Console.WriteLine(info)
-
-    /// <summary>
-    ///     Asynchronously gets the Azure cluster configuration assigned to the given
-    ///     MBrace service deployment.
-    /// </summary>
-    /// <param name="serviceName">Service name to be looked up.</param>
-    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.GetConfigurationAsync(serviceName : string, ?subscriptionId : string) = async {
-        let client = pubSettings.GetClientByIdOrDefault(?id = subscriptionId)
-        let! result = Deployment.tryGetDeploymentConfiguration serviceName client
-        match result with
-        | Some config -> return config
-        | None -> return invalidArg "serviceName" <| sprintf "Could not find service name '%s'." serviceName
-    }
-
-    /// <summary>
-    ///     Gets the Azure cluster configuration assigned to the given
-    ///     MBrace service deployment.
-    /// </summary>
-    /// <param name="serviceName">Service name to be looked up.</param>
-    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.GetConfiguration(serviceName : string, ?subscriptionId : string) =
-        __.GetConfigurationAsync(serviceName, ?subscriptionId = subscriptionId)
-        |> Async.RunSync
-
-    /// <summary>
-    ///     Creates a new subscription manager instance using supplied set of Azure subscriptions
-    /// </summary>
-    /// <param name="subscriptions">Subscriptions to manage.</param>
-    /// <param name="defaultRegion">Default Azure region for deployments.</param>
-    /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
-    /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
-    /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member Create(subscriptions : seq<Subscription>, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
-        let client = PubSettingsClient.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
-        new DeploymentManager(client, defaultRegion, logger, ?logLevel = logLevel)
-
-    /// <summary>
-    ///     Creates a new subscription manager instance using supplied set of Azure subscriptions
-    /// </summary>
-    /// <param name="publishSettings">Parsed PublishSettings record.</param>
-    /// <param name="defaultRegion">Default Azure region for deployments.</param>
-    /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
-    /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
-    /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member Create(publishSettings : PublishSettings, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
-        DeploymentManager.Create(publishSettings.Subscriptions, defaultRegion, ?logger = logger, ?defaultSubscriptionId = defaultSubscriptionId, ?logLevel = logLevel)
-
-    /// <summary>
-    ///     Creates a new subscription manager instance using supplied Azure subscription
-    /// </summary>
-    /// <param name="subscription">Subscription to manage.</param>
-    /// <param name="defaultRegion">Default Azure region for deployments.</param>
-    /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
-    /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member Create(subscription : Subscription, defaultRegion : Region, ?logger : ISystemLogger, ?logLevel : LogLevel) =
-        DeploymentManager.Create([subscription], defaultRegion, ?logger = logger, ?logLevel = logLevel)
-
-    /// <summary>
-    ///     Creates a new subscription manager instance using local Azure PublishSettings file.
-    /// </summary>
-    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
-    /// <param name="defaultRegion">Default Azure region for deployments.</param>
-    /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
-    /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
-    /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member FromPublishSettingsFile(publishSettingsFile : string, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
-        let pubSettings = PublishSettings.ParseFile publishSettingsFile
-        DeploymentManager.Create(pubSettings.Subscriptions, defaultRegion, ?defaultSubscriptionId = defaultSubscriptionId, ?logger = logger, ?logLevel = logLevel)
-
-
-    //
-    //  Static APIs
-    //
-
-    /// <summary>
-    ///     Starts deployment of MBrace cloud service with supplied parameters.
-    /// </summary>
-    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
-    /// <param name="region">Azure region for deployments.</param>
-    /// <param name="vmSize">VM size used for deployment.</param>
-    /// <param name="vmCount">VM instance count.</param>
-    /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
-    /// <param name="subscriptionId">Subscription identifier for service deployment. Defaults to manager instance default subscription.</param>
-    /// <param name="region">Region for service deployment. Defaults to manager instance default region.</param>
-    /// <param name="mbraceVersion">MBrace version string used for .cspkg resolution. Defaults to current version.</param>
-    /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
-    /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
-    /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
-    /// <param name="serviceLabel">User-supplied service label.</param>
-    static member BeginDeploy(pubSettingsFile : string, region : Region, vmSize : string, vmCount : int, ?serviceName : string, ?subscriptionId : string, 
-                                ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?serviceLabel : string) =
-        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = region, ?defaultSubscriptionId = subscriptionId, logger = new ConsoleLogger(true))
-        manager.BeginDeploy(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?mbraceVersion = mbraceVersion, 
-                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
-
-
-    /// <summary>
-    ///     Deletes deployment of given name.
-    /// </summary>
-    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
-    /// <param name="serviceName">Service name to be deleted.</param>
-    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    static member DeleteDeployment(pubSettingsFile : string, serviceName : string, ?subscriptionId : string) =
-        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = "", logger = new ConsoleLogger(true))
-        manager.DeleteDeployment(serviceName, ?subscriptionId = subscriptionId)
-
-    /// <summary>
-    ///     Gets the Azure cluster configuration assigned to the given
-    ///     MBrace service deployment.
-    /// </summary>
-    /// <param name="serviceName">Service name to be looked up.</param>
-    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    static member GetConfiguration(pubSettingsFile : string, serviceName : string, ?subscriptionId : string) =
-        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = "", logger = new ConsoleLogger(true))
-        manager.GetConfiguration(serviceName, ?subscriptionId = subscriptionId)
-
-
-    /// <summary>
-    ///     Prints a report on deployments to stdout.
-    /// </summary>
-    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
-    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    static member ShowDeployments(pubSettingsFile : string, ?subscriptionId : string) =
-        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = "", logger = new ConsoleLogger(true))
-        manager.ShowDeployments(?subscriptionId = subscriptionId)
