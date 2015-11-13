@@ -145,4 +145,4 @@ type ServiceBusQueueProvider private (account : AzureServiceBusAccount) =
     /// </summary>
     /// <param name="account">Azure service bus account.</param>
     static member Create(connectionString : string) =
-        ServiceBusQueueProvider.Create(AzureServiceBusAccount.Parse connectionString)
+        ServiceBusQueueProvider.Create(AzureServiceBusAccount.FromConnectionString connectionString)

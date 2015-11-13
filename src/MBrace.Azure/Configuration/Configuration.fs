@@ -23,12 +23,12 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     let mutable _serviceBusConnectionString = null
 
     let parseStorage conn =
-        let account = AzureStorageAccount.Parse conn
+        let account = AzureStorageAccount.FromConnectionString conn
         _storageConnectionString <- account.ConnectionString
         _storageAccountName <- account.AccountName
 
     let parseServiceBus conn =
-        let account = AzureServiceBusAccount.Parse conn
+        let account = AzureServiceBusAccount.FromConnectionString conn
         _serviceBusConnectionString <- account.ConnectionString
         _serviceBusAccountName <- account.AccountName
 
@@ -149,7 +149,7 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
             | conn -> conn
 
         and set conn =
-            let _ = AzureStorageAccount.Parse conn
+            let _ = AzureStorageAccount.FromConnectionString conn
             Environment.SetEnvironmentVariable(storageEnv, conn, EnvironmentVariableTarget.User)
             Environment.SetEnvironmentVariable(storageEnv, conn, EnvironmentVariableTarget.Process)
 
@@ -161,7 +161,7 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
             | conn -> conn
 
         and set conn =
-            let _ = AzureServiceBusAccount.Parse conn
+            let _ = AzureServiceBusAccount.FromConnectionString conn
             Environment.SetEnvironmentVariable(serviceBusEnv, conn, EnvironmentVariableTarget.User)
             Environment.SetEnvironmentVariable(serviceBusEnv, conn, EnvironmentVariableTarget.Process)
 

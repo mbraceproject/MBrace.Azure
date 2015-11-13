@@ -154,7 +154,7 @@ type TableDictionaryProvider private (account : AzureStorageAccount) =
     /// </summary>
     /// <param name="connectionString">Azure storage connection string.</param>
     static member Create(connectionString : string) =
-        TableDictionaryProvider.Create(AzureStorageAccount.Parse connectionString)
+        TableDictionaryProvider.Create(AzureStorageAccount.FromConnectionString connectionString)
 
     interface ICloudDictionaryProvider with
         member x.Id = account.TableClient.BaseUri.AbsolutePath

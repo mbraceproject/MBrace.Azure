@@ -136,7 +136,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
     /// <param name="connectionString">Azure storage account connection string.</param>
     /// <param name="defaultContainer">Default container to be used be store instance.</param>
     static member Create(connectionString : string, ?defaultContainer : string) = 
-        BlobStore.Create(AzureStorageAccount.Parse connectionString, ?defaultContainer = defaultContainer)
+        BlobStore.Create(AzureStorageAccount.FromConnectionString connectionString, ?defaultContainer = defaultContainer)
 
     interface ICloudFileStore with
         member this.BeginWrite(path: string): Async<Stream> = async {

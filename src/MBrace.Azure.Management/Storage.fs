@@ -68,7 +68,7 @@ module internal Storage =
     }
 
     let getDeploymentContainer connectionString = async {
-        let account = AzureStorageAccount.Parse connectionString
+        let account = AzureStorageAccount.FromConnectionString connectionString
         let container = account.BlobClient.GetContainerReference "deployments"
         do! container.CreateIfNotExistsAsync()
         return container

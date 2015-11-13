@@ -108,7 +108,7 @@ type TableAtomProvider private (account : AzureStorageAccount, defaultTable : st
     /// </summary>
     /// <param name="connectionString">Azure storage account connection string.</param>
     static member Create (connectionString : string, ?defaultTable : string) =
-        TableAtomProvider.Create(AzureStorageAccount.Parse connectionString, ?defaultTable = defaultTable)
+        TableAtomProvider.Create(AzureStorageAccount.FromConnectionString connectionString, ?defaultTable = defaultTable)
 
     interface ICloudAtomProvider with
         member this.Id = account.TableClient.StorageUri.PrimaryUri.ToString()

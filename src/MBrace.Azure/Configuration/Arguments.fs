@@ -147,8 +147,8 @@ type ArgumentConfiguration =
         let heartbeatThreshold = parseResult.TryPostProcessResult(<@ Heartbeat_Threshold @>, fun i -> let t = TimeSpan.FromSeconds i in if t < TimeSpan.FromSeconds 1. then failwith "must be positive" else t)
         let workingDirectory = parseResult.TryPostProcessResult(<@ Working_Directory @>, Path.GetFullPath)
 
-        let sacc = parseResult.PostProcessResult(<@ Storage_Connection_String @>, AzureStorageAccount.Parse)
-        let bacc = parseResult.PostProcessResult(<@ Service_Bus_Connection_string @>, AzureServiceBusAccount.Parse)
+        let sacc = parseResult.PostProcessResult(<@ Storage_Connection_String @>, AzureStorageAccount.FromConnectionString)
+        let bacc = parseResult.PostProcessResult(<@ Service_Bus_Connection_string @>, AzureServiceBusAccount.FromConnectionString)
 
         let config = new Configuration(sacc.ConnectionString, bacc.ConnectionString)
         parseResult.IterResult(<@ Force_Version @>, fun v -> config.Version <- v)

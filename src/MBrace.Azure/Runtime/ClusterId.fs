@@ -151,8 +151,8 @@ type ClusterId =
 
         {
             Version                         = version.ToString(4)
-            StorageAccount                  = AzureStorageAccount.Parse configuration.StorageConnectionString
-            ServiceBusAccount               = AzureServiceBusAccount.Parse configuration.ServiceBusConnectionString
+            StorageAccount                  = AzureStorageAccount.FromConnectionString configuration.StorageConnectionString
+            ServiceBusAccount               = AzureServiceBusAccount.FromConnectionString configuration.ServiceBusConnectionString
 
             WorkItemQueue                   = appendVersionAndSuffixId configuration.WorkItemQueue
             WorkItemTopic                   = appendVersionAndSuffixId configuration.WorkItemTopic
