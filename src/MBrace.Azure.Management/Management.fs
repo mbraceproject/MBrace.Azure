@@ -34,7 +34,7 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     /// Time of current cloud service creation
     member __.CreatedTime = deployment.Value.CreatedTime
     /// Current deployment Status
-    member __.DeploymentStatus = deployment.Value.DeploymentState
+    member __.DeploymentState = deployment.Value.DeploymentState
     /// Current service Status
     member __.ServiceStatus = deployment.Value.ServiceStatus
 
