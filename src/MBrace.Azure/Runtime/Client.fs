@@ -16,6 +16,7 @@ open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Azure
 open MBrace.Azure.Runtime
+open MBrace.Azure.Runtime.Utilities
 open MBrace.Azure.Runtime.Arguments
 
 /// A system logger that writes entries to stdout
@@ -68,8 +69,8 @@ type AzureWorker private () =
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
-    static member Spawn(?config : Configuration, ?workerId : string, ?workingDirectory : string, ?maxWorkItems : int, ?logLevel : LogLevel, 
-                            ?logFile : string, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?background : bool) : Process =
+    static member Spawn([<O;D(null:obj)>]?config : Configuration, [<O;D(null:obj)>]?workerId : string, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logLevel : LogLevel, 
+                            [<O;D(null:obj)>]?logFile : string, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : Process =
         let background = defaultArg background false
         let exe = AzureWorker.LocalExecutable
         let cli = ArgumentConfiguration.Create(?config = config, ?workingDirectory = workingDirectory, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, 
@@ -96,8 +97,8 @@ type AzureWorker private () =
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
-    static member SpawnMultiple(workerCount : int, ?config : Configuration, ?maxWorkItems : int, ?logLevel : LogLevel, 
-                                    ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?background : bool) : Process [] =
+    static member SpawnMultiple(workerCount : int, [<O;D(null:obj)>]?config : Configuration, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logLevel : LogLevel, 
+                                    [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : Process [] =
 
         let _ = AzureWorker.LocalExecutable // force early exception
         if workerCount < 1 then invalidArg "workerCount" "must be positive."
@@ -157,8 +158,8 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="force">Ignore active workers. Defaults to false.</param>
     /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
     [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.ResetAsync(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteUserData : bool, 
-                                ?deleteAssemblyData : bool, ?force : bool, ?reactivate : bool) : Async<unit> =
+    member this.ResetAsync([<O;D(null:obj)>]?deleteQueues : bool, [<O;D(null:obj)>]?deleteRuntimeState : bool, [<O;D(null:obj)>]?deleteLogs : bool, 
+                            [<O;D(null:obj)>]?deleteUserData : bool, [<O;D(null:obj)>]?deleteAssemblyData : bool, [<O;D(null:obj)>]?force : bool, [<O;D(null:obj)>]?reactivate : bool) : Async<unit> =
 
         manager.ResetCluster(?deleteQueues = deleteQueues, ?deleteRuntimeState = deleteRuntimeState, ?deleteLogs = deleteLogs, 
                                 ?deleteUserData = deleteUserData, ?deleteAssemblyData = deleteAssemblyData, 
@@ -177,8 +178,8 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="force">Ignore active workers. Defaults to false.</param>
     /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
     [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.Reset(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteUserData : bool, 
-                                ?deleteAssemblyData : bool, ?force : bool, ?reactivate : bool) : unit =
+    member this.Reset([<O;D(null:obj)>]?deleteQueues : bool, [<O;D(null:obj)>]?deleteRuntimeState : bool, [<O;D(null:obj)>]?deleteLogs : bool, [<O;D(null:obj)>]?deleteUserData : bool, 
+                        [<O;D(null:obj)>]?deleteAssemblyData : bool, [<O;D(null:obj)>]?force : bool, [<O;D(null:obj)>]?reactivate : bool) : unit =
 
         this.ResetAsync(?deleteQueues = deleteQueues, ?deleteRuntimeState = deleteRuntimeState, ?deleteLogs = deleteLogs, 
                                 ?deleteUserData = deleteUserData, ?deleteAssemblyData = deleteAssemblyData, 
@@ -212,8 +213,8 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
-    member this.AttachLocalWorker(?workerId : string, ?workingDirectory : string, ?maxWorkItems : int, ?logFile : string, ?logLevel:LogLevel,
-                                    ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?background : bool) : unit =
+    member this.AttachLocalWorker([<O;D(null:obj)>]?workerId : string, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logFile : string, [<O;D(null:obj)>]?logLevel:LogLevel,
+                                    [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : unit =
         ignore <| AzureWorker.Spawn(manager.Configuration, ?workerId = workerId, ?workingDirectory = workingDirectory, ?maxWorkItems = maxWorkItems, ?logFile = logFile, 
                             ?logLevel = logLevel, ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold, ?background = background)
 
@@ -227,7 +228,9 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
-    member this.AttachLocalWorkers(workerCount : int, ?maxWorkItems : int, ?logLevel : LogLevel, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?background : bool) : unit =
+    member this.AttachLocalWorkers(workerCount : int, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logLevel : LogLevel, 
+                                    [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : unit =
+
         ignore <| AzureWorker.SpawnMultiple(workerCount, config = manager.Configuration, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?background = background,
                                                 ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
 
@@ -242,7 +245,7 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member ConnectAsync (config : Configuration, ?clientId : string, ?faultPolicy : FaultPolicy, ?logger : ISystemLogger, ?logLevel : LogLevel) : Async<AzureCluster> = async {
+    static member ConnectAsync (config : Configuration, [<O;D(null:obj)>]?clientId : string, [<O;D(null:obj)>]?faultPolicy : FaultPolicy, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) : Async<AzureCluster> = async {
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         let! manager = ClusterManager.Create(config, ?systemLogger = logger)
@@ -261,7 +264,7 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member Connect (config : Configuration, ?clientId : string, ?faultPolicy : FaultPolicy, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster =
+    static member Connect (config : Configuration, [<O;D(null:obj)>]?clientId : string, [<O;D(null:obj)>]?faultPolicy : FaultPolicy, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) : AzureCluster =
         AzureCluster.ConnectAsync(config, ?clientId = clientId, ?faultPolicy = faultPolicy, ?logger = logger, ?logLevel = logLevel)
         |> Async.RunSync
 
@@ -275,7 +278,7 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
-    static member Connect(storageConnectionString : string, serviceBusConnectionString : string,  ?clientId : string, ?faultPolicy : FaultPolicy, ?logger : ISystemLogger, ?logLevel : LogLevel) : AzureCluster = 
+    static member Connect(storageConnectionString : string, serviceBusConnectionString : string, [<O;D(null:obj)>]?clientId : string, [<O;D(null:obj)>]?faultPolicy : FaultPolicy, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) : AzureCluster = 
         AzureCluster.Connect(new Configuration(storageConnectionString, serviceBusConnectionString), ?clientId = clientId, ?faultPolicy = faultPolicy, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
@@ -290,8 +293,8 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
-    static member InitOnCurrentMachine(config : Configuration, workerCount : int, ?clientId : string, ?faultPolicy : FaultPolicy, ?maxWorkItems : int, ?logger : ISystemLogger, 
-                                            ?logLevel : LogLevel, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?background : bool) : AzureCluster =
+    static member InitOnCurrentMachine(config : Configuration, workerCount : int, [<O;D(null:obj)>]?clientId : string, [<O;D(null:obj)>]?faultPolicy : FaultPolicy, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logger : ISystemLogger, 
+                                            [<O;D(null:obj)>]?logLevel : LogLevel, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : AzureCluster =
         let _ = AzureWorker.SpawnMultiple(workerCount, config, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?background = background,
                                                 ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
 

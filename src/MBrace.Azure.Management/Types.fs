@@ -4,6 +4,9 @@ open System
 open System.IO
 open System.Xml.Linq
 
+type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
+type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueAttribute
+
 /// Azure Region Identifier
 [<Sealed; AutoSerializable(true); StructuredFormatDisplay("{Id}")>]
 type Region private (regionId : string) = 

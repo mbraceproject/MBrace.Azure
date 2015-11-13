@@ -44,7 +44,7 @@ module internal Compute =
             [ 
                 Field.create "Name" Left (fun d -> d.Name)
                 Field.create "VM size" Left (fun d -> match d.Nodes with [] -> "N/A" | h :: _ -> h.VMSize.Id)
-                Field.create "Instance count" Right (fun d -> if List.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
+                Field.create "#Instances" Left (fun d -> if List.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
                 Field.create "Created Time" Left (fun d -> d.CreatedTime) 
                 Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
                 Field.create "Deployment State" Left (fun d -> match d.DeploymentStatus with None -> "?" | Some d -> string d)

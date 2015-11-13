@@ -8,6 +8,9 @@ open System.Threading.Tasks
 [<AutoOpen>]
 module Utils =
 
+    type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
+    type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueAttribute
+
     let guid() = Guid.NewGuid().ToString()
 
     let toGuid guid = Guid.Parse(guid)

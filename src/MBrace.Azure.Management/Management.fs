@@ -42,12 +42,12 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     ///     Prints deployment information to stdout  
     /// </summary>
     /// <param name="showInstances">Include information on individual worker instances. Defaults to true.</param>
-    member __.ShowInfo(?showInstances : bool) =
-        let showInstances = defaultArg showInstances false
+    member __.ShowInfo([<O;D(null:obj)>]?showInstances : bool) =
+        let showInstances = defaultArg showInstances true
         let current = deployment.Value
-        let deploymentInfo = Compute.DeploymentReporter.Report([deployment.Value], title = sprintf "Cloud Service %A" serviceName)
+        let deploymentInfo = Compute.DeploymentReporter.Report([current], title = sprintf "Cloud Service %A" serviceName)
         if showInstances then
-            let nodeInfo = Compute.InstanceReporter.Report(deployment.Value.Nodes, title = "Cloud Service Instances")
+            let nodeInfo = Compute.InstanceReporter.Report(current.Nodes, title = "Cloud Service Instances")
             let nl = Environment.NewLine
             sprintf "%s%s%s" deploymentInfo nl nodeInfo |> Console.WriteLine
         else
@@ -100,9 +100,9 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label.</param>
-    member __.DeployAsync(vmSize : VMSize, vmCount : int, ?serviceName : string, ?subscriptionId : string, ?region : Region, 
-                                ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, 
-                                ?serviceLabel : string) : Async<Deployment> = async {
+    member __.DeployAsync(vmSize : VMSize, vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region, 
+                            [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
+                            [<O;D(null:obj)>]?serviceLabel : string) : Async<Deployment> = async {
 
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
         let region = defaultArg region defaultRegion
@@ -140,8 +140,8 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label.</param>
-    member __.Deploy(vmSize : VMSize, vmCount : int, ?serviceName : string, ?subscriptionId : string, ?region : Region, 
-                                        ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?serviceLabel : string) =
+    member __.Deploy(vmSize : VMSize, vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region, 
+                        [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, [<O;D(null:obj)>]?serviceLabel : string) =
         __.DeployAsync(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?region = region, ?mbraceVersion = mbraceVersion,
                                 ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
         |> Async.RunSync
@@ -152,12 +152,12 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// </summary>
     /// <param name="serviceName">Deployment service name identifier.</param>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.GetDeploymentAsync(serviceName : string, ?subscriptionId : string) = async {
+    member __.GetDeploymentAsync(serviceName : string, [<O;D(null:obj)>]?subscriptionId : string) = async {
         let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
         let! result = Compute.tryGetRunningDeployment client serviceName
         match result with
         | None -> return invalidOp <| sprintf "Deployment '%s' could not be found." serviceName
-        | Some d -> return new Deployment(client, serviceName, logger)
+        | Some _ -> return new Deployment(client, serviceName, logger)
     }
 
     /// <summary>
@@ -165,14 +165,14 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// </summary>
     /// <param name="serviceName">Deployment service name identifier.</param>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.GetDeployment(serviceName : string, ?subscriptionId : string) =
+    member __.GetDeployment(serviceName : string, [<O;D(null:obj)>]?subscriptionId : string) =
         __.GetDeploymentAsync(serviceName, ?subscriptionId = subscriptionId) |> Async.RunSync
 
     /// <summary>
     ///     Asynchronously fetches a list of all currently running deployments
     /// </summary>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.GetDeploymentsAsync(?subscriptionId : string) = async {
+    member __.GetDeploymentsAsync([<O;D(null:obj)>]?subscriptionId : string) = async {
         let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
         let! deployments = Compute.getRunningDeployments client
         return deployments |> Seq.map (fun d -> new Deployment(client, d.Name, logger)) |> Seq.toArray
@@ -182,14 +182,14 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     ///     Fetches a list of all currently running deployments
     /// </summary>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.GetDeployments(?subscriptionId : string) =
+    member __.GetDeployments([<O;D(null:obj)>]?subscriptionId : string) =
         __.GetDeploymentsAsync(?subscriptionId = subscriptionId) |> Async.RunSync
 
     /// <summary>
     ///     Prints a report on deployments to stdout.
     /// </summary>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    member __.ShowDeployments(?subscriptionId : string) =
+    member __.ShowDeployments([<O;D(null:obj)>]?subscriptionId : string) =
         let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
         let deployments = Compute.getRunningDeployments client |> Async.RunSync
         let info = Compute.DeploymentReporter.Report(deployments, title = sprintf "Subscription: %A" client.Subscription.Name)
@@ -203,7 +203,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member Create(subscriptions : seq<Subscription>, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+    static member Create(subscriptions : seq<Subscription>, defaultRegion : Region, [<O;D(null:obj)>]?defaultSubscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
         let client = SubscriptionsClient.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
         new DeploymentManager(client, defaultRegion, logger, ?logLevel = logLevel)
 
@@ -215,7 +215,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member Create(publishSettings : PublishSettings, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+    static member Create(publishSettings : PublishSettings, defaultRegion : Region, [<O;D(null:obj)>]?defaultSubscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
         DeploymentManager.Create(publishSettings.Subscriptions, defaultRegion, ?logger = logger, ?defaultSubscriptionId = defaultSubscriptionId, ?logLevel = logLevel)
 
     /// <summary>
@@ -225,7 +225,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="defaultRegion">Default Azure region for deployments.</param>
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member Create(subscription : Subscription, defaultRegion : Region, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+    static member Create(subscription : Subscription, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
         DeploymentManager.Create([subscription], defaultRegion, ?logger = logger, ?logLevel = logLevel)
 
     /// <summary>
@@ -236,7 +236,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member FromPublishSettingsFile(publishSettingsFile : string, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+    static member FromPublishSettingsFile(publishSettingsFile : string, defaultRegion : Region, [<O;D(null:obj)>]?defaultSubscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
         let pubSettings = PublishSettings.ParseFile publishSettingsFile
         DeploymentManager.Create(pubSettings.Subscriptions, defaultRegion, ?defaultSubscriptionId = defaultSubscriptionId, ?logger = logger, ?logLevel = logLevel)
 
@@ -260,8 +260,8 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label.</param>
-    static member Deploy(pubSettingsFile : string, region : Region, vmSize : VMSize, vmCount : int, ?serviceName : string, ?subscriptionId : string, 
-                                ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?serviceLabel : string) =
+    static member Deploy(pubSettingsFile : string, region : Region, vmSize : VMSize, vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?subscriptionId : string, 
+                            [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, [<O;D(null:obj)>]?serviceLabel : string) =
         let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = region, ?defaultSubscriptionId = subscriptionId, logger = new ConsoleLogger(true))
         manager.Deploy(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?mbraceVersion = mbraceVersion, 
                                 ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
@@ -273,7 +273,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
     /// <param name="serviceName">Service name to be deleted.</param>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    static member DeleteDeployment(pubSettingsFile : string, serviceName : string, ?subscriptionId : string) =
+    static member DeleteDeployment(pubSettingsFile : string, serviceName : string, [<O;D(null:obj)>]?subscriptionId : string) =
         let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = Region.Define "", logger = new ConsoleLogger(true))
         let dpl = manager.GetDeployment(serviceName, ?subscriptionId = subscriptionId)
         dpl.Delete()
@@ -283,7 +283,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// </summary>
     /// <param name="serviceName">Service name to be looked up.</param>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    static member GetDeployment(pubSettingsFile : string, serviceName : string, ?subscriptionId : string) =
+    static member GetDeployment(pubSettingsFile : string, serviceName : string, [<O;D(null:obj)>]?subscriptionId : string) =
         let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = Region.Define "", logger = new ConsoleLogger(true))
         manager.GetDeployment(serviceName, ?subscriptionId = subscriptionId)
 
@@ -293,7 +293,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// </summary>
     /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
     /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
-    static member ShowDeployments(pubSettingsFile : string, ?subscriptionId : string) =
+    static member ShowDeployments(pubSettingsFile : string, [<O;D(null:obj)>]?subscriptionId : string) =
         let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = Region.Define "", logger = new ConsoleLogger(true))
         manager.ShowDeployments(?subscriptionId = subscriptionId)
 
@@ -312,5 +312,5 @@ module Extensions =
     /// <param name="logger">Custom logger to attach in client.</param>
     /// <param name="logLevel">Logger verbosity level.</param>
     type AzureCluster with
-        static member Connect(deployment : Deployment, ?clientId : string, ?faultPolicy : FaultPolicy, ?logger : ISystemLogger, ?logLevel : LogLevel) = 
+        static member Connect(deployment : Deployment, [<O;D(null:obj)>]?clientId : string, [<O;D(null:obj)>]?faultPolicy : FaultPolicy, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) = 
             AzureCluster.Connect(deployment.Configuration, ?clientId = clientId, ?faultPolicy = faultPolicy, ?logger = logger, ?logLevel = logLevel)
