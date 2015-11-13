@@ -58,6 +58,30 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     /// Deletes deployment from Azure
     member __.Delete() = __.DeleteAsync() |> Async.RunSync
 
+    /// <summary>
+    ///     Asynchronously waits until provisioning of deployment has completed
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
+    member __.AwaitProvisionAsync([<O;D(null:obj)>]?timeoutMilliseconds : int) = async {
+        let rec aux () = async {
+            let! d = deployment.GetValueAsync()
+            match d.DeploymentState with
+            | DeploymentState.Provisioning _ ->
+                do! Async.Sleep 2000
+                return! aux()
+            | _ -> return ()
+        }
+
+        return! Async.WithTimeout(aux(), ?timeoutMilliseconds = timeoutMilliseconds)
+    }
+
+    /// <summary>
+    ///     Waits until provisioning of deployment has completed
+    /// </summary>
+    /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
+    member __.AwaitProvision([<O;D(null:obj)>]?timeoutMilliseconds : int) =
+        __.AwaitProvisionAsync(?timeoutMilliseconds = timeoutMilliseconds)
+
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscriptions
 [<Sealed; AutoSerializable(false)>]
