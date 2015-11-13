@@ -29,20 +29,33 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     /// MBrace.Azure configuration object for deployment.
     /// Used for initializing AzureCluster objects.
     member __.Configuration = deployment.Value.Configuration
+    /// Gets the current instance information for the cloud service
     member __.Nodes = deployment.Value.Nodes |> List.toArray
+    /// Time of current cloud service creation
     member __.CreatedTime = deployment.Value.CreatedTime
+    /// Current deployment Status
     member __.DeploymentStatus = deployment.Value.DeploymentStatus
+    /// Current service Status
     member __.ServiceStatus = deployment.Value.ServiceStatus
-    member __.ShowInfo() =
-        Compute.DeploymentReporter.Report([deployment.Value], title = sprintf "Cloud Service %A" serviceName)
-        |> Console.WriteLine
 
-    member __.ShowNodes() = 
-        Compute.InstanceReporter.Report(deployment.Value.Nodes, title = sprintf "Instances for Cloud Service %A" serviceName)
-        |> Console.WriteLine
+    /// <summary>
+    ///     Prints deployment information to stdout  
+    /// </summary>
+    /// <param name="showInstances">Include information on individual worker instances. Defaults to true.</param>
+    member __.ShowInfo(?showInstances : bool) =
+        let showInstances = defaultArg showInstances false
+        let current = deployment.Value
+        let deploymentInfo = Compute.DeploymentReporter.Report([deployment.Value], title = sprintf "Cloud Service %A" serviceName)
+        if showInstances then
+            let nodeInfo = Compute.InstanceReporter.Report(deployment.Value.Nodes, title = "Cloud Service Instances")
+            let nl = Environment.NewLine
+            sprintf "%s%s%s" deploymentInfo nl nodeInfo |> Console.WriteLine
+        else
+            deploymentInfo |> Console.WriteLine
 
+    /// Asynchronously deletes deployment from Azure
     member __.DeleteAsync() = Compute.deleteMBraceDeployment logger serviceName client
-
+    /// Deletes deployment from Azure
     member __.Delete() = __.DeleteAsync() |> Async.RunSync
 
 

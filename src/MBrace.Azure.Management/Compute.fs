@@ -27,17 +27,17 @@ type Instance =
         Status : string 
     }
 
-module internal Compute =
+type internal DeploymentDetails = 
+    {
+        Name : string
+        CreatedTime : DateTime
+        ServiceStatus : string
+        DeploymentStatus : string option
+        Configuration : Configuration
+        Nodes : Instance list 
+    }
 
-    type internal DeploymentDetails = 
-        {
-            Name : string
-            CreatedTime : DateTime
-            ServiceStatus : string
-            DeploymentStatus : string option
-            Configuration : Configuration
-            Nodes : Instance list 
-        }
+module internal Compute =
 
     type DeploymentReporter private () =
         static let template : Field<DeploymentDetails> list =
@@ -47,7 +47,7 @@ module internal Compute =
                 Field.create "Instance count" Right (fun d -> if List.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
                 Field.create "Created Time" Left (fun d -> d.CreatedTime) 
                 Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
-                Field.create "Deployment State" Left (fun d -> defaultArg d.DeploymentStatus "?")
+                Field.create "Deployment State" Left (fun d -> match d.DeploymentStatus with None -> "?" | Some d -> string d)
             ]
 
         static member Report(deployments : DeploymentDetails list, ?title : string) =
@@ -58,8 +58,8 @@ module internal Compute =
             [
                 Field.create "Instance Id" Left (fun n -> n.Id)
                 Field.create "VM Size" Left (fun n -> n.VMSize)
+                Field.create "Status" Right (fun n -> n.Status)
                 Field.create "IP Address" Left (fun n -> n.IPAddress)
-                Field.create "Status" Left (fun n -> n.Status)
             ]
 
         static member Report(nodes : Instance list, ?title : string) =
@@ -82,16 +82,17 @@ module internal Compute =
             return None
     }
 
-    let tryGetDeploymentInfo (client:SubscriptionClient) (properties:HostedServiceProperties) (serviceName:string) = async {
-        if properties.ExtendedProperties |> Common.isMBraceAsset then
-            let! deployment = async {
-                try
-                    let dplmnts = client.Compute.Deployments
-                    let! (d : DeploymentGetResponse) = dplmnts.GetBySlotAsync(serviceName, DeploymentSlot.Production)
-                    return Some d
-                with _ -> return None
-            }
+    let tryGetDeploymentInfo (client:SubscriptionClient) (getProps : Async<HostedServiceProperties>) (serviceName:string) = async {
+        let! deploymentT = 
+            async {
+                let dplmnts = client.Compute.Deployments
+                return! dplmnts.GetBySlotAsync(serviceName, DeploymentSlot.Production)
+            } |> Async.Catch |> Async.StartChild
 
+        let! properties = getProps
+
+        if properties.ExtendedProperties |> Common.isMBraceAsset then
+            let! deployment = deploymentT
             let config =
                 let storageConnectionString = properties.ExtendedProperties.["StorageConnectionString"]
                 let serviceBusConnectionString = properties.ExtendedProperties.["ServiceBusConnectionString"]
@@ -99,8 +100,8 @@ module internal Compute =
 
             let nodes =
                 match deployment with
-                | None -> []
-                | Some d -> 
+                | Choice2Of2 _ -> []
+                | Choice1Of2 d -> 
                     d.RoleInstances 
                     |> Seq.map (fun i -> { Id = i.InstanceName ; IPAddress = i.IPAddress.ToString() ; VMSize = VMSize.Define i.InstanceSize ; Status = i.InstanceStatus }) 
                     |> Seq.toList
@@ -109,8 +110,8 @@ module internal Compute =
                 {  
                     Name = serviceName
                     CreatedTime = properties.DateCreated
-                    ServiceStatus = properties.Status.ToString()
-                    DeploymentStatus = deployment |> Option.map(fun deployment -> deployment.Status.ToString())
+                    ServiceStatus = string properties.Status
+                    DeploymentStatus = match deployment with Choice1Of2 d -> Some (string d.Status) | Choice2Of2 _ -> None
                     Configuration = config
                     Nodes = nodes 
                 }
@@ -121,13 +122,18 @@ module internal Compute =
     }
 
     let tryGetRunningDeployment (client:SubscriptionClient) (serviceName:string) = async {
-        let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync(serviceName)
-        return! tryGetDeploymentInfo client service.Properties serviceName
+        let getProperties () = async {
+            let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync serviceName
+            return service.Properties
+        }
+
+        return! tryGetDeploymentInfo client (getProperties()) serviceName
     }
 
     let getRunningDeployments (client:SubscriptionClient) = async {
         let! (services : HostedServiceListResponse) = client.Compute.HostedServices.ListAsync()
-        let! info = services |> Seq.map (fun s -> tryGetDeploymentInfo client s.Properties s.ServiceName) |> Async.Parallel 
+        let getProperties (s : HostedServiceListResponse.HostedService) = async { return s.Properties }
+        let! info = services |> Seq.map (fun s -> tryGetDeploymentInfo client (getProperties s) s.ServiceName) |> Async.Parallel 
         return info |> Seq.choose id |> Seq.toList
     }
 

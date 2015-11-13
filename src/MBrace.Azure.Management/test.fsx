@@ -18,7 +18,6 @@ let deployment = manager.Deploy(serviceName = "eiriktest", vmCount = 4, vmSize =
 //let deployment = manager.GetDeployment(serviceName = "eiriktest")
 
 deployment.ShowInfo()
-deployment.ShowNodes()
 
 deployment.Delete() // *deletes* the Azure deployment
 
