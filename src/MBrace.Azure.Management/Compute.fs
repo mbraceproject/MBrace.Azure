@@ -137,7 +137,7 @@ module internal Compute =
         return info |> Seq.choose id |> Seq.toList
     }
 
-    let buildMBraceConfig serviceName instances storageConnection serviceBusConnection =
+    let buildMBraceConfig serviceName instances storageConnection serviceBusConnection useDiagnostics =
         sprintf """<?xml version="1.0" encoding="utf-8"?>
 <ServiceConfiguration serviceName="%s" xmlns="http://schemas.microsoft.com/ServiceHosting/2008/10/ServiceConfiguration" osFamily="4" osVersion="*" schemaVersion="2015-04.2.6">
     <Role name="MBrace.Azure.WorkerRole">
@@ -145,10 +145,10 @@ module internal Compute =
     <ConfigurationSettings>
         <Setting name="MBrace.StorageConnectionString" value="%s" />
         <Setting name="MBrace.ServiceBusConnectionString" value="%s" />
-        <Setting name="Microsoft.WindowsAzure.Plugins.Diagnostics.ConnectionString" value="" />
+        <Setting name="Microsoft.WindowsAzure.Plugins.Diagnostics.ConnectionString" value="%s" />
     </ConfigurationSettings>
     </Role>
-</ServiceConfiguration>""" serviceName instances storageConnection serviceBusConnection
+</ServiceConfiguration>""" serviceName instances storageConnection serviceBusConnection (if useDiagnostics then storageConnection else "")
 
     let prepareMBraceServiceDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
                                         (region : Region) (packagePath : string) (config : string) 

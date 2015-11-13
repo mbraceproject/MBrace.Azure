@@ -99,12 +99,14 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
     /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
-    /// <param name="serviceLabel">User-supplied service label.</param>
+    /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
+    /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
     member __.DeployAsync(vmSize : VMSize, vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region, 
                             [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
-                            [<O;D(null:obj)>]?serviceLabel : string) : Async<Deployment> = async {
+                            [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) : Async<Deployment> = async {
 
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
+        let enableDiagnostics = defaultArg enableDiagnostics false
         let region = defaultArg region defaultRegion
         let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
         let serviceName = match serviceName with None -> Common.generateResourceName() | Some sn -> sn
@@ -119,7 +121,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
         let! _, serviceBusNamespace, serviceBusConnectionString = ServiceBus.resolveNamespaceInfo logger region serviceBusAccount client
         logger.Logf LogLevel.Info "using service bus account %A" serviceBusNamespace
 
-        let config = Compute.buildMBraceConfig serviceName vmCount storageConnectionString serviceBusConnectionString
+        let config = Compute.buildMBraceConfig serviceName vmCount storageConnectionString serviceBusConnectionString enableDiagnostics
 
         let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %s"  serviceName (defaultArg versionInfo "custom"))
         let! deployInfo = Compute.prepareMBraceServiceDeployment logger serviceName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
@@ -139,11 +141,14 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
     /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
-    /// <param name="serviceLabel">User-supplied service label.</param>
+    /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
+    /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
     member __.Deploy(vmSize : VMSize, vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region, 
-                        [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, [<O;D(null:obj)>]?serviceLabel : string) =
+                        [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
+                        [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) =
         __.DeployAsync(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?region = region, ?mbraceVersion = mbraceVersion,
-                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
+                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, 
+                                ?serviceLabel = serviceLabel, ?enableDiagnostics = enableDiagnostics)
         |> Async.RunSync
 
 
@@ -259,12 +264,15 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
     /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
-    /// <param name="serviceLabel">User-supplied service label.</param>
+    /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
+    /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
     static member Deploy(pubSettingsFile : string, region : Region, vmSize : VMSize, vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?subscriptionId : string, 
-                            [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, [<O;D(null:obj)>]?serviceLabel : string) =
+                            [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
+                            [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) =
         let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = region, ?defaultSubscriptionId = subscriptionId, logger = new ConsoleLogger(true))
         manager.Deploy(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?mbraceVersion = mbraceVersion, 
-                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
+                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, 
+                                ?serviceLabel = serviceLabel, ?enableDiagnostics = enableDiagnostics)
 
 
     /// <summary>
