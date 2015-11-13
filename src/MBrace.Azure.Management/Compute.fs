@@ -231,15 +231,24 @@ module internal Compute =
 
 module internal Infrastructure =
 
+    let private requiredServices = [| "Compute" ; "Storage" |]
+
     /// fetches a list of all regions together with supported vm sizes
     let listRegions (client:SubscriptionClient) = async {
-        let requiredServices = [ "Compute" ; "Storage" ; "ServiceBus" ]
-        let! (listedRoleSizes : RoleSizeListResponse) = client.Management.RoleSizes.ListAsync()
-        let! (locations : LocationsListResponse) = client.Management.Locations.ListAsync()
+        let! listedRoleSizesT = client.Management.RoleSizes.ListAsync() |> Async.AwaitTaskCorrect |> Async.StartChild
+        let! locations = client.Management.Locations.ListAsync() |> Async.AwaitTaskCorrect
+        let! listedRoleSizes = listedRoleSizesT
         let rolesForClient = listedRoleSizes |> Seq.map (fun r -> r.Name) |> set
         return 
             locations
-            |> Seq.filter(fun l -> requiredServices |> List.forall l.AvailableServices.Contains)
-            |> Seq.map(fun l -> l.Name, l.ComputeCapabilities.WebWorkerRoleSizes |> Seq.filter rolesForClient.Contains |> Seq.toList)
-            |> Seq.toList
+            |> Seq.filter(fun l -> requiredServices |> Array.forall l.AvailableServices.Contains)
+            |> Seq.map(fun l -> l.Name, l.ComputeCapabilities.WebWorkerRoleSizes |> Seq.filter rolesForClient.Contains |> Seq.toArray)
+            |> Seq.toArray
+    }
+
+    /// check whether region and vmsize combination is compatible
+    let checkCompatibility (region : Region) (vmsize : VMSize) (client:SubscriptionClient) = async {
+        let! regions = listRegions client
+        let isCompatible = regions |> Array.exists (fun (location, sizes) -> location = region.Id && sizes |> Array.exists ((=) vmsize.Id))
+        do if not isCompatible then failwithf "Region %A does not support VM size %A" region.Id vmsize.Id
     }
