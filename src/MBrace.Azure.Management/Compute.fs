@@ -198,8 +198,12 @@ module internal Compute =
         let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync serviceName
         if service.Properties.ExtendedProperties |> Common.isMBraceAsset then
             logger.Logf LogLevel.Info "deleting cluster %s" serviceName
-            let! (deleteOp : OperationStatusResponse) = client.Compute.Deployments.DeleteByNameAsync(serviceName, serviceName, true)
-            if deleteOp.Status <> OperationStatus.Succeeded then return failwith deleteOp.Error.Message
+            let! result = client.Compute.Deployments.DeleteByNameAsync(serviceName, serviceName, true) |> Async.AwaitTaskCorrect |> Async.Catch
+            match result with
+            | Choice1Of2 deleteOp when deleteOp.Status = OperationStatus.Succeeded -> ()
+            | Choice1Of2 deleteOp -> return failwithf "Failed to delete deployment %A: %s" serviceName deleteOp.Error.Message
+            | Choice2Of2 _ -> logger.Logf LogLevel.Warning "No deployment for cloud service %A could be found." serviceName
+
             let! (deleteOp : AzureOperationResponse) = client.Compute.HostedServices.DeleteAsync serviceName
             if deleteOp.StatusCode <> Net.HttpStatusCode.OK then return failwith (deleteOp.StatusCode.ToString()) 
         else
