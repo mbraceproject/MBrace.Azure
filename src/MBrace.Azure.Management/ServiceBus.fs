@@ -1,32 +1,15 @@
 ﻿namespace MBrace.Azure.Management
 
 open System
-open System.Text.RegularExpressions
 
 open MBrace.Core.Internals
 open MBrace.Runtime
 
 open Microsoft.WindowsAzure.Management.ServiceBus
 open Microsoft.WindowsAzure.Management.ServiceBus.Models
+open MBrace.Azure.Runtime
 
 module internal ServiceBus =
-
-    let mkEndpoint (namespaceName : string) =
-        sprintf "sb://%s.servicebus.windows.net/" namespaceName
-
-    let mkConnectionString endpoint (key : string) =
-        sprintf "EndPoint=%s;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=%s" endpoint key
-
-    let private connectionStringRegex = new Regex("Endpoint=(.+);SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=(.+)", RegexOptions.Compiled)
-    let tryParseConnectionString (conn : string) =
-        let m = connectionStringRegex.Match(conn)
-        if m.Success then
-            let endPoint = m.Groups.[1].Value |> Uri
-            let namespaceName = endPoint.Host.Split('.').[0]
-            let accountKey = m.Groups.[2].Value
-            Some(endPoint.ToString(), namespaceName, accountKey)
-        else
-            None
 
     let tryParseEndpoint (endpoint : string) =
         let ok, uri = Uri.TryCreate(endpoint, UriKind.Absolute)
@@ -74,19 +57,15 @@ module internal ServiceBus =
             |> Seq.tryPick Some
     }
 
-    let getAccountInfo (id : string) (client:SubscriptionClient) = async {
-        match tryParseConnectionString id with
-        | Some(endpoint, namespaceName, _) -> 
-            // input identified as connection string, parse and return account name
-            return namespaceName, endpoint, id
+    let getAccount (accountId : string) (client:SubscriptionClient) = async {
+        match AzureServiceBusAccount.TryFromConnectionString accountId with
+        | Some account -> return account
         | None ->
-            let namespaceName = defaultArg (tryParseEndpoint id) id
+            let accountName = defaultArg (tryParseEndpoint accountId) accountId
             // input identifier as account name, recover connection string from Storage Account client
-            let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync(namespaceName)
+            let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync accountName
             let rootSharedAccessKey = authRules |> Seq.find (fun rule -> rule.KeyName = "RootManageSharedAccessKey")
-            let endpoint = mkEndpoint namespaceName
-            let connectionString = mkConnectionString endpoint rootSharedAccessKey.PrimaryKey
-            return namespaceName, endpoint, connectionString
+            return AzureServiceBusAccount.FromCredentials(accountName, rootSharedAccessKey.PrimaryKey)
     }
 
     let findOrCreateMBraceNamespace (logger : ISystemLogger) region client = async {
@@ -102,10 +81,10 @@ module internal ServiceBus =
 
     let resolveNamespaceInfo (logger : ISystemLogger) (region : Region) (serviceBusId : string option) (client : SubscriptionClient) = async {
         match serviceBusId with
-        | Some id -> return! getAccountInfo id client
+        | Some id -> return! getAccount id client
         | None ->
             let! ns = findOrCreateMBraceNamespace logger region client
-            return! getAccountInfo ns client    
+            return! getAccount ns client    
     }
 
     let deleteNamespace namespaceName (client:SubscriptionClient) = async {

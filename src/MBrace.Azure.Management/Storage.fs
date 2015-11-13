@@ -1,7 +1,5 @@
 ﻿namespace MBrace.Azure.Management
 
-open System.Text.RegularExpressions
-
 open Microsoft.Azure
 open Microsoft.WindowsAzure.Management.Storage
 open Microsoft.WindowsAzure.Management.Storage.Models
@@ -11,19 +9,6 @@ open MBrace.Runtime
 open MBrace.Azure.Runtime
 
 module internal Storage =
-
-    let private connectionStringRegex = new Regex("DefaultEndpointsProtocol=https;AccountName=(.+);AccountKey=(.+)", RegexOptions.Compiled)
-    let tryParseConnectionString (conn : string) =
-        let m = connectionStringRegex.Match(conn)
-        if m.Success then
-            let accountName = m.Groups.[1].Value
-            let accountKey = m.Groups.[2].Value
-            Some(accountName, accountKey)
-        else
-            None
-
-    let mkConnectionString accountName (key : string) =
-        sprintf "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s" accountName key
 
     let getStorageAccounts (client:SubscriptionClient) = async {
         let! (listed : StorageAccountListResponse) = client.Storage.StorageAccounts.ListAsync()
@@ -55,20 +40,16 @@ module internal Storage =
                 return accountName 
     }
 
-    let getAccountInfo (id : string) (client:SubscriptionClient) = async {
-        match tryParseConnectionString id with
-        | Some(accountName, _) -> 
-            // input identified as connection string, parse and return account name
-            return accountName, id
+    let getStoraceAccount (accountId : string) (client:SubscriptionClient) = async {
+        match AzureStorageAccount.TryFromConnectionString accountId with
+        | Some account -> return account
         | None ->
             // input identifier as account name, recover connection string from Storage Account client
-            let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync id
-            let conn = mkConnectionString id keys.PrimaryKey
-            return id, conn
+            let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync accountId
+            return AzureStorageAccount.FromCredentials(accountId, keys.PrimaryKey)
     }
 
-    let getDeploymentContainer connectionString = async {
-        let account = AzureStorageAccount.FromConnectionString connectionString
+    let getDeploymentContainer (account : AzureStorageAccount) = async {
         let container = account.BlobClient.GetContainerReference "deployments"
         do! container.CreateIfNotExistsAsync()
         return container
@@ -89,8 +70,8 @@ module internal Storage =
         match storageAccount with
         | Some account -> 
             // parse and validate storage account info
-            return! getAccountInfo account client
+            return! getStoraceAccount account client
         | None ->
             let! accountName = getDefaultMBraceStorageAccountName logger region client
-            return! getAccountInfo accountName client
+            return! getStoraceAccount accountName client
     }

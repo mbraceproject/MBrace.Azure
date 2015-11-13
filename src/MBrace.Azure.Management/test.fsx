@@ -8,6 +8,8 @@
 
 open MBrace.Azure.Management
 
+#time
+
 let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishSettings"
 let subscription = pubSettings.["Nessos"]
 let manager = DeploymentManager.Create(subscription, Region.West_Europe, logger = ConsoleLogger())
@@ -18,6 +20,8 @@ let deployment = manager.Deploy(serviceName = "eiriktest", vmCount = 4, vmSize =
 //let deployment = manager.GetDeployment(serviceName = "eiriktest")
 
 deployment.ShowInfo()
+
+deployment.AwaitProvision() |> Async.RunSynchronously
 
 deployment.Delete() // *deletes* the Azure deployment
 

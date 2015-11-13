@@ -201,7 +201,9 @@ module internal Compute =
         return info |> Seq.choose id |> Seq.toList
     }
 
-    let buildMBraceConfig serviceName instances storageConnection serviceBusConnection useDiagnostics =
+    let buildMBraceConfig serviceName instances useDiagnostics  
+            (storageAccount : AzureStorageAccount) (serviceBusAccount : AzureServiceBusAccount) =
+
         sprintf """<?xml version="1.0" encoding="utf-8"?>
 <ServiceConfiguration serviceName="%s" xmlns="http://schemas.microsoft.com/ServiceHosting/2008/10/ServiceConfiguration" osFamily="4" osVersion="*" schemaVersion="2015-04.2.6">
     <Role name="MBrace.Azure.WorkerRole">
@@ -212,26 +214,26 @@ module internal Compute =
         <Setting name="Microsoft.WindowsAzure.Plugins.Diagnostics.ConnectionString" value="%s" />
     </ConfigurationSettings>
     </Role>
-</ServiceConfiguration>""" serviceName instances storageConnection serviceBusConnection (if useDiagnostics then storageConnection else "")
+</ServiceConfiguration>""" serviceName instances storageAccount.ConnectionString serviceBusAccount.ConnectionString (if useDiagnostics then storageAccount.ConnectionString else "")
 
     let prepareMBraceServiceDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
                                         (region : Region) (packagePath : string) (config : string) 
-                                        (storageAccountName : string) (storageConnectionString : string) 
-                                        (serviceBusNamespace : string) (serviceBusConnectionString : string) (client:SubscriptionClient) = async {
+                                        (storageAccount : AzureStorageAccount) (serviceBusAccount : AzureServiceBusAccount) 
+                                        (client:SubscriptionClient) = async {
 
         let extendedProperties =
             dict [
                 yield! Common.defaultExtendedProperties |> Seq.map (fun kv -> kv.Key, kv.Value)
-                yield ("StorageAccountName", storageAccountName)
-                yield ("StorageConnectionString", storageConnectionString)
-                yield ("ServiceBusName", serviceBusNamespace)
-                yield ("ServiceBusConnectionString", serviceBusConnectionString)
+                yield ("StorageAccountName", storageAccount.AccountName)
+                yield ("StorageConnectionString", storageAccount.ConnectionString)
+                yield ("ServiceBusName", serviceBusAccount.AccountName)
+                yield ("ServiceBusConnectionString", serviceBusAccount.ConnectionString)
             ]
 
         logger.Logf LogLevel.Info "creating cloud service %s" serviceName
         let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties))
 
-        let! container = Storage.getDeploymentContainer storageConnectionString
+        let! container = Storage.getDeploymentContainer storageAccount
         let packageBlob = packagePath |> Path.GetFileName |> container.GetBlockBlobReference
         let blobSizesDoNotMatch() =
             packageBlob.FetchAttributes()

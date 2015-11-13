@@ -46,7 +46,7 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
         let showInstances = defaultArg showInstances true
         let current = deployment.Value
         let deploymentInfo = Compute.DeploymentReporter.Report([current], title = sprintf "Cloud Service %A" serviceName)
-        if showInstances then
+        if showInstances && current.Nodes.Length > 0 then
             let nodeInfo = Compute.InstanceReporter.Report(Array.toList current.Nodes, title = "Cloud Service Instances")
             let nl = Environment.NewLine
             sprintf "%s%s%s" deploymentInfo nl nodeInfo |> Console.WriteLine
@@ -62,7 +62,7 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     ///     Asynchronously waits until provisioning of deployment has completed
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
-    member __.AwaitProvisionAsync([<O;D(null:obj)>]?timeoutMilliseconds : int) = async {
+    member __.AwaitProvisionAsync([<O;D(null:obj)>]?timeoutMilliseconds : int) : Async<unit> = async {
         let rec aux () = async {
             let! d = deployment.GetValueAsync()
             match d.DeploymentState with
@@ -79,8 +79,8 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     ///     Waits until provisioning of deployment has completed
     /// </summary>
     /// <param name="timeoutMilliseconds">Timeout in milliseconds. Defaults to infinite timeout.</param>
-    member __.AwaitProvision([<O;D(null:obj)>]?timeoutMilliseconds : int) =
-        __.AwaitProvisionAsync(?timeoutMilliseconds = timeoutMilliseconds)
+    member __.AwaitProvision([<O;D(null:obj)>]?timeoutMilliseconds : int) : unit =
+        __.AwaitProvisionAsync(?timeoutMilliseconds = timeoutMilliseconds) |> Async.RunSync
 
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscriptions
@@ -141,15 +141,15 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
         let! packagePath, versionInfo = Compute.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
         logger.Logf LogLevel.Info "using cluster name %s" serviceName
 
-        let! storageAccountName, storageConnectionString = Storage.resolveStorageAccount logger region storageAccount client
-        logger.Logf LogLevel.Info "using storage account name %A" storageAccountName
-        let! _, serviceBusNamespace, serviceBusConnectionString = ServiceBus.resolveNamespaceInfo logger region serviceBusAccount client
-        logger.Logf LogLevel.Info "using service bus account %A" serviceBusNamespace
+        let! storageAccount = Storage.resolveStorageAccount logger region storageAccount client
+        logger.Logf LogLevel.Info "using storage account name %A" storageAccount.AccountName
+        let! serviceBusAccount = ServiceBus.resolveNamespaceInfo logger region serviceBusAccount client
+        logger.Logf LogLevel.Info "using service bus account %A" serviceBusAccount.AccountName
 
-        let config = Compute.buildMBraceConfig serviceName vmCount storageConnectionString serviceBusConnectionString enableDiagnostics
+        let config = Compute.buildMBraceConfig serviceName vmCount enableDiagnostics storageAccount serviceBusAccount
 
         let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %s"  serviceName (defaultArg versionInfo "custom"))
-        let! deployInfo = Compute.prepareMBraceServiceDeployment logger serviceName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
+        let! deployInfo = Compute.prepareMBraceServiceDeployment logger serviceName clusterLabel region packagePath config storageAccount serviceBusAccount client
         do! Compute.beginDeploy false deployInfo client
         return new Deployment(client, serviceName, logger)
     }
@@ -186,7 +186,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
         let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
         let! result = Compute.tryGetRunningDeployment client serviceName
         match result with
-        | None -> return invalidOp <| sprintf "Deployment '%s' could not be found." serviceName
+        | None -> return invalidOp <| sprintf "Deployment %A could not be found." serviceName
         | Some _ -> return new Deployment(client, serviceName, logger)
     }
 
