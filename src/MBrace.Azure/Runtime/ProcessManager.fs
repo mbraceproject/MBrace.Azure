@@ -32,11 +32,10 @@ type CloudProcessManager private (clusterId : ClusterId, logger : ISystemLogger)
         
         member this.StartProcess(info: CloudProcessInfo): Async<ICloudProcessEntry> = async {
             let taskId = guid()
-            logger.LogInfof "task:%A : creating task" taskId
+            logger.LogInfof "Creating cloud process %A" taskId
             let record = CloudProcessRecord.CreateNew(taskId, info)
             let! _record = Table.insertOrReplace clusterId.StorageAccount clusterId.RuntimeTable record
             let tcs = new CloudProcessEntry(clusterId, taskId, info)
-            logger.LogInfof "%A : task created" tcs
             return tcs :> ICloudProcessEntry
         }
         

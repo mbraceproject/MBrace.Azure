@@ -6,21 +6,28 @@
 #r "MBrace.Azure.dll"
 #r "MBrace.Azure.Management.dll"
 
-open MBrace.Azure
 open MBrace.Azure.Management
 
 let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishSettings"
 let subscription = pubSettings.["Nessos"]
-let manager = DeploymentManager.Create(subscription, Region.West_Europe, logger = ConsoleLogger(true))
+let manager = DeploymentManager.Create(subscription, Region.West_Europe, logger = ConsoleLogger())
 
 manager.ShowDeployments()
-manager.DeleteDeployment "eiriktest"
 
-let config = manager.BeginDeploy(serviceName = "eiriktest", vmCount = 2, vmSize = VMSize.A2)
+let deployment = manager.Deploy(serviceName = "eiriktest", vmCount = 4, vmSize = VMSize.A3)
+//let deployment = manager.GetDeployment(serviceName = "eiriktest")
 
-//let config = manager.GetConfiguration(serviceName = "eiriktest")
-//manager.DeleteDeployment "eiriktest"
+deployment.ShowInfo()
+deployment.ShowNodes()
 
-let cluster = AzureCluster.Connect config
+deployment.Delete() // *deletes* the Azure deployment
+
+// Completed, now test the cluster using MBrace
+
+open MBrace.Azure
+open MBrace.Core
+
+let cluster = AzureCluster.Connect(deployment, logger = ConsoleLogger())
 
 cluster.ShowWorkers()
+cluster.Run(cloud { return System.Environment.MachineName })

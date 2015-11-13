@@ -78,7 +78,7 @@ type internal MessagingClient =
         // Step 1: initial record entry creation
         let record = WorkItemRecord.FromCloudWorkItem(workItem)
         do! Table.insert clusterId.StorageAccount clusterId.RuntimeTable record
-        logger.Logf LogLevel.Debug "workItem:%O : enqueue" workItem.Id
+        logger.Logf LogLevel.Debug "workItem:%O : begin enqueue" workItem.Id
 
         // Step 2: Persist work item payload to blob store
         let blobUri = sprintf "workItem/%s/%s" workItem.Process.Id (fromGuid workItem.Id)

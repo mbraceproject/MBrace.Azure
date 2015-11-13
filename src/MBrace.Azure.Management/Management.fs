@@ -1,421 +1,303 @@
 ﻿namespace MBrace.Azure.Management
 
 open System
-open System.Collections.Generic
-open System.IO
-open System.Security.Cryptography.X509Certificates
-open System.Text.RegularExpressions
-open System.Xml.Linq
 
-open Microsoft.Azure
-
+open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure
 open MBrace.Azure.Runtime
 
-module internal Common =
+type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 
-    let defaultMBraceVersion = System.AssemblyVersionInformation.ReleaseTag
-
-    let resourcePrefix = "mbrace"
-    let generateResourceName() = resourcePrefix + Guid.NewGuid().ToString("N").[..7]
-
-    let getPackageUrl mbraceNugetVersionTag (vmSize : VMSize) = 
-        sprintf "https://github.com/mbraceproject/MBrace.Azure/releases/download/%s/MBrace.Azure.CloudService-%s.cspkg" 
-                mbraceNugetVersionTag vmSize.Id
-
-    let defaultExtendedProperties = dict [ "IsMBraceAsset", "true"]
-    let isMBraceAsset (extendedProperties:IDictionary<string, string>) = extendedProperties.ContainsKey "IsMBraceAsset"
-
-module internal Infrastructure =
-    open Microsoft.WindowsAzure.Management
-    open Microsoft.WindowsAzure.Management.Models
-
-    /// fetches a list of all regions together with supported vm sizes
-    let listRegions (client:SubscriptionClient) = async {
-        let requiredServices = [ "Compute" ; "Storage" ; "ServiceBus" ]
-        let! (listedRoleSizes : RoleSizeListResponse) = client.Management.RoleSizes.ListAsync()
-        let! (locations : LocationsListResponse) = client.Management.Locations.ListAsync()
-        let rolesForClient = listedRoleSizes |> Seq.map (fun r -> r.Name) |> set
-        return 
-            locations
-            |> Seq.filter(fun l -> requiredServices |> List.forall l.AvailableServices.Contains)
-            |> Seq.map(fun l -> l.Name, l.ComputeCapabilities.WebWorkerRoleSizes |> Seq.filter rolesForClient.Contains |> Seq.toList)
-            |> Seq.toList
-    }
-
-module internal Storage =
-
-    open Microsoft.WindowsAzure.Management.Storage
-    open Microsoft.WindowsAzure.Management.Storage.Models
-
-    let private connectionStringRegex = new Regex("DefaultEndpointsProtocol=https;AccountName=(.+);AccountKey=(.+)", RegexOptions.Compiled)
-    let tryParseConnectionString (conn : string) =
-        let m = connectionStringRegex.Match(conn)
-        if m.Success then
-            let accountName = m.Groups.[1].Value
-            let accountKey = m.Groups.[2].Value
-            Some(accountName, accountKey)
-        else
-            None
-
-    let mkConnectionString accountName (key : string) =
-        sprintf "DefaultEndpointsProtocol=https;AccountName=%s;AccountKey=%s" accountName key
-
-    let getStorageAccounts (client:SubscriptionClient) = async {
-        let! (listed : StorageAccountListResponse) = client.Storage.StorageAccounts.ListAsync()
-        return listed |> Seq.toArray
-    }
-
-    let tryFindMBraceStorage (region : Region) (client:SubscriptionClient) = async {
-        let! accounts = getStorageAccounts client
-        return
-            accounts
-            |> Seq.filter (fun account -> 
-                let hasLocationData, storageAccountLocation = account.ExtendedProperties.TryGetValue "ResourceLocation"
-                hasLocationData && storageAccountLocation = region.Id)
-            |> Seq.filter(fun account -> account.ExtendedProperties |> Common.isMBraceAsset)
-            |> Seq.map(fun account -> account.Name)
-            |> Seq.tryPick Some
-    }
-
-    let rec createMBraceStorageAccount (logger : ISystemLogger) (region : Region) (accountName : string) (client:SubscriptionClient) = async {
-        let! (availability : CheckNameAvailabilityResponse) = client.Storage.StorageAccounts.CheckNameAvailabilityAsync accountName 
-        if not availability.IsAvailable then return! createMBraceStorageAccount logger region accountName client
-        else
-            let storageParams = new StorageAccountCreateParameters(Name = accountName, AccountType = "Standard_LRS", Location = region.Id, ExtendedProperties = Common.defaultExtendedProperties)
-            let! (result : OperationStatusResponse) = client.Storage.StorageAccounts.CreateAsync(storageParams)
-            if result.Status = OperationStatus.Failed then 
-                return invalidOp result.Error.Message
-            else 
-                logger.Logf LogLevel.Info "Created new storage account %A" accountName
-                return accountName 
-    }
-
-    let getAccountInfo (id : string) (client:SubscriptionClient) = async {
-        match tryParseConnectionString id with
-        | Some(accountName, _) -> 
-            // input identified as connection string, parse and return account name
-            return accountName, id
-        | None ->
-            // input identifier as account name, recover connection string from Storage Account client
-            let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync id
-            let conn = mkConnectionString id keys.PrimaryKey
-            return id, conn
-    }
-
-    let getDeploymentContainer connectionString = async {
-        let account = AzureStorageAccount.Parse connectionString
-        let container = account.BlobClient.GetContainerReference "deployments"
-        do! container.CreateIfNotExistsAsync()
-        return container
-    }
-
-    let getDefaultMBraceStorageAccountName (logger : ISystemLogger) (region : Region) client = async {
-        let! result = tryFindMBraceStorage region client
+/// Represents an Azure service deployment handle object
+[<Sealed; AutoSerializable(false)>]
+type Deployment internal (client : SubscriptionClient, serviceName : string, logger : ISystemLogger) =
+    let getDeploymentInfo = async {
+        let! result = Compute.tryGetRunningDeployment client serviceName
         match result with
-        | Some storage -> 
-            logger.Logf LogLevel.Info "Reusing existing storage account %s" storage
-            return storage
-        | None -> 
-            let accountName = Common.generateResourceName()
-            return! createMBraceStorageAccount logger region accountName client
+        | None -> return invalidOp <| sprintf "Deployment '%s' could not be found." serviceName
+        | Some d ->  return d
     }
 
-    let resolveStorageAccount (logger : ISystemLogger) (region : Region) (storageAccount : string option) (client : SubscriptionClient) = async {
-        match storageAccount with
-        | Some account -> 
-            // parse and validate storage account info
-            return! getAccountInfo account client
-        | None ->
-            let! accountName = getDefaultMBraceStorageAccountName logger region client
-            return! getAccountInfo accountName client
+    let deployment = CacheAtom.Create(getDeploymentInfo, intervalMilliseconds = 1000)
+
+    /// Deployment Cloud Service Name
+    member __.ServiceName = serviceName
+    /// MBrace.Azure configuration object for deployment.
+    /// Used for initializing AzureCluster objects.
+    member __.Configuration = deployment.Value.Configuration
+    member __.Nodes = deployment.Value.Nodes |> List.toArray
+    member __.CreatedTime = deployment.Value.CreatedTime
+    member __.DeploymentStatus = deployment.Value.DeploymentStatus
+    member __.ServiceStatus = deployment.Value.ServiceStatus
+    member __.ShowInfo() =
+        Compute.DeploymentReporter.Report([deployment.Value], title = sprintf "Cloud Service %A" serviceName)
+        |> Console.WriteLine
+
+    member __.ShowNodes() = 
+        Compute.InstanceReporter.Report(deployment.Value.Nodes, title = sprintf "Instances for Cloud Service %A" serviceName)
+        |> Console.WriteLine
+
+    member __.DeleteAsync() = Compute.deleteMBraceDeployment logger serviceName client
+
+    member __.Delete() = __.DeleteAsync() |> Async.RunSync
+
+
+/// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscriptions
+[<Sealed; AutoSerializable(false)>]
+type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
+
+    let logger = AttacheableLogger.Create(?logLevel = logLevel, makeAsynchronous = false)
+    do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
+
+    let syncRoot = new obj()
+    let mutable defaultRegion = defaultRegion
+    let mutable subscriptions = subscriptions
+
+    /// Attaches logger to the deployment manager instance
+    member __.AttachLogger(l : ISystemLogger) = logger.AttachLogger l
+    /// Gets or sets the default region used by the client instance
+    member __.DefaultRegion
+        with get () = defaultRegion
+        and set reg = defaultRegion <- reg
+
+    /// Lists all subscription names supplied in the current deployment manager instance
+    member __.Subscriptions = subscriptions.Subscriptions |> Array.map (fun s -> s.Subscription.Name)
+    /// Gets or sets the default subscription used by the deployment manager instance
+    member __.DefaultSubscription 
+        with get () = subscriptions.Default.Subscription.Name
+        and set subId =
+            lock syncRoot (fun () ->
+                let sub = subscriptions.[subId]
+                subscriptions <- { subscriptions with Default = sub })
+
+    /// <summary>
+    ///     Asynchronously starts deployment of MBrace cloud service with supplied parameters.
+    /// </summary>
+    /// <param name="vmSize">VM size used for deployment.</param>
+    /// <param name="vmCount">VM instance count.</param>
+    /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
+    /// <param name="subscriptionId">Subscription identifier for service deployment. Defaults to manager instance default subscription.</param>
+    /// <param name="region">Region for service deployment. Defaults to manager instance default region.</param>
+    /// <param name="mbraceVersion">MBrace version string used for .cspkg resolution. Defaults to current version.</param>
+    /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
+    /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
+    /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
+    /// <param name="serviceLabel">User-supplied service label.</param>
+    member __.DeployAsync(vmSize : VMSize, vmCount : int, ?serviceName : string, ?subscriptionId : string, ?region : Region, 
+                                ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, 
+                                ?serviceLabel : string) : Async<Deployment> = async {
+
+        if vmCount < 1 then invalidArg "vmCount" "must be positive value."
+        let region = defaultArg region defaultRegion
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let serviceName = match serviceName with None -> Common.generateResourceName() | Some sn -> sn
+        do! Compute.validateServiceName client serviceName
+
+        logger.Logf LogLevel.Info "using vm size %A" vmSize
+        let! packagePath, versionInfo = Compute.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
+        logger.Logf LogLevel.Info "using cluster name %s" serviceName
+
+        let! storageAccountName, storageConnectionString = Storage.resolveStorageAccount logger region storageAccount client
+        logger.Logf LogLevel.Info "using storage account name %A" storageAccountName
+        let! _, serviceBusNamespace, serviceBusConnectionString = ServiceBus.resolveNamespaceInfo logger region serviceBusAccount client
+        logger.Logf LogLevel.Info "using service bus account %A" serviceBusNamespace
+
+        let config = Compute.buildMBraceConfig serviceName vmCount storageConnectionString serviceBusConnectionString
+
+        let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %s"  serviceName (defaultArg versionInfo "custom"))
+        let! deployInfo = Compute.prepareMBraceServiceDeployment logger serviceName clusterLabel region packagePath config storageAccountName storageConnectionString serviceBusNamespace serviceBusConnectionString client
+        do! Compute.beginDeploy false deployInfo client
+        return new Deployment(client, serviceName, logger)
     }
 
-module internal ServiceBus =
+    /// <summary>
+    ///     Starts deployment of MBrace cloud service with supplied parameters.
+    /// </summary>
+    /// <param name="vmSize">VM size used for deployment.</param>
+    /// <param name="vmCount">VM instance count.</param>
+    /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
+    /// <param name="subscriptionId">Subscription identifier for service deployment. Defaults to manager instance default subscription.</param>
+    /// <param name="region">Region for service deployment. Defaults to manager instance default region.</param>
+    /// <param name="mbraceVersion">MBrace version string used for .cspkg resolution. Defaults to current version.</param>
+    /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
+    /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
+    /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
+    /// <param name="serviceLabel">User-supplied service label.</param>
+    member __.Deploy(vmSize : VMSize, vmCount : int, ?serviceName : string, ?subscriptionId : string, ?region : Region, 
+                                        ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?serviceLabel : string) =
+        __.DeployAsync(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?region = region, ?mbraceVersion = mbraceVersion,
+                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
+        |> Async.RunSync
 
-    open Microsoft.WindowsAzure.Management.ServiceBus
-    open Microsoft.WindowsAzure.Management.ServiceBus.Models
 
-    let mkEndpoint (namespaceName : string) =
-        sprintf "sb://%s.servicebus.windows.net/" namespaceName
-
-    let mkConnectionString endpoint (key : string) =
-        sprintf "EndPoint=%s;SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=%s" endpoint key
-
-    let private connectionStringRegex = new Regex("Endpoint=(.+);SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey=(.+)", RegexOptions.Compiled)
-    let tryParseConnectionString (conn : string) =
-        let m = connectionStringRegex.Match(conn)
-        if m.Success then
-            let endPoint = m.Groups.[1].Value |> Uri
-            let namespaceName = endPoint.Host.Split('.').[0]
-            let accountKey = m.Groups.[2].Value
-            Some(endPoint.ToString(), namespaceName, accountKey)
-        else
-            None
-
-    let tryParseEndpoint (endpoint : string) =
-        let ok, uri = Uri.TryCreate(endpoint, UriKind.Absolute)
-        if ok && uri.Scheme = "sb" then Some (uri.Host.Split('.').[0])
-        else None
-
-    let rec waitUntilState checkState ns (client:SubscriptionClient) = async {
-        let! result = client.ServiceBus.Namespaces.GetAsync ns |> Async.AwaitTaskCorrect |> Async.Catch
-        let status = match result with Choice1Of2 ns -> ns.Namespace.Status | Choice2Of2 _ -> ""
-        if not (checkState status) then
-            do! Async.Sleep 2000
-            return! waitUntilState checkState ns client
-    }
-
-    let rec createNamespace (logger : ISystemLogger) (region : Region) (namespaceName : string) (client:SubscriptionClient) = async {
-        logger.Logf LogLevel.Info "checking availability of service bus namespace %s" namespaceName
-        let! (availability : CheckNamespaceAvailabilityResponse) = client.ServiceBus.Namespaces.CheckAvailabilityAsync namespaceName
-        if not availability.IsAvailable then 
-            return! createNamespace logger region namespaceName client
-        else
-            logger.Logf LogLevel.Info "creating service bus namespace %s" namespaceName
-            let result = client.ServiceBus.Namespaces.Create(namespaceName, region.Id) 
-
-            do! client |> waitUntilState ((=) "Active") namespaceName
-
-            if result.StatusCode <> Net.HttpStatusCode.OK then 
-                return failwithf "Failed to create service bus: %O" result.StatusCode
-            else 
-                logger.Logf LogLevel.Info "Created new default MBrace Service Bus namespace %s" namespaceName
-                return namespaceName 
-    }
-
-    let getNamespaces (client:SubscriptionClient) = async {
-        let! (nss : ServiceBusNamespacesResponse) = client.ServiceBus.Namespaces.ListAsync()
-        return nss |> Seq.toArray
-    }
-
-    let tryFindMBraceNamespace (region : Region) (client:SubscriptionClient) = async {
-        let! accounts = getNamespaces client
-        return
-            accounts
-            |> Seq.filter (fun ns -> ns.Region = region.Id)
-            |> Seq.filter(fun ns -> ns.Name.StartsWith Common.resourcePrefix)
-            |> Seq.map(fun ns -> ns.Name)
-            |> Seq.tryPick Some
-    }
-
-    let getAccountInfo (id : string) (client:SubscriptionClient) = async {
-        match tryParseConnectionString id with
-        | Some(endpoint, namespaceName, _) -> 
-            // input identified as connection string, parse and return account name
-            return namespaceName, endpoint, id
-        | None ->
-            let namespaceName = defaultArg (tryParseEndpoint id) id
-            // input identifier as account name, recover connection string from Storage Account client
-            let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync(namespaceName)
-            let rootSharedAccessKey = authRules |> Seq.find (fun rule -> rule.KeyName = "RootManageSharedAccessKey")
-            let endpoint = mkEndpoint namespaceName
-            let connectionString = mkConnectionString endpoint rootSharedAccessKey.PrimaryKey
-            return namespaceName, endpoint, connectionString
-    }
-
-    let findOrCreateMBraceNamespace (logger : ISystemLogger) region client = async {
-        let! nsOpt = tryFindMBraceNamespace region client
-        match nsOpt with
-        | Some ns -> 
-            logger.Logf LogLevel.Info "Reusing existing Service Bus namespace %A" ns
-            return ns
-        | None -> 
-            let namespaceName = Common.generateResourceName()
-            return! createNamespace logger region namespaceName client
-    }
-
-    let resolveNamespaceInfo (logger : ISystemLogger) (region : Region) (serviceBusId : string option) (client : SubscriptionClient) = async {
-        match serviceBusId with
-        | Some id -> return! getAccountInfo id client
-        | None ->
-            let! ns = findOrCreateMBraceNamespace logger region client
-            return! getAccountInfo ns client    
-    }
-
-    let deleteNamespace namespaceName (client:SubscriptionClient) = async {
-        let! _response = client.ServiceBus.Namespaces.DeleteAsync namespaceName
-        do! client |> waitUntilState ((<>) "Removing") namespaceName
-    }
-
-module internal Deployment =
-
-    open Microsoft.WindowsAzure.Management.Compute
-    open Microsoft.WindowsAzure.Management.Compute.Models
-
-    type Node = { 
-        Id : string
-        Hostname : string
-        VMSize : VMSize 
-        Status : string }
-
-    type DeploymentDetails = {
-        Name : string
-        CreatedTime : DateTime
-        ServiceStatus : string
-        DeploymentStatus : string option
-        Nodes : Node list }
-
-    let validateServiceName (client:SubscriptionClient) serviceName = async { 
-        let! (result : HostedServiceCheckNameAvailabilityResponse) = client.Compute.HostedServices.CheckNameAvailabilityAsync serviceName
-        if not result.IsAvailable then return invalidOp result.Reason
-    }
-
-    type DeploymentReporter private () =
-        static let template : Field<DeploymentDetails> list =
-            [ 
-                Field.create "Name" Left (fun d -> d.Name)
-                Field.create "VM size" Left (fun d -> match d.Nodes with [] -> "N/A" | h :: _ -> h.VMSize.Id)
-                Field.create "Instance count" Right (fun d -> if List.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
-                Field.create "Created Time" Left (fun d -> d.CreatedTime) 
-                Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
-                Field.create "Deployment State" Left (fun d -> defaultArg d.DeploymentStatus null)
-            ]
-
-        static member Report(deployments : DeploymentDetails list, ?title : string) =
-            Record.PrettyPrint(template, deployments, ?title = title, useBorders = false)
-
-    let tryGetDeploymentConfiguration (serviceName : string) (client : SubscriptionClient) = async {
-        let! result = client.Compute.HostedServices.GetDetailedAsync serviceName |> Async.AwaitTaskCorrect |> Async.Catch
+    /// <summary>
+    ///     Asynchronously fetches deployment of given service name
+    /// </summary>
+    /// <param name="serviceName">Deployment service name identifier.</param>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    member __.GetDeploymentAsync(serviceName : string, ?subscriptionId : string) = async {
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let! result = Compute.tryGetRunningDeployment client serviceName
         match result with
-        | Choice1Of2 service when service.Properties.ExtendedProperties |> Common.isMBraceAsset ->
-            let storageConnectionString = service.Properties.ExtendedProperties.["StorageConnectionString"]
-            let serviceBusConnectionString = service.Properties.ExtendedProperties.["ServiceBusConnectionString"]
-            let config = new Configuration(storageConnectionString, serviceBusConnectionString)
-            return Some config
-        | _ ->
-            return None
+        | None -> return invalidOp <| sprintf "Deployment '%s' could not be found." serviceName
+        | Some d -> return new Deployment(client, serviceName, logger)
     }
 
-    let getRunningDeployments (client:SubscriptionClient) = async {
-        let! (services : HostedServiceListResponse) = client.Compute.HostedServices.ListAsync()
-        let getHostedServiceInfo (service : HostedServiceListResponse.HostedService) = async {
-            if service.Properties.ExtendedProperties |> Common.isMBraceAsset then 
-                let! deployment = async {
-                    try
-                        let ds = client.Compute.Deployments
-                        let! (d : DeploymentGetResponse) = ds.GetBySlotAsync(service.ServiceName, DeploymentSlot.Production)
-                        return Some d
-                    with _ -> return None
-                }
+    /// <summary>
+    ///     Fetches deployment of given service name
+    /// </summary>
+    /// <param name="serviceName">Deployment service name identifier.</param>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    member __.GetDeployment(serviceName : string, ?subscriptionId : string) =
+        __.GetDeploymentAsync(serviceName, ?subscriptionId = subscriptionId) |> Async.RunSync
 
-                let nodes =
-                    match deployment with
-                    | None -> []
-                    | Some d -> 
-                        d.RoleInstances 
-                        |> Seq.map (fun i -> { Id = i.InstanceName ; Hostname = i.HostName ; VMSize = VMSize.Define i.InstanceSize ; Status = i.InstanceStatus }) 
-                        |> Seq.toList
-
-                let info = 
-                    {   Name = service.ServiceName
-                        CreatedTime = service.Properties.DateCreated
-                        ServiceStatus = service.Properties.Status.ToString()
-                        DeploymentStatus = deployment |> Option.map(fun deployment -> deployment.Status.ToString())
-                        Nodes = nodes } 
-
-                return Some info
-            else
-                return None
-        }
-
-        let! info = services |> Seq.map getHostedServiceInfo |> Async.Parallel 
-        return info |> Seq.choose id |> Seq.toList
+    /// <summary>
+    ///     Asynchronously fetches a list of all currently running deployments
+    /// </summary>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    member __.GetDeploymentsAsync(?subscriptionId : string) = async {
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let! deployments = Compute.getRunningDeployments client
+        return deployments |> Seq.map (fun d -> new Deployment(client, d.Name, logger)) |> Seq.toArray
     }
 
-    let buildMBraceConfig serviceName instances storageConnection serviceBusConnection =
-        sprintf """<?xml version="1.0" encoding="utf-8"?>
-<ServiceConfiguration serviceName="%s" xmlns="http://schemas.microsoft.com/ServiceHosting/2008/10/ServiceConfiguration" osFamily="4" osVersion="*" schemaVersion="2015-04.2.6">
-    <Role name="MBrace.Azure.WorkerRole">
-    <Instances count="%d" />
-    <ConfigurationSettings>
-        <Setting name="MBrace.StorageConnectionString" value="%s" />
-        <Setting name="MBrace.ServiceBusConnectionString" value="%s" />
-        <Setting name="Microsoft.WindowsAzure.Plugins.Diagnostics.ConnectionString" value="" />
-    </ConfigurationSettings>
-    </Role>
-</ServiceConfiguration>""" serviceName instances storageConnection serviceBusConnection
+    /// <summary>
+    ///     Fetches a list of all currently running deployments
+    /// </summary>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    member __.GetDeployments(?subscriptionId : string) =
+        __.GetDeploymentsAsync(?subscriptionId = subscriptionId) |> Async.RunSync
 
-    let prepareMBraceServiceDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
-                                        (region : Region) (packagePath : string) (config : string) 
-                                        (storageAccountName : string) (storageConnectionString : string) 
-                                        (serviceBusNamespace : string) (serviceBusConnectionString : string) (client:SubscriptionClient) = async {
+    /// <summary>
+    ///     Prints a report on deployments to stdout.
+    /// </summary>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    member __.ShowDeployments(?subscriptionId : string) =
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let deployments = Compute.getRunningDeployments client |> Async.RunSync
+        let info = Compute.DeploymentReporter.Report(deployments, title = sprintf "Subscription: %A" client.Subscription.Name)
+        Console.WriteLine(info)
 
-        let extendedProperties =
-            dict [
-                yield! Common.defaultExtendedProperties |> Seq.map (fun kv -> kv.Key, kv.Value)
-                yield ("StorageAccountName", storageAccountName)
-                yield ("StorageConnectionString", storageConnectionString)
-                yield ("ServiceBusName", serviceBusNamespace)
-                yield ("ServiceBusConnectionString", serviceBusConnectionString)
-            ]
+    /// <summary>
+    ///     Creates a new subscription manager instance using supplied set of Azure subscriptions
+    /// </summary>
+    /// <param name="subscriptions">Subscriptions to manage.</param>
+    /// <param name="defaultRegion">Default Azure region for deployments.</param>
+    /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
+    /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
+    /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
+    static member Create(subscriptions : seq<Subscription>, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+        let client = SubscriptionsClient.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
+        new DeploymentManager(client, defaultRegion, logger, ?logLevel = logLevel)
 
-        logger.Logf LogLevel.Info "creating cloud service %s" serviceName
-        let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties))
+    /// <summary>
+    ///     Creates a new subscription manager instance using supplied set of Azure subscriptions
+    /// </summary>
+    /// <param name="publishSettings">Parsed PublishSettings record.</param>
+    /// <param name="defaultRegion">Default Azure region for deployments.</param>
+    /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
+    /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
+    /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
+    static member Create(publishSettings : PublishSettings, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+        DeploymentManager.Create(publishSettings.Subscriptions, defaultRegion, ?logger = logger, ?defaultSubscriptionId = defaultSubscriptionId, ?logLevel = logLevel)
 
-        let! container = Storage.getDeploymentContainer storageConnectionString
-        let packageBlob = packagePath |> Path.GetFileName |> container.GetBlockBlobReference
-        let blobSizesDoNotMatch() =
-            packageBlob.FetchAttributes()
-            packageBlob.Properties.Length <> FileInfo(packagePath).Length
+    /// <summary>
+    ///     Creates a new subscription manager instance using supplied Azure subscription
+    /// </summary>
+    /// <param name="subscription">Subscription to manage.</param>
+    /// <param name="defaultRegion">Default Azure region for deployments.</param>
+    /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
+    /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
+    static member Create(subscription : Subscription, defaultRegion : Region, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+        DeploymentManager.Create([subscription], defaultRegion, ?logger = logger, ?logLevel = logLevel)
 
-        if (not (packageBlob.Exists()) || blobSizesDoNotMatch()) then
-            logger.Logf LogLevel.Info "uploading package %A" packagePath
-            do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open)
-        
-        logger.Logf LogLevel.Info "scheduling cluster creation:\n  cluster %s\n  package uri %s\n  config %s" serviceName (packageBlob.Uri.ToString()) config
-        return DeploymentCreateParameters(
-            Label = clusterLabel,
-            Name = serviceName,
-            PackageUri = packageBlob.Uri,
-            Configuration = config,
-            StartDeployment = Nullable true,
-            TreatWarningsAsError = Nullable true)
-        }
+    /// <summary>
+    ///     Creates a new subscription manager instance using local Azure PublishSettings file.
+    /// </summary>
+    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
+    /// <param name="defaultRegion">Default Azure region for deployments.</param>
+    /// <param name="defaultSubscriptionId">Default subscription id used by the manager instance. Defaults to first subscription in inputs.</param>
+    /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
+    /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
+    static member FromPublishSettingsFile(publishSettingsFile : string, defaultRegion : Region, ?defaultSubscriptionId : string, ?logger : ISystemLogger, ?logLevel : LogLevel) =
+        let pubSettings = PublishSettings.ParseFile publishSettingsFile
+        DeploymentManager.Create(pubSettings.Subscriptions, defaultRegion, ?defaultSubscriptionId = defaultSubscriptionId, ?logger = logger, ?logLevel = logLevel)
 
-    let beginDeploy (useStaging : bool) (deployParams : DeploymentCreateParameters) (client : SubscriptionClient) = async {
-        let slot = if useStaging then DeploymentSlot.Staging else DeploymentSlot.Production
-        let! (createOp : AzureOperationResponse) = client.Compute.Deployments.BeginCreatingAsync(deployParams.Name, slot, deployParams)
-        if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
-            return failwithf "error: HTTP request for creation operation %A was not accepted (status code: %O)" deployParams.Name createOp.StatusCode
-    }
 
-    let deploy (slot : DeploymentSlot) (deployParams : DeploymentCreateParameters) (client : SubscriptionClient) = async {
-        let! (createOp : OperationStatusResponse) = client.Compute.Deployments.CreateAsync(deployParams.Name, slot, deployParams)
-        if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
-            return failwithf "error: HTTP request for creation operation %A was not accepted (status code: %O)" deployParams.Name createOp.StatusCode
-    }            
+    //
+    //  Static APIs
+    //
 
-    let deleteMBraceDeployment (logger : ISystemLogger) (serviceName:string) (client:SubscriptionClient) = async {
-        let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync serviceName
-        if service.Properties.ExtendedProperties |> Common.isMBraceAsset then
-            logger.Logf LogLevel.Info "deleting cluster %s" serviceName
-            let! (deleteOp : OperationStatusResponse) = client.Compute.Deployments.DeleteByNameAsync(serviceName, serviceName, true)
-            if deleteOp.Status <> OperationStatus.Succeeded then return failwith deleteOp.Error.Message
-            let! (deleteOp : AzureOperationResponse) = client.Compute.HostedServices.DeleteAsync serviceName
-            if deleteOp.StatusCode <> Net.HttpStatusCode.OK then return failwith (deleteOp.StatusCode.ToString()) 
-        else
-            logger.Logf LogLevel.Info "No MBrace cluster called %A found" serviceName
-    }
+    /// <summary>
+    ///     Starts deployment of MBrace cloud service with supplied parameters.
+    /// </summary>
+    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
+    /// <param name="region">Azure region for deployments.</param>
+    /// <param name="vmSize">VM size used for deployment.</param>
+    /// <param name="vmCount">VM instance count.</param>
+    /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
+    /// <param name="subscriptionId">Subscription identifier for service deployment. Defaults to manager instance default subscription.</param>
+    /// <param name="region">Region for service deployment. Defaults to manager instance default region.</param>
+    /// <param name="mbraceVersion">MBrace version string used for .cspkg resolution. Defaults to current version.</param>
+    /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
+    /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
+    /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
+    /// <param name="serviceLabel">User-supplied service label.</param>
+    static member Deploy(pubSettingsFile : string, region : Region, vmSize : VMSize, vmCount : int, ?serviceName : string, ?subscriptionId : string, 
+                                ?mbraceVersion : string, ?storageAccount : string, ?serviceBusAccount : string, ?cloudServicePackage : string, ?serviceLabel : string) =
+        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = region, ?defaultSubscriptionId = subscriptionId, logger = new ConsoleLogger(true))
+        manager.Deploy(vmSize, vmCount, ?serviceName = serviceName, ?subscriptionId = subscriptionId, ?mbraceVersion = mbraceVersion, 
+                                ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel)
 
-    let downloadServicePackage (logger : ISystemLogger) (vmSize : VMSize) (mbraceVersion : string option) (uri : string option) = async {
-        let uri, version =
-            match uri with
-            | Some u -> Uri u, None
-            | None ->
-                let mbraceVersion = defaultArg mbraceVersion Common.defaultMBraceVersion
-                Common.getPackageUrl mbraceVersion vmSize |> Uri, Some mbraceVersion
 
-        if uri.IsFile then
-            logger.Logf LogLevel.Info "using cloud service package from %A" uri.LocalPath 
-            return uri.LocalPath, version
-        else
-            use wc = new System.Net.WebClient()
-            let tmp = System.IO.Path.GetTempFileName()
-            logger.Logf LogLevel.Info "downloading cloud service package from %A" uri
-            do! wc.DownloadFileTaskAsync(uri, tmp)
-            return tmp, version
-    }
+    /// <summary>
+    ///     Deletes deployment of given name.
+    /// </summary>
+    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
+    /// <param name="serviceName">Service name to be deleted.</param>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    static member DeleteDeployment(pubSettingsFile : string, serviceName : string, ?subscriptionId : string) =
+        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = Region.Define "", logger = new ConsoleLogger(true))
+        let dpl = manager.GetDeployment(serviceName, ?subscriptionId = subscriptionId)
+        dpl.Delete()
+
+    /// <summary>
+    ///     Gets a deployment handle to a running MBrace cloud service of given name.
+    /// </summary>
+    /// <param name="serviceName">Service name to be looked up.</param>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    static member GetDeployment(pubSettingsFile : string, serviceName : string, ?subscriptionId : string) =
+        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = Region.Define "", logger = new ConsoleLogger(true))
+        manager.GetDeployment(serviceName, ?subscriptionId = subscriptionId)
+
+
+    /// <summary>
+    ///     Prints a report on deployments to stdout.
+    /// </summary>
+    /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
+    /// <param name="subscriptionId">Subscription id to fetch deployments from. Defaults to manager instance subscription default.</param>
+    static member ShowDeployments(pubSettingsFile : string, ?subscriptionId : string) =
+        let manager = DeploymentManager.FromPublishSettingsFile(pubSettingsFile, defaultRegion = Region.Define "", logger = new ConsoleLogger(true))
+        manager.ShowDeployments(?subscriptionId = subscriptionId)
+
+
+/// MBrace.Azure extension methods
+[<AutoOpen>]
+module Extensions =
+    
+    /// <summary>
+    ///     Connects to supplied MBrace Azure deployment instance.
+    ///     If successful returns a management handle object to the cluster.
+    /// </summary>
+    /// <param name="deployment">MBrace.Azure deployment instance.</param>
+    /// <param name="clientId">MBrace.Azure client instance identifier.</param>
+    /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
+    /// <param name="logger">Custom logger to attach in client.</param>
+    /// <param name="logLevel">Logger verbosity level.</param>
+    type AzureCluster with
+        static member Connect(deployment : Deployment, ?clientId : string, ?faultPolicy : FaultPolicy, ?logger : ISystemLogger, ?logLevel : LogLevel) = 
+            AzureCluster.Connect(deployment.Configuration, ?clientId = clientId, ?faultPolicy = faultPolicy, ?logger = logger, ?logLevel = logLevel)

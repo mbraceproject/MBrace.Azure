@@ -2,15 +2,7 @@
 
 open System
 open System.IO
-open System.Security.Cryptography.X509Certificates
-open System.Text.RegularExpressions
 open System.Xml.Linq
-
-open Microsoft.Azure
-open Microsoft.WindowsAzure.Management
-open Microsoft.WindowsAzure.Management.Compute
-open Microsoft.WindowsAzure.Management.Storage
-open Microsoft.WindowsAzure.Management.ServiceBus
 
 /// Azure Region Identifier
 [<Sealed; AutoSerializable(true); StructuredFormatDisplay("{Id}")>]
@@ -132,56 +124,3 @@ type PublishSettings =
     /// Parse publish settings from given local file path
     static member ParseFile(publishSettingsFile : string) : PublishSettings =
         PublishSettings.Parse(File.ReadAllText publishSettingsFile)
-
-
-/// Represents an Azure client instance for specific subscription
-[<NoEquality; NoComparison; AutoSerializable(false)>]
-type internal SubscriptionClient =
-    {
-        Subscription : Subscription
-        Credentials : CertificateCloudCredentials
-        Storage : StorageManagementClient
-        ServiceBus : ServiceBusManagementClient
-        Compute : ComputeManagementClient
-        Management : ManagementClient 
-    }
-
-    static member Activate(subscription : Subscription) =
-        let cert = new X509Certificate2(Convert.FromBase64String subscription.ManagementCertificate)
-        let cred = new CertificateCloudCredentials(subscription.Id, cert)
-        {   
-            Subscription = subscription
-            Credentials = cred
-            Storage = new StorageManagementClient(cred)
-            ServiceBus = new ServiceBusManagementClient(cred)
-            Compute = new ComputeManagementClient(cred)
-            Management = new ManagementClient(cred) 
-        }
-
-
-/// Represents an Azure client instance for a set of subscriptions
-[<NoEquality; NoComparison; AutoSerializable(false)>]
-type internal SubscriptionsClient =
-    {
-        Default : SubscriptionClient
-        Subscriptions : SubscriptionClient []
-    }
-
-    member c.GetClientByIdOrDefault(?id : string) =
-        match id with
-        | None -> c.Default
-        | Some id -> c.Subscriptions |> Array.find (fun s -> s.Subscription.Id = id || s.Subscription.Name.Contains id)
-
-    member c.Item with get (id : string) = c.GetClientByIdOrDefault(id = id)
-
-    static member Activate(subscriptions : seq<Subscription>, ?defaultSubscriptionId : string) =
-        match subscriptions |> Seq.distinctBy (fun s -> s.Id) |> Seq.toArray with
-        | [||] -> invalidArg "subscriptions" "supplied an empty set of Azure subscriptions."
-        | subscriptions ->
-            let clients = subscriptions |> Array.map SubscriptionClient.Activate
-            let defaultSubscriptionId = defaultArg defaultSubscriptionId subscriptions.[0].Id
-            let defaultSubscription = clients |> Array.find (fun c -> c.Subscription.Id = defaultSubscriptionId || c.Subscription.Name.Contains defaultSubscriptionId)
-            { 
-                Default = defaultSubscription
-                Subscriptions = clients 
-            }
