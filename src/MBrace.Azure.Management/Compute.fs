@@ -19,42 +19,70 @@ open MBrace.Azure
 open MBrace.Azure.Runtime
 
 /// Represents an Azure VM instance
-type Instance = 
+type VMInstance = 
     { 
+        /// Role instance identifier
         Id : string
+        /// VM IP Address
         IPAddress : string
+        /// VM size idenfier
         VMSize : VMSize 
+        /// Deployment status for individual node
         Status : string 
     }
 
-type internal DeploymentDetails = 
-    {
-        Name : string
-        CreatedTime : DateTime
-        ServiceStatus : string
-        DeploymentStatus : string option
-        Configuration : Configuration
-        Nodes : Instance list 
-    }
+/// Cloud Service Deployment State
+type DeploymentState =
+    | NoDeployment
+    | Provisioning of percentage:float
+    | Ready
+    | RunningTransitioning
+    | SuspendedTransitioning
+    | Suspending
+    | Suspended
+    | Deleting
+    | Unknown
+
+    override s.ToString() =
+        match s with
+        | NoDeployment -> "None"
+        | Provisioning pct -> sprintf "Provisioning (%2.1f%% complete)" (pct * 100.)
+        | Ready -> "Ready"
+        | RunningTransitioning -> "RunningTransitioning"
+        | SuspendedTransitioning -> "SuspendedTransitioning"
+        | Suspending -> "Suspending"
+        | Suspended -> "Suspended"
+        | Deleting -> "Deleting"
+        | Unknown -> "Unknown"
 
 module internal Compute =
+
+    type DeploymentDetails =
+        {
+            Name : string
+            CreatedTime : DateTime
+            ServiceStatus : string
+            DeploymentState : DeploymentState
+            Configuration : Configuration
+            Nodes : VMInstance [] 
+        }
 
     type DeploymentReporter private () =
         static let template : Field<DeploymentDetails> list =
             [ 
                 Field.create "Name" Left (fun d -> d.Name)
-                Field.create "VM size" Left (fun d -> match d.Nodes with [] -> "N/A" | h :: _ -> h.VMSize.Id)
-                Field.create "#Instances" Left (fun d -> if List.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
+                Field.create "VM size" Left (fun d -> match d.Nodes with [||] -> "N/A" | ns -> ns.[0].VMSize.Id)
+                Field.create "#Instances" Left (fun d -> if Array.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
                 Field.create "Created Time" Left (fun d -> d.CreatedTime) 
                 Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
-                Field.create "Deployment State" Left (fun d -> match d.DeploymentStatus with None -> "?" | Some d -> string d)
+                Field.create "Deployment Status" Left (fun d -> d.DeploymentState)
             ]
 
         static member Report(deployments : DeploymentDetails list, ?title : string) =
             Record.PrettyPrint(template, deployments, ?title = title, useBorders = false)
 
     type InstanceReporter private () =
-        static let template : Field<Instance> list =
+        static let template : Field<VMInstance> list =
             [
                 Field.create "Instance Id" Left (fun n -> n.Id)
                 Field.create "VM Size" Left (fun n -> n.VMSize)
@@ -62,8 +90,42 @@ module internal Compute =
                 Field.create "IP Address" Left (fun n -> n.IPAddress)
             ]
 
-        static member Report(nodes : Instance list, ?title : string) =
+        static member Report(nodes : VMInstance list, ?title : string) =
             Record.PrettyPrint(template, nodes, ?title = title, useBorders = false)
+
+    let getDeploymentState (statusOpt : DeploymentStatus option) (nodes : VMInstance []) =
+        let maxScore = 6 * nodes.Length
+        let getNodeProvisionScore (node : VMInstance) =
+            match node.Status with
+            | "StoppedVM"           -> 1
+            | "CreatingVM"          -> 2
+            | "StartingVM"          -> 3
+            | "RoleStateUnknown"    -> 4
+            | "BusyRole"            -> 5
+            | "ReadyRole"           -> 6
+            | _                     -> -1
+
+        match statusOpt with
+        | None -> NoDeployment
+        | Some status ->
+            match status with
+            | DeploymentStatus.Suspended -> Suspended
+            | DeploymentStatus.Suspending -> Suspending
+            | DeploymentStatus.RunningTransitioning -> RunningTransitioning
+            | DeploymentStatus.SuspendedTransitioning -> SuspendedTransitioning
+            | DeploymentStatus.Starting | DeploymentStatus.Deploying -> Provisioning 0.
+            | DeploymentStatus.Deleting -> Deleting
+            | DeploymentStatus.Running ->
+                if Array.isEmpty nodes then Ready else
+
+                let scores = nodes |> Array.map getNodeProvisionScore
+                if scores |> Array.exists (fun s -> s < 0) then RunningTransitioning else
+                let totalScore = Array.sum scores
+                if totalScore = maxScore then Ready
+                else
+                    Provisioning(float totalScore / float maxScore)
+
+            | _ -> Unknown
 
     let validateServiceName (client:SubscriptionClient) serviceName = async { 
         let! (result : HostedServiceCheckNameAvailabilityResponse) = client.Compute.HostedServices.CheckNameAvailabilityAsync serviceName
@@ -100,18 +162,20 @@ module internal Compute =
 
             let nodes =
                 match deployment with
-                | Choice2Of2 _ -> []
+                | Choice2Of2 _ -> [||]
                 | Choice1Of2 d -> 
                     d.RoleInstances 
                     |> Seq.map (fun i -> { Id = i.InstanceName ; IPAddress = i.IPAddress.ToString() ; VMSize = VMSize.Define i.InstanceSize ; Status = i.InstanceStatus }) 
-                    |> Seq.toList
+                    |> Seq.toArray
+
+            let state = getDeploymentState (match deployment with Choice1Of2 d -> Some d.Status | _ -> None) nodes
 
             let info = 
                 {  
                     Name = serviceName
                     CreatedTime = properties.DateCreated
                     ServiceStatus = string properties.Status
-                    DeploymentStatus = match deployment with Choice1Of2 d -> Some (string d.Status) | Choice2Of2 _ -> None
+                    DeploymentState = state
                     Configuration = config
                     Nodes = nodes 
                 }

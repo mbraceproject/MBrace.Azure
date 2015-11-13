@@ -30,11 +30,11 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     /// Used for initializing AzureCluster objects.
     member __.Configuration = deployment.Value.Configuration
     /// Gets the current instance information for the cloud service
-    member __.Nodes = deployment.Value.Nodes |> List.toArray
+    member __.Nodes = deployment.Value.Nodes
     /// Time of current cloud service creation
     member __.CreatedTime = deployment.Value.CreatedTime
     /// Current deployment Status
-    member __.DeploymentStatus = deployment.Value.DeploymentStatus
+    member __.DeploymentStatus = deployment.Value.DeploymentState
     /// Current service Status
     member __.ServiceStatus = deployment.Value.ServiceStatus
 
@@ -47,7 +47,7 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
         let current = deployment.Value
         let deploymentInfo = Compute.DeploymentReporter.Report([current], title = sprintf "Cloud Service %A" serviceName)
         if showInstances then
-            let nodeInfo = Compute.InstanceReporter.Report(current.Nodes, title = "Cloud Service Instances")
+            let nodeInfo = Compute.InstanceReporter.Report(Array.toList current.Nodes, title = "Cloud Service Instances")
             let nl = Environment.NewLine
             sprintf "%s%s%s" deploymentInfo nl nodeInfo |> Console.WriteLine
         else
