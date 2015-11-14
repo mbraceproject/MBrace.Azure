@@ -1,9 +1,11 @@
 ﻿namespace MBrace.Azure.Management
 
 open System
+open System.Threading
 open System.Collections.Generic
 open System.IO
 open System.Text.RegularExpressions
+open System.Security.Cryptography
 open System.Xml.Linq
 
 open Microsoft.Azure
@@ -14,6 +16,8 @@ open Microsoft.WindowsAzure.Management.Compute.Models
 
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils
+open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure
 open MBrace.Azure.Runtime
@@ -22,15 +26,26 @@ module internal Compute =
 
     type WADeploymentStatus = Microsoft.WindowsAzure.Management.Compute.Models.DeploymentStatus
 
+    let private getTextHash (text : string) =
+        let bytes = System.Text.Encoding.UTF8.GetBytes text
+        let hash = MD5.Create().ComputeHash bytes
+        Convert.BytesToBase32 hash
+
+    let private getFileHash (path : string) =
+        use fs = File.OpenRead path
+        let hash = MD5.Create().ComputeHash fs
+        Convert.BytesToBase32 hash
+
     type DeploymentReporter private () =
         static let template : Field<DeploymentInfo> list =
             [ 
                 Field.create "Name" Left (fun d -> d.Name)
+                Field.create "Region" Left (fun d -> d.Region)
                 Field.create "VM size" Left (fun d -> match d.VMInstances with [||] -> "N/A" | ns -> ns.[0].VMSize.Id)
                 Field.create "#Instances" Left (fun d -> if Array.isEmpty d.VMInstances then "N/A" else string d.VMInstances.Length)
-                Field.create "Created Time" Left (fun d -> d.CreatedTime) 
                 Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
                 Field.create "Deployment Status" Left (fun d -> d.DeploymentState)
+                Field.create "Created Time" Left (fun d -> d.CreatedTime.LocalDateTime) 
             ]
 
         static member Report(deployments : DeploymentInfo list, ?title : string) =
@@ -139,6 +154,7 @@ module internal Compute =
                     DeploymentState = state
                     Configuration = config
                     VMInstances = nodes 
+                    Region = Region.Define properties.Location
                 }
 
             return Some info
@@ -195,12 +211,11 @@ module internal Compute =
         let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties))
 
         let! container = getDeploymentContainer storageAccount
-        let packageBlob = packagePath |> Path.GetFileName |> container.GetBlockBlobReference
-        let blobSizesDoNotMatch() =
-            packageBlob.FetchAttributes()
-            packageBlob.Properties.Length <> FileInfo(packagePath).Length
+        let packageBlobName = sprintf "%s-%s-%x" (Path.GetFileName packagePath) (getFileHash packagePath) (FileInfo(packagePath).Length)
+        let packageBlob = container.GetBlockBlobReference packageBlobName
 
-        if (not (packageBlob.Exists()) || blobSizesDoNotMatch()) then
+        let! blobExists = packageBlob.ExistsAsync()
+        if not blobExists then
             logger.Logf LogLevel.Info "uploading package %A" packagePath
             do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open)
         
@@ -249,11 +264,34 @@ module internal Compute =
             logger.Logf LogLevel.Info "using cloud service package from %A" uri.LocalPath 
             return uri.LocalPath, version
         else
-            use wc = new System.Net.WebClient()
-            let tmp = System.IO.Path.GetTempFileName()
-            logger.Logf LogLevel.Info "downloading cloud service package from %A" uri
-            do! wc.DownloadFileTaskAsync(uri, tmp)
-            return tmp, version
+            let directory = Path.Combine(Path.GetTempPath(), sprintf "mbrace-cspkg-%O" Common.defaultMBraceVersion)
+            let wd = WorkingDirectory.CreateWorkingDirectory(directory, cleanup = false)
+            let uriHash = getTextHash (uri.ToString())
+            let fileName = sprintf "%s-%s" (Path.GetFileName uri.LocalPath) uriHash
+            let localPath = Path.Combine(wd, fileName) |> Path.GetFullPath
+
+            // lock file ensuring that no other process downloads to the same path at the same time
+            let lockFile = localPath + ".lock"
+            let rec attemptAquire () = async {
+                let result = 
+                    try new FileStream(lockFile, FileMode.Create, FileAccess.Write, FileShare.None) |> Some
+                    with :? IOException -> None
+
+                match result with
+                | Some fs -> return fs
+                | None ->
+                    do! Async.Sleep 1000
+                    return! attemptAquire()
+            }
+
+            use! _fs = attemptAquire()
+            
+            if not <| File.Exists localPath then
+                logger.Logf LogLevel.Info "downloading cloud service package from %A" uri
+                use wc = new System.Net.WebClient()
+                do! wc.DownloadFileTaskAsync(uri, localPath)
+
+            return localPath, version
     }
 
 module internal Infrastructure =

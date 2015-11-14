@@ -202,5 +202,7 @@ type DeploymentInfo =
         /// MBrace.Azure configuration object corresponding to deployment
         Configuration : Configuration
         /// VM Instance information
-        VMInstances : VMInstance [] 
+        VMInstances : VMInstance []
+        /// Deployment Region
+        Region : Region
     }
