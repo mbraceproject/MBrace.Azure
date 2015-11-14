@@ -1,6 +1,5 @@
 ﻿namespace MBrace.Azure
 
-#nowarn "40"
 #nowarn "444"
 #nowarn "445"
 
@@ -42,6 +41,28 @@ type FsPicklerXmlSerializer = MBrace.Runtime.FsPicklerXmlSerializer
 type FsPicklerJsonSerializer = MBrace.Runtime.FsPicklerJsonSerializer
 /// Json.NET serializer implementation
 type JsonDotNetSerializer = MBrace.Runtime.JsonDotNetSerializer
+
+/// Azure blob storage utilities
+type AzureBlobStorage =
+    /// <summary>
+    ///     Creates a blob storage client object from given connection string
+    /// </summary>
+    /// <param name="connectionString">Blob storage connection string</param>
+    /// <param name="serializer">Serializer for use with store. Defaults to FsPickler binary serializer.</param>
+    static member FromConnectionString(connectionString : string, [<O;D(null:obj)>]?serializer:ISerializer) : CloudFileSystem =
+        let blobStore = MBrace.Azure.Store.BlobStore.Create(connectionString)
+        let serializer = match serializer with Some s -> s | None -> new FsPicklerBinarySerializer() :> _
+        new CloudFileSystem(blobStore, serializer)
+
+    /// <summary>
+    ///      Creates a blob storage client object from given account credentials
+    /// </summary>
+    /// <param name="accountName">Storage account name.</param>
+    /// <param name="accountKey">Storage account key.</param>
+    /// <param name="serializer">Serializer for use with store. Defaults to FsPickler binary serializer.</param>
+    static member FromCredentials(accountName : string, accountKey : string, [<O;D(null:obj)>]?serializer:ISerializer) : CloudFileSystem =
+        let account = AzureStorageAccount.FromCredentials(accountName, accountKey)
+        AzureBlobStorage.FromConnectionString(account.ConnectionString, ?serializer = serializer)
 
 /// Local Azure Standalone worker management methods
 [<AutoSerializable(false); AbstractClass; Sealed>]
