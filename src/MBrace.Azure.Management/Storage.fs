@@ -40,7 +40,7 @@ module internal Storage =
                 return accountName 
     }
 
-    let getStoraceAccount (accountId : string) (client:SubscriptionClient) = async {
+    let resolveAccount (accountId : string) (client:SubscriptionClient) = async {
         match AzureStorageAccount.TryFromConnectionString accountId with
         | Some account -> return account
         | None ->
@@ -70,8 +70,8 @@ module internal Storage =
         match storageAccount with
         | Some account -> 
             // parse and validate storage account info
-            return! getStoraceAccount account client
+            return! resolveAccount account client
         | None ->
             let! accountName = getDefaultMBraceStorageAccountName logger region client
-            return! getStoraceAccount accountName client
+            return! resolveAccount accountName client
     }

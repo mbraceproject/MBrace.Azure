@@ -255,3 +255,16 @@ type AzureServiceBusAccount private (data: ServiceBusAccountData) =
 
         let conn = mkConnectionString nameSpace accountKey
         AzureServiceBusAccount.FromConnectionString conn
+
+    /// <summary>
+    ///     Attempt to parse service bus namespaces of format 'sb://<account>.servicebus.windows.net/',
+    ///     returning the account name.
+    /// </summary>
+    /// <param name="servicebusNamespace"></param>
+    static member TryParseNamespace(servicebusNamespace : string) =
+        let m = namespaceRegex.Match servicebusNamespace
+        if m.Success then
+            let accountName = m.Groups.[1].Value
+            Some accountName
+        else
+            None

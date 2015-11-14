@@ -11,11 +11,6 @@ open MBrace.Azure.Runtime
 
 module internal ServiceBus =
 
-    let tryParseEndpoint (endpoint : string) =
-        let ok, uri = Uri.TryCreate(endpoint, UriKind.Absolute)
-        if ok && uri.Scheme = "sb" then Some (uri.Host.Split('.').[0])
-        else None
-
     let rec waitUntilState checkState ns (client:SubscriptionClient) = async {
         let! result = client.ServiceBus.Namespaces.GetAsync ns |> Async.AwaitTaskCorrect |> Async.Catch
         let status = match result with Choice1Of2 ns -> ns.Namespace.Status | Choice2Of2 _ -> ""
@@ -57,11 +52,11 @@ module internal ServiceBus =
             |> Seq.tryPick Some
     }
 
-    let getAccount (accountId : string) (client:SubscriptionClient) = async {
+    let resolveAccount (accountId : string) (client:SubscriptionClient) = async {
         match AzureServiceBusAccount.TryFromConnectionString accountId with
         | Some account -> return account
         | None ->
-            let accountName = defaultArg (tryParseEndpoint accountId) accountId
+            let accountName = defaultArg (AzureServiceBusAccount.TryParseNamespace accountId) accountId
             // input identifier as account name, recover connection string from Storage Account client
             let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync accountName
             let rootSharedAccessKey = authRules |> Seq.find (fun rule -> rule.KeyName = "RootManageSharedAccessKey")
@@ -81,10 +76,10 @@ module internal ServiceBus =
 
     let resolveNamespaceInfo (logger : ISystemLogger) (region : Region) (serviceBusId : string option) (client : SubscriptionClient) = async {
         match serviceBusId with
-        | Some id -> return! getAccount id client
+        | Some id -> return! resolveAccount id client
         | None ->
             let! ns = findOrCreateMBraceNamespace logger region client
-            return! getAccount ns client    
+            return! resolveAccount ns client    
     }
 
     let deleteNamespace namespaceName (client:SubscriptionClient) = async {
