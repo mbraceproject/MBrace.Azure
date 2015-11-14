@@ -159,7 +159,7 @@ type DeploymentStatus =
     override s.ToString() =
         match s with
         | NoDeployment -> "None"
-        | Provisioning pct -> sprintf "Provisioning (%2.1f%% complete)" (pct * 100.)
+        | Provisioning pct -> sprintf "Provisioning %2.1f%%" (pct * 100.)
         | Ready -> "Ready"
         | RunningTransitioning -> "RunningTransitioning"
         | SuspendedTransitioning -> "SuspendedTransitioning"
