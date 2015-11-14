@@ -35,3 +35,4 @@ let cluster = AzureCluster.Connect(deployment, logger = ConsoleLogger())
 
 cluster.ShowWorkers()
 cluster.Run(cloud { return System.Environment.MachineName })
+cluster.ShowProcesses()

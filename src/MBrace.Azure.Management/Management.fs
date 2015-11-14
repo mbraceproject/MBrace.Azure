@@ -93,7 +93,7 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscriptions
 [<Sealed; AutoSerializable(false)>]
-type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
+type DeploymentManager private (subscriptions : SubscriptionClients, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
 
     let logger = AttacheableLogger.Create(?logLevel = logLevel, makeAsynchronous = false)
     do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
@@ -149,10 +149,9 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
         let! packagePath, versionInfo = Compute.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
         logger.Logf LogLevel.Info "using cluster name %s" serviceName
 
-        let! storageAccount = Storage.resolveStorageAccount logger region storageAccount client
-        logger.Logf LogLevel.Info "using storage account name %A" storageAccount.AccountName
-        let! serviceBusAccount = ServiceBus.resolveNamespaceInfo logger region serviceBusAccount client
-        logger.Logf LogLevel.Info "using service bus account %A" serviceBusAccount.AccountName
+        let! storageAccountT = Storage.getDeploymentStorageAccount logger region storageAccount client |> Async.StartChild
+        let! serviceBusAccount = ServiceBus.getDeploymentServiceBusAccount logger region serviceBusAccount client
+        let! storageAccount = storageAccountT
 
         let config = Compute.buildMBraceConfig serviceName vmCount enableDiagnostics storageAccount serviceBusAccount
 
@@ -242,7 +241,7 @@ type DeploymentManager private (subscriptions : SubscriptionsClient, defaultRegi
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
     static member Create(subscriptions : seq<Subscription>, defaultRegion : Region, [<O;D(null:obj)>]?defaultSubscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
-        let client = SubscriptionsClient.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
+        let client = SubscriptionClients.Activate(subscriptions, ?defaultSubscriptionId = defaultSubscriptionId)
         new DeploymentManager(client, defaultRegion, logger, ?logLevel = logLevel)
 
     /// <summary>

@@ -87,6 +87,12 @@ module internal Compute =
         if not result.IsAvailable then return invalidOp result.Reason
     }
 
+    let getDeploymentContainer (account : AzureStorageAccount) = async {
+        let container = account.BlobClient.GetContainerReference "deployments"
+        do! container.CreateIfNotExistsAsync()
+        return container
+    }
+
     let tryGetDeploymentConfiguration (serviceName : string) (client : SubscriptionClient) = async {
         let! result = client.Compute.HostedServices.GetDetailedAsync serviceName |> Async.AwaitTaskCorrect |> Async.Catch
         match result with
@@ -188,7 +194,7 @@ module internal Compute =
         logger.Logf LogLevel.Info "creating cloud service %s" serviceName
         let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties))
 
-        let! container = Storage.getDeploymentContainer storageAccount
+        let! container = getDeploymentContainer storageAccount
         let packageBlob = packagePath |> Path.GetFileName |> container.GetBlockBlobReference
         let blobSizesDoNotMatch() =
             packageBlob.FetchAttributes()
@@ -212,7 +218,7 @@ module internal Compute =
         let slot = if useStaging then DeploymentSlot.Staging else DeploymentSlot.Production
         let! (createOp : AzureOperationResponse) = client.Compute.Deployments.BeginCreatingAsync(deployParams.Name, slot, deployParams)
         if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
-            return failwithf "error: HTTP request for creation operation %A was not accepted (status code: %O)" deployParams.Name createOp.StatusCode
+            return invalidOp <| sprintf "error: HTTP request for creation operation %A was not accepted (status code: %O)" deployParams.Name createOp.StatusCode
     }  
 
     let deleteMBraceDeployment (logger : ISystemLogger) (serviceName:string) (client:SubscriptionClient) = async {
@@ -222,7 +228,7 @@ module internal Compute =
             let! result = client.Compute.Deployments.DeleteByNameAsync(serviceName, serviceName, true) |> Async.AwaitTaskCorrect |> Async.Catch
             match result with
             | Choice1Of2 deleteOp when deleteOp.Status = OperationStatus.Succeeded -> ()
-            | Choice1Of2 deleteOp -> return failwithf "Failed to delete deployment %A: %s" serviceName deleteOp.Error.Message
+            | Choice1Of2 deleteOp -> return invalidOp <| sprintf "Failed to delete deployment %A: %s" serviceName deleteOp.Error.Message
             | Choice2Of2 _ -> logger.Logf LogLevel.Warning "No deployment for cloud service %A could be found." serviceName
 
             let! (deleteOp : AzureOperationResponse) = client.Compute.HostedServices.DeleteAsync serviceName

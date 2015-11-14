@@ -52,7 +52,7 @@ module internal Common =
 
     /// Represents an Azure client instance for a set of subscriptions
     [<NoEquality; NoComparison; AutoSerializable(false)>]
-    type internal SubscriptionsClient =
+    type internal SubscriptionClients =
         {
             Default : SubscriptionClient
             Subscriptions : SubscriptionClient []
