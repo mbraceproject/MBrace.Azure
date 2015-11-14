@@ -5,6 +5,7 @@ open System.IO
 open System.Xml.Linq
 
 open MBrace.Azure
+open MBrace.Azure.Runtime
 
 type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
 type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueAttribute
@@ -105,8 +106,11 @@ type PublishSettings =
     }
 
     /// Look up subscription by id or name
-    member ps.Item (subscriptionId : string) =
+    member ps.GetSubscription (subscriptionId : string) =
         ps.Subscriptions |> Array.find (fun s -> s.Id = subscriptionId || s.Name.Contains subscriptionId)
+
+    /// Look up subscription by id or name
+    member ps.Item subscriptionId = ps.GetSubscription subscriptionId
 
     /// Parse publish settings found in given xml string
     static member Parse(xml : string) : PublishSettings = 
@@ -129,6 +133,22 @@ type PublishSettings =
     /// Parse publish settings from given local file path
     static member ParseFile(publishSettingsFile : string) : PublishSettings =
         PublishSettings.Parse(File.ReadAllText publishSettingsFile)
+
+/// Azure Storage Account descriptor
+[<Sealed; AutoSerializable(false)>]
+type StorageAccount internal (inner : AzureStorageAccount) =
+    member __.AccountName = inner.AccountName
+    member __.AccountKey = inner.AccountKey
+    member __.ConnectionString = inner.ConnectionString
+    member internal __.Inner = inner
+
+/// Azure Service Bus Account descriptor
+[<Sealed; AutoSerializable(false)>]
+type ServiceBusAccount internal (inner : AzureServiceBusAccount) =
+    member __.AccountName = inner.AccountName
+    member __.AccountKey = inner.AccountKey
+    member __.ConnectionString = inner.ConnectionString
+    member internal __.Inner = inner
 
 
 /// Represents an Azure VM instance

@@ -90,6 +90,203 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     member __.AwaitProvision([<O;D(null:obj)>]?timeoutMilliseconds : int) : unit =
         __.AwaitProvisionAsync(?timeoutMilliseconds = timeoutMilliseconds) |> Async.RunSync
 
+/// Storage Account manager API
+[<Sealed; AutoSerializable(false)>]
+type StorageManager internal (getParentInfo : unit -> ISystemLogger * SubscriptionClients * Region) =
+
+    /// <summary>
+    ///     Asynchronously fetches all storage account info for given subscription and region.
+    /// </summary>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
+    member __.GetAccountsAsync([<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region) = async {
+        let _,subscriptions,_ = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let! accountInfo = Storage.listAllStorageAccounts region client
+        return! accountInfo |> Seq.map (fun aI -> Storage.resolveStorageAccount aI.Name client) |> Async.Parallel
+    }
+
+    /// <summary>
+    ///     Fetches all storage account info for given subscription and region.
+    /// </summary>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
+    member __.GetAccounts([<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region) : StorageAccount [] =
+        __.GetAccountsAsync(?subscriptionId = subscriptionId, ?region = region) |> Async.RunSync
+
+    /// <summary>
+    ///     Asynchronously fetches existing azure storage account by name.
+    /// </summary>
+    /// <param name="accountName">Account name identifier.</param>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    member __.GetAccountAsync(accountName : string, [<O;D(null:obj)>]?subscriptionId : string) : Async<StorageAccount> = async {
+        let _,subscriptions,_ = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        return! Storage.resolveStorageAccount accountName client
+    }
+
+    /// <summary>
+    ///     Fetches azure existing storage account by name.
+    /// </summary>
+    /// <param name="accountName">Account name identifier.</param>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    member __.GetAccount(accountName : string, [<O;D(null:obj)>]?subscriptionId : string) : StorageAccount =
+        __.GetAccountAsync(accountName, ?subscriptionId = subscriptionId) |> Async.RunSync
+
+    /// <summary>
+    ///     Asynchronously creates a storage account with provided parameters.
+    /// </summary>
+    /// <param name="accountName">Storage account identifier.</param>
+    /// <param name="region">Storage account default region. Defaults to deployment manager setting.</param>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    member __.CreateAccountAsync(accountName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?subscriptionId : string) = async {
+        let logger,subscriptions,defaultRegion = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let region = defaultArg region defaultRegion
+        let! accountName = Storage.createMBraceStorageAccount logger region accountName client
+        return! Storage.resolveStorageAccount accountName client
+    }
+
+    /// <summary>
+    ///     Creates a storage account with provided parameters.
+    /// </summary>
+    /// <param name="accountName">Storage account identifier.</param>
+    /// <param name="region">Storage account default region. Defaults to deployment manager setting.</param>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    member __.CreateAccount(accountName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?subscriptionId : string) : StorageAccount =
+        __.CreateAccountAsync(accountName, ?region = region, ?subscriptionId = subscriptionId) |> Async.RunSync
+
+    /// <summary>
+    ///     Asynchronously deletes storage account by name.
+    /// </summary>
+    /// <param name="accountName">Account name identifier.</param>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    member __.DeleteAccountAsync(accountName : string, [<O;D(null:obj)>]?subscriptionId : string) : Async<unit> = async {
+        let logger,subscriptions,_ = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        do! Storage.deleteStorageAccount logger accountName client
+    }
+
+    /// <summary>
+    ///     Deletes storage account by name.
+    /// </summary>
+    /// <param name="accountName">Account name identifier.</param>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    member __.DeleteAccount(accountName : string, [<O;D(null:obj)>]?subscriptionId : string) : unit =
+        __.DeleteAccountAsync(accountName, ?subscriptionId = subscriptionId) |> Async.RunSync
+
+    /// <summary>
+    ///     Prints storage account info to stdout for given subscription and region.
+    /// </summary>
+    /// <param name="subscriptionId">Subscription identifier for storage accounts.</param>
+    /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
+    member __.ShowAccounts([<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region) : unit =
+        let _,subscriptions,_ = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let accountInfo = Storage.listAllStorageAccounts region client |> Async.RunSync
+        let regionT = match region with Some r -> sprintf " [%s]" r.Id | None -> ""
+        let title = sprintf "Azure Storage Accounts for subscription %A%s" client.Subscription.Name regionT
+        Storage.StorageAccountReporter.Report(Array.toList accountInfo, title = title) |> Console.WriteLine
+
+
+/// Service Bus Account manager API
+[<Sealed; AutoSerializable(false)>]
+type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * SubscriptionClients * Region) =
+
+    /// <summary>
+    ///     Asynchronously fetches all service bus account info for given subscription and region.
+    /// </summary>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
+    member __.GetAccountsAsync([<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region) = async {
+        let _,subscriptions,_ = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let! accountInfo = ServiceBus.listAllServiceBusAccounts region client
+        return! accountInfo |> Seq.map (fun aI -> ServiceBus.resolveServiceBusAccount aI.Name client) |> Async.Parallel
+    }
+
+    /// <summary>
+    ///     Fetches all service bus account info for given subscription and region.
+    /// </summary>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
+    member __.GetAccounts([<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region) : ServiceBusAccount [] =
+        __.GetAccountsAsync(?subscriptionId = subscriptionId, ?region = region) |> Async.RunSync
+
+    /// <summary>
+    ///     Asynchronously fetches existing azure service bus account by name.
+    /// </summary>
+    /// <param name="accountName">Account name identifier.</param>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    member __.GetAccountAsync(accountName : string, [<O;D(null:obj)>]?subscriptionId : string) : Async<ServiceBusAccount> = async {
+        let _,subscriptions,_ = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        return! ServiceBus.resolveServiceBusAccount accountName client
+    }
+
+    /// <summary>
+    ///     Fetches azure existing service bus account by name.
+    /// </summary>
+    /// <param name="accountName">Account name identifier.</param>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    member __.GetAccount(accountName : string, [<O;D(null:obj)>]?subscriptionId : string) : ServiceBusAccount =
+        __.GetAccountAsync(accountName, ?subscriptionId = subscriptionId) |> Async.RunSync
+
+    /// <summary>
+    ///     Asynchronously creates a service bus account with provided parameters.
+    /// </summary>
+    /// <param name="accountName">service bus account identifier.</param>
+    /// <param name="region">service bus account default region. Defaults to deployment manager setting.</param>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    member __.CreateAccountAsync(accountName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?subscriptionId : string) = async {
+        let logger,subscriptions,defaultRegion = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let region = defaultArg region defaultRegion
+        let! accountName = ServiceBus.createServiceBusAccount logger region accountName client
+        return! ServiceBus.resolveServiceBusAccount accountName client
+    }
+
+    /// <summary>
+    ///     Creates a service bus account with provided parameters.
+    /// </summary>
+    /// <param name="accountName">service bus account identifier.</param>
+    /// <param name="region">service bus account default region. Defaults to deployment manager setting.</param>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    member __.CreateAccount(accountName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?subscriptionId : string) : ServiceBusAccount =
+        __.CreateAccountAsync(accountName, ?region = region, ?subscriptionId = subscriptionId) |> Async.RunSync
+
+    /// <summary>
+    ///     Asynchronously deletes service bus account by name.
+    /// </summary>
+    /// <param name="accountName">Account name identifier.</param>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    member __.DeleteAccountAsync(accountName : string, [<O;D(null:obj)>]?subscriptionId : string) : Async<unit> = async {
+        let logger,subscriptions,_ = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        do! ServiceBus.deleteServiceBusAccount logger accountName client
+    }
+
+    /// <summary>
+    ///     Deletes service bus account by name.
+    /// </summary>
+    /// <param name="accountName">Account name identifier.</param>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    member __.DeleteAccount(accountName : string, [<O;D(null:obj)>]?subscriptionId : string) : unit =
+        __.DeleteAccountAsync(accountName, ?subscriptionId = subscriptionId) |> Async.RunSync
+
+    /// <summary>
+    ///     Prints service bus account info to stdout for given subscription and region.
+    /// </summary>
+    /// <param name="subscriptionId">Subscription identifier for service bus accounts.</param>
+    /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
+    member __.ShowAccounts([<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?region : Region) : unit =
+        let _,subscriptions,_ = getParentInfo()
+        let client = subscriptions.GetClientByIdOrDefault(?id = subscriptionId)
+        let accountInfo = ServiceBus.listAllServiceBusAccounts region client |> Async.RunSync
+        let regionT = match region with Some r -> sprintf " [%s]" r.Id | None -> ""
+        let title = sprintf "Azure Service Bus Accounts for subscription %A%s" client.Subscription.Name regionT
+        ServiceBus.ServiceBusAccountReporter.Report(Array.toList accountInfo, title = title) |> Console.WriteLine
+
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscriptions
 [<Sealed; AutoSerializable(false)>]
@@ -101,6 +298,11 @@ type DeploymentManager private (subscriptions : SubscriptionClients, defaultRegi
     let syncRoot = new obj()
     let mutable defaultRegion = defaultRegion
     let mutable subscriptions = subscriptions
+
+    let getState () = logger :> ISystemLogger, subscriptions, defaultRegion
+
+    let storageManager = new StorageManager(getState)
+    let serviceBusManager = new ServiceBusManager(getState)
 
     /// Attaches logger to the deployment manager instance
     member __.AttachLogger(l : ISystemLogger) = logger.AttachLogger l
@@ -118,6 +320,15 @@ type DeploymentManager private (subscriptions : SubscriptionClients, defaultRegi
             lock syncRoot (fun () ->
                 let sub = subscriptions.[subId]
                 subscriptions <- { subscriptions with Default = sub })
+
+    /// Storage account management client
+    member __.Storage = storageManager
+    /// Service Bus account management client
+    member __.ServiceBus = serviceBusManager
+
+    //
+    // #region Deployment methods
+    //
 
     /// <summary>
     ///     Asynchronously starts deployment of MBrace cloud service with supplied parameters.
@@ -232,6 +443,10 @@ type DeploymentManager private (subscriptions : SubscriptionClients, defaultRegi
         let info = Compute.DeploymentReporter.Report(deployments, title = sprintf "Subscription: %A" client.Subscription.Name)
         Console.WriteLine(info)
 
+    //
+    // #region Factory methods
+    //
+
     /// <summary>
     ///     Creates a new subscription manager instance using supplied set of Azure subscriptions
     /// </summary>
@@ -277,9 +492,8 @@ type DeploymentManager private (subscriptions : SubscriptionClients, defaultRegi
         let pubSettings = PublishSettings.ParseFile publishSettingsFile
         DeploymentManager.Create(pubSettings.Subscriptions, defaultRegion, ?defaultSubscriptionId = defaultSubscriptionId, ?logger = logger, ?logLevel = logLevel)
 
-
     //
-    //  Static APIs
+    // #region Static API
     //
 
     /// <summary>

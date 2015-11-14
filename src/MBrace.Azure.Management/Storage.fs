@@ -7,26 +7,47 @@ open Microsoft.WindowsAzure.Management.Storage.Models
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils.Retry
+open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure.Runtime
 
 module internal Storage =
 
-    let listAllStorageAccounts (client:SubscriptionClient) = async {
+    type MStorageAccount = MBrace.Azure.Management.StorageAccount
+
+    let tryGetRegion (acc : StorageAccount) =
+        let ok, location = acc.ExtendedProperties.TryGetValue "ResourceLocation"
+        if ok then Some location
+        else None
+
+    let listAllStorageAccounts (region : Region option) (client:SubscriptionClient) = async {
         let! (listed : StorageAccountListResponse) = client.Storage.StorageAccounts.ListAsync()
-        return listed |> Seq.toArray
+        return 
+            match region with 
+            | None -> listed |> Seq.toArray
+            | Some rg -> listed |> Seq.filter (fun account -> tryGetRegion account |> Option.exists (fun r -> r = rg.Id)) |> Seq.toArray
     }
 
     let listLocalMBraceStorageAccounts (region : Region) (client:SubscriptionClient) = async {
-        let! accounts = listAllStorageAccounts client
+        let! accounts = listAllStorageAccounts (Some region) client
         return
             accounts
-            |> Seq.filter (fun account -> 
-                let hasLocationData, storageAccountLocation = account.ExtendedProperties.TryGetValue "ResourceLocation"
-                hasLocationData && storageAccountLocation = region.Id)
             |> Seq.filter(fun account -> account.ExtendedProperties |> Common.isMBraceAsset)
             |> Seq.map(fun account -> account.Name)
             |> Seq.toArray
     }
+
+    type StorageAccountReporter private () =
+        static let template : Field<StorageAccount> list =
+            [
+                Field.create "Account Name" Left (fun sa -> sa.Name)
+                Field.create "Region" Left (fun sa -> defaultArg (tryGetRegion sa) "?")
+                Field.create "Account Type" Left (fun sa -> sa.Properties.AccountType)
+                Field.create "Status" Left (fun sa -> sa.Properties.Status)
+                Field.create "Affinity Group" Left (fun sa -> match sa.Properties.AffinityGroup with null -> "N/A" | ag -> ag)
+            ]
+
+        static member Report(sbnss : StorageAccount list, ?title : string) =
+            Record.PrettyPrint(template, sbnss, ?title = title, useBorders = false, parallelize = false)
 
     /// Attempt to create an Azure storage account for usage by MBrace
     let createMBraceStorageAccount (logger : ISystemLogger) (region : Region) (accountName : string) (client:SubscriptionClient) = async {
@@ -47,14 +68,22 @@ module internal Storage =
         return! retryAsync (RetryPolicy.Retry(maxRetries = 3, delay = 0.3<sec>)) (aux ())
     }
 
+    let deleteStorageAccount (logger : ISystemLogger) (accountName : string) (client : SubscriptionClient) = async {
+        logger.Logf LogLevel.Info "Deleting storage account %A" accountName
+        let! (response : AzureOperationResponse) = client.Storage.StorageAccounts.DeleteAsync accountName
+        if response.StatusCode <> System.Net.HttpStatusCode.OK then
+            return invalidOp <| sprintf "Error deleting storage account %A (error code %O)" accountName response.StatusCode
+    }
+
     /// Resolves storage account auth info of given id
     let resolveStorageAccount (accountId : string) (client:SubscriptionClient) = async {
         match AzureStorageAccount.TryFromConnectionString accountId with
-        | Some account -> return account
+        | Some account -> return new MStorageAccount(account)
         | None ->
             // input identifier as account name, recover connection string from Storage Account client
             let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync accountId
-            return AzureStorageAccount.FromCredentials(accountId, keys.PrimaryKey)
+            let account = AzureStorageAccount.FromCredentials(accountId, keys.PrimaryKey)
+            return new MStorageAccount(account)
     }
 
     /// Creates or resolves supplied storage account for an Azure deployment

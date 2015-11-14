@@ -87,8 +87,8 @@ module internal Compute =
         if not result.IsAvailable then return invalidOp result.Reason
     }
 
-    let getDeploymentContainer (account : AzureStorageAccount) = async {
-        let container = account.BlobClient.GetContainerReference "deployments"
+    let getDeploymentContainer (account : StorageAccount) = async {
+        let container = account.Inner.BlobClient.GetContainerReference "deployments"
         do! container.CreateIfNotExistsAsync()
         return container
     }
@@ -163,7 +163,7 @@ module internal Compute =
     }
 
     let buildMBraceConfig serviceName instances useDiagnostics  
-            (storageAccount : AzureStorageAccount) (serviceBusAccount : AzureServiceBusAccount) =
+            (storageAccount : StorageAccount) (serviceBusAccount : ServiceBusAccount) =
 
         sprintf """<?xml version="1.0" encoding="utf-8"?>
 <ServiceConfiguration serviceName="%s" xmlns="http://schemas.microsoft.com/ServiceHosting/2008/10/ServiceConfiguration" osFamily="4" osVersion="*" schemaVersion="2015-04.2.6">
@@ -179,7 +179,7 @@ module internal Compute =
 
     let prepareMBraceServiceDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
                                         (region : Region) (packagePath : string) (config : string) 
-                                        (storageAccount : AzureStorageAccount) (serviceBusAccount : AzureServiceBusAccount) 
+                                        (storageAccount : StorageAccount) (serviceBusAccount : ServiceBusAccount) 
                                         (client:SubscriptionClient) = async {
 
         let extendedProperties =

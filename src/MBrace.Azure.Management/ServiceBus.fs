@@ -8,32 +8,52 @@ open Microsoft.WindowsAzure.Management.ServiceBus.Models
 open MBrace.Core.Internals
 open MBrace.Runtime
 open MBrace.Runtime.Utils.Retry
+open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure.Runtime
 
 module internal ServiceBus =
 
-    let listAllServiceBusAccounts (client:SubscriptionClient) = async {
-        let! (listed : _) = client.ServiceBus.Namespaces.ListAsync()
-        return listed |> Seq.toArray
+    let listAllServiceBusAccounts (region : Region option) (client:SubscriptionClient) = async {
+        let! (listed : ServiceBusNamespacesResponse) = client.ServiceBus.Namespaces.ListAsync()
+        return 
+            match region with
+            | None -> listed |> Seq.toArray
+            | Some rg -> listed |> Seq.filter (fun ac -> ac.Region = rg.Id) |> Seq.toArray
     }
 
     let listLocalMBraceServiceBusAccounts (region : Region) (client : SubscriptionClient) = async {
-        let! accounts = listAllServiceBusAccounts client
+        let! accounts = listAllServiceBusAccounts (Some region) client
         return
             accounts
-            |> Seq.filter (fun account -> account.Region = region.Id)
             |> Seq.filter(fun account -> account.Name.StartsWith Common.resourcePrefix)
             |> Seq.map(fun account -> account.Name)
             |> Seq.toArray
     }
 
-    let rec private waitUntilState checkState ns (client:SubscriptionClient) = async {
-        let! result = client.ServiceBus.Namespaces.GetAsync ns |> Async.AwaitTaskCorrect |> Async.Catch
-        let status = match result with Choice1Of2 ns -> ns.Namespace.Status | Choice2Of2 _ -> ""
-        if not (checkState status) then
-            do! Async.Sleep 2000
-            return! waitUntilState checkState ns client
+    let waitUntilState checkState ns timeout (client:SubscriptionClient) = async {
+        let rec aux () = async {
+            let! result = client.ServiceBus.Namespaces.GetAsync ns |> Async.AwaitTaskCorrect |> Async.Catch
+            let status = match result with Choice1Of2 ns -> ns.Namespace.Status | Choice2Of2 _ -> ""
+            if not (checkState status) then
+                do! Async.Sleep 2000
+                return! aux ()
+        }
+
+        return! Async.WithTimeout(aux (), ?timeoutMilliseconds = timeout)
     }
+
+    type ServiceBusAccountReporter private () =
+        static let template : Field<ServiceBusNamespace> list =
+            [
+                Field.create "Account Name" Left (fun ns -> ns.Name)
+                Field.create "Region" Left (fun ns -> ns.Region)
+                Field.create "Creation Time" Left (fun ns -> ns.CreatedAt)
+                Field.create "Status" Left (fun ns -> ns.Status)
+                Field.create "Endpoint" Left (fun ns -> ns.ServiceBusEndpoint)
+            ]
+
+        static member Report(sbnss : ServiceBusNamespace list, ?title : string) =
+            Record.PrettyPrint(template, sbnss, ?title = title, useBorders = false, parallelize = false)
 
     /// Creates a new service bus account in supplied region
     let createServiceBusAccount (logger : ISystemLogger) (region : Region) (namespaceName : string) (client:SubscriptionClient) = async {
@@ -46,7 +66,7 @@ module internal ServiceBus =
             if result.StatusCode <> Net.HttpStatusCode.OK then 
                 return invalidOp <| sprintf "Failed to create service bus: %O" result.StatusCode
             else 
-                do! client |> waitUntilState ((=) "Active") namespaceName
+                do! client |> waitUntilState ((=) "Active") namespaceName (Some 60000)
                 logger.Logf LogLevel.Info "Created new default MBrace Service Bus namespace %s" namespaceName
                 return namespaceName
         }
@@ -54,33 +74,18 @@ module internal ServiceBus =
         return! retryAsync (RetryPolicy.Retry(maxRetries = 3, delay = 0.3<sec>)) (aux())
     }
 
-    let getNamespaces (client:SubscriptionClient) = async {
-        let! (nss : ServiceBusNamespacesResponse) = client.ServiceBus.Namespaces.ListAsync()
-        return nss |> Seq.toArray
-    }
-
     /// Verifies or recovers service bus account credentials
     let resolveServiceBusAccount (accountId : string) (client:SubscriptionClient) = async {
         match AzureServiceBusAccount.TryFromConnectionString accountId with
-        | Some account -> return account
+        | Some account -> return new ServiceBusAccount(account)
         | None ->
             let accountName = defaultArg (AzureServiceBusAccount.TryParseNamespace accountId) accountId
             // input identifier as account name, recover connection string from Storage Account client
             let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync accountName
             let rootSharedAccessKey = authRules |> Seq.find (fun rule -> rule.KeyName = "RootManageSharedAccessKey")
-            return AzureServiceBusAccount.FromCredentials(accountName, rootSharedAccessKey.PrimaryKey)
+            let account = AzureServiceBusAccount.FromCredentials(accountName, rootSharedAccessKey.PrimaryKey)
+            return new ServiceBusAccount(account)
     }
-
-//    let findOrCreateMBraceNamespace (logger : ISystemLogger) region client = async {
-//        let! nsOpt = tryFindMBraceNamespace region client
-//        match nsOpt with
-//        | Some ns -> 
-//            logger.Logf LogLevel.Info "Reusing existing Service Bus namespace %A" ns
-//            return ns
-//        | None -> 
-//            let namespaceName = Common.generateResourceName()
-//            return! createNamespace logger region namespaceName client
-//    }
 
     /// Verifies or creates a new service bus account for provided deployment
     let getDeploymentServiceBusAccount (logger : ISystemLogger) (region : Region) (serviceBusId : string option) (client : SubscriptionClient) = async {
@@ -113,7 +118,8 @@ module internal ServiceBus =
     }
 
     /// Asynchronously deletes Azure service bus account
-    let deleteServiceBusAccount namespaceName (client:SubscriptionClient) = async {
+    let deleteServiceBusAccount (logger : ISystemLogger) namespaceName (client:SubscriptionClient) = async {
+        logger.Logf LogLevel.Info "Deleting service bus account %A" namespaceName
         let! _response = client.ServiceBus.Namespaces.DeleteAsync namespaceName
-        do! client |> waitUntilState ((<>) "Removing") namespaceName
+        do! client |> waitUntilState ((<>) "Removing") namespaceName (Some 60000)
     }
