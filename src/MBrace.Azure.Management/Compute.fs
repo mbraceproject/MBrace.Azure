@@ -18,67 +18,22 @@ open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure
 open MBrace.Azure.Runtime
 
-/// Represents an Azure VM instance
-type VMInstance = 
-    { 
-        /// Role instance identifier
-        Id : string
-        /// VM IP Address
-        IPAddress : string
-        /// VM size idenfier
-        VMSize : VMSize 
-        /// Deployment status for individual node
-        Status : string 
-    }
-
-/// Cloud Service Deployment State
-type DeploymentState =
-    | NoDeployment
-    | Provisioning of percentage:float
-    | Ready
-    | RunningTransitioning
-    | SuspendedTransitioning
-    | Suspending
-    | Suspended
-    | Deleting
-    | Unknown
-
-    override s.ToString() =
-        match s with
-        | NoDeployment -> "None"
-        | Provisioning pct -> sprintf "Provisioning (%2.1f%% complete)" (pct * 100.)
-        | Ready -> "Ready"
-        | RunningTransitioning -> "RunningTransitioning"
-        | SuspendedTransitioning -> "SuspendedTransitioning"
-        | Suspending -> "Suspending"
-        | Suspended -> "Suspended"
-        | Deleting -> "Deleting"
-        | Unknown -> "Unknown"
-
 module internal Compute =
 
-    type DeploymentDetails =
-        {
-            Name : string
-            CreatedTime : DateTime
-            ServiceStatus : string
-            DeploymentState : DeploymentState
-            Configuration : Configuration
-            Nodes : VMInstance [] 
-        }
+    type WADeploymentStatus = Microsoft.WindowsAzure.Management.Compute.Models.DeploymentStatus
 
     type DeploymentReporter private () =
-        static let template : Field<DeploymentDetails> list =
+        static let template : Field<DeploymentInfo> list =
             [ 
                 Field.create "Name" Left (fun d -> d.Name)
-                Field.create "VM size" Left (fun d -> match d.Nodes with [||] -> "N/A" | ns -> ns.[0].VMSize.Id)
-                Field.create "#Instances" Left (fun d -> if Array.isEmpty d.Nodes then "N/A" else string d.Nodes.Length)
+                Field.create "VM size" Left (fun d -> match d.VMInstances with [||] -> "N/A" | ns -> ns.[0].VMSize.Id)
+                Field.create "#Instances" Left (fun d -> if Array.isEmpty d.VMInstances then "N/A" else string d.VMInstances.Length)
                 Field.create "Created Time" Left (fun d -> d.CreatedTime) 
                 Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
                 Field.create "Deployment Status" Left (fun d -> d.DeploymentState)
             ]
 
-        static member Report(deployments : DeploymentDetails list, ?title : string) =
+        static member Report(deployments : DeploymentInfo list, ?title : string) =
             Record.PrettyPrint(template, deployments, ?title = title, useBorders = false)
 
     type InstanceReporter private () =
@@ -93,7 +48,7 @@ module internal Compute =
         static member Report(nodes : VMInstance list, ?title : string) =
             Record.PrettyPrint(template, nodes, ?title = title, useBorders = false)
 
-    let getDeploymentState (statusOpt : DeploymentStatus option) (nodes : VMInstance []) =
+    let getDeploymentState (statusOpt : WADeploymentStatus option) (nodes : VMInstance []) =
         let maxScore = 6 * nodes.Length
         let getNodeProvisionScore (node : VMInstance) =
             match node.Status with
@@ -109,13 +64,13 @@ module internal Compute =
         | None -> NoDeployment
         | Some status ->
             match status with
-            | DeploymentStatus.Suspended -> Suspended
-            | DeploymentStatus.Suspending -> Suspending
-            | DeploymentStatus.RunningTransitioning -> RunningTransitioning
-            | DeploymentStatus.SuspendedTransitioning -> SuspendedTransitioning
-            | DeploymentStatus.Starting | DeploymentStatus.Deploying -> Provisioning 0.
-            | DeploymentStatus.Deleting -> Deleting
-            | DeploymentStatus.Running ->
+            | WADeploymentStatus.Suspended -> Suspended
+            | WADeploymentStatus.Suspending -> Suspending
+            | WADeploymentStatus.RunningTransitioning -> RunningTransitioning
+            | WADeploymentStatus.SuspendedTransitioning -> SuspendedTransitioning
+            | WADeploymentStatus.Starting | WADeploymentStatus.Deploying -> Provisioning 0.
+            | WADeploymentStatus.Deleting -> Deleting
+            | WADeploymentStatus.Running ->
                 if Array.isEmpty nodes then Ready else
 
                 let scores = nodes |> Array.map getNodeProvisionScore
@@ -173,11 +128,11 @@ module internal Compute =
             let info = 
                 {  
                     Name = serviceName
-                    CreatedTime = properties.DateCreated
+                    CreatedTime = new DateTimeOffset(properties.DateCreated)
                     ServiceStatus = string properties.Status
                     DeploymentState = state
                     Configuration = config
-                    Nodes = nodes 
+                    VMInstances = nodes 
                 }
 
             return Some info

@@ -30,28 +30,36 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     /// Used for initializing AzureCluster objects.
     member __.Configuration = deployment.Value.Configuration
     /// Gets the current instance information for the cloud service
-    member __.Nodes = deployment.Value.Nodes
+    member __.Nodes = deployment.Value.VMInstances
     /// Time of current cloud service creation
     member __.CreatedTime = deployment.Value.CreatedTime
     /// Current deployment Status
     member __.DeploymentState = deployment.Value.DeploymentState
     /// Current service Status
     member __.ServiceStatus = deployment.Value.ServiceStatus
+    /// Asynchronously fetches current deployment info record
+    member __.GetInfoAsync() = deployment.GetValueAsync()
 
     /// <summary>
     ///     Prints deployment information to stdout  
     /// </summary>
-    /// <param name="showInstances">Include information on individual worker instances. Defaults to true.</param>
-    member __.ShowInfo([<O;D(null:obj)>]?showInstances : bool) =
-        let showInstances = defaultArg showInstances true
+    /// <param name="showVmInstances">Include information on individual worker instances. Defaults to false.</param>
+    member __.ShowInfo([<O;D(null:obj)>]?showVmInstances : bool) =
+        let showVmInstances = defaultArg showVmInstances false
         let current = deployment.Value
         let deploymentInfo = Compute.DeploymentReporter.Report([current], title = sprintf "Cloud Service %A" serviceName)
-        if showInstances && current.Nodes.Length > 0 then
-            let nodeInfo = Compute.InstanceReporter.Report(Array.toList current.Nodes, title = "Cloud Service Instances")
+        if showVmInstances && current.VMInstances.Length > 0 then
+            let nodeInfo = Compute.InstanceReporter.Report(Array.toList current.VMInstances, title = "Cloud Service Instances")
             let nl = Environment.NewLine
             sprintf "%s%s%s" deploymentInfo nl nodeInfo |> Console.WriteLine
         else
             deploymentInfo |> Console.WriteLine
+
+    /// Prints deployment vm instance information to stdout
+    member __.ShowInstanceInfo() =
+        let current = deployment.Value
+        Compute.InstanceReporter.Report(Array.toList current.VMInstances, title = sprintf "Cloud Service %A" serviceName)
+        |> Console.WriteLine
 
     /// Asynchronously deletes deployment from Azure
     member __.DeleteAsync() = Compute.deleteMBraceDeployment logger serviceName client
@@ -66,7 +74,7 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
         let rec aux () = async {
             let! d = deployment.GetValueAsync()
             match d.DeploymentState with
-            | DeploymentState.Provisioning _ ->
+            | DeploymentStatus.Provisioning _ ->
                 do! Async.Sleep 2000
                 return! aux()
             | _ -> return ()

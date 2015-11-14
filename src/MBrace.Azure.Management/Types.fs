@@ -4,6 +4,8 @@ open System
 open System.IO
 open System.Xml.Linq
 
+open MBrace.Azure
+
 type internal OAttribute = System.Runtime.InteropServices.OptionalAttribute
 type internal DAttribute = System.Runtime.InteropServices.DefaultParameterValueAttribute
 
@@ -127,3 +129,58 @@ type PublishSettings =
     /// Parse publish settings from given local file path
     static member ParseFile(publishSettingsFile : string) : PublishSettings =
         PublishSettings.Parse(File.ReadAllText publishSettingsFile)
+
+
+/// Represents an Azure VM instance
+type VMInstance = 
+    { 
+        /// Role instance identifier
+        Id : string
+        /// VM IP Address
+        IPAddress : string
+        /// VM size idenfier
+        VMSize : VMSize 
+        /// Deployment status for individual node
+        Status : string 
+    }
+
+/// Cloud Service Deployment State
+type DeploymentStatus =
+    | NoDeployment
+    | Provisioning of percentage:float
+    | Ready
+    | RunningTransitioning
+    | SuspendedTransitioning
+    | Suspending
+    | Suspended
+    | Deleting
+    | Unknown
+
+    override s.ToString() =
+        match s with
+        | NoDeployment -> "None"
+        | Provisioning pct -> sprintf "Provisioning (%2.1f%% complete)" (pct * 100.)
+        | Ready -> "Ready"
+        | RunningTransitioning -> "RunningTransitioning"
+        | SuspendedTransitioning -> "SuspendedTransitioning"
+        | Suspending -> "Suspending"
+        | Suspended -> "Suspended"
+        | Deleting -> "Deleting"
+        | Unknown -> "Unknown"
+
+/// Deployment info record
+type DeploymentInfo =
+    {
+        /// Deployment Name
+        Name : string
+        /// Deployment creation time
+        CreatedTime : DateTimeOffset
+        /// Cloud Service status
+        ServiceStatus : string
+        /// Deployment status
+        DeploymentState : DeploymentStatus
+        /// MBrace.Azure configuration object corresponding to deployment
+        Configuration : Configuration
+        /// VM Instance information
+        VMInstances : VMInstance [] 
+    }
