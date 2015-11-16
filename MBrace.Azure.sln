@@ -44,11 +44,13 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "resource", "resource", "{74
 		resource\Mgrey.res = resource\Mgrey.res
 	EndProjectSection
 EndProject
-Project("{CC5FD16D-436D-48AD-A40C-5A424C6E3E79}") = "MBrace.Azure.CloudService", "samples\MBrace.Azure.CloudService\MBrace.Azure.CloudService.ccproj", "{39871DC6-D95E-440C-A96C-4B3514155B41}"
+Project("{CC5FD16D-436D-48AD-A40C-5A424C6E3E79}") = "MBrace.Azure.CloudService", "src\MBrace.Azure.CloudService\MBrace.Azure.CloudService.ccproj", "{39871DC6-D95E-440C-A96C-4B3514155B41}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Azure.WorkerRole", "samples\MBrace.Azure.WorkerRole\MBrace.Azure.WorkerRole.csproj", "{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MBrace.Azure.WorkerRole", "src\MBrace.Azure.WorkerRole\MBrace.Azure.WorkerRole.csproj", "{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Management", "src\MBrace.Azure.Management\MBrace.Azure.Management.fsproj", "{2F80E0B8-69D4-4492-A0EE-73B98C741A04}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "WorkerRole", "WorkerRole", "{6EE518A6-354B-4FA0-B9D4-08F41CA65960}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -111,9 +113,10 @@ Global
 		{09891260-7D4E-431B-B714-2A13C412FD78} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 		{744148AA-63A4-4E46-B782-7D9A9B7DC4A5} = {BC64BD78-3886-4FC5-A6F9-2A71A99769B9}
-		{39871DC6-D95E-440C-A96C-4B3514155B41} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
-		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
+		{39871DC6-D95E-440C-A96C-4B3514155B41} = {6EE518A6-354B-4FA0-B9D4-08F41CA65960}
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1} = {6EE518A6-354B-4FA0-B9D4-08F41CA65960}
 		{2F80E0B8-69D4-4492-A0EE-73B98C741A04} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
+		{6EE518A6-354B-4FA0-B9D4-08F41CA65960} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45

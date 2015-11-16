@@ -14,7 +14,7 @@ open MBrace.Azure.Management
 /// gets the local Cloud Service package build
 let getLocalCspkg () =
     let buildCfg = "Debug_AzureSDK"
-    let path = __SOURCE_DIRECTORY__ + "/../../samples/MBrace.Azure.CloudService/bin/" + buildCfg + "/app.publish/MBrace.Azure.CloudService.cspkg"
+    let path = __SOURCE_DIRECTORY__ + "/../../src/MBrace.Azure.CloudService/bin/" + buildCfg + "/app.publish/MBrace.Azure.CloudService.cspkg"
     if not <| File.Exists path then failwith "Right click on the 'MBrace.Azure.CloudService' project and hit 'Package...'."
     path
 
