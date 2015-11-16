@@ -13,13 +13,12 @@ open MBrace.Azure.Management
 
 /// gets the local Cloud Service package build
 let getLocalCspkg () =
-    let buildCfg = "Debug_AzureSDK"
-    let path = __SOURCE_DIRECTORY__ + "/../../src/MBrace.Azure.CloudService/bin/" + buildCfg + "/app.publish/MBrace.Azure.CloudService.cspkg"
+    let path = __SOURCE_DIRECTORY__ + "/../../bin/cspkg/app.publish/MBrace.Azure.CloudService.cspkg" |> Path.GetFullPath
     if not <| File.Exists path then failwith "Right click on the 'MBrace.Azure.CloudService' project and hit 'Package...'."
     path
 
 let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishSettings"
-let subscription = pubSettings.["Nessos"]
+let subscription = pubSettings.GetSubscription "Nessos Information Technologies SA"
 let manager = DeploymentManager.Create(subscription, Region.West_Europe, logger = ConsoleLogger())
 
 manager.ShowDeployments()

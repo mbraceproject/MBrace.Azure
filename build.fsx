@@ -50,10 +50,6 @@ Target "AssemblyInfo" (fun _ ->
         let infoFileText = File.ReadAllText infoFile
         let infoFileText = infoFileText + "\r\n    let [<Literal>] ReleaseTag = \"" + release.NugetVersion + "\"\r\n" 
         File.WriteAllText(infoFile,infoFileText))
-    !! "./samples/**/AssemblyInfo.fs" |> Seq.iter (fun info -> 
-        CreateFSharpAssemblyInfo info attributes)
-    !! "./samples/**/AssemblyInfo.cs" |> Seq.iter (fun info -> 
-        CreateCSharpAssemblyInfo info attributes)
 )
 
 
@@ -72,9 +68,9 @@ Target "Clean" (fun _ ->
 
 let configuration = environVarOrDefault "Configuration" "Release"
 
-let csdefTemplate = "samples" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition.csdef"
-let csdefForSize size = "samples" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition" + size + ".csdef"
-let cspkgAfterBuild configuration = ("samples" @@ "MBrace.Azure.CloudService" @@ "bin" @@ configuration + "_AzureSDK" @@ "app.publish" @@ "MBrace.Azure.CloudService.cspkg")
+let csdefTemplate = "src" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition.csdef"
+let csdefForSize size = "src" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition" + size + ".csdef"
+let cspkgAfterBuild configuration = (".." @@ ".." @@ "bin" @@ "cspkg" @@ "app.publish" @@ "MBrace.Azure.CloudService.cspkg")
 let cspkgAfterCopy size = ("bin" @@ "MBrace.Azure.CloudService-" + size + ".cspkg")
 
 // See https://azure.microsoft.com/en-gb/documentation/articles/cloud-services-sizes-specs/
@@ -105,7 +101,7 @@ Target "BuildPackages" (fun _ ->
         csdefTemplate |> CopyFile (csdefForSize size)
         (csdefForSize size) |> ReplaceInFile (fun s -> s.Replace("vmsize=\"Large\"", "vmsize=\"" + size + "\"" ))
         { BaseDirectory = __SOURCE_DIRECTORY__
-          Includes = [ "samples" @@ "MBrace.Azure.CloudService" @@ "MBrace.Azure.CloudService.ccproj" ]
+          Includes = [ "src" @@ "MBrace.Azure.CloudService" @@ "MBrace.Azure.CloudService.ccproj" ]
           Excludes = [] } 
         |> MSBuild "" "Publish" ["Configuration", configuration + "_AzureSDK"; "ServiceVMSize", size]
         |> Log "AppPackage-Output: "
