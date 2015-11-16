@@ -70,8 +70,8 @@ let configuration = environVarOrDefault "Configuration" "Release"
 
 let csdefTemplate = "src" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition.csdef"
 let csdefForSize size = "src" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition" + size + ".csdef"
-let cspkgAfterBuild configuration = (".." @@ ".." @@ "bin" @@ "cspkg" @@ "app.publish" @@ "MBrace.Azure.CloudService.cspkg")
-let cspkgAfterCopy size = ("bin" @@ "MBrace.Azure.CloudService-" + size + ".cspkg")
+let cspkgAfterBuild configuration = "bin" @@ "cspkg" @@ "app.publish" @@ "MBrace.Azure.CloudService.cspkg"
+let cspkgAfterCopy size = "bin" @@ "cspkg" @@ "MBrace.Azure.CloudService-" + size + ".cspkg"
 
 // See https://azure.microsoft.com/en-gb/documentation/articles/cloud-services-sizes-specs/
 let vmSizes = 
