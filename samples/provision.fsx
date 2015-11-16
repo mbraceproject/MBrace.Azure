@@ -16,7 +16,7 @@ open MBrace.Azure.Management
 
 // See https://msdn.microsoft.com/en-us/library/dn385850(v=nav.70).aspx on how
 // you can retrieve your account's publishsettings file
-let publishSettingsFile : string = failwith "Replace with path to your local .publishsettings file"
+let publishSettingsFile = "Replace with path to your local .publishsettings file"
 
 // Set the prefered subscription name or id from your publish settings
 let subscriptionName = "Azure Free Trial"
