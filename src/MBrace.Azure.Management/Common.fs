@@ -27,7 +27,7 @@ module internal Common =
 
     /// Represents an Azure client instance for specific subscription
     [<NoEquality; NoComparison; AutoSerializable(false)>]
-    type internal SubscriptionClient =
+    type SubscriptionClient =
         {
             Subscription : Subscription
             Credentials : CertificateCloudCredentials
@@ -48,31 +48,3 @@ module internal Common =
                 Compute = new ComputeManagementClient(cred)
                 Management = new ManagementClient(cred) 
             }
-
-
-    /// Represents an Azure client instance for a set of subscriptions
-    [<NoEquality; NoComparison; AutoSerializable(false)>]
-    type internal SubscriptionClients =
-        {
-            Default : SubscriptionClient
-            Subscriptions : SubscriptionClient []
-        }
-
-        member c.GetClientByIdOrDefault(?id : string) =
-            match id with
-            | None -> c.Default
-            | Some id -> c.Subscriptions |> Array.find (fun s -> s.Subscription.Id = id || s.Subscription.Name.Contains id)
-
-        member c.Item with get (id : string) = c.GetClientByIdOrDefault(id = id)
-
-        static member Activate(subscriptions : seq<Subscription>, ?defaultSubscriptionId : string) =
-            match subscriptions |> Seq.distinctBy (fun s -> s.Id) |> Seq.toArray with
-            | [||] -> invalidArg "subscriptions" "supplied an empty set of Azure subscriptions."
-            | subscriptions ->
-                let clients = subscriptions |> Array.map SubscriptionClient.Activate
-                let defaultSubscriptionId = defaultArg defaultSubscriptionId subscriptions.[0].Id
-                let defaultSubscription = clients |> Array.find (fun c -> c.Subscription.Id = defaultSubscriptionId || c.Subscription.Name.Contains defaultSubscriptionId)
-                { 
-                    Default = defaultSubscription
-                    Subscriptions = clients 
-                }
