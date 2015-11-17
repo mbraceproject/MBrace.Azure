@@ -264,9 +264,9 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscription
 [<Sealed; AutoSerializable(false)>]
-type DeploymentManager private (client : SubscriptionClient, defaultRegion : Region, _logger : ISystemLogger option, ?logLevel : LogLevel) =
+type DeploymentManager private (client : SubscriptionClient, defaultRegion : Region, _logger : ISystemLogger option, logLevel : LogLevel) =
 
-    let logger = AttacheableLogger.Create(?logLevel = logLevel, makeAsynchronous = false)
+    let logger = AttacheableLogger.Create(logLevel, makeAsynchronous = false)
     do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
 
     let mutable defaultRegion = defaultRegion
@@ -425,8 +425,9 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
     static member Create(subscription : Subscription, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
+        let logLevel = defaultArg logLevel LogLevel.Info
         let client = SubscriptionClient.Activate(subscription)
-        new DeploymentManager(client, defaultRegion, logger, ?logLevel = logLevel)
+        new DeploymentManager(client, defaultRegion, logger, logLevel = logLevel)
 
     /// <summary>
     ///     Creates a new subscription manager instance using supplied set of Azure subscriptions

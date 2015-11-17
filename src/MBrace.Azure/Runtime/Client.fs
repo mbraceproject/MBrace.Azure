@@ -265,14 +265,15 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="clientId">Custom client id for this instance.</param>
     /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
     /// <param name="logger">Custom logger to attach in client.</param>
-    /// <param name="logLevel">Logger verbosity level.</param>
+    /// <param name="logLevel">Logger verbosity level. Defaults to LogLevel.Info.</param>
     static member ConnectAsync (config : Configuration, [<O;D(null:obj)>]?clientId : string, [<O;D(null:obj)>]?faultPolicy : FaultPolicy, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) : Async<AzureCluster> = async {
+        let logLevel = defaultArg logLevel LogLevel.Info
         let hostProc = Diagnostics.Process.GetCurrentProcess()
         let clientId = defaultArg clientId <| sprintf "%s-%s-%05d" (System.Net.Dns.GetHostName()) hostProc.ProcessName hostProc.Id
         let! manager = ClusterManager.Create(config, ?systemLogger = logger)
         let! storageLogger = manager.SystemLoggerManager.CreateLogWriter(clientId)
         let _ = manager.LocalLoggerManager.AttachLogger(storageLogger)
-        logLevel |> Option.iter (fun l -> manager.LocalLoggerManager.LogLevel <- l)
+        manager.LocalLoggerManager.LogLevel <- logLevel
         return new AzureCluster(manager, faultPolicy)
     }
 
