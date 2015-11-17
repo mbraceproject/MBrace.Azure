@@ -32,7 +32,7 @@ let getLocalCspkg () : string =
 
 // Instantiate a deployment manager instance
 let publishSettings = PublishSettings.ParseFile publishSettingsFile
-let subscription = publishSettings.GetSubscription subscriptionName
+let subscription = publishSettings.GetSubscriptionById subscriptionName
 let manager = DeploymentManager.Create(subscription, defaultRegion, logger = new ConsoleLogger())
 
 // Get info on the current MBrace deployments

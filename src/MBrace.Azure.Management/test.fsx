@@ -18,7 +18,7 @@ let getLocalCspkg () =
     path
 
 let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishSettings"
-let subscription = pubSettings.GetSubscription "Nessos Information Technologies SA"
+let subscription = pubSettings.GetSubscriptionById "Nessos Information Technologies SA"
 let manager = DeploymentManager.Create(subscription, Region.West_Europe, logger = ConsoleLogger())
 
 manager.ShowDeployments()

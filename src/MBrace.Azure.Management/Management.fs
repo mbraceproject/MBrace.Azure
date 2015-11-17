@@ -438,7 +438,7 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
     static member FromPublishSettings(publishSettings : PublishSettings, subscriptionId : string, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
-        let subscription = publishSettings.GetSubscription subscriptionId
+        let subscription = publishSettings.GetSubscriptionById subscriptionId
         DeploymentManager.Create(subscription, defaultRegion, ?logger = logger, ?logLevel = logLevel)
 
 

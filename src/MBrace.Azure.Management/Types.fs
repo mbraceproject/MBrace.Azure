@@ -98,7 +98,7 @@ type Subscription =
     }
 
 /// Parsed PublishSettings record
-[<NoEquality; NoComparison; AutoSerializable(false)>]
+[<NoEquality; NoComparison; AutoSerializable(false);  StructuredFormatDisplay("{SubscriptionNames}")>]
 type PublishSettings =
     {
         /// Set of Azure subscriptions defined in PubSettings
@@ -106,11 +106,14 @@ type PublishSettings =
     }
 
     /// Look up subscription by id or name
-    member ps.GetSubscription (subscriptionId : string) =
+    member ps.GetSubscriptionById (subscriptionId : string) =
         ps.Subscriptions |> Array.find (fun s -> s.Id = subscriptionId || s.Name.Contains subscriptionId)
 
-    /// Look up subscription by id or name
-    member ps.Item subscriptionId = ps.GetSubscription subscriptionId
+    /// Look up subscription by index
+    member ps.Item (index:int) = ps.Subscriptions.[index]
+
+    /// Gets the names of all contained subscriptions
+    member ps.SubscriptionNames = ps.Subscriptions |> Array.map (fun s -> s.Name)
 
     /// Parse publish settings found in given xml string
     static member Parse(xml : string) : PublishSettings = 
