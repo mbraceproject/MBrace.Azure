@@ -11,6 +11,7 @@ open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure
 open MBrace.Azure.Runtime
 
+/// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 
 /// Represents an Azure service deployment handle object
