@@ -105,7 +105,7 @@ type PublishSettings =
         Subscriptions : Subscription []
     }
 
-    /// Look up subscription by id or name
+    /// Look up subscription by id or partial name
     member ps.GetSubscriptionById (subscriptionId : string) =
         ps.Subscriptions |> Array.find (fun s -> s.Id = subscriptionId || s.Name.Contains subscriptionId)
 

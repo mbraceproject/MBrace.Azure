@@ -453,30 +453,3 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     static member FromPublishSettingsFile(publishSettingsFile : string, subscriptionId : string, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
         let pubSettings = PublishSettings.ParseFile publishSettingsFile
         DeploymentManager.FromPublishSettings(pubSettings, subscriptionId, defaultRegion, ?logger = logger, ?logLevel = logLevel)
-
-
-/// MBrace.Azure extension methods
-[<AutoOpen>]
-module Extensions =
-    
-    type AzureCluster with
-        /// <summary>
-        ///     Connects to supplied MBrace Azure deployment instance.
-        ///     If successful returns a management handle object to the cluster.
-        /// </summary>
-        /// <param name="deployment">MBrace.Azure deployment instance.</param>
-        /// <param name="clientId">MBrace.Azure client instance identifier.</param>
-        /// <param name="faultPolicy">The default fault policy to be used by the cluster. Defaults to NoRetry.</param>
-        /// <param name="logger">Custom logger to attach in client.</param>
-        /// <param name="logLevel">Logger verbosity level.</param>
-        static member Connect(deployment : Deployment, [<O;D(null:obj)>]?clientId : string, [<O;D(null:obj)>]?faultPolicy : FaultPolicy, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) = 
-            AzureCluster.Connect(deployment.Configuration, ?clientId = clientId, ?faultPolicy = faultPolicy, ?logger = logger, ?logLevel = logLevel)
-
-    type AzureBlobStorage with
-        /// <summary>
-        ///      Creates a blob storage client object from given storage account object.
-        /// </summary>
-        /// <param name="account">Azure blob storage account.</param>
-        /// <param name="serializer">Serializer for use with store. Defaults to FsPickler binary serializer.</param>
-        static member FromStorageAccount(account : StorageAccount, [<O;D(null:obj)>]?serializer : ISerializer) =
-            AzureBlobStorage.FromConnectionString(account.ConnectionString, ?serializer = serializer)
