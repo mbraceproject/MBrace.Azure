@@ -35,6 +35,20 @@ let private mkStoreConflictRetryPolicy maxRetries interval =
         elif StoreException.Conflict exn then Some interval
         else None)
 
+/// generic utility function for asynchronous getting of blob segmented APIs
+let getSegmentedAsync (getter : BlobContinuationToken -> Async<BlobContinuationToken * #seq<'T>>) = async {
+    let acc = new ResizeArray<'T> ()
+    let rec aux (token : BlobContinuationToken) = async {
+        let! token', partial = getter token
+        acc.AddRange partial
+        if token' = null then return ()
+        else return! aux token'
+    }
+
+    do! aux null
+    return acc :> seq<'T>
+}
+
 type CloudTable with
     /// CreatesIfNotExistAsync that protects from 409 conflict errors with supplied retry policy
     member table.CreateIfNotExistsAsyncSafe(?retryInterval : int, ?maxRetries : int) =

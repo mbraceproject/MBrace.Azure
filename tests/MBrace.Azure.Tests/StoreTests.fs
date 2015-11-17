@@ -23,6 +23,19 @@ type ``Azure BlobStore Tests``(config : Configuration, localWorkers : int) =
     
     [<TestFixtureTearDown>]
     member __.Fini() = session.Stop()
+
+    [<Test>]
+    member __.``Should correctly support nested subdirectories`` () =
+        cloud {
+            let! fs = CloudStore.FileSystem
+            let dirName = fs.Path.GetRandomDirectoryName()
+            use dir = fs.Directory.Create dirName
+            let subDir = fs.Path.Combine(dirName, "foo", "bar")
+            let file = fs.Path.Combine(subDir, "test.txt")
+            let cf = fs.File.WriteAllText(file, "lorem ipsum dolor sit amet")
+            fs.Directory.Enumerate(dirName).Length |> shouldEqual 1
+            fs.File.Enumerate(subDir).Length |> shouldEqual 1
+        } |> session.Cluster.Run
     
     override __.FileStore = session.Cluster.GetResource<ICloudFileStore>()
     override __.Serializer = session.Cluster.GetResource<ISerializer>()

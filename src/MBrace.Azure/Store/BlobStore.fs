@@ -23,8 +23,8 @@ module private BlobUtils =
         path.StartsWith rootPath || path.StartsWith rootPathAlt
 
     let normalizePath (path : string) =
-        let path = if isPathRooted path then path else Path.Combine(rootPath, path)
-        path.Replace('\\', '/')
+        let normalized = path.Split(delims, StringSplitOptions.RemoveEmptyEntries) |> String.concat "/"
+        "/" + normalized
 
     let ensureRooted (path : string) =
         if isPathRooted path then path else raise <| FormatException(sprintf "Invalid path %A. Paths should start with '/' or '\\'." path)
@@ -52,7 +52,7 @@ module private BlobUtils =
 
             | [|c; x|] -> 
                 Validate.containerName c
-                { Container = Container c; SubDirectory = Some x }
+                { Container = Container c; SubDirectory = Some (x + "/") }
 
             | _ -> raise <| new FormatException(sprintf "Invalid store path %A." path)
 
@@ -106,6 +106,39 @@ module private BlobUtils =
         | Root -> ()
 
         return container.GetBlockBlobReference(path.BlobName)
+    }
+
+    /// Asynchronously lists blob items for given container and prefix
+    let listBlobItemsAsync (container : CloudBlobContainer) (prefix : string option) = async {
+        let fetchSegment (token : BlobContinuationToken) = async {
+            let! segment = async {
+                match prefix with
+                | None -> return! container.ListBlobsSegmentedAsync(token)
+                | Some prefix -> return! container.ListBlobsSegmentedAsync(prefix, token)
+            }
+
+            return segment.ContinuationToken, segment.Results
+        }
+
+        return! getSegmentedAsync fetchSegment
+    }
+
+    let listSubdirBlobsAsync (dir : CloudBlobDirectory) = async {
+        let fetchSegment (token : BlobContinuationToken) = async {
+            let! segment = dir.ListBlobsSegmentedAsync(true, BlobListingDetails.All, Nullable(), token, new BlobRequestOptions(), null) |> Async.AwaitTaskCorrect
+            return segment.ContinuationToken, segment.Results
+        }
+
+        return! getSegmentedAsync fetchSegment
+    }
+
+    let listContainersAsync (client : CloudBlobClient) = async {
+        let fetchSegment (token : BlobContinuationToken) = async {
+            let! (result : ContainerResultSegment) = client.ListContainersSegmentedAsync(token)
+            return result.ContinuationToken, result.Results
+        }
+
+        return! getSegmentedAsync fetchSegment
     }
 
 
@@ -251,22 +284,10 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 let container = normalizePath container
                 let path = StoreDirectory.Parse container
                 let! containerRef = getContainerReference account path.Container
-                let blobs = new ResizeArray<string>()
-                let rec aux (token : BlobContinuationToken) = async {
-                    let! (result : BlobResultSegment) = 
-                        match path.SubDirectory with
-                        | None -> containerRef.ListBlobsSegmentedAsync(token)
-                        | Some prefix -> containerRef.ListBlobsSegmentedAsync(prefix, token)
-                    for blob in result.Results do
-                        match blob with
-                        | :? ICloudBlob as icb -> blobs.Add(icb.Name)
-                        | _ -> ()
-                    if result.ContinuationToken = null then return ()
-                    else return! aux result.ContinuationToken
-                }
-                do! aux null
+                let! listedBlobs = listBlobItemsAsync containerRef path.SubDirectory
                 return 
-                    blobs
+                    listedBlobs
+                    |> Seq.choose (function :? ICloudBlob as cb -> Some cb.Name | _ -> None)
                     |> Seq.map (fun b -> this.Combine(container, b))
                     |> Seq.map normalizePath
                     |> Seq.toArray
@@ -311,7 +332,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let container = normalizePath container
             let path = StoreDirectory.Parse container
             match path with
-            | { Container = Root; SubDirectory = _ } -> failwith "Deleting root directory not supported."
+            | { Container = Root; SubDirectory = _ } -> return invalidArg "container" "Cannot delete the root container."
             | { Container = c; SubDirectory = None } ->
                 let! container = getContainerReference account c
                 let! _ = container.DeleteIfExistsAsync()
@@ -319,7 +340,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             | { Container = c; SubDirectory = Some s } ->
                 let! container = getContainerReference account c
                 let sub = container.GetDirectoryReference(s)
-                let blobs = sub.ListBlobs(true)
+                let! blobs = listSubdirBlobsAsync sub
                 do! blobs |> Seq.map (fun b -> async {
                         let p = b.Uri.Segments |> Array.last
                         let! blob = getBlobReference account (normalizePath <| Path.Combine(container.Name,p))
@@ -336,11 +357,18 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 let path = StoreDirectory.Parse directory
                 match path with
                 | { Container = Root; SubDirectory = _ } ->
-                    let client = account.BlobClient
-                    return client.ListContainers() 
-                            |> Seq.map (fun c -> normalizePath c.Name)
-                            |> Seq.toArray
-                | { Container = _; SubDirectory = _ } -> return! Async.Raise <| NotImplementedException()
+                    let! containers = listContainersAsync account.BlobClient
+                    return containers |> Seq.map (fun c -> normalizePath c.Name) |> Seq.toArray
+
+                | { Container = (Container cnt as c) ; SubDirectory = subdir } -> 
+                    let! cref = getContainerReference account c
+                    let! listedEntries = listBlobItemsAsync cref subdir
+                    return
+                        listedEntries
+                        |> Seq.choose (function :? CloudBlobDirectory as d -> Some d | _ -> None)
+                        |> Seq.map (fun d -> normalizePath <| Path.Combine(cnt, d.Prefix))
+                        |> Seq.toArray
+
             with e when StoreException.NotFound e ->
                 return raise <| new DirectoryNotFoundException(directory, e)
         }
