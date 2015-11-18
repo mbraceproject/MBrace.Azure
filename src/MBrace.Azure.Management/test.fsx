@@ -32,7 +32,10 @@ deployment.ShowInstanceInfo()
 
 deployment.AwaitProvision()
 
+deployment.Resize(vmCount = 6) // resizes the vm count
+
 deployment.Delete() // *deletes* the Azure deployment
+
 
 // Completed, now test the cluster using MBrace
 

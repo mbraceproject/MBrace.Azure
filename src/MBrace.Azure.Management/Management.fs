@@ -35,9 +35,14 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     member __.ServiceName = serviceName
     /// MBrace.Azure configuration object for deployment.
     /// Used for initializing AzureCluster objects.
-    member __.Configuration = deployment.Value.Configuration
+    member __.Configuration = 
+        let d = deployment.Value
+        new Configuration(d.StorageAccount.ConnectionString, d.ServiceBusAccount.ConnectionString)
+
     /// Gets the current instance information for the cloud service
     member __.Nodes = deployment.Value.VMInstances
+    /// Numbers of VM instances currently in the deployment
+    member __.InstanceCount = deployment.Value.VMInstances.Length
     /// Time of current cloud service creation
     member __.CreatedTime = deployment.Value.CreatedTime
     /// Current deployment Status
@@ -72,6 +77,23 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     member __.DeleteAsync() = Compute.deleteMBraceDeployment logger serviceName client
     /// Deletes deployment from Azure
     member __.Delete() = __.DeleteAsync() |> Async.RunSync
+
+
+    /// <summary>
+    ///     Asynchronously resizes the given deployment instance count (scale-out).
+    /// </summary>
+    /// <param name="vmCount">New instance count.</param>
+    member __.ResizeAsync(vmCount : int) = async {
+        if vmCount < 0 then invalidArg "vmCount" "must be a non-negative value"
+        do! Compute.resizeDeployment logger serviceName vmCount client
+    }
+
+    /// <summary>
+    ///     Resizes the given deployment instance count (scale-out).
+    /// </summary>
+    /// <param name="vmCount">New instance count.</param>
+    member __.Resize(vmCount : int) =
+        __.ResizeAsync(vmCount) |> Async.RunSync
 
     /// <summary>
     ///     Asynchronously waits until provisioning of deployment has completed
@@ -325,6 +347,7 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
         let enableDiagnostics = defaultArg enableDiagnostics false
         let region = defaultArg region defaultRegion
         let vmSize = defaultArg vmSize VMSize.Medium
+
         let serviceName = match serviceName with None -> Common.generateResourceName() | Some sn -> sn
         do! Infrastructure.checkCompatibility region vmSize client
         do! Compute.validateServiceName client serviceName
@@ -337,11 +360,8 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
         let! serviceBusAccount = ServiceBus.getDeploymentServiceBusAccount logger region serviceBusAccount client
         let! storageAccount = storageAccountT
 
-        let config = Compute.buildMBraceConfig serviceName vmCount enableDiagnostics storageAccount serviceBusAccount
-
-        let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %s"  serviceName (defaultArg versionInfo "custom"))
-        let! deployInfo = Compute.prepareMBraceServiceDeployment logger serviceName clusterLabel region packagePath config storageAccount serviceBusAccount client
-        do! Compute.beginDeploy false deployInfo client
+        let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %A"  serviceName (defaultArg versionInfo "custom"))
+        do! Compute.createDeployment logger serviceName clusterLabel region packagePath false enableDiagnostics vmCount storageAccount serviceBusAccount client
         return new Deployment(client, serviceName, logger)
     }
 
@@ -409,6 +429,24 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
     /// <param name="serviceName">Cloud service name of deployment.</param>
     member __.DeleteDeployment(serviceName : string) =
         __.DeleteDeploymentAsync(serviceName) |> Async.RunSync
+
+    /// <summary>
+    ///     Asynchronously resizes deployment of given name to supplied instance count (scale out).
+    /// </summary>
+    /// <param name="serviceName">Service name identifier.</param>
+    /// <param name="vmCount">New VM instance count.</param>
+    member __.ResizeDeploymentAsync(serviceName : string, vmCount : int) = async {
+        let! deployment = __.GetDeploymentAsync(serviceName)
+        return! deployment.ResizeAsync(vmCount)
+    }
+
+    /// <summary>
+    ///     Asynchronously resizes deployment of given name to supplied instance count (scale out).
+    /// </summary>
+    /// <param name="serviceName">Service name identifier.</param>
+    /// <param name="vmCount">New VM instance count.</param>
+    member __.ResizeDeployment(serviceName : string, vmCount : int) =
+        __.ResizeDeploymentAsync(serviceName, vmCount) |> Async.RunSync
 
     /// <summary>
     ///     Prints a report on deployments to stdout.

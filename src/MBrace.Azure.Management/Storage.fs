@@ -102,7 +102,7 @@ module internal Storage =
             let! clusters = Compute.getRunningDeployments client
             let! accounts = accountsT
 
-            let activeAccounts = clusters |> Seq.map (fun dI -> dI.Configuration.StorageAccount) |> set
+            let activeAccounts = clusters |> Seq.map (fun dI -> dI.StorageAccount.AccountName) |> set
             match accounts |> Array.tryFind (not << activeAccounts.Contains) with
             | Some inactiveAccount -> 
                 logger.Logf LogLevel.Info "reusing inactive storage account %A" inactiveAccount

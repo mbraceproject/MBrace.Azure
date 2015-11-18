@@ -45,7 +45,7 @@ module internal Compute =
                 Field.create "#Instances" Left (fun d -> if Array.isEmpty d.VMInstances then "N/A" else string d.VMInstances.Length)
                 Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
                 Field.create "Deployment Status" Left (fun d -> d.DeploymentState)
-                Field.create "Created Time" Left (fun d -> d.CreatedTime.LocalDateTime) 
+                Field.create "Last Modified" Left (fun d -> d.LastModified.LocalDateTime) 
             ]
 
         static member Report(deployments : DeploymentInfo list, ?title : string) =
@@ -131,17 +131,15 @@ module internal Compute =
 
         if properties.ExtendedProperties |> Common.isMBraceAsset then
             let! deployment = deploymentT
-            let config =
-                let storageConnectionString = properties.ExtendedProperties.["StorageConnectionString"]
-                let serviceBusConnectionString = properties.ExtendedProperties.["ServiceBusConnectionString"]
-                new Configuration(storageConnectionString, serviceBusConnectionString)
-
+            let storageAccount = properties.ExtendedProperties.["StorageConnectionString"] |> StorageAccount.FromConnectionString
+            let serviceBusAccount = properties.ExtendedProperties.["ServiceBusConnectionString"] |> ServiceBusAccount.FromConnectionString
             let nodes =
                 match deployment with
                 | Choice2Of2 _ -> [||]
                 | Choice1Of2 d -> 
                     d.RoleInstances 
                     |> Seq.map (fun i -> { Id = i.InstanceName ; IPAddress = i.IPAddress.ToString() ; VMSize = VMSize.Define i.InstanceSize ; Status = i.InstanceStatus }) 
+                    |> Seq.sortBy (fun r -> r.Id)
                     |> Seq.toArray
 
             let state = getDeploymentState (match deployment with Choice1Of2 d -> Some d.Status | _ -> None) nodes
@@ -150,9 +148,11 @@ module internal Compute =
                 {  
                     Name = serviceName
                     CreatedTime = new DateTimeOffset(properties.DateCreated)
+                    LastModified = new DateTimeOffset(properties.DateLastModified)
                     ServiceStatus = string properties.Status
                     DeploymentState = state
-                    Configuration = config
+                    StorageAccount = storageAccount
+                    ServiceBusAccount = serviceBusAccount
                     VMInstances = nodes 
                     Region = Region.Define properties.Location
                 }
@@ -193,10 +193,19 @@ module internal Compute =
     </Role>
 </ServiceConfiguration>""" serviceName instances storageAccount.ConnectionString serviceBusAccount.ConnectionString (if useDiagnostics then storageAccount.ConnectionString else "")
 
-    let prepareMBraceServiceDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
-                                        (region : Region) (packagePath : string) (config : string) 
-                                        (storageAccount : StorageAccount) (serviceBusAccount : ServiceBusAccount) 
-                                        (client:SubscriptionClient) = async {
+    let createDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
+                            (region : Region) (packagePath : string) (useStaging : bool) (enableDiagnostics : bool) (instanceCount : int)
+                            (storageAccount : StorageAccount) (serviceBusAccount : ServiceBusAccount) 
+                            (client:SubscriptionClient) = async {
+
+        let! container = getDeploymentContainer storageAccount
+        let packageBlobName = sprintf "%s-%s-%x" (Path.GetFileName packagePath) (getFileHash packagePath) (FileInfo(packagePath).Length)
+        let packageBlob = container.GetBlockBlobReference packageBlobName
+
+        let! blobExists = packageBlob.ExistsAsync()
+        if not blobExists then
+            logger.Logf LogLevel.Info "uploading cloud service package package %A" packagePath
+            do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open)
 
         let extendedProperties =
             dict [
@@ -207,34 +216,40 @@ module internal Compute =
                 yield ("ServiceBusConnectionString", serviceBusAccount.ConnectionString)
             ]
 
-        logger.Logf LogLevel.Info "creating cloud service %s" serviceName
+        let config = buildMBraceConfig serviceName instanceCount enableDiagnostics storageAccount serviceBusAccount
+        logger.Logf LogLevel.Info "creating cloud service %A" serviceName
         let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties))
+        let deployParams = 
+            DeploymentCreateParameters(
+                Label = clusterLabel,
+                Name = serviceName,
+                PackageUri = packageBlob.Uri,
+                Configuration = config,
+                StartDeployment = Nullable true,
+                TreatWarningsAsError = Nullable true)
 
-        let! container = getDeploymentContainer storageAccount
-        let packageBlobName = sprintf "%s-%s-%x" (Path.GetFileName packagePath) (getFileHash packagePath) (FileInfo(packagePath).Length)
-        let packageBlob = container.GetBlockBlobReference packageBlobName
-
-        let! blobExists = packageBlob.ExistsAsync()
-        if not blobExists then
-            logger.Logf LogLevel.Info "uploading package %A" packagePath
-            do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open)
-        
-        logger.Logf LogLevel.Info "scheduling cluster creation:\n  cluster %s\n  package uri %s\n  config %s" serviceName (packageBlob.Uri.ToString()) config
-        return DeploymentCreateParameters(
-            Label = clusterLabel,
-            Name = serviceName,
-            PackageUri = packageBlob.Uri,
-            Configuration = config,
-            StartDeployment = Nullable true,
-            TreatWarningsAsError = Nullable true)
-        }
-
-    let beginDeploy (useStaging : bool) (deployParams : DeploymentCreateParameters) (client : SubscriptionClient) = async {
         let slot = if useStaging then DeploymentSlot.Staging else DeploymentSlot.Production
+        logger.Logf LogLevel.Info "starting deployment %A using slot %A with package %A" deployParams.Name (string slot) (string deployParams.PackageUri)
         let! (createOp : AzureOperationResponse) = client.Compute.Deployments.BeginCreatingAsync(deployParams.Name, slot, deployParams)
         if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
             return invalidOp <| sprintf "error: HTTP request for creation operation %A was not accepted (status code: %O)" deployParams.Name createOp.StatusCode
-    }  
+
+    }
+
+    let resizeDeployment (logger : ISystemLogger) (serviceName : string) (newCount : int) (client : SubscriptionClient) = async {
+        let! info = tryGetRunningDeployment client serviceName
+        match info with
+        | None -> invalidOp <| sprintf "could not find deployment under %A" serviceName
+        | Some di when di.VMInstances.Length = newCount ->
+            logger.Logf LogLevel.Info "deployment %A already containing %d instances, no update needed." serviceName newCount
+            return ()
+        | Some di ->
+            let newConfiguration = buildMBraceConfig serviceName newCount true di.StorageAccount di.ServiceBusAccount
+            let changeParams = new DeploymentChangeConfigurationParameters(Configuration = newConfiguration)
+            let! (changeOp : AzureOperationResponse) = client.Compute.Deployments.BeginChangingConfigurationByNameAsync(serviceName, serviceName, changeParams)
+            if changeOp.StatusCode <> Net.HttpStatusCode.Accepted then
+                return invalidOp <| sprintf "error: HTTP request for change operation %A was not accepted (status code: %O)" serviceName changeOp.StatusCode
+    }
 
     let deleteMBraceDeployment (logger : ISystemLogger) (serviceName:string) (client:SubscriptionClient) = async {
         let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync serviceName

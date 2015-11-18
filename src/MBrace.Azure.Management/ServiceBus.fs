@@ -103,7 +103,7 @@ module internal ServiceBus =
             let! clusters = Compute.getRunningDeployments client
             let! accounts = accountsT
 
-            let activeAccounts = clusters |> Seq.map (fun dI -> dI.Configuration.ServiceBusAccount) |> set
+            let activeAccounts = clusters |> Seq.map (fun dI -> dI.ServiceBusAccount.AccountName) |> set
             match accounts |> Array.tryFind (not << activeAccounts.Contains) with
             | Some inactiveAccount -> 
                 logger.Logf LogLevel.Info "reusing inactive service bus account %A" inactiveAccount

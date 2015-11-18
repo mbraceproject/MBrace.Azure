@@ -48,6 +48,9 @@ deployment.ShowInfo()
 // track deployment instance status
 deployment.ShowInstanceInfo()
 
+// resize the deployment vms
+deployment.Resize(vmCount = 6)
+
 // *deletes* the deployed cluster
 deployment.Delete() 
 
