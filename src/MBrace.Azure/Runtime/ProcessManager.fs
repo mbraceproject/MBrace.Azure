@@ -21,12 +21,14 @@ type CloudProcessManager private (clusterId : ClusterId, logger : ISystemLogger)
     interface ICloudProcessManager with
         member this.ClearProcess(taskId: string): Async<unit> = async {
             let record = new CloudProcessRecord(taskId)
+            record.ToCloudProcessInfo().CancellationTokenSource.Cancel()
             record.ETag <- "*"
             return! Table.delete clusterId.StorageAccount clusterId.RuntimeTable record // TODO : perform full cleanup?
         }
         
         member this.ClearAllProcesses(): Async<unit> = async {
             let! records = Table.queryPK<CloudProcessRecord> clusterId.StorageAccount clusterId.RuntimeTable CloudProcessRecord.DefaultPartitionKey
+            for r in records do r.ToCloudProcessInfo().CancellationTokenSource.Cancel()
             return! Table.deleteBatch clusterId.StorageAccount clusterId.RuntimeTable records
         }
         
