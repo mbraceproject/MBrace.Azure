@@ -14,6 +14,11 @@ open MBrace.Azure.Runtime
 /// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 
+/// Static configuration for MBrace.Azure.Management
+type Config private () =
+    /// Gets or sets the default logger used by the current processs
+    static member val DefaultLogger = new NullLogger() :> ISystemLogger with get, set
+
 /// Represents an Azure service deployment handle object
 [<Sealed; AutoSerializable(false)>]
 type Deployment internal (client : SubscriptionClient, serviceName : string, logger : ISystemLogger) =
@@ -264,10 +269,10 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscription
 [<Sealed; AutoSerializable(false)>]
-type DeploymentManager private (client : SubscriptionClient, defaultRegion : Region, _logger : ISystemLogger option, logLevel : LogLevel) =
+type SubscriptionManager private (client : SubscriptionClient, defaultRegion : Region, _logger : ISystemLogger, logLevel : LogLevel) =
 
     let logger = AttacheableLogger.Create(logLevel, makeAsynchronous = false)
-    do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
+    let _ = logger.AttachLogger _logger
 
     let mutable defaultRegion = defaultRegion
 
@@ -312,9 +317,9 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
     /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
-    member __.DeployAsync(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize,  
-                            [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
-                            [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) : Async<Deployment> = async {
+    member __.ProvisionAsync(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize,  
+                                [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
+                                [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) : Async<Deployment> = async {
 
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
         let enableDiagnostics = defaultArg enableDiagnostics false
@@ -353,10 +358,10 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
     /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
-    member __.Deploy(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize, 
+    member __.Provision(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize, 
                         [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
                         [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) =
-        __.DeployAsync(vmCount, ?serviceName = serviceName, ?region = region, ?mbraceVersion = mbraceVersion, ?vmSize = vmSize,
+        __.ProvisionAsync(vmCount, ?serviceName = serviceName, ?region = region, ?mbraceVersion = mbraceVersion, ?vmSize = vmSize,
                                 ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, 
                                 ?serviceLabel = serviceLabel, ?enableDiagnostics = enableDiagnostics)
         |> Async.RunSync
@@ -425,31 +430,40 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
     static member Create(subscription : Subscription, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
+        let logger = defaultArg logger Config.DefaultLogger
         let logLevel = defaultArg logLevel LogLevel.Info
         let client = SubscriptionClient.Activate(subscription)
-        new DeploymentManager(client, defaultRegion, logger, logLevel = logLevel)
+        new SubscriptionManager(client, defaultRegion, logger, logLevel = logLevel)
 
     /// <summary>
     ///     Creates a new subscription manager instance using supplied set of Azure subscriptions
     /// </summary>
     /// <param name="publishSettings">Parsed PublishSettings record.</param>
-    /// <param name="subscriptionId">Subscription identifier to be used by the manager instance.</param>
     /// <param name="defaultRegion">Default Azure region for deployments.</param>
+    /// <param name="subscriptionId">Subscription identifier to be used by the manager instance. Must be specified if pubsettings defines more than one subscription.</param>
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member FromPublishSettings(publishSettings : PublishSettings, subscriptionId : string, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
-        let subscription = publishSettings.GetSubscriptionById subscriptionId
-        DeploymentManager.Create(subscription, defaultRegion, ?logger = logger, ?logLevel = logLevel)
+    static member FromPublishSettings(publishSettings : PublishSettings, defaultRegion : Region, [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
+        let subscription =
+            match subscriptionId with
+            | Some id -> publishSettings.GetSubscriptionById id
+            | None -> 
+                match publishSettings.Subscriptions with
+                | [||] -> invalidArg "publishSettingsFile" "PublishSettings file must define at least one Azure subscription."
+                | [|s|] -> s
+                | _ -> invalidArg "subscriptionId" "PublishSettings declares multiple subscriptions but no 'subscriptionId' parameter has been specified."
+
+        SubscriptionManager.Create(subscription, defaultRegion, ?logger = logger, ?logLevel = logLevel)
 
 
     /// <summary>
     ///     Creates a new subscription manager instance using local Azure PublishSettings file.
     /// </summary>
     /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
-    /// <param name="subscriptionId">Subscription identifier to be used by the manager instance.</param>
     /// <param name="defaultRegion">Default Azure region for deployments.</param>
+    /// <param name="subscriptionId">Subscription identifier to be used by the manager instance. Must be specified if pubsettings defines more than one subscription.</param>
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member FromPublishSettingsFile(publishSettingsFile : string, subscriptionId : string, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
+    static member FromPublishSettingsFile(publishSettingsFile : string, defaultRegion : Region, [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
         let pubSettings = PublishSettings.ParseFile publishSettingsFile
-        DeploymentManager.FromPublishSettings(pubSettings, subscriptionId, defaultRegion, ?logger = logger, ?logLevel = logLevel)
+        SubscriptionManager.FromPublishSettings(pubSettings, defaultRegion, ?subscriptionId = subscriptionId, ?logger = logger, ?logLevel = logLevel)

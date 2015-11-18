@@ -19,3 +19,5 @@
 #r "MBrace.Azure.Management.dll"
 
 open MBrace.Azure.Management
+
+Config.DefaultLogger <- new ConsoleLogger()

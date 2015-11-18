@@ -33,14 +33,14 @@ let getLocalCspkg () : string =
 // Instantiate a deployment manager instance
 let publishSettings = PublishSettings.ParseFile publishSettingsFile
 let subscription = publishSettings.GetSubscriptionById subscriptionName
-let manager = DeploymentManager.Create(subscription, defaultRegion, logger = new ConsoleLogger())
+let manager = SubscriptionManager.Create(subscription, defaultRegion, logger = new ConsoleLogger())
 
 // Get info on the current MBrace deployments
 manager.ShowDeployments()
 
 // Begin deploying your local .cspkg to a new cloud service
 // VM size can be changed by updating the worker role settings and rebuilding the solution
-let deployment = manager.Deploy(vmCount = 4, cloudServicePackage = getLocalCspkg())
+let deployment = manager.Provision(vmCount = 4, cloudServicePackage = getLocalCspkg())
 
 // track the deployment status
 deployment.ShowInfo()
