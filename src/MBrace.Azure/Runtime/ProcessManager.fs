@@ -51,4 +51,4 @@ type CloudProcessManager private (clusterId : ClusterId, logger : ISystemLogger)
             if record = null then return None else return Some(new CloudProcessEntry(clusterId, taskId, record.ToCloudProcessInfo()) :> ICloudProcessEntry)
         }
 
-    static member Create(clusterId : ClusterId, logger) = new CloudProcessManager(clusterId, logger)
+    static member Create(clusterId : ClusterId, logger: ISystemLogger) = new CloudProcessManager(clusterId, logger)
