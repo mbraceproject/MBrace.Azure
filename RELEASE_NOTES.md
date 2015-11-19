@@ -1,3 +1,7 @@
+### 1.1.0
+* Refactorings and improvements to MBrace.Azure.Management.
+* Misc bugfixes.
+
 ### 1.0.0
 * 1.0 Release
 
