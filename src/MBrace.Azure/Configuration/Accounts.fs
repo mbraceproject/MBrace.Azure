@@ -257,7 +257,7 @@ type AzureServiceBusAccount private (data: ServiceBusAccountData) =
         AzureServiceBusAccount.FromConnectionString conn
 
     /// <summary>
-    ///     Attempt to parse service bus namespaces of format 'sb://account.servicebus.windows.net/',
+    ///     Attempt to parse service bus namespaces of format 'sb://&lt;account&gt;.servicebus.windows.net/',
     ///     returning the account name.
     /// </summary>
     /// <param name="servicebusNamespace"></param>
