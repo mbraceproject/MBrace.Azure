@@ -144,8 +144,12 @@ type StorageAccount internal (inner : AzureStorageAccount) =
     member __.AccountKey = inner.AccountKey
     member __.ConnectionString = inner.ConnectionString
     member internal __.Inner = inner
-    static member FromConnectionString(conn : string) =
-        new StorageAccount(AzureStorageAccount.FromConnectionString conn)
+    /// <summary>
+    ///     Parses storage account using provided connection string
+    /// </summary>
+    /// <param name="connectionString">Azure storage connection string</param>
+    static member FromConnectionString(connectionString : string) =
+        new StorageAccount(AzureStorageAccount.FromConnectionString connectionString)
 
 /// Azure Service Bus Account descriptor
 [<Sealed; AutoSerializable(false)>]
@@ -154,8 +158,12 @@ type ServiceBusAccount internal (inner : AzureServiceBusAccount) =
     member __.AccountKey = inner.AccountKey
     member __.ConnectionString = inner.ConnectionString
     member internal __.Inner = inner
-    static member FromConnectionString(conn : string) =
-        new ServiceBusAccount(AzureServiceBusAccount.FromConnectionString conn)
+    /// <summary>
+    ///     Parses service bus account using provided connection string
+    /// </summary>
+    /// <param name="connectionString">Azure service bus connection string</param>
+    static member FromConnectionString(connectionString : string) =
+        new ServiceBusAccount(AzureServiceBusAccount.FromConnectionString connectionString)
 
 
 /// Represents an Azure VM instance

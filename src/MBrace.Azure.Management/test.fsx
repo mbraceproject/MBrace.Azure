@@ -24,7 +24,7 @@ let manager = SubscriptionManager.Create(subscription, Region.West_Europe, logge
 manager.ShowDeployments()
 
 let deployment = manager.Provision(serviceName = "eiriktest", vmCount = 4, cloudServicePackage = getLocalCspkg()) // deploy from local cspkg
-//let deployment = manager.Deploy(serviceName = "eiriktest", vmCount = 4, vmSize = VMSize.A3) // deploy from github
+//let deployment = manager.Provision(serviceName = "eiriktest", vmCount = 4, vmSize = VMSize.A3) // deploy from github
 //let deployment = manager.GetDeployment(serviceName = "eiriktest") // fetch an already existing deployment
 
 deployment.ShowInfo()
@@ -32,7 +32,7 @@ deployment.ShowInstanceInfo()
 
 deployment.AwaitProvision()
 
-deployment.Resize(vmCount = 6) // resizes the vm count
+deployment.Resize(vmCount = 2) // resizes the vm count
 
 deployment.Delete() // *deletes* the Azure deployment
 
@@ -45,5 +45,5 @@ open MBrace.Core
 let cluster = AzureCluster.Connect(deployment, logger = ConsoleLogger())
 
 cluster.ShowWorkers()
-cluster.Run(cloud { return System.Environment.MachineName })
+cluster.Run(Cloud.ParallelEverywhere Cloud.CurrentWorker)
 cluster.ShowProcesses()
