@@ -36,6 +36,7 @@ deployment.Resize(vmCount = 2) // resizes the vm count
 
 deployment.Delete() // *deletes* the Azure deployment
 
+manager.Storage.ShowAccounts() // show storage accounts
 
 // Completed, now test the cluster using MBrace
 
