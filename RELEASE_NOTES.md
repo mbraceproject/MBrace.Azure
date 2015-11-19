@@ -1,3 +1,6 @@
+### 1.1.1
+* Fix packaging issue.
+
 ### 1.1.0
 * Refactorings and improvements to MBrace.Azure.Management.
 * Misc bugfixes.
