@@ -32,16 +32,13 @@ Follow the instructions below to install the required Azure connection strings i
 ### Provisioning an MBrace.Azure Service
 
 Follow the instructions below to deploy an MBrace Service to Azure:
-  1. From inside Visual Studio, navigate to `samples/MBrace.Azure.CloudService`.
-  2. Expand the `Roles` folder and double click on `MBrace.Azure.WorkerRole`.
-  3. In the `Configuration` tab, select your desired instance count and VM size.
-  4. In the `Settings` tab, Select `Cloud` from the `Service Configuration` drop-down.
-  5. Fill in the `MBrace.StorageConnectionString` and `MBrace.ServiceBusConnectionString` settings with your connection strings.
-  6. Close the Role menu and right click on the `MBrace.Azure.CloudService` icon on your solution, selecting the `Publish..` option.
-  7. Follow the on-screen instructions. In the `Common Settings` tab either select `Debug_AzureSDK` or `Release_AzureSDK` in the `Build Configuration` drop-down.
-  8. Complete the on-screen instructions and hit the `Publish` button.
-  9. It should take approximately 5 minutes for Azure to deploy your cloud service.
-  10. Go to [`samples/sample.fsx`](samples/sample.fsx) and start deploying MBrace code to your Azure cluster.
+  1. Sign up for an [Azure account](https://azure.microsoft.com/en-us/) and [download your publication settings file](https://manage.windowsazure.com/publishsettings).
+  2. From inside Visual Studio, navigate to `src/WorkerRole/MBrace.Azure.CloudService`.
+  3. Expand the `Roles` folder and double click on `MBrace.Azure.WorkerRole`.
+  4. In the `Configuration` tab, select your desired VM size.
+  5. Close the Role menu and right click on the `MBrace.Azure.CloudService` icon on your solution, selecting the `Package..` option.
+  6. Under `Build Configuration`, select either `Debug_AzureSDK` or `Release_AzureSDK` and hit `Package`.
+  10. Go to [`samples/provision.fsx`](samples/provision.fsx) and follow the instructions there.
 
 ### Unit Tests
 
