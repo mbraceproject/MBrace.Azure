@@ -1,3 +1,6 @@
+### 1.1.2
+* Fix packaging issues.
+
 ### 1.1.1
 * Fix packaging issue.
 
