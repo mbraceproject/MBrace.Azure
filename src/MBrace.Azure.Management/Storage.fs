@@ -76,14 +76,35 @@ module internal Storage =
     }
 
     /// Resolves storage account auth info of given id
-    let resolveStorageAccount (accountId : string) (client:SubscriptionClient) = async {
-        match AzureStorageAccount.TryFromConnectionString accountId with
-        | Some account -> return new MStorageAccount(account)
-        | None ->
-            // input identifier as account name, recover connection string from Storage Account client
-            let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync accountId
-            let account = AzureStorageAccount.FromCredentials(accountId, keys.PrimaryKey)
-            return new MStorageAccount(account)
+    let resolveStorageAccount (logger : ISystemLogger) (verify : Region option) (accountId : string) (client:SubscriptionClient) = async {
+        let! account = async {
+            match AzureStorageAccount.TryFromConnectionString accountId with
+            | Some account -> return account
+            | None ->
+                // input identifier as account name, recover connection string from Storage Account client
+                let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync accountId
+                let account = AzureStorageAccount.FromCredentials(accountId, keys.PrimaryKey)
+                return account
+        }
+
+        match verify with
+        | None -> ()
+        | Some region ->
+            try
+                let! (info : StorageAccountGetResponse) = client.Storage.StorageAccounts.GetAsync account.AccountName
+                if info.StatusCode <> System.Net.HttpStatusCode.OK then
+                    logger.Logf LogLevel.Warning "Storage account %A does not correspond to subscription %A" account.AccountName client.Subscription.Name
+                elif
+                    [|  info.StorageAccount.Properties.Location
+                        info.StorageAccount.Properties.GeoPrimaryRegion
+                        info.StorageAccount.Properties.GeoSecondaryRegion |] |> Array.forall ((<>) region.Id) 
+                then
+                    logger.Logf LogLevel.Warning "Storage account %A does not correspond to region %A. Please consider using a collocated storage account." account.AccountName region.Id
+
+            with _ ->
+                logger.Logf LogLevel.Warning "Storage account %A does not correspond to subscription %A" account.AccountName client.Subscription.Name
+
+        return new MStorageAccount(account)
     }
 
     /// Creates or resolves supplied storage account for an Azure deployment
@@ -91,7 +112,7 @@ module internal Storage =
         match storageAccount with
         | Some account -> 
             // parse and validate storage account info
-            let! account = resolveStorageAccount account client
+            let! account = resolveStorageAccount logger (Some region) account client
             logger.Logf LogLevel.Info "using user-supplied storage account %A" account.AccountName
             return account
 
@@ -106,12 +127,12 @@ module internal Storage =
             match accounts |> Array.tryFind (not << activeAccounts.Contains) with
             | Some inactiveAccount -> 
                 logger.Logf LogLevel.Info "reusing inactive storage account %A" inactiveAccount
-                return! resolveStorageAccount inactiveAccount client
+                return! resolveStorageAccount logger None inactiveAccount client
 
             | None ->
                 // no inactive storage account, automatically create a new one
                 let accountName = Common.generateResourceName()
                 logger.Logf LogLevel.Info "creating new storage account %A" accountName
                 let! accountName = createMBraceStorageAccount logger region accountName client
-                return! resolveStorageAccount accountName client
+                return! resolveStorageAccount logger None accountName client
     }

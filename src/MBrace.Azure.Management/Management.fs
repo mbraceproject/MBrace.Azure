@@ -128,9 +128,9 @@ type StorageManager internal (getParentInfo : unit -> ISystemLogger * Subscripti
     /// </summary>
     /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
     member __.GetAccountsAsync([<O;D(null:obj)>]?region : Region) = async {
-        let _,client,_ = getParentInfo()
+        let logger,client,_ = getParentInfo()
         let! accountInfo = Storage.listAllStorageAccounts region client
-        return! accountInfo |> Seq.map (fun aI -> Storage.resolveStorageAccount aI.Name client) |> Async.Parallel
+        return! accountInfo |> Seq.map (fun aI -> Storage.resolveStorageAccount logger None aI.Name client) |> Async.Parallel
     }
 
     /// <summary>
@@ -145,8 +145,8 @@ type StorageManager internal (getParentInfo : unit -> ISystemLogger * Subscripti
     /// </summary>
     /// <param name="accountName">Account name identifier.</param>
     member __.GetAccountAsync(accountName : string) : Async<StorageAccount> = async {
-        let _,client,_ = getParentInfo()
-        return! Storage.resolveStorageAccount accountName client
+        let logger,client,_ = getParentInfo()
+        return! Storage.resolveStorageAccount logger None accountName client
     }
 
     /// <summary>
@@ -165,7 +165,7 @@ type StorageManager internal (getParentInfo : unit -> ISystemLogger * Subscripti
         let logger, client, defaultRegion = getParentInfo()
         let region = defaultArg region defaultRegion
         let! accountName = Storage.createMBraceStorageAccount logger region accountName client
-        return! Storage.resolveStorageAccount accountName client
+        return! Storage.resolveStorageAccount logger None accountName client
     }
 
     /// <summary>
@@ -213,9 +213,9 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
     /// </summary>
     /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
     member __.GetAccountsAsync([<O;D(null:obj)>]?region : Region) = async {
-        let _,client,_ = getParentInfo()
+        let logger,client,_ = getParentInfo()
         let! accountInfo = ServiceBus.listAllServiceBusAccounts region client
-        return! accountInfo |> Seq.map (fun aI -> ServiceBus.resolveServiceBusAccount aI.Name client) |> Async.Parallel
+        return! accountInfo |> Seq.map (fun aI -> ServiceBus.resolveServiceBusAccount logger None aI.Name client) |> Async.Parallel
     }
 
     /// <summary>
@@ -230,8 +230,8 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
     /// </summary>
     /// <param name="accountName">Account name identifier.</param>
     member __.GetAccountAsync(accountName : string) : Async<ServiceBusAccount> = async {
-        let _,client,_ = getParentInfo()
-        return! ServiceBus.resolveServiceBusAccount accountName client
+        let logger,client,_ = getParentInfo()
+        return! ServiceBus.resolveServiceBusAccount logger None accountName client
     }
 
     /// <summary>
@@ -250,7 +250,7 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
         let logger, client, defaultRegion = getParentInfo()
         let region = defaultArg region defaultRegion
         let! accountName = ServiceBus.createServiceBusAccount logger region accountName client
-        return! ServiceBus.resolveServiceBusAccount accountName client
+        return! ServiceBus.resolveServiceBusAccount logger None accountName client
     }
 
     /// <summary>
