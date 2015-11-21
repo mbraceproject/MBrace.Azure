@@ -1,3 +1,6 @@
+### 1.1.4
+* Add locality checks for storage and service bus accounts.
+
 ### 1.1.3
 * Minor fixes.
 
