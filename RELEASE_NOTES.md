@@ -1,3 +1,6 @@
+### 1.1.5
+* Enable elevated permissions in default cloud service definition.
+
 ### 1.1.4
 * Add locality checks for storage and service bus accounts.
 
