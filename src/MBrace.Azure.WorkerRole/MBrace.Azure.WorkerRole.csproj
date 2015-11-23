@@ -55,7 +55,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
+    <Content Include="GCSettingsManagement.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <None Include="paket.references" />
+    <Content Include="ServerGC.cmd">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\MBrace.Azure\MBrace.Azure.fsproj">
