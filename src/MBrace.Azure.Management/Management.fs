@@ -14,6 +14,11 @@ open MBrace.Azure.Runtime
 /// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
 
+/// Static configuration for MBrace.Azure.Management
+type Config private () =
+    /// Gets or sets the default logger used by the current processs
+    static member val DefaultLogger = new NullLogger() :> ISystemLogger with get, set
+
 /// Represents an Azure service deployment handle object
 [<Sealed; AutoSerializable(false)>]
 type Deployment internal (client : SubscriptionClient, serviceName : string, logger : ISystemLogger) =
@@ -30,9 +35,14 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     member __.ServiceName = serviceName
     /// MBrace.Azure configuration object for deployment.
     /// Used for initializing AzureCluster objects.
-    member __.Configuration = deployment.Value.Configuration
+    member __.Configuration = 
+        let d = deployment.Value
+        new Configuration(d.StorageAccount.ConnectionString, d.ServiceBusAccount.ConnectionString)
+
     /// Gets the current instance information for the cloud service
     member __.Nodes = deployment.Value.VMInstances
+    /// Numbers of VM instances currently in the deployment
+    member __.InstanceCount = deployment.Value.VMInstances.Length
     /// Time of current cloud service creation
     member __.CreatedTime = deployment.Value.CreatedTime
     /// Current deployment Status
@@ -68,6 +78,23 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     /// Deletes deployment from Azure
     member __.Delete() = __.DeleteAsync() |> Async.RunSync
 
+
+    /// <summary>
+    ///     Asynchronously resizes the given deployment instance count (scale-out).
+    /// </summary>
+    /// <param name="vmCount">New instance count.</param>
+    member __.ResizeAsync(vmCount : int) = async {
+        if vmCount < 0 then invalidArg "vmCount" "must be a non-negative value"
+        do! Compute.resizeDeployment logger serviceName vmCount client
+    }
+
+    /// <summary>
+    ///     Resizes the given deployment instance count (scale-out).
+    /// </summary>
+    /// <param name="vmCount">New instance count.</param>
+    member __.Resize(vmCount : int) =
+        __.ResizeAsync(vmCount) |> Async.RunSync
+
     /// <summary>
     ///     Asynchronously waits until provisioning of deployment has completed
     /// </summary>
@@ -101,9 +128,9 @@ type StorageManager internal (getParentInfo : unit -> ISystemLogger * Subscripti
     /// </summary>
     /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
     member __.GetAccountsAsync([<O;D(null:obj)>]?region : Region) = async {
-        let _,client,_ = getParentInfo()
+        let logger,client,_ = getParentInfo()
         let! accountInfo = Storage.listAllStorageAccounts region client
-        return! accountInfo |> Seq.map (fun aI -> Storage.resolveStorageAccount aI.Name client) |> Async.Parallel
+        return! accountInfo |> Seq.map (fun aI -> Storage.resolveStorageAccount logger None aI.Name client) |> Async.Parallel
     }
 
     /// <summary>
@@ -118,8 +145,8 @@ type StorageManager internal (getParentInfo : unit -> ISystemLogger * Subscripti
     /// </summary>
     /// <param name="accountName">Account name identifier.</param>
     member __.GetAccountAsync(accountName : string) : Async<StorageAccount> = async {
-        let _,client,_ = getParentInfo()
-        return! Storage.resolveStorageAccount accountName client
+        let logger,client,_ = getParentInfo()
+        return! Storage.resolveStorageAccount logger None accountName client
     }
 
     /// <summary>
@@ -138,7 +165,7 @@ type StorageManager internal (getParentInfo : unit -> ISystemLogger * Subscripti
         let logger, client, defaultRegion = getParentInfo()
         let region = defaultArg region defaultRegion
         let! accountName = Storage.createMBraceStorageAccount logger region accountName client
-        return! Storage.resolveStorageAccount accountName client
+        return! Storage.resolveStorageAccount logger None accountName client
     }
 
     /// <summary>
@@ -186,9 +213,9 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
     /// </summary>
     /// <param name="region">Restrict account search to specific region. Defaults to all regions.</param>
     member __.GetAccountsAsync([<O;D(null:obj)>]?region : Region) = async {
-        let _,client,_ = getParentInfo()
+        let logger,client,_ = getParentInfo()
         let! accountInfo = ServiceBus.listAllServiceBusAccounts region client
-        return! accountInfo |> Seq.map (fun aI -> ServiceBus.resolveServiceBusAccount aI.Name client) |> Async.Parallel
+        return! accountInfo |> Seq.map (fun aI -> ServiceBus.resolveServiceBusAccount logger None aI.Name client) |> Async.Parallel
     }
 
     /// <summary>
@@ -203,8 +230,8 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
     /// </summary>
     /// <param name="accountName">Account name identifier.</param>
     member __.GetAccountAsync(accountName : string) : Async<ServiceBusAccount> = async {
-        let _,client,_ = getParentInfo()
-        return! ServiceBus.resolveServiceBusAccount accountName client
+        let logger,client,_ = getParentInfo()
+        return! ServiceBus.resolveServiceBusAccount logger None accountName client
     }
 
     /// <summary>
@@ -223,7 +250,7 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
         let logger, client, defaultRegion = getParentInfo()
         let region = defaultArg region defaultRegion
         let! accountName = ServiceBus.createServiceBusAccount logger region accountName client
-        return! ServiceBus.resolveServiceBusAccount accountName client
+        return! ServiceBus.resolveServiceBusAccount logger None accountName client
     }
 
     /// <summary>
@@ -264,10 +291,10 @@ type ServiceBusManager internal (getParentInfo : unit -> ISystemLogger * Subscri
 
 /// Client object for managing MBrace Cloud Service deployments for user-suppplied Azure subscription
 [<Sealed; AutoSerializable(false)>]
-type DeploymentManager private (client : SubscriptionClient, defaultRegion : Region, _logger : ISystemLogger option, logLevel : LogLevel) =
+type SubscriptionManager private (client : SubscriptionClient, defaultRegion : Region, _logger : ISystemLogger, logLevel : LogLevel) =
 
     let logger = AttacheableLogger.Create(logLevel, makeAsynchronous = false)
-    do _logger |> Option.iter(fun l -> ignore <| logger.AttachLogger l)
+    let _ = logger.AttachLogger _logger
 
     let mutable defaultRegion = defaultRegion
 
@@ -312,14 +339,15 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
     /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
-    member __.DeployAsync(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize,  
-                            [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
-                            [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) : Async<Deployment> = async {
+    member __.ProvisionAsync(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize,  
+                                [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
+                                [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) : Async<Deployment> = async {
 
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
         let enableDiagnostics = defaultArg enableDiagnostics false
         let region = defaultArg region defaultRegion
         let vmSize = defaultArg vmSize VMSize.Medium
+
         let serviceName = match serviceName with None -> Common.generateResourceName() | Some sn -> sn
         do! Infrastructure.checkCompatibility region vmSize client
         do! Compute.validateServiceName client serviceName
@@ -332,11 +360,8 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
         let! serviceBusAccount = ServiceBus.getDeploymentServiceBusAccount logger region serviceBusAccount client
         let! storageAccount = storageAccountT
 
-        let config = Compute.buildMBraceConfig serviceName vmCount enableDiagnostics storageAccount serviceBusAccount
-
-        let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %s"  serviceName (defaultArg versionInfo "custom"))
-        let! deployInfo = Compute.prepareMBraceServiceDeployment logger serviceName clusterLabel region packagePath config storageAccount serviceBusAccount client
-        do! Compute.beginDeploy false deployInfo client
+        let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %A"  serviceName (defaultArg versionInfo "custom"))
+        do! Compute.createDeployment logger serviceName clusterLabel region packagePath false enableDiagnostics vmCount storageAccount serviceBusAccount client
         return new Deployment(client, serviceName, logger)
     }
 
@@ -353,10 +378,10 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
     /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
-    member __.Deploy(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize, 
+    member __.Provision(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize, 
                         [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
                         [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) =
-        __.DeployAsync(vmCount, ?serviceName = serviceName, ?region = region, ?mbraceVersion = mbraceVersion, ?vmSize = vmSize,
+        __.ProvisionAsync(vmCount, ?serviceName = serviceName, ?region = region, ?mbraceVersion = mbraceVersion, ?vmSize = vmSize,
                                 ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, 
                                 ?serviceLabel = serviceLabel, ?enableDiagnostics = enableDiagnostics)
         |> Async.RunSync
@@ -406,6 +431,24 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
         __.DeleteDeploymentAsync(serviceName) |> Async.RunSync
 
     /// <summary>
+    ///     Asynchronously resizes deployment of given name to supplied instance count (scale out).
+    /// </summary>
+    /// <param name="serviceName">Service name identifier.</param>
+    /// <param name="vmCount">New VM instance count.</param>
+    member __.ResizeDeploymentAsync(serviceName : string, vmCount : int) = async {
+        let! deployment = __.GetDeploymentAsync(serviceName)
+        return! deployment.ResizeAsync(vmCount)
+    }
+
+    /// <summary>
+    ///     Asynchronously resizes deployment of given name to supplied instance count (scale out).
+    /// </summary>
+    /// <param name="serviceName">Service name identifier.</param>
+    /// <param name="vmCount">New VM instance count.</param>
+    member __.ResizeDeployment(serviceName : string, vmCount : int) =
+        __.ResizeDeploymentAsync(serviceName, vmCount) |> Async.RunSync
+
+    /// <summary>
     ///     Prints a report on deployments to stdout.
     /// </summary>
     member __.ShowDeployments() =
@@ -425,31 +468,40 @@ type DeploymentManager private (client : SubscriptionClient, defaultRegion : Reg
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
     static member Create(subscription : Subscription, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
+        let logger = defaultArg logger Config.DefaultLogger
         let logLevel = defaultArg logLevel LogLevel.Info
         let client = SubscriptionClient.Activate(subscription)
-        new DeploymentManager(client, defaultRegion, logger, logLevel = logLevel)
+        new SubscriptionManager(client, defaultRegion, logger, logLevel = logLevel)
 
     /// <summary>
     ///     Creates a new subscription manager instance using supplied set of Azure subscriptions
     /// </summary>
     /// <param name="publishSettings">Parsed PublishSettings record.</param>
-    /// <param name="subscriptionId">Subscription identifier to be used by the manager instance.</param>
     /// <param name="defaultRegion">Default Azure region for deployments.</param>
+    /// <param name="subscriptionId">Subscription identifier to be used by the manager instance. Must be specified if pubsettings defines more than one subscription.</param>
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member FromPublishSettings(publishSettings : PublishSettings, subscriptionId : string, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
-        let subscription = publishSettings.GetSubscriptionById subscriptionId
-        DeploymentManager.Create(subscription, defaultRegion, ?logger = logger, ?logLevel = logLevel)
+    static member FromPublishSettings(publishSettings : PublishSettings, defaultRegion : Region, [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
+        let subscription =
+            match subscriptionId with
+            | Some id -> publishSettings.GetSubscriptionById id
+            | None -> 
+                match publishSettings.Subscriptions with
+                | [||] -> invalidArg "publishSettingsFile" "PublishSettings file must define at least one Azure subscription."
+                | [|s|] -> s
+                | _ -> invalidArg "subscriptionId" "PublishSettings declares multiple subscriptions but no 'subscriptionId' parameter has been specified."
+
+        SubscriptionManager.Create(subscription, defaultRegion, ?logger = logger, ?logLevel = logLevel)
 
 
     /// <summary>
     ///     Creates a new subscription manager instance using local Azure PublishSettings file.
     /// </summary>
     /// <param name="publishSettingsFile">Path to local PublishSettings file.</param>
-    /// <param name="subscriptionId">Subscription identifier to be used by the manager instance.</param>
     /// <param name="defaultRegion">Default Azure region for deployments.</param>
+    /// <param name="subscriptionId">Subscription identifier to be used by the manager instance. Must be specified if pubsettings defines more than one subscription.</param>
     /// <param name="logger">System logger used by the manager instance. Defaults to no logging.</param>
     /// <param name="logLevel">Log level used by the manager instance. Defaults to Info.</param>
-    static member FromPublishSettingsFile(publishSettingsFile : string, subscriptionId : string, defaultRegion : Region, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
+    static member FromPublishSettingsFile(publishSettingsFile : string, defaultRegion : Region, [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel) =
         let pubSettings = PublishSettings.ParseFile publishSettingsFile
-        DeploymentManager.FromPublishSettings(pubSettings, subscriptionId, defaultRegion, ?logger = logger, ?logLevel = logLevel)
+        SubscriptionManager.FromPublishSettings(pubSettings, defaultRegion, ?subscriptionId = subscriptionId, ?logger = logger, ?logLevel = logLevel)

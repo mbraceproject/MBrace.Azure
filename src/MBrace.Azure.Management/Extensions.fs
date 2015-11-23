@@ -32,7 +32,7 @@ module Extensions =
             AzureBlobStorage.FromConnectionString(account.ConnectionString, ?serializer = serializer)
 
 
-    type DeploymentManager with
+    type Deployment with
         /// <summary>
         ///     Starts deployment of MBrace cloud service with supplied parameters.
         /// </summary>
@@ -50,22 +50,22 @@ module Extensions =
         /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
         /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
         /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
-        static member Deploy(publishSettingsFile : string, region : Region, vmCount : int, [<O;D(null:obj)>]?vmSize : VMSize, [<O;D(null:obj)>]?cloudServicePackage : string,
+        static member Provision(publishSettingsFile : string, region : Region, vmCount : int, [<O;D(null:obj)>]?vmSize : VMSize, [<O;D(null:obj)>]?cloudServicePackage : string,
                                 [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel,
                                 [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string,
-                                [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) =
+                                [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) : Deployment =
 
-            let pubSettings = PublishSettings.ParseFile publishSettingsFile
             let logger = match logger with Some l -> l | None -> new ConsoleLogger() :> _
-            let subscription =
-                match subscriptionId with
-                | Some id -> pubSettings.GetSubscriptionById id
-                | None -> 
-                    match pubSettings.Subscriptions with
-                    | [||] -> invalidArg "publishSettingsFile" "PublishSettings file must define at least one Azure subscription."
-                    | [|s|] -> s
-                    | _ -> invalidArg "subscriptionId" "PublishSettings declares multiple subscriptions but no 'subscriptionId' parameter has been specified."
-
-            let manager = DeploymentManager.Create(subscription, region, logger, ?logLevel = logLevel)
-            manager.Deploy(vmCount, ?serviceName = serviceName, ?vmSize = vmSize, ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, 
+            let manager = SubscriptionManager.FromPublishSettingsFile(publishSettingsFile, region, ?subscriptionId = subscriptionId, logger = logger, ?logLevel = logLevel)
+            manager.Provision(vmCount, ?serviceName = serviceName, ?vmSize = vmSize, ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, 
                             ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel, ?enableDiagnostics = enableDiagnostics, ?mbraceVersion = mbraceVersion)
+
+        /// <summary>
+        ///     Gets an already existing deployment instance using provided publish settings and service name.
+        /// </summary>
+        /// <param name="publishSettingsFile">Path to your downloaded .publishsettings file.</param>
+        /// <param name="serviceName">Service name identifier.</param>
+        /// <param name="subscriptionId">Subscription identifier to be used by the manager instance.</param>
+        static member GetDeployment(publishSettingsFile : string, serviceName : string, [<O;D(null:obj)>]?subscriptionId : string) : Deployment =
+            let manager = SubscriptionManager.FromPublishSettingsFile(publishSettingsFile, Region.Define "", ?subscriptionId = subscriptionId)
+            manager.GetDeployment serviceName

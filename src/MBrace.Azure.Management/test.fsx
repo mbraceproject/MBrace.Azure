@@ -19,12 +19,12 @@ let getLocalCspkg () =
 
 let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishSettings"
 let subscription = pubSettings.GetSubscriptionById "Nessos Information Technologies SA"
-let manager = DeploymentManager.Create(subscription, Region.West_Europe, logger = ConsoleLogger())
+let manager = SubscriptionManager.Create(subscription, Region.West_Europe, logger = ConsoleLogger())
 
 manager.ShowDeployments()
 
-let deployment = manager.Deploy(serviceName = "eiriktest", vmCount = 4, cloudServicePackage = getLocalCspkg()) // deploy from local cspkg
-//let deployment = manager.Deploy(serviceName = "eiriktest", vmCount = 4, vmSize = VMSize.A3) // deploy from github
+let deployment = manager.Provision(serviceName = "eiriktest", vmCount = 4, cloudServicePackage = getLocalCspkg()) // deploy from local cspkg
+//let deployment = manager.Provision(serviceName = "eiriktest", vmCount = 4, vmSize = VMSize.A3) // deploy from github
 //let deployment = manager.GetDeployment(serviceName = "eiriktest") // fetch an already existing deployment
 
 deployment.ShowInfo()
@@ -32,7 +32,11 @@ deployment.ShowInstanceInfo()
 
 deployment.AwaitProvision()
 
+deployment.Resize(vmCount = 2) // resizes the vm count
+
 deployment.Delete() // *deletes* the Azure deployment
+
+manager.Storage.ShowAccounts() // show storage accounts
 
 // Completed, now test the cluster using MBrace
 
@@ -42,5 +46,5 @@ open MBrace.Core
 let cluster = AzureCluster.Connect(deployment, logger = ConsoleLogger())
 
 cluster.ShowWorkers()
-cluster.Run(cloud { return System.Environment.MachineName })
+cluster.Run(Cloud.ParallelEverywhere Cloud.CurrentWorker)
 cluster.ShowProcesses()

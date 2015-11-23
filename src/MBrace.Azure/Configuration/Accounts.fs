@@ -257,10 +257,10 @@ type AzureServiceBusAccount private (data: ServiceBusAccountData) =
         AzureServiceBusAccount.FromConnectionString conn
 
     /// <summary>
-    ///     Attempt to parse service bus namespaces of format 'sb://<account>.servicebus.windows.net/',
+    ///     Attempt to parse service bus namespaces of format 'sb://&lt;account&gt;.servicebus.windows.net/',
     ///     returning the account name.
     /// </summary>
-    /// <param name="servicebusNamespace"></param>
+    /// <param name="servicebusNamespace">Input service bus namespace</param>
     static member TryParseNamespace(servicebusNamespace : string) =
         let m = namespaceRegex.Match servicebusNamespace
         if m.Success then

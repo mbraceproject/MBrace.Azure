@@ -1,3 +1,22 @@
+### 1.1.5
+* Enable elevated permissions in default cloud service definition.
+
+### 1.1.4
+* Add locality checks for storage and service bus accounts.
+
+### 1.1.3
+* Minor fixes.
+
+### 1.1.2
+* Fix packaging issues.
+
+### 1.1.1
+* Fix packaging issue.
+
+### 1.1.0
+* Refactorings and improvements to MBrace.Azure.Management.
+* Misc bugfixes.
+
 ### 1.0.0
 * 1.0 Release
 

@@ -144,6 +144,12 @@ type StorageAccount internal (inner : AzureStorageAccount) =
     member __.AccountKey = inner.AccountKey
     member __.ConnectionString = inner.ConnectionString
     member internal __.Inner = inner
+    /// <summary>
+    ///     Parses storage account using provided connection string
+    /// </summary>
+    /// <param name="connectionString">Azure storage connection string</param>
+    static member FromConnectionString(connectionString : string) =
+        new StorageAccount(AzureStorageAccount.FromConnectionString connectionString)
 
 /// Azure Service Bus Account descriptor
 [<Sealed; AutoSerializable(false)>]
@@ -152,6 +158,12 @@ type ServiceBusAccount internal (inner : AzureServiceBusAccount) =
     member __.AccountKey = inner.AccountKey
     member __.ConnectionString = inner.ConnectionString
     member internal __.Inner = inner
+    /// <summary>
+    ///     Parses service bus account using provided connection string
+    /// </summary>
+    /// <param name="connectionString">Azure service bus connection string</param>
+    static member FromConnectionString(connectionString : string) =
+        new ServiceBusAccount(AzureServiceBusAccount.FromConnectionString connectionString)
 
 
 /// Represents an Azure VM instance
@@ -198,12 +210,16 @@ type DeploymentInfo =
         Name : string
         /// Deployment creation time
         CreatedTime : DateTimeOffset
+        /// Last cluster modification time
+        LastModified : DateTimeOffset
         /// Cloud Service status
         ServiceStatus : string
         /// Deployment status
         DeploymentState : DeploymentStatus
-        /// MBrace.Azure configuration object corresponding to deployment
-        Configuration : Configuration
+        /// Azure Storage account used by MBrace deployment
+        StorageAccount : StorageAccount
+        /// Azure Service Bus account by MBrace deployment
+        ServiceBusAccount : ServiceBusAccount
         /// VM Instance information
         VMInstances : VMInstance []
         /// Deployment Region

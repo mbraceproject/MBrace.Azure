@@ -56,6 +56,9 @@ module private BlobUtils =
 
             | _ -> raise <| new FormatException(sprintf "Invalid store path %A." path)
 
+        static member Validate(path : string) =
+            ignore <| StoreDirectory.Parse path
+
     /// Represents a full path to a blob.
     type StorePath =
         {
@@ -152,7 +155,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
     [<DataMember(Name = "DefaultContainer")>]
     let defaultContainer = normalizePath defaultContainer
 
-    do StorePath.Validate defaultContainer
+    do StoreDirectory.Validate defaultContainer
 
     /// <summary>
     ///     Creates an Azure blob store based CloudFileStore instance that connects to provided storage account.
@@ -161,7 +164,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
     /// <param name="defaultContainer">Default container to be used be store instance.</param>
     static member Create(account : AzureStorageAccount, ?defaultContainer : string) = 
         ignore account.ConnectionString // force check that connection string is present in current host.
-        new BlobStore(account, defaultArg defaultContainer "")
+        new BlobStore(account, defaultArg defaultContainer "/")
 
     /// <summary>
     ///     Creates an Azure blob store based CloudFileStore instance that connects to provided connection string.

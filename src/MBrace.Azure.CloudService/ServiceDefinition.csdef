@@ -9,7 +9,8 @@
       </Environment>
     </Task>
     </Startup>
-    <LocalResources>
+    <Runtime executionContext="elevated" />
+		<LocalResources>
 			<LocalStorage name="LocalMBraceCache" cleanOnRoleRecycle="true" sizeInMB="409600" />
 		</LocalResources>
 		<ConfigurationSettings>

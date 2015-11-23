@@ -75,16 +75,34 @@ module internal ServiceBus =
     }
 
     /// Verifies or recovers service bus account credentials
-    let resolveServiceBusAccount (accountId : string) (client:SubscriptionClient) = async {
-        match AzureServiceBusAccount.TryFromConnectionString accountId with
-        | Some account -> return new ServiceBusAccount(account)
-        | None ->
-            let accountName = defaultArg (AzureServiceBusAccount.TryParseNamespace accountId) accountId
-            // input identifier as account name, recover connection string from Storage Account client
-            let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync accountName
-            let rootSharedAccessKey = authRules |> Seq.find (fun rule -> rule.KeyName = "RootManageSharedAccessKey")
-            let account = AzureServiceBusAccount.FromCredentials(accountName, rootSharedAccessKey.PrimaryKey)
-            return new ServiceBusAccount(account)
+    let resolveServiceBusAccount (logger : ISystemLogger) (verify : Region option) (accountId : string) (client:SubscriptionClient) = async {
+        let! account = async {
+            match AzureServiceBusAccount.TryFromConnectionString accountId with
+            | Some account -> return new ServiceBusAccount(account)
+            | None ->
+                let accountName = defaultArg (AzureServiceBusAccount.TryParseNamespace accountId) accountId
+                // input identifier as account name, recover connection string from Storage Account client
+                let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync accountName
+                let rootSharedAccessKey = authRules |> Seq.find (fun rule -> rule.KeyName = "RootManageSharedAccessKey")
+                let account = AzureServiceBusAccount.FromCredentials(accountName, rootSharedAccessKey.PrimaryKey)
+                return new ServiceBusAccount(account)
+        }
+
+        match verify with
+        | None -> ()
+        | Some region ->
+            try
+                let! (info : ServiceBusNamespaceResponse) = client.ServiceBus.Namespaces.GetAsync account.AccountName
+                if info.StatusCode <> System.Net.HttpStatusCode.OK then
+                    logger.Logf LogLevel.Warning "Service Bus account %A does not correspond to subscription %A" account.AccountName client.Subscription.Name
+                elif info.Namespace.Region <> region.Id then
+                    logger.Logf LogLevel.Warning "Service Bus account %A does not correspond to region %A. Please consider using a collocated service bus account." account.AccountName region.Id
+
+            with _ ->
+                logger.Logf LogLevel.Warning "Service Bus account %A does not correspond to subscription %A" account.AccountName client.Subscription.Name
+
+        return account
+
     }
 
     /// Verifies or creates a new service bus account for provided deployment
@@ -92,7 +110,7 @@ module internal ServiceBus =
         match serviceBusId with
         | Some id -> 
             // parse or validate user-supplied service bus account
-            let! account = resolveServiceBusAccount id client
+            let! account = resolveServiceBusAccount logger (Some region) id client
             logger.Logf LogLevel.Info "using user-supplied service bus account %A" account.AccountName
             return account
 
@@ -103,18 +121,18 @@ module internal ServiceBus =
             let! clusters = Compute.getRunningDeployments client
             let! accounts = accountsT
 
-            let activeAccounts = clusters |> Seq.map (fun dI -> dI.Configuration.ServiceBusAccount) |> set
+            let activeAccounts = clusters |> Seq.map (fun dI -> dI.ServiceBusAccount.AccountName) |> set
             match accounts |> Array.tryFind (not << activeAccounts.Contains) with
             | Some inactiveAccount -> 
                 logger.Logf LogLevel.Info "reusing inactive service bus account %A" inactiveAccount
-                return! resolveServiceBusAccount inactiveAccount client
+                return! resolveServiceBusAccount logger None inactiveAccount client
 
             | None ->
                 // no inactive service bus account, automatically create a new one
                 let accountName = Common.generateResourceName()
                 logger.Logf LogLevel.Info "creating new service bus account %A" accountName
                 let! accountName = createServiceBusAccount logger region accountName client
-                return! resolveServiceBusAccount accountName client 
+                return! resolveServiceBusAccount logger None accountName client 
     }
 
     /// Asynchronously deletes Azure service bus account
