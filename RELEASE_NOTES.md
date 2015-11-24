@@ -1,3 +1,6 @@
+### 1.1.6
+* Enable ServerGC by default in Worker configurations.
+
 ### 1.1.5
 * Enable elevated permissions in default cloud service definition.
 
