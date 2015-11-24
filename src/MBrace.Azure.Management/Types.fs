@@ -107,7 +107,12 @@ type PublishSettings =
 
     /// Look up subscription by id or partial name
     member ps.GetSubscriptionById (subscriptionId : string) =
-        ps.Subscriptions |> Array.find (fun s -> s.Id = subscriptionId || s.Name.Contains subscriptionId)
+        match ps.Subscriptions |> Array.filter (fun s -> s.Id = subscriptionId || s.Name.Contains subscriptionId) with
+        | [||] -> invalidArg "subscriptionId" <| sprintf "Could not find subscription id %A" subscriptionId
+        | [|sub|] -> sub
+        | subs -> 
+            let subs = subs |> Seq.map (fun s -> sprintf "%A" s.Name) |> String.concat ", "
+            invalidArg "subscription" <| sprintf "Ambiguous matches for subscription id %A: %s" subscriptionId subs
 
     /// Look up subscription by index
     member ps.Item (index:int) = ps.Subscriptions.[index]

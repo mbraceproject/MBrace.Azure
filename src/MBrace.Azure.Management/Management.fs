@@ -489,7 +489,10 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
                 match publishSettings.Subscriptions with
                 | [||] -> invalidArg "publishSettingsFile" "PublishSettings file must define at least one Azure subscription."
                 | [|s|] -> s
-                | _ -> invalidArg "subscriptionId" "PublishSettings declares multiple subscriptions but no 'subscriptionId' parameter has been specified."
+                | subs -> 
+                    let subInfo = subs |> Seq.map (fun s -> sprintf "\t* %A" s.Name) |> String.concat Environment.NewLine
+                    let msg = sprintf "PublishSettings declares multiple subscriptions, please specify either of the following:%s%s" Environment.NewLine subInfo
+                    invalidArg "subscriptionId" msg
 
         SubscriptionManager.Create(subscription, defaultRegion, ?logger = logger, ?logLevel = logLevel)
 
