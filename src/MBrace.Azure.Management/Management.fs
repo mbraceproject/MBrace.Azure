@@ -349,7 +349,8 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
         let vmSize = defaultArg vmSize VMSize.Medium
 
         let serviceName = match serviceName with None -> Common.generateResourceName() | Some sn -> sn
-        do! Infrastructure.checkCompatibility region vmSize client
+        if Option.isNone cloudServicePackage then
+            do! Infrastructure.checkCompatibility region vmSize client
         do! Compute.validateServiceName client serviceName
 
         logger.Logf LogLevel.Info "using vm size %A" vmSize
