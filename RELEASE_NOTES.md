@@ -1,3 +1,6 @@
+### 1.1.7
+* Add support for unicode file names in blob store.
+
 ### 1.1.6
 * Enable ServerGC by default in Worker configurations.
 
