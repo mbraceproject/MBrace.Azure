@@ -28,6 +28,7 @@
 // before running sample, don't forget to set binding redirects to FSharp.Core in InteractiveHost.exe
 
 using System;
+using System.IO;
 using System.Linq;
 using Microsoft.FSharp.Core;
 using MBrace.Core;
@@ -43,19 +44,36 @@ var subscriptionId = "Visual Studio Premium with MSDN";
 var region = Region.North_Europe;
 var logger = (MBrace.Runtime.ISystemLogger)new MBrace.Runtime.ConsoleLogger(null, null);
 
+/// <summary>
+///     Resolves a locally built CS package
+/// </summary>
+/// <returns></returns>
+string GetLocalCsPkg()
+{
+    var path = Path.GetFullPath("../../bin/cspkg/app.publish/MBrace.Azure.CloudService.cspkg");
+    if (!File.Exists(path))
+        throw new InvalidOperationException("Right click on the 'MBrace.Azure.CloudService' project and hit 'Package...'.");
+    return path;
+}
+
 var manager = SubscriptionManager.FromPublishSettingsFile(pubSettings, 
                                                             defaultRegion: region, 
                                                             subscriptionId: subscriptionId.ToOption(),
                                                             logger: logger.ToOption());
 
 
-var deployment = manager.Provision(vmCount: 4, serviceName: "mbraceTests".ToOption(), vmSize: VMSize.A3.ToOption());
+var deployment = manager.Provision(vmCount: 4, 
+                                    serviceName: "mbraceTests".ToOption(), 
+                                    vmSize: VMSize.A3.ToOption(),
+                                    cloudServicePackage: GetLocalCsPkg().ToOption());
 // var deployment = manager.GetDeployment("mbraceTests");
+
+deployment.ShowInfo();
 
 var cluster = AzureCluster.Connect(deployment.Configuration, logger: logger.ToOption());
 
 // 1. Hello, World
-var getMachineName = CloudBuilder.FromFunc(() => "Hello, World");
+var getMachineName = CloudBuilder.FromFunc(() => Environment.MachineName);
 cluster.Run(getMachineName);
 
 cluster.ShowProcesses();
@@ -84,7 +102,6 @@ var cacheF = CloudFlow.OfHTTPFileByLine(url)
 var cacheFlowProc = cluster.CreateProcess(cacheF); // Start caching process
 
 cacheFlowProc.ShowInfo();
-
 
 
 var cachedFlow = cacheFlowProc.Result; // get the cached CloudFlow
