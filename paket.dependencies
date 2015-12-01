@@ -20,4 +20,5 @@ nuget Argu ~> 1.0
 nuget Microsoft.WindowsAzure.Management.Libraries
 nuget Microsoft.WindowsAzure.Management.ServiceBus
 nuget Microsoft.Bcl.Async
+nuget System.Runtime.Loader
 github fsharp/FAKE modules/Octokit/Octokit.fsx
