@@ -1,3 +1,6 @@
+### 1.1.8
+* Make support for storage/servicebus account reuse optional in Management lib.
+
 ### 1.1.7
 * Add support for unicode file names in blob store.
 
