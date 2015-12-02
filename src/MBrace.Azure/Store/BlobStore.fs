@@ -24,7 +24,7 @@ module private BlobUtils =
 
     let normalizePath (path : string) =
         let normalized = path.Split(delims, StringSplitOptions.RemoveEmptyEntries) |> String.concat "/"
-        "/" + normalized |> Uri.EscapeUriString
+        "/" + normalized
 
     let ensureRooted (path : string) =
         if isPathRooted path then path else raise <| FormatException(sprintf "Invalid path %A. Paths should start with '/' or '\\'." path)
