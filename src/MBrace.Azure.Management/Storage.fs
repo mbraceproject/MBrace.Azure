@@ -108,7 +108,15 @@ module internal Storage =
     }
 
     /// Creates or resolves supplied storage account for an Azure deployment
-    let getDeploymentStorageAccount (logger : ISystemLogger) (region : Region) (storageAccount : string option) (client : SubscriptionClient) = async {
+    let getDeploymentStorageAccount (logger : ISystemLogger) (reuse : bool) (region : Region) (storageAccount : string option) (client : SubscriptionClient) = async {
+        let mkNewStorageAccount() = async {
+            // no inactive storage account, automatically create a new one
+            let accountName = Common.generateResourceName()
+            logger.Logf LogLevel.Info "creating new storage account %A" accountName
+            let! accountName = createMBraceStorageAccount logger region accountName client
+            return! resolveStorageAccount logger None accountName client
+        }
+
         match storageAccount with
         | Some account -> 
             // parse and validate storage account info
@@ -116,6 +124,7 @@ module internal Storage =
             logger.Logf LogLevel.Info "using user-supplied storage account %A" account.AccountName
             return account
 
+        | None when not reuse -> return! mkNewStorageAccount()
         | None ->
             // no account specified, create a new one or reuse existing
             // we only reuse storage acounts that are not part of current active deployments
@@ -125,14 +134,9 @@ module internal Storage =
 
             let activeAccounts = clusters |> Seq.map (fun dI -> dI.StorageAccount.AccountName) |> set
             match accounts |> Array.tryFind (not << activeAccounts.Contains) with
-            | Some inactiveAccount -> 
+            | Some inactiveAccount when reuse -> 
                 logger.Logf LogLevel.Info "reusing inactive storage account %A" inactiveAccount
                 return! resolveStorageAccount logger None inactiveAccount client
-
-            | None ->
-                // no inactive storage account, automatically create a new one
-                let accountName = Common.generateResourceName()
-                logger.Logf LogLevel.Info "creating new storage account %A" accountName
-                let! accountName = createMBraceStorageAccount logger region accountName client
-                return! resolveStorageAccount logger None accountName client
+            | _ ->
+                return! mkNewStorageAccount()
     }

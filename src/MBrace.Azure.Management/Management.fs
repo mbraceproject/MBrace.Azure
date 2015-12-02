@@ -339,12 +339,14 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
     /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
+    /// <param name="reuseAccounts">Reuse existing inactive mbrace storage/service bus accounts. Defaults to true.</param>
     member __.ProvisionAsync(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize,  
                                 [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
-                                [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) : Async<Deployment> = async {
+                                [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool) : Async<Deployment> = async {
 
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
         let enableDiagnostics = defaultArg enableDiagnostics false
+        let reuseAccounts = defaultArg reuseAccounts true
         let region = defaultArg region defaultRegion
         let vmSize = defaultArg vmSize VMSize.Medium
 
@@ -357,8 +359,8 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
         let! packagePath, versionInfo = Compute.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
         logger.Logf LogLevel.Info "using cluster name %s" serviceName
 
-        let! storageAccountT = Storage.getDeploymentStorageAccount logger region storageAccount client |> Async.StartChild
-        let! serviceBusAccount = ServiceBus.getDeploymentServiceBusAccount logger region serviceBusAccount client
+        let! storageAccountT = Storage.getDeploymentStorageAccount logger reuseAccounts region storageAccount client |> Async.StartChild
+        let! serviceBusAccount = ServiceBus.getDeploymentServiceBusAccount logger reuseAccounts region serviceBusAccount client
         let! storageAccount = storageAccountT
 
         let clusterLabel = defaultArg serviceLabel (sprintf "MBrace cluster %A, package %A"  serviceName (defaultArg versionInfo "custom"))
@@ -379,12 +381,13 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
     /// <param name="cloudServicePackage">Path or Uri to MBrace cloud service package to be deployed to Service. Defaults to .cspkg resolved from github.</param>
     /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
     /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
+    /// <param name="reuseAccounts">Reuse existing inactive mbrace storage/service bus accounts. Defaults to true.</param>
     member __.Provision(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize, 
                         [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
-                        [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool) =
+                        [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool) =
         __.ProvisionAsync(vmCount, ?serviceName = serviceName, ?region = region, ?mbraceVersion = mbraceVersion, ?vmSize = vmSize,
                                 ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, 
-                                ?serviceLabel = serviceLabel, ?enableDiagnostics = enableDiagnostics)
+                                ?serviceLabel = serviceLabel, ?enableDiagnostics = enableDiagnostics, ?reuseAccounts = reuseAccounts)
         |> Async.RunSync
 
 

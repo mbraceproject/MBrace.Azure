@@ -106,7 +106,14 @@ module internal ServiceBus =
     }
 
     /// Verifies or creates a new service bus account for provided deployment
-    let getDeploymentServiceBusAccount (logger : ISystemLogger) (region : Region) (serviceBusId : string option) (client : SubscriptionClient) = async {
+    let getDeploymentServiceBusAccount (logger : ISystemLogger) (reuse : bool) (region : Region) (serviceBusId : string option) (client : SubscriptionClient) = async {
+        let mkNewServiceBusAccount() = async {
+            let accountName = Common.generateResourceName()
+            logger.Logf LogLevel.Info "creating new service bus account %A" accountName
+            let! accountName = createServiceBusAccount logger region accountName client
+            return! resolveServiceBusAccount logger None accountName client 
+        }
+
         match serviceBusId with
         | Some id -> 
             // parse or validate user-supplied service bus account
@@ -114,6 +121,7 @@ module internal ServiceBus =
             logger.Logf LogLevel.Info "using user-supplied service bus account %A" account.AccountName
             return account
 
+        | None when not reuse -> return! mkNewServiceBusAccount()
         | None ->
             // no account specified, create a new one or reuse existing
             // we only reuse storage acounts that are not part of current active deployments
@@ -123,16 +131,13 @@ module internal ServiceBus =
 
             let activeAccounts = clusters |> Seq.map (fun dI -> dI.ServiceBusAccount.AccountName) |> set
             match accounts |> Array.tryFind (not << activeAccounts.Contains) with
-            | Some inactiveAccount -> 
+            | Some inactiveAccount when reuse -> 
                 logger.Logf LogLevel.Info "reusing inactive service bus account %A" inactiveAccount
                 return! resolveServiceBusAccount logger None inactiveAccount client
 
-            | None ->
+            | _ ->
                 // no inactive service bus account, automatically create a new one
-                let accountName = Common.generateResourceName()
-                logger.Logf LogLevel.Info "creating new service bus account %A" accountName
-                let! accountName = createServiceBusAccount logger region accountName client
-                return! resolveServiceBusAccount logger None accountName client 
+                return! mkNewServiceBusAccount()
     }
 
     /// Asynchronously deletes Azure service bus account
