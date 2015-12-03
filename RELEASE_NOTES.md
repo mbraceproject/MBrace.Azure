@@ -1,3 +1,6 @@
+### 1.1.9
+* Expose cluster label information to deployment info.
+
 ### 1.1.8
 * Make support for storage/servicebus account reuse optional in Management lib.
 
