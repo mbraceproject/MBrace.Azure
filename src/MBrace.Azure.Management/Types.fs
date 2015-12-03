@@ -219,6 +219,8 @@ type DeploymentInfo =
         LastModified : DateTimeOffset
         /// Cloud Service status
         ServiceStatus : string
+        /// Service deployment label
+        Label : string
         /// Deployment status
         DeploymentState : DeploymentStatus
         /// Azure Storage account used by MBrace deployment

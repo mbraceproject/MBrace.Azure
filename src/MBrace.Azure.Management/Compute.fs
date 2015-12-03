@@ -46,6 +46,7 @@ module internal Compute =
                 Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
                 Field.create "Deployment Status" Left (fun d -> d.DeploymentState)
                 Field.create "Last Modified" Left (fun d -> d.LastModified.LocalDateTime) 
+                Field.create "Cluster Label" Left (fun d -> if String.IsNullOrEmpty d.Label then "N/A" else d.Label)
             ]
 
         static member Report(deployments : DeploymentInfo list, ?title : string) =
@@ -149,6 +150,7 @@ module internal Compute =
                     Name = serviceName
                     CreatedTime = new DateTimeOffset(properties.DateCreated)
                     LastModified = new DateTimeOffset(properties.DateLastModified)
+                    Label = match deployment with Choice1Of2 d -> d.Label | _ -> ""
                     ServiceStatus = string properties.Status
                     DeploymentState = state
                     StorageAccount = storageAccount
@@ -221,8 +223,8 @@ module internal Compute =
         let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties))
         let deployParams = 
             DeploymentCreateParameters(
-                Label = clusterLabel,
                 Name = serviceName,
+                Label = clusterLabel,
                 PackageUri = packageBlob.Uri,
                 Configuration = config,
                 StartDeployment = Nullable true,

@@ -48,18 +48,18 @@ module Extensions =
         /// <param name="storageAccount">Storage account name or connection string used by MBrace service. Defaults to self-allocated storage account.</param>
         /// <param name="serviceBusAccount">Service bus account name or connection string used by MBrace service. Defaults to self-allocation service bus account.</param>
         /// <param name="serviceName">Service name identifier. Defaults to auto-generated name.</param>
-        /// <param name="serviceLabel">User-supplied service label. Defaults to library generated label.</param>
+        /// <param name="clusterLabel">User-supplied service label. Defaults to library generated label.</param>
         /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
         /// <param name="reuseAccounts">Reuse existing inactive mbrace storage/service bus accounts. Defaults to true.</param>
         static member Provision(publishSettingsFile : string, region : Region, vmCount : int, [<O;D(null:obj)>]?vmSize : VMSize, [<O;D(null:obj)>]?cloudServicePackage : string,
                                 [<O;D(null:obj)>]?subscriptionId : string, [<O;D(null:obj)>]?logger : ISystemLogger, [<O;D(null:obj)>]?logLevel : LogLevel,
                                 [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string,
-                                [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?serviceLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool) : Deployment =
+                                [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?clusterLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool) : Deployment =
 
             let logger = match logger with Some l -> l | None -> new ConsoleLogger() :> _
             let manager = SubscriptionManager.FromPublishSettingsFile(publishSettingsFile, region, ?subscriptionId = subscriptionId, logger = logger, ?logLevel = logLevel)
             manager.Provision(vmCount, ?serviceName = serviceName, ?vmSize = vmSize, ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, 
-                            ?cloudServicePackage = cloudServicePackage, ?serviceLabel = serviceLabel, ?enableDiagnostics = enableDiagnostics, ?mbraceVersion = mbraceVersion, ?reuseAccounts = reuseAccounts)
+                            ?cloudServicePackage = cloudServicePackage, ?clusterLabel = clusterLabel, ?enableDiagnostics = enableDiagnostics, ?mbraceVersion = mbraceVersion, ?reuseAccounts = reuseAccounts)
 
         /// <summary>
         ///     Gets an already existing deployment instance using provided publish settings and service name.
