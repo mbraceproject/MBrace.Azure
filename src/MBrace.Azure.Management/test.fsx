@@ -9,7 +9,7 @@
 open System.IO
 open MBrace.Azure.Management
 
-#time
+#time "on"
 
 /// gets the local Cloud Service package build
 let getLocalCspkg () =
@@ -23,7 +23,7 @@ let manager = SubscriptionManager.Create(subscription, Region.West_Europe, logge
 
 manager.ShowDeployments()
 
-let deployment = manager.Provision(serviceName = "eiriktest", vmCount = 4, cloudServicePackage = getLocalCspkg()) // deploy from local cspkg
+let deployment = manager.Provision(serviceName = "eiriktest", vmCount = 4, cloudServicePackage = getLocalCspkg(), reuseAccounts = false) // deploy from local cspkg
 //let deployment = manager.Provision(serviceName = "eiriktest", vmCount = 4, vmSize = VMSize.A3) // deploy from github
 //let deployment = manager.GetDeployment(serviceName = "eiriktest") // fetch an already existing deployment
 
@@ -34,7 +34,7 @@ deployment.AwaitProvision()
 
 deployment.Resize(vmCount = 2) // resizes the vm count
 
-deployment.Delete() // *deletes* the Azure deployment
+deployment.Delete(deleteStorageAccount = true, deleteServiceBusAccount = true) // *deletes* the Azure deployment
 
 manager.Storage.ShowAccounts() // show storage accounts
 

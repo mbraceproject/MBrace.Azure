@@ -43,8 +43,9 @@ module internal Compute =
                 Field.create "Region" Left (fun d -> d.Region)
                 Field.create "VM size" Left (fun d -> match d.VMInstances with [||] -> "N/A" | ns -> ns.[0].VMSize.Id)
                 Field.create "#Instances" Left (fun d -> if Array.isEmpty d.VMInstances then "N/A" else string d.VMInstances.Length)
-                Field.create "Service Status" Left (fun d -> d.ServiceStatus) 
                 Field.create "Deployment Status" Left (fun d -> d.DeploymentState)
+                Field.create "Storage Accnt" Left (fun d -> d.StorageAccount.AccountName)
+                Field.create "ServiceBus Accnt" Left (fun d -> d.ServiceBusAccount.AccountName)
                 Field.create "Last Modified" Left (fun d -> d.LastModified.LocalDateTime) 
                 Field.create "Cluster Label" Left (fun d -> if String.IsNullOrEmpty d.Label then "N/A" else d.Label)
             ]

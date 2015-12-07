@@ -51,6 +51,10 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     member __.ServiceStatus = deployment.Value.ServiceStatus
     /// Asynchronously fetches current deployment info record
     member __.GetInfoAsync() = deployment.GetValueAsync()
+    /// Gets the storage account used by the mbrace deployment
+    member __.StorageAccount = deployment.Value.StorageAccount
+    /// Gets the service bus account used by the mbrace deployment
+    member __.ServiceBusAccount = deployment.Value.ServiceBusAccount
 
     /// <summary>
     ///     Prints deployment information to stdout  
@@ -73,10 +77,41 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
         Compute.InstanceReporter.Report(Array.toList current.VMInstances, title = sprintf "Cloud Service %A" serviceName)
         |> Console.WriteLine
 
-    /// Asynchronously deletes deployment from Azure
-    member __.DeleteAsync() = Compute.deleteMBraceDeployment logger serviceName client
-    /// Deletes deployment from Azure
-    member __.Delete() = __.DeleteAsync() |> Async.RunSync
+    /// <summary>
+    ///      Asynchronously deletes deployment from Azure
+    /// </summary>
+    /// <param name="deleteStorageAccount">Delete the associated storage account. Defaults to false.</param>
+    /// <param name="deleteServiceBusAccount">Delete the associated service bus account. Defaults to false.</param>
+    member __.DeleteAsync([<O;D(null:obj)>]?deleteStorageAccount:bool, [<O;D(null:obj)>]?deleteServiceBusAccount:bool) = async {
+        let deleteStorageAccount = defaultArg deleteStorageAccount false
+        let deleteServiceBusAccount = defaultArg deleteServiceBusAccount false
+
+        // if deleting, retrieve account info for deployment
+        let! infoOpt = async {
+            if deleteStorageAccount || deleteServiceBusAccount then
+                let! info = deployment.GetValueAsync()
+                return Some info
+            else
+                return None
+        }
+
+        do! Compute.deleteMBraceDeployment logger serviceName client
+
+        // once the service has been deleted, delete accounts where applicable
+        match infoOpt with
+        | None -> ()
+        | Some info ->
+            if deleteStorageAccount then do! Storage.deleteStorageAccount logger info.StorageAccount.AccountName client
+            if deleteServiceBusAccount then do! ServiceBus.deleteServiceBusAccount logger info.ServiceBusAccount.AccountName client
+    }
+
+    /// <summary>
+    ///      Deletes deployment from Azure
+    /// </summary>
+    /// <param name="deleteStorageAccount">Delete the associated storage account. Defaults to false.</param>
+    /// <param name="deleteServiceBusAccount">Delete the associated service bus account. Defaults to false.</param>
+    member __.Delete([<O;D(null:obj)>]?deleteStorageAccount:bool, [<O;D(null:obj)>]?deleteServiceBusAccount:bool) =
+        __.DeleteAsync(?deleteStorageAccount = deleteStorageAccount, ?deleteServiceBusAccount = deleteServiceBusAccount) |> Async.RunSync
 
 
     /// <summary>
@@ -430,17 +465,21 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
     ///     Asynchronously deletes deployment of given name.
     /// </summary>
     /// <param name="serviceName">Cloud service name of deployment.</param>
-    member __.DeleteDeploymentAsync(serviceName : string) = async {
+    /// <param name="deleteStorageAccount">Delete the associated storage account. Defaults to false.</param>
+    /// <param name="deleteServiceBusAccount">Delete the associated service bus account. Defaults to false.</param>
+    member __.DeleteDeploymentAsync(serviceName : string, [<O;D(null:obj)>]?deleteStorageAccount:bool, [<O;D(null:obj)>]?deleteServiceBusAccount:bool) = async {
         let! deployment = __.GetDeploymentAsync(serviceName)
-        return! deployment.DeleteAsync()
+        return! deployment.DeleteAsync(?deleteStorageAccount = deleteStorageAccount, ?deleteServiceBusAccount = deleteServiceBusAccount)
     }
 
     /// <summary>
     ///     Deletes deployment of given name.
     /// </summary>
     /// <param name="serviceName">Cloud service name of deployment.</param>
-    member __.DeleteDeployment(serviceName : string) =
-        __.DeleteDeploymentAsync(serviceName) |> Async.RunSync
+    /// <param name="deleteStorageAccount">Delete the associated storage account. Defaults to false.</param>
+    /// <param name="deleteServiceBusAccount">Delete the associated service bus account. Defaults to false.</param>
+    member __.DeleteDeployment(serviceName : string, [<O;D(null:obj)>]?deleteStorageAccount:bool, [<O;D(null:obj)>]?deleteServiceBusAccount:bool) =
+        __.DeleteDeploymentAsync(serviceName, ?deleteStorageAccount = deleteStorageAccount, ?deleteServiceBusAccount = deleteServiceBusAccount) |> Async.RunSync
 
     /// <summary>
     ///     Asynchronously resizes deployment of given name to supplied instance count (scale out).
