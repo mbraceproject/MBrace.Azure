@@ -39,12 +39,18 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
         let d = deployment.Value
         new Configuration(d.StorageAccount.ConnectionString, d.ServiceBusAccount.ConnectionString)
 
+    /// Gets the deployment label
+    member __.Label = deployment.Value.Label
     /// Gets the current instance information for the cloud service
     member __.Nodes = deployment.Value.VMInstances
     /// Numbers of VM instances currently in the deployment
     member __.InstanceCount = deployment.Value.VMInstances.Length
     /// Time of current cloud service creation
     member __.CreatedTime = deployment.Value.CreatedTime
+    /// Gets the last modification time of the deployment
+    member __.LastModified = deployment.Value.LastModified
+    /// Gets the region of the deployment
+    member __.Region = deployment.Value.Region
     /// Current deployment Status
     member __.DeploymentState = deployment.Value.DeploymentState
     /// Current service Status
