@@ -3,10 +3,10 @@ source https://www.nuget.org/api/v2
 
 nuget FAKE
 nuget FSharp.Core ~> 4.0.0.0
-nuget MBrace.Core ~> 1.0.4
-nuget MBrace.Runtime ~> 1.0.4
-nuget MBrace.Tests ~> 1.0.4
-nuget MBrace.CSharp >= 0.0.2-alpha
+nuget MBrace.Core ~> 1.0.5
+nuget MBrace.Runtime ~> 1.0.5
+nuget MBrace.Tests ~> 1.0.5
+nuget MBrace.CSharp >= 0.0.3-alpha
 nuget WindowsAzure.ServiceBus ~> 2.5.2
 nuget WindowsAzure.Storage ~> 4.3.0
 nuget Nuget.CommandLine

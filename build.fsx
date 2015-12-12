@@ -221,19 +221,19 @@ Target "Release" DoNothing
 Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
-//"Clean"
-//  ==> "AssemblyInfo"
-//  ==> "Build"
-//  ==> "RunTests"
-//  ==> "Default"
-//
-//"Build"
-//  ==> "BuildPackages"
-//  ==> "PrepareRelease"
-////  ==> "NuGet"
-////  ==> "ReleaseNuGet"
-//  ==> "ReleaseGitHub"
-//  ==> "Release"
+"Clean"
+  ==> "AssemblyInfo"
+  ==> "Build"
+  ==> "RunTests"
+  ==> "Default"
+
+"Build"
+  ==> "BuildPackages"
+  ==> "PrepareRelease"
+  ==> "NuGet"
+  ==> "ReleaseNuGet"
+  ==> "ReleaseGitHub"
+  ==> "Release"
 
 //// start build
 RunTargetOrDefault "Default"
