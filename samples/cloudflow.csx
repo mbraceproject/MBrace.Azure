@@ -42,7 +42,7 @@ AzureWorker.LocalExecutable = "../../bin/mbrace.azureworker.exe";
 var pubSettings = "/Users/eirik/Desktop/eirik.publishsettings";
 var subscriptionId = "Visual Studio Premium with MSDN";
 var region = Region.North_Europe;
-var logger = (MBrace.Runtime.ISystemLogger)new MBrace.Runtime.ConsoleLogger(null, null);
+var logger = (MBrace.Runtime.ISystemLogger)new MBrace.Runtime.ConsoleLogger();
 
 /// <summary>
 ///     Resolves a locally built CS package
