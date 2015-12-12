@@ -1,3 +1,7 @@
+### 1.1.11
+* Add support for automatic deletion of storage and service bus accounts on cluster deprovision.
+* Expose storage and service bus account info for deployment instances.
+
 ### 1.1.10
 * Add support for automatic deletion of storage and service bus accounts on cluster deprovision.
 * Expose storage and service bus account info for deployment instances.

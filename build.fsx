@@ -207,7 +207,7 @@ Target "ReleaseGitHub" (fun _ ->
     // release on github
     client
     |> createDraft gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes 
-    |> List.foldBack (cspkgAfterCopy >> uploadFile) vmSizes
+    |> uploadFiles (vmSizes |> Seq.map cspkgAfterCopy)
     |> releaseDraft
     |> Async.RunSynchronously
 )
@@ -221,19 +221,19 @@ Target "Release" DoNothing
 Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
-"Clean"
-  ==> "AssemblyInfo"
-  ==> "Build"
-  ==> "RunTests"
-  ==> "Default"
-
-"Build"
-  ==> "BuildPackages"
-  ==> "PrepareRelease"
-  ==> "NuGet"
-  ==> "ReleaseNuGet"
-  ==> "ReleaseGitHub"
-  ==> "Release"
+//"Clean"
+//  ==> "AssemblyInfo"
+//  ==> "Build"
+//  ==> "RunTests"
+//  ==> "Default"
+//
+//"Build"
+//  ==> "BuildPackages"
+//  ==> "PrepareRelease"
+////  ==> "NuGet"
+////  ==> "ReleaseNuGet"
+//  ==> "ReleaseGitHub"
+//  ==> "Release"
 
 //// start build
 RunTargetOrDefault "Default"

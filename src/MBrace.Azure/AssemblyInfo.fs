@@ -6,12 +6,12 @@ open System.Reflection
 [<assembly: AssemblyCompanyAttribute("Nessos Information Technologies")>]
 [<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")>]
 [<assembly: AssemblyTrademarkAttribute("MBrace")>]
-[<assembly: AssemblyMetadataAttribute("Release Signature","Version 1.1.10, Git Hash 2378b9, Build Date 07122015 13:04 +02:00")>]
-[<assembly: AssemblyVersionAttribute("1.1.10")>]
-[<assembly: AssemblyFileVersionAttribute("1.1.10")>]
+[<assembly: AssemblyMetadataAttribute("Release Signature","Version 1.1.11, Git Hash 8d8dea, Build Date 08122015 12:34 +02:00")>]
+[<assembly: AssemblyVersionAttribute("1.1.11")>]
+[<assembly: AssemblyFileVersionAttribute("1.1.11")>]
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] Version = "1.1.10"
+    let [<Literal>] Version = "1.1.11"
 
-    let [<Literal>] ReleaseTag = "1.1.10"
+    let [<Literal>] ReleaseTag = "1.1.11"
