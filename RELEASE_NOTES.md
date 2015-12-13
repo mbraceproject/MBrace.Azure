@@ -1,3 +1,6 @@
+### 1.1.12
+* Fix deployment package names in blob storage.
+
 ### 1.1.11
 * Update MBrace.Core version.
 

@@ -400,7 +400,7 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
         else
             logger.Logf LogLevel.Info "using custom cspkg"
 
-        let! packagePath, versionInfo = Compute.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
+        let! pkgPath, pkgFileName, versionInfo = Compute.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
         logger.Logf LogLevel.Info "using cluster name %s" serviceName
 
         let! storageAccountT = Storage.getDeploymentStorageAccount logger reuseAccounts region storageAccount client |> Async.StartChild
@@ -413,7 +413,7 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
             | None, Some v -> sprintf "mbrace-%s" v
             | None, None -> sprintf "custom-cspkg"
 
-        do! Compute.createDeployment logger serviceName clusterLabel region packagePath false enableDiagnostics vmCount storageAccount serviceBusAccount client
+        do! Compute.createDeployment logger serviceName clusterLabel region pkgPath pkgFileName false enableDiagnostics vmCount storageAccount serviceBusAccount client
         return new Deployment(client, serviceName, logger)
     }
 

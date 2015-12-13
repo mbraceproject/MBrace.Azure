@@ -197,12 +197,12 @@ module internal Compute =
 </ServiceConfiguration>""" serviceName instances storageAccount.ConnectionString serviceBusAccount.ConnectionString (if useDiagnostics then storageAccount.ConnectionString else "")
 
     let createDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
-                            (region : Region) (packagePath : string) (useStaging : bool) (enableDiagnostics : bool) (instanceCount : int)
+                            (region : Region) (packagePath : string) (packageFileName : string) (useStaging : bool) (enableDiagnostics : bool) (instanceCount : int)
                             (storageAccount : StorageAccount) (serviceBusAccount : ServiceBusAccount) 
                             (client:SubscriptionClient) = async {
 
         let! container = getDeploymentContainer storageAccount
-        let packageBlobName = sprintf "%s-%s-%x" (Path.GetFileName packagePath) (getFileHash packagePath) (FileInfo(packagePath).Length)
+        let packageBlobName = sprintf "%s-%s-%x" packageFileName (getFileHash packagePath) (FileInfo(packagePath).Length)
         let packageBlob = container.GetBlockBlobReference packageBlobName
 
         let! blobExists = packageBlob.ExistsAsync()
@@ -280,7 +280,7 @@ module internal Compute =
 
         if uri.IsFile then
             logger.Logf LogLevel.Info "using cloud service package from %A" uri.LocalPath 
-            return uri.LocalPath, version
+            return uri.LocalPath, Path.GetFileName uri.LocalPath, version
         else
             let directory = Path.Combine(Path.GetTempPath(), sprintf "mbrace-cspkg-%O" Common.defaultMBraceVersion)
             let wd = WorkingDirectory.CreateWorkingDirectory(directory, cleanup = false)
@@ -309,7 +309,7 @@ module internal Compute =
                 use wc = new System.Net.WebClient()
                 do! wc.DownloadFileTaskAsync(uri, localPath)
 
-            return localPath, version
+            return localPath, Path.GetFileName uri.LocalPath, version
     }
 
 module internal Infrastructure =
