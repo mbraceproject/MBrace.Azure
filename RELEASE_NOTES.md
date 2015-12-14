@@ -1,3 +1,6 @@
+### 1.1.14
+* Update MBrace.Core.
+
 ### 1.1.13
 * Fix packaging issue.
 
