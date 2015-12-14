@@ -1,17 +1,16 @@
 namespace System
 open System.Reflection
 
-[<assembly: AssemblyTitleAttribute("MBrace.Azure")>]
 [<assembly: AssemblyProductAttribute("MBrace.Azure")>]
 [<assembly: AssemblyCompanyAttribute("Nessos Information Technologies")>]
 [<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies.")>]
 [<assembly: AssemblyTrademarkAttribute("MBrace")>]
-[<assembly: AssemblyMetadataAttribute("Release Signature","Version 1.1.12, Git Hash 70e968, Build Date 13122015 21:47 +02:00")>]
-[<assembly: AssemblyVersionAttribute("1.1.12")>]
-[<assembly: AssemblyFileVersionAttribute("1.1.12")>]
+[<assembly: AssemblyMetadataAttribute("Release Signature","Version 1.1.13, Git Hash 58cb62, Build Date 14122015 15:08 +02:00")>]
+[<assembly: AssemblyVersionAttribute("1.1.13")>]
+[<assembly: AssemblyFileVersionAttribute("1.1.13")>]
 do ()
 
 module internal AssemblyVersionInformation =
-    let [<Literal>] Version = "1.1.12"
+    let [<Literal>] Version = "1.1.13"
 
-    let [<Literal>] ReleaseTag = "1.1.12"
+    let [<Literal>] ReleaseTag = "1.1.13"

@@ -1,3 +1,6 @@
+### 1.1.13
+* Fix packaging issue.
+
 ### 1.1.12
 * Fix deployment package names in blob storage.
 
