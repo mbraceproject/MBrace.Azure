@@ -1,3 +1,6 @@
+### 1.1.15
+* Fix Vagabond issue.
+
 ### 1.1.14
 * Update MBrace.Core.
 
