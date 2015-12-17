@@ -17,8 +17,8 @@ nuget MathNet.Numerics ~> 3.7.0
 nuget MathNet.Numerics.FSharp
 nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
 nuget Argu ~> 1.0
-nuget Microsoft.WindowsAzure.Management.Libraries
-nuget Microsoft.WindowsAzure.Management.ServiceBus
-nuget Microsoft.Bcl.Async
+nuget Microsoft.WindowsAzure.Management.Libraries ~> 2.0
+nuget Microsoft.WindowsAzure.Management.ServiceBus ~> 0.17 prerelease
+nuget Microsoft.Bcl.Async ~> 1.0
 nuget System.Runtime.Loader
 github fsharp/FAKE modules/Octokit/Octokit.fsx
