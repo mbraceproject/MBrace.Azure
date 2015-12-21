@@ -206,7 +206,7 @@ Target "ReleaseGitHub" (fun _ ->
     // release on github
     client
     |> createDraft gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes 
-    |> List.foldBack (cspkgAfterCopy >> uploadFile) vmSizes
+    |> uploadFiles (Seq.map cspkgAfterCopy vmSizes)
     |> releaseDraft
     |> Async.RunSynchronously
 )
