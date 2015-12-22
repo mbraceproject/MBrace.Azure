@@ -1,3 +1,6 @@
+### 1.1.17
+* Update MBrace.Core.
+
 ### 1.1.16
 * Update MBrace.Core.
 
