@@ -16,6 +16,7 @@ type private AzureArguments =
     | [<AltCommandLine("-m")>] Max_Work_Items of int
     | Heartbeat_Interval of float
     | Heartbeat_Threshold of float
+    | [<AltCommandLine("-q")>] Quiet
     | [<AltCommandLine("-L")>] Log_Level of int
     | [<AltCommandLine("-l")>] Log_File of string
     | Working_Directory of string
@@ -44,6 +45,7 @@ type private AzureArguments =
     interface IArgParserTemplate with
         member arg.Usage =
             match arg with
+            | Quiet -> "Suppress logging to stdout by the worker."
             | Log_Level _ -> "Log level for worker system logs. Critical = 1, Error = 2, Warning = 3, Info = 4, Debug = 5. Defaults to info."
             | Log_File _ -> "Specify a log file to write worker system logs."
             | Max_Work_Items _ -> "Specify maximum number of concurrent work items."
@@ -74,6 +76,7 @@ let private argParser = ArgumentParser.Create<AzureArguments>()
 /// Configuration object encoding command line parameters for an MBrace.Azure process
 type ArgumentConfiguration = 
     {
+        Quiet : bool
         Configuration : Configuration option
         MaxWorkItems : int option
         WorkerId : string option
@@ -85,16 +88,17 @@ type ArgumentConfiguration =
     }
 
     /// Creates a configuration object using supplied parameters.
-    static member Create(?config : Configuration, ?workingDirectory : string, ?maxWorkItems : int, ?workerId : string, ?logLevel : LogLevel, 
+    static member Create(?config : Configuration, ?quiet : bool, ?workingDirectory : string, ?maxWorkItems : int, ?workerId : string, ?logLevel : LogLevel, 
                             ?logfile : string, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
         maxWorkItems |> Option.iter (fun w -> if w < 0 then invalidArg "maxWorkItems" "must be positive." elif w > 1024 then invalidArg "maxWorkItems" "exceeds 1024 limit.")
         heartbeatInterval |> Option.iter (fun i -> if i < TimeSpan.FromSeconds 1. then invalidArg "heartbeatInterval" "must be at least one second.")
         heartbeatThreshold |> Option.iter (fun i -> if i < TimeSpan.FromSeconds 1. then invalidArg "heartbeatThreshold" "must be at least one second.")
         workerId |> Option.iter Validate.subscriptionName
         let workingDirectory = workingDirectory |> Option.map Path.GetFullPath
+        let quiet = defaultArg quiet false
         { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerId = workerId ; LogFile = logfile ;
             LogLevel = logLevel ; HeartbeatInterval = heartbeatInterval ; HeartbeatThreshold = heartbeatThreshold ;
-            WorkingDirectory = workingDirectory }
+            WorkingDirectory = workingDirectory ; Quiet = quiet }
 
     /// Converts a configuration object to a command line string.
     static member ToCommandLineArguments(cfg : ArgumentConfiguration) =
@@ -140,6 +144,7 @@ type ArgumentConfiguration =
         let parseResult = argParser.Parse(args, errorHandler = new ProcessExiter())
 
         let maxWorkItems = parseResult.TryPostProcessResult(<@ Max_Work_Items @>, fun i -> if i < 0 then failwith "must be positive." elif i > 1024 then failwith "exceeds 1024 limit." else i)
+        let quiet = parseResult.Contains <@ Quiet @>
         let logLevel = parseResult.TryPostProcessResult(<@ Log_Level @>, enum<LogLevel>)
         let logFile = parseResult.TryPostProcessResult(<@ Log_File @>, fun f -> ignore <| Path.GetFullPath f ; f) // use GetFullPath to validate chars
         let workerName = parseResult.TryPostProcessResult(<@ Worker_Id @>, fun name -> Validate.subscriptionName name; name)
@@ -174,6 +179,7 @@ type ArgumentConfiguration =
             MaxWorkItems = maxWorkItems
             WorkerId = workerName
             WorkingDirectory = workingDirectory
+            Quiet = quiet
             LogLevel = logLevel
             LogFile = logFile
             HeartbeatInterval = heartbeatInterval

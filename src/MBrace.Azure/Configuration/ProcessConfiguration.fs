@@ -44,6 +44,13 @@ type ProcessConfiguration private () =
                 isInitialized := true
         )
 
+
+    /// True if running on mono
+    static member RunsOnMono = runsOnMono
+
+    /// True if is unix system
+    static member IsUnix = Environment.OSVersion.Platform = PlatformID.Unix
+
     /// Ensure that global configuration object has been initialized
     static member EnsureInitialized () = checkInitialized()
 

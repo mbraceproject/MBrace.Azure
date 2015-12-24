@@ -26,7 +26,9 @@ module StandaloneWorker =
                 | Some n -> n
 
             let svc = new WorkerService(config, workerId)
-            let _ = svc.AttachLogger(ConsoleLogger(showDate = true, useColors = true))
+            if not cli.Quiet then
+                ignore <| svc.AttachLogger(ConsoleLogger(showDate = true, useColors = true))
+
             cli.WorkingDirectory |> Option.iter (fun w -> svc.WorkingDirectory <- w)
             cli.MaxWorkItems |> Option.iter (fun w -> svc.MaxConcurrentWorkItems <- w)
             cli.HeartbeatInterval |> Option.iter (fun i -> svc.HeartbeatInterval <- i)

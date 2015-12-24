@@ -31,7 +31,7 @@ type ClusterSession(config : MBrace.Azure.Configuration, localWorkerCount : int,
     let mutable state = None
 
     let attachWorkers (cluster : AzureCluster) =
-        cluster.AttachLocalWorkers(workerCount = localWorkerCount, logLevel = LogLevel.Debug, heartbeatThreshold = heartbeatThreshold)
+        cluster.AttachLocalWorkers(workerCount = localWorkerCount, logLevel = LogLevel.Debug, heartbeatThreshold = heartbeatThreshold, quiet = false)
 
     member __.Start () =
         lock lockObj (fun () ->
