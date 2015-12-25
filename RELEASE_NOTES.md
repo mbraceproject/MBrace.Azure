@@ -1,3 +1,6 @@
+### 1.1.18
+* Improvements for unix environments.
+
 ### 1.1.17
 * Update MBrace.Core.
 
