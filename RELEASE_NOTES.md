@@ -1,3 +1,6 @@
+### 1.1.19
+* Fix packaging issues.
+
 ### 1.1.18
 * Improvements for unix environments.
 
