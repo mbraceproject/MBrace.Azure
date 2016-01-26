@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24606.1
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{8C962C9C-7DF5-430C-8CD4-7C2642F68409}"
 	ProjectSection(SolutionItems) = preProject
@@ -54,6 +54,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Management", "
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "WorkerRole", "WorkerRole", "{6EE518A6-354B-4FA0-B9D4-08F41CA65960}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.StandaloneClient", "samples\MBrace.Azure.StandaloneClient\MBrace.Azure.StandaloneClient.fsproj", "{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_AzureSDK|Any CPU = Debug_AzureSDK|Any CPU
@@ -106,6 +108,14 @@ Global
 		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
 		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -119,6 +129,7 @@ Global
 		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1} = {6EE518A6-354B-4FA0-B9D4-08F41CA65960}
 		{2F80E0B8-69D4-4492-A0EE-73B98C741A04} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
 		{6EE518A6-354B-4FA0-B9D4-08F41CA65960} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
+		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45

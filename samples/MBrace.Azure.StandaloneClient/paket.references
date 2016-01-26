@@ -1,0 +1,8 @@
+﻿FsPickler
+MBrace.Core
+MBrace.Runtime
+Newtonsoft.Json
+System.Spatial
+Vagabond
+WindowsAzure.ServiceBus
+WindowsAzure.Storage
