@@ -82,10 +82,10 @@ type BlobValue<'T> internal (account : AzureStorageAccount, container : string, 
         let b = c.GetBlockBlobReference(path)
 
         let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-        use! stream = b.OpenWriteAsync(null, options, OperationContext(), Async.DefaultCancellationToken)
-        ProcessConfiguration.BinarySerializer.Serialize<'T>(stream, value)
-        do! stream.FlushAsync()
-        stream.Dispose()
+        do! async {
+            use! stream = b.OpenWriteAsync(null, options, OperationContext(), Async.DefaultCancellationToken)
+            ProcessConfiguration.BinarySerializer.Serialize<'T>(stream, value)
+        }
 
         // For some reason large client uploads, fail to upload but do not throw exception...
         let! exists = b.ExistsAsync()
