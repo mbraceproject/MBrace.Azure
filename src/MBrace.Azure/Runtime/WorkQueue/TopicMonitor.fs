@@ -42,7 +42,7 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
             // now that enqueue is complete, complete topic messages
             do! 
                 allMessages 
-                |> Seq.map (fun m -> async { do! m.CompleteAsync() })
+                |> Seq.map (fun m -> m.CompleteAsync() |> Async.AwaitTaskCorrect)
                 |> Async.Parallel 
                 |> Async.Ignore
     }

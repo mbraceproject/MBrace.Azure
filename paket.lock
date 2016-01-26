@@ -3,7 +3,7 @@ NUGET
   remote: https://www.nuget.org/api/v2
   specs:
     Argu (1.1.3)
-    FAKE (4.17.0)
+    FAKE (4.17.1)
     FsCheck (2.2.4)
       FSharp.Core (>= 3.1.2.5)
     FSharp.Compiler.Service (1.3.1.2)
@@ -25,25 +25,25 @@ NUGET
       MathNet.Numerics (3.7.1)
     MathNet.Numerics.MKL.Win-x64 (1.8.0)
       MathNet.Numerics (>= 2.4.0)
-    MBrace.Core (1.0.15)
-    MBrace.CSharp (1.0.15-alpha)
+    MBrace.Core (1.0.16)
+    MBrace.CSharp (1.0.16-alpha)
       FSharp.Core
-      MBrace.Core (1.0.15)
-      MBrace.Flow (1.0.15)
+      MBrace.Core (1.0.16)
+      MBrace.Flow (1.0.16)
       Streams (>= 0.4.0 < 0.5.0)
-    MBrace.Flow (1.0.15)
+    MBrace.Flow (1.0.16)
       FSharp.Core
-      MBrace.Core (1.0.15)
+      MBrace.Core (1.0.16)
       Streams (>= 0.4.0 < 0.5.0)
-    MBrace.Runtime (1.0.15)
+    MBrace.Runtime (1.0.16)
       FsPickler (>= 1.7.0 < 1.8.0)
       FsPickler.Json (>= 1.7.0 < 1.8.0)
-      MBrace.Core (1.0.15)
+      MBrace.Core (1.0.16)
       Vagabond (>= 0.12.5 < 0.13.0)
-    MBrace.Tests (1.0.15)
+    MBrace.Tests (1.0.16)
       FsCheck (>= 2.0.1)
-      MBrace.Core (1.0.15)
-      MBrace.Flow (1.0.15)
+      MBrace.Core (1.0.16)
+      MBrace.Flow (1.0.16)
       NUnit (>= 2.6.0 < 3.0.0)
     Microsoft.Azure.Common (2.1.0)
       Hyak.Common (>= 1.0.2)
@@ -165,5 +165,5 @@ NUGET
 GITHUB
   remote: fsharp/FAKE
   specs:
-    modules/Octokit/Octokit.fsx (bc52476acfcc0151923380b3baadf1075e0f7f86)
+    modules/Octokit/Octokit.fsx (e537d90b050d02cc287cb64e18b72a8b7e984805)
       Octokit

@@ -116,8 +116,8 @@ module private BlobUtils =
         let fetchSegment (token : BlobContinuationToken) = async {
             let! segment = async {
                 match prefix with
-                | None -> return! container.ListBlobsSegmentedAsync(token)
-                | Some prefix -> return! container.ListBlobsSegmentedAsync(prefix, token)
+                | None -> return! container.ListBlobsSegmentedAsync(token) |> Async.AwaitTaskCorrect
+                | Some prefix -> return! container.ListBlobsSegmentedAsync(prefix, token) |> Async.AwaitTaskCorrect
             }
 
             return segment.ContinuationToken, segment.Results
@@ -137,7 +137,7 @@ module private BlobUtils =
 
     let listContainersAsync (client : CloudBlobClient) = async {
         let fetchSegment (token : BlobContinuationToken) = async {
-            let! (result : ContainerResultSegment) = client.ListContainersSegmentedAsync(token)
+            let! (result : ContainerResultSegment) = client.ListContainersSegmentedAsync(token) |> Async.AwaitTaskCorrect
             return result.ContinuationToken, result.Results
         }
 
@@ -178,14 +178,14 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         member this.BeginWrite(path: string): Async<Stream> = async {
             let path = normalizePath path
             let! blob = getBlobReference account path
-            let! stream = blob.OpenWriteAsync()
+            let! stream = blob.OpenWriteAsync() |> Async.AwaitTaskCorrect
             return stream :> Stream
         }
         
         member this.ReadETag(path: string, etag: ETag): Async<Stream option> = async {
             let path = normalizePath path
             let! blob = getBlobReference account path
-            let! stream = async { return! blob.OpenReadAsync(AccessCondition.GenerateIfMatchCondition(etag), BlobRequestOptions(), null) } |> Async.Catch
+            let! stream = blob.OpenReadAsync(AccessCondition.GenerateIfMatchCondition(etag), BlobRequestOptions(), null) |> Async.AwaitTaskCorrect |> Async.Catch
             match stream with
             | Choice1Of2 s -> 
                 return Some s
@@ -200,7 +200,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let path = normalizePath path
             let! blob = getBlobReference account path
             try
-                do! blob.FetchAttributesAsync()
+                do! blob.FetchAttributesAsync() |> Async.AwaitTaskCorrect
                 if String.IsNullOrEmpty blob.Properties.ETag then 
                     return None
                 else
@@ -274,10 +274,10 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let storePath = StorePath.Parse path
             let! container = getContainerReference account storePath.Container
 
-            let! b1 = container.ExistsAsync()
+            let! b1 = container.ExistsAsync() |> Async.AwaitTaskCorrect
             if b1 then
                 let! blob = getBlobReference account path
-                return! blob.ExistsAsync()
+                return! blob.ExistsAsync() |> Async.AwaitTaskCorrect
             else 
                 return false
         }
@@ -303,7 +303,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             try
                 let path = normalizePath path
                 let! blob = getBlobReference account path
-                do! blob.DeleteAsync()
+                do! blob.DeleteAsync() |> Async.AwaitTaskCorrect
             with e when StoreException.NotFound e ->
                 return raise <| new FileNotFoundException(path, e)
         }
@@ -314,7 +314,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             match path.Container with
             | Container _ as c ->
                 let! container = getContainerReference account c
-                return! container.ExistsAsync()
+                return! container.ExistsAsync() |> Async.AwaitTaskCorrect
             | Root ->
                 return true
         }
@@ -338,7 +338,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             | { Container = Root; SubDirectory = _ } -> return invalidArg "container" "Cannot delete the root container."
             | { Container = c; SubDirectory = None } ->
                 let! container = getContainerReference account c
-                let! _ = container.DeleteIfExistsAsync()
+                let! _ = container.DeleteIfExistsAsync() |> Async.AwaitTaskCorrect
                 return ()
             | { Container = c; SubDirectory = Some s } ->
                 let! container = getContainerReference account c
@@ -347,7 +347,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 do! blobs |> Seq.map (fun b -> async {
                         let p = b.Uri.Segments |> Array.last
                         let! blob = getBlobReference account (normalizePath <| Path.Combine(container.Name,p))
-                        let! _ = blob.DeleteIfExistsAsync()
+                        let! _ = blob.DeleteIfExistsAsync() |> Async.AwaitTaskCorrect
                         ()
                     })
                     |> Async.Parallel
@@ -382,7 +382,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             // http://msdn.microsoft.com/en-us/library/azure/dd179431.aspx
             let! result = async {
                 let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-                use! stream = blob.OpenWriteAsync(null, options, OperationContext())
+                use! stream = blob.OpenWriteAsync(null, options, OperationContext()) |> Async.AwaitTaskCorrect
                 return! writer(stream)
             }
             return blob.Properties.ETag, result
@@ -392,7 +392,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             try
                 let path = normalizePath path
                 let! blob = getBlobReference account path
-                return! blob.OpenReadAsync()
+                return! blob.OpenReadAsync() |> Async.AwaitTaskCorrect
             with e when StoreException.NotFound e ->
                 return raise <| new FileNotFoundException(path, e)
         }
@@ -401,14 +401,14 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let path = normalizePath path
             let! blob = getBlobReference account path
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-            do! blob.UploadFromStreamAsync(source, null, options, OperationContext()).ContinueWith ignore
+            do! blob.UploadFromStreamAsync(source, null, options, OperationContext()).ContinueWith ignore |> Async.AwaitTaskCorrect
         }
         
         member this.DownloadToStream(path: string, target: Stream) : Async<unit> = async {
             try
                 let path = normalizePath path
                 let! blob = getBlobReference account path
-                do! blob.DownloadToStreamAsync(target).ContinueWith ignore
+                do! blob.DownloadToStreamAsync(target) |> Async.AwaitTaskCorrect
             with e when StoreException.NotFound e ->
                 return raise <| new FileNotFoundException(path, e)
         }
@@ -417,14 +417,14 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let target = normalizePath target
             let! blob = getBlobReference account target
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-            do! blob.UploadFromFileAsync(source, FileMode.Open, null, options, OperationContext())
+            do! blob.UploadFromFileAsync(source, FileMode.Open, null, options, OperationContext()) |> Async.AwaitTaskCorrect
         }
 
         member this.DownloadToLocalFile(source : string, target : string) : Async<unit> = async {
             let source = normalizePath source
             let! blob = getBlobReference account source
-            let! exists = blob.ExistsAsync()
+            let! exists = blob.ExistsAsync() |> Async.AwaitTaskCorrect
             if not exists then raise <| new FileNotFoundException(source)
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-            do! blob.DownloadToFileAsync(target, FileMode.Create, null, options, OperationContext())
+            do! blob.DownloadToFileAsync(target, FileMode.Create, null, options, OperationContext()) |> Async.AwaitTaskCorrect
         }

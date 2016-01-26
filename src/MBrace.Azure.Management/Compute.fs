@@ -100,13 +100,13 @@ module internal Compute =
             | _ -> Unknown
 
     let validateServiceName (client:SubscriptionClient) serviceName = async { 
-        let! (result : HostedServiceCheckNameAvailabilityResponse) = client.Compute.HostedServices.CheckNameAvailabilityAsync serviceName
+        let! result = client.Compute.HostedServices.CheckNameAvailabilityAsync serviceName |> Async.AwaitTaskCorrect
         if not result.IsAvailable then return invalidOp result.Reason
     }
 
     let getDeploymentContainer (account : StorageAccount) = async {
         let container = account.Inner.BlobClient.GetContainerReference "deployments"
-        do! container.CreateIfNotExistsAsync()
+        let! _result = container.CreateIfNotExistsAsync() |> Async.AwaitTaskCorrect
         return container
     }
 
@@ -126,7 +126,7 @@ module internal Compute =
         let! deploymentT = 
             async {
                 let dplmnts = client.Compute.Deployments
-                return! dplmnts.GetBySlotAsync(serviceName, DeploymentSlot.Production)
+                return! dplmnts.GetBySlotAsync(serviceName, DeploymentSlot.Production) |> Async.AwaitTaskCorrect
             } |> Async.Catch |> Async.StartChild
 
         let! properties = getProps
@@ -167,7 +167,7 @@ module internal Compute =
 
     let tryGetRunningDeployment (client:SubscriptionClient) (serviceName:string) = async {
         let getProperties () = async {
-            let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync serviceName
+            let! service = client.Compute.HostedServices.GetDetailedAsync serviceName |> Async.AwaitTaskCorrect
             return service.Properties
         }
 
@@ -175,7 +175,7 @@ module internal Compute =
     }
 
     let getRunningDeployments (client:SubscriptionClient) = async {
-        let! (services : HostedServiceListResponse) = client.Compute.HostedServices.ListAsync()
+        let! services = client.Compute.HostedServices.ListAsync() |> Async.AwaitTaskCorrect
         let getProperties (s : HostedServiceListResponse.HostedService) = async { return s.Properties }
         let! info = services |> Seq.map (fun s -> tryGetDeploymentInfo client (getProperties s) s.ServiceName) |> Async.Parallel 
         return info |> Seq.choose id |> Seq.toList
@@ -205,10 +205,10 @@ module internal Compute =
         let packageBlobName = sprintf "%s-%s-%x" packageFileName (getFileHash packagePath) (FileInfo(packagePath).Length)
         let packageBlob = container.GetBlockBlobReference packageBlobName
 
-        let! blobExists = packageBlob.ExistsAsync()
+        let! blobExists = packageBlob.ExistsAsync() |> Async.AwaitTaskCorrect
         if not blobExists then
             logger.Logf LogLevel.Info "uploading cloud service package package %A" packagePath
-            do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open)
+            do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open) |> Async.AwaitTaskCorrect
 
         let extendedProperties =
             dict [
@@ -221,7 +221,7 @@ module internal Compute =
 
         let config = buildMBraceConfig serviceName instanceCount enableDiagnostics storageAccount serviceBusAccount
         logger.Logf LogLevel.Info "creating cloud service %A" serviceName
-        let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties))
+        let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties)) |> Async.AwaitTaskCorrect
         let deployParams = 
             DeploymentCreateParameters(
                 Name = serviceName,
@@ -233,7 +233,7 @@ module internal Compute =
 
         let slot = if useStaging then DeploymentSlot.Staging else DeploymentSlot.Production
         logger.Logf LogLevel.Info "starting deployment %A using slot %A with package %A" deployParams.Name (string slot) (string deployParams.PackageUri)
-        let! (createOp : AzureOperationResponse) = client.Compute.Deployments.BeginCreatingAsync(deployParams.Name, slot, deployParams)
+        let! createOp = client.Compute.Deployments.BeginCreatingAsync(deployParams.Name, slot, deployParams) |> Async.AwaitTaskCorrect
         if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
             return invalidOp <| sprintf "error: HTTP request for creation operation %A was not accepted (status code: %O)" deployParams.Name createOp.StatusCode
 
@@ -249,13 +249,13 @@ module internal Compute =
         | Some di ->
             let newConfiguration = buildMBraceConfig serviceName newCount true di.StorageAccount di.ServiceBusAccount
             let changeParams = new DeploymentChangeConfigurationParameters(Configuration = newConfiguration)
-            let! (changeOp : AzureOperationResponse) = client.Compute.Deployments.BeginChangingConfigurationByNameAsync(serviceName, serviceName, changeParams)
+            let! changeOp = client.Compute.Deployments.BeginChangingConfigurationByNameAsync(serviceName, serviceName, changeParams) |> Async.AwaitTaskCorrect
             if changeOp.StatusCode <> Net.HttpStatusCode.Accepted then
                 return invalidOp <| sprintf "error: HTTP request for change operation %A was not accepted (status code: %O)" serviceName changeOp.StatusCode
     }
 
     let deleteMBraceDeployment (logger : ISystemLogger) (serviceName:string) (client:SubscriptionClient) = async {
-        let! (service : HostedServiceGetDetailedResponse) = client.Compute.HostedServices.GetDetailedAsync serviceName
+        let! service = client.Compute.HostedServices.GetDetailedAsync serviceName |> Async.AwaitTaskCorrect
         if service.Properties.ExtendedProperties |> Common.isMBraceAsset then
             logger.Logf LogLevel.Info "deleting cluster %s" serviceName
             let! result = client.Compute.Deployments.DeleteByNameAsync(serviceName, serviceName, true) |> Async.AwaitTaskCorrect |> Async.Catch
@@ -264,8 +264,8 @@ module internal Compute =
             | Choice1Of2 deleteOp -> return invalidOp <| sprintf "Failed to delete deployment %A: %s" serviceName deleteOp.Error.Message
             | Choice2Of2 _ -> logger.Logf LogLevel.Warning "No deployment for cloud service %A could be found." serviceName
 
-            let! (deleteOp : AzureOperationResponse) = client.Compute.HostedServices.DeleteAsync serviceName
-            if deleteOp.StatusCode <> Net.HttpStatusCode.OK then return failwith (deleteOp.StatusCode.ToString()) 
+            let! deleteOp = client.Compute.HostedServices.DeleteAsync serviceName |> Async.AwaitTaskCorrect
+            if deleteOp.StatusCode <> Net.HttpStatusCode.OK then return failwith (string deleteOp.StatusCode)
         else
             logger.Logf LogLevel.Info "No MBrace cluster called %A found" serviceName
     }
@@ -307,7 +307,7 @@ module internal Compute =
             if not <| File.Exists localPath then
                 logger.Logf LogLevel.Info "downloading cloud service package from %A" uri
                 use wc = new System.Net.WebClient()
-                do! wc.DownloadFileTaskAsync(uri, localPath)
+                do! wc.DownloadFileTaskAsync(uri, localPath) |> Async.AwaitTaskCorrect
 
             return localPath, Path.GetFileName uri.LocalPath, version
     }

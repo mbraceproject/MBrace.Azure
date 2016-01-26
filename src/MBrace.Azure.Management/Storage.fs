@@ -20,7 +20,7 @@ module internal Storage =
         else None
 
     let listAllStorageAccounts (region : Region option) (client:SubscriptionClient) = async {
-        let! (listed : StorageAccountListResponse) = client.Storage.StorageAccounts.ListAsync()
+        let! listed = client.Storage.StorageAccounts.ListAsync() |> Async.AwaitTaskCorrect
         return 
             match region with 
             | None -> listed |> Seq.toArray
@@ -52,12 +52,12 @@ module internal Storage =
     /// Attempt to create an Azure storage account for usage by MBrace
     let createMBraceStorageAccount (logger : ISystemLogger) (region : Region) (accountName : string) (client:SubscriptionClient) = async {
         let aux () = async {
-            let! (availability : CheckNameAvailabilityResponse) = client.Storage.StorageAccounts.CheckNameAvailabilityAsync accountName
+            let! availability = client.Storage.StorageAccounts.CheckNameAvailabilityAsync accountName |> Async.AwaitTaskCorrect
             if not availability.IsAvailable then 
                 return invalidOp <| sprintf "Storage account name %A is not available" accountName
 
             let storageParams = new StorageAccountCreateParameters(Name = accountName, AccountType = "Standard_LRS", Location = region.Id, ExtendedProperties = Common.defaultExtendedProperties)
-            let! (result : OperationStatusResponse) = client.Storage.StorageAccounts.CreateAsync(storageParams)
+            let! result = client.Storage.StorageAccounts.CreateAsync(storageParams) |> Async.AwaitTaskCorrect
             if result.Status = OperationStatus.Failed then 
                 return invalidOp <| sprintf "Error creating storage account %A : %s" accountName result.Error.Message
 
@@ -70,7 +70,7 @@ module internal Storage =
 
     let deleteStorageAccount (logger : ISystemLogger) (accountName : string) (client : SubscriptionClient) = async {
         logger.Logf LogLevel.Info "Deleting storage account %A" accountName
-        let! (response : AzureOperationResponse) = client.Storage.StorageAccounts.DeleteAsync accountName
+        let! response = client.Storage.StorageAccounts.DeleteAsync accountName |> Async.AwaitTaskCorrect
         if response.StatusCode <> System.Net.HttpStatusCode.OK then
             return invalidOp <| sprintf "Error deleting storage account %A (error code %O)" accountName response.StatusCode
     }
@@ -82,7 +82,7 @@ module internal Storage =
             | Some account -> return account
             | None ->
                 // input identifier as account name, recover connection string from Storage Account client
-                let! (keys : StorageAccountGetKeysResponse) = client.Storage.StorageAccounts.GetKeysAsync accountId
+                let! keys = client.Storage.StorageAccounts.GetKeysAsync accountId |> Async.AwaitTaskCorrect
                 let account = AzureStorageAccount.FromCredentials(accountId, keys.PrimaryKey)
                 return account
         }
@@ -91,7 +91,7 @@ module internal Storage =
         | None -> ()
         | Some region ->
             try
-                let! (info : StorageAccountGetResponse) = client.Storage.StorageAccounts.GetAsync account.AccountName
+                let! info = client.Storage.StorageAccounts.GetAsync account.AccountName |> Async.AwaitTaskCorrect
                 if info.StatusCode <> System.Net.HttpStatusCode.OK then
                     logger.Logf LogLevel.Warning "Storage account %A does not correspond to subscription %A" account.AccountName client.Subscription.Name
                 elif

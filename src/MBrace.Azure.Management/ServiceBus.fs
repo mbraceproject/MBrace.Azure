@@ -14,7 +14,7 @@ open MBrace.Azure.Runtime
 module internal ServiceBus =
 
     let listAllServiceBusAccounts (region : Region option) (client:SubscriptionClient) = async {
-        let! (listed : ServiceBusNamespacesResponse) = client.ServiceBus.Namespaces.ListAsync()
+        let! listed = client.ServiceBus.Namespaces.ListAsync() |> Async.AwaitTaskCorrect
         return 
             match region with
             | None -> listed |> Seq.toArray
@@ -58,11 +58,11 @@ module internal ServiceBus =
     /// Creates a new service bus account in supplied region
     let createServiceBusAccount (logger : ISystemLogger) (region : Region) (namespaceName : string) (client:SubscriptionClient) = async {
         let aux () = async {
-            let! (availability : CheckNamespaceAvailabilityResponse) = client.ServiceBus.Namespaces.CheckAvailabilityAsync namespaceName
+            let! availability = client.ServiceBus.Namespaces.CheckAvailabilityAsync namespaceName |> Async.AwaitTaskCorrect
             if not availability.IsAvailable then
                 return invalidOp <| sprintf "ServiceBus namespace name %A is not available" namespaceName
 
-            let! (result : ServiceBusNamespaceResponse) = client.ServiceBus.Namespaces.CreateAsync(namespaceName, region.Id)
+            let! result = client.ServiceBus.Namespaces.CreateAsync(namespaceName, region.Id) |> Async.AwaitTaskCorrect
             if result.StatusCode <> Net.HttpStatusCode.OK then 
                 return invalidOp <| sprintf "Failed to create service bus: %O" result.StatusCode
             else 
@@ -82,7 +82,7 @@ module internal ServiceBus =
             | None ->
                 let accountName = defaultArg (AzureServiceBusAccount.TryParseNamespace accountId) accountId
                 // input identifier as account name, recover connection string from Storage Account client
-                let! (authRules : ServiceBusAuthorizationRulesResponse) = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync accountName
+                let! authRules = client.ServiceBus.Namespaces.ListAuthorizationRulesAsync accountName |> Async.AwaitTaskCorrect
                 let rootSharedAccessKey = authRules |> Seq.find (fun rule -> rule.KeyName = "RootManageSharedAccessKey")
                 let account = AzureServiceBusAccount.FromCredentials(accountName, rootSharedAccessKey.PrimaryKey)
                 return new ServiceBusAccount(account)
@@ -92,7 +92,7 @@ module internal ServiceBus =
         | None -> ()
         | Some region ->
             try
-                let! (info : ServiceBusNamespaceResponse) = client.ServiceBus.Namespaces.GetAsync account.AccountName
+                let! info = client.ServiceBus.Namespaces.GetAsync account.AccountName |> Async.AwaitTaskCorrect
                 if info.StatusCode <> System.Net.HttpStatusCode.OK then
                     logger.Logf LogLevel.Warning "Service Bus account %A does not correspond to subscription %A" account.AccountName client.Subscription.Name
                 elif info.Namespace.Region <> region.Id then
@@ -143,6 +143,6 @@ module internal ServiceBus =
     /// Asynchronously deletes Azure service bus account
     let deleteServiceBusAccount (logger : ISystemLogger) namespaceName (client:SubscriptionClient) = async {
         logger.Logf LogLevel.Info "Deleting service bus account %A" namespaceName
-        let! _response = client.ServiceBus.Namespaces.DeleteAsync namespaceName
+        let! _response = client.ServiceBus.Namespaces.DeleteAsync namespaceName |> Async.AwaitTaskCorrect
         do! client |> waitUntilState ((<>) "Removing") namespaceName (Some 60000)
     }

@@ -38,7 +38,7 @@ module Table =
         async {
             let t = config.TableClient.GetTableReference table
             do! t.CreateIfNotExistsAsyncSafe(maxRetries = 3)
-            let! (e : TableResult) = t.ExecuteAsync(op)
+            let! (e : TableResult) = t.ExecuteAsync(op) |> Async.AwaitTaskCorrect
             return e.Result 
         }
 
@@ -51,7 +51,7 @@ module Table =
         let mkHandle batch = Async.StartChild <| async {
             let t = config.TableClient.GetTableReference(table)
             do! t.CreateIfNotExistsAsyncSafe(maxRetries = 3)
-            let! _ = t.ExecuteBatchAsync(batch)
+            let! _ = t.ExecuteBatchAsync(batch) |> Async.AwaitTaskCorrect
             ()
         }
         for e in operations do
@@ -91,7 +91,7 @@ module Table =
 
     let read<'T when 'T :> ITableEntity> (config : AzureStorageAccount) table pk rk : Async<'T> = async { 
         let t = config.TableClient.GetTableReference(table)
-        let! (e : TableResult) = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk))
+        let! e = t.ExecuteAsync(TableOperation.Retrieve<'T>(pk, rk)) |> Async.AwaitTaskCorrect
         return e.Result :?> 'T
     }
 

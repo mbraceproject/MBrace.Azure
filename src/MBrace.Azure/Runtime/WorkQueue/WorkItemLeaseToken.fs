@@ -55,7 +55,7 @@ type internal WorkItemLeaseMonitor private (clusterId : ClusterId, message : Bro
         match msg with
         | None ->
             let! renewResult = Async.Catch <| async {
-                do! message.RenewLockAsync()
+                do! message.RenewLockAsync() |> Async.AwaitTaskCorrect
                 let record = new WorkItemRecord(info.ProcessId, fromGuid info.WorkItemId)
                 record.RenewLockTime <- nullable DateTimeOffset.Now
                 record.ETag <- "*"
@@ -82,10 +82,10 @@ type internal WorkItemLeaseMonitor private (clusterId : ClusterId, message : Bro
             match info.TargetWorker with
             | None -> 
                 let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.WorkItemQueue, ReceiveMode.PeekLock)
-                return! queue.CompleteAsync(info.MessageLockId)
+                return! queue.CompleteAsync(info.MessageLockId) |> Async.AwaitTaskCorrect
             | Some affinity -> 
                 let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.WorkItemTopic, affinity)
-                return! subscription.CompleteAsync(info.MessageLockId)
+                return! subscription.CompleteAsync(info.MessageLockId) |> Async.AwaitTaskCorrect
 
             logger.Logf LogLevel.Info "%A : completed" info
             message.Dispose()
@@ -94,10 +94,10 @@ type internal WorkItemLeaseMonitor private (clusterId : ClusterId, message : Bro
             match info.TargetWorker with
             | None -> 
                 let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.WorkItemQueue, ReceiveMode.PeekLock)
-                return! queue.AbandonAsync(info.MessageLockId)
+                return! queue.AbandonAsync(info.MessageLockId) |> Async.AwaitTaskCorrect
             | Some affinity -> 
                 let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.WorkItemTopic, affinity)
-                return! subscription.AbandonAsync(info.MessageLockId)
+                return! subscription.AbandonAsync(info.MessageLockId) |> Async.AwaitTaskCorrect
 
             logger.Logf LogLevel.Info "%A : abandoned" info
             message.Dispose()

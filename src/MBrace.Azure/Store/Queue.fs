@@ -34,7 +34,7 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
     interface CloudQueue<'T> with
         member x.Id: string = queuePath
         member x.GetCountAsync (): Async<int64> = async {
-            let! (qd : QueueDescription) = account.NamespaceManager.GetQueueAsync(queuePath)
+            let! (qd : QueueDescription) = account.NamespaceManager.GetQueueAsync(queuePath) |> Async.AwaitTaskCorrect
             return qd.MessageCount
         }
         
@@ -43,7 +43,7 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
             use ms = new MemoryStream(bin) 
             do ms.Position <- 0L
             let msg = new BrokeredMessage(ms)
-            do! client.SendAsync(msg)
+            do! client.SendAsync(msg) |> Async.AwaitTaskCorrect
         }
         
         member x.EnqueueBatchAsync(messages: seq<'T>): Async<unit> = async {
@@ -53,11 +53,11 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
                 let ms = new MemoryStream(bin) in ms.Position <- 0L
                 new BrokeredMessage(ms)
 
-            return! messages |> Seq.map createMsg |> client.SendBatchAsync
+            return! messages |> Seq.map createMsg |> client.SendBatchAsync |> Async.AwaitTaskCorrect
         }
         
         member x.TryDequeueAsync(): Async<'T option> = async {
-            let! (msg : BrokeredMessage) = client.ReceiveAsync()
+            let! (msg : BrokeredMessage) = client.ReceiveAsync() |> Async.AwaitTaskCorrect
             match msg with
             | null -> return None
             | msg ->
@@ -68,7 +68,7 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
         member x.DequeueBatchAsync(maxItems : int) : Async<'T []> = async {
             let serializer = ProcessConfiguration.BinarySerializer
             let readBody (msg : BrokeredMessage) = use stream = msg.GetBody<Stream>() in serializer.Deserialize<'T>(stream)
-            let! messages = client.ReceiveBatchAsync(maxItems)
+            let! messages = client.ReceiveBatchAsync(maxItems) |> Async.AwaitTaskCorrect
             return messages |> Seq.map readBody |> Seq.toArray
         }
         
@@ -77,13 +77,13 @@ type ServiceBusQueue<'T> internal (queuePath, account : AzureServiceBusAccount) 
                 match timeout with 
                 | Some timeout -> 
                     let timeout = TimeSpan.FromMilliseconds(float timeout)
-                    let! msg = client.ReceiveAsync(timeout)
+                    let! msg = client.ReceiveAsync(timeout) |> Async.AwaitTaskCorrect
                     if msg <> null then return msg
                     else return! Async.Raise(TimeoutException())
 
                 | None -> 
                     let rec aux _ = async {
-                        let! msg = client.ReceiveAsync()
+                        let! msg = client.ReceiveAsync() |> Async.AwaitTaskCorrect
                         if msg <> null then return msg
                         else return! aux ()
                     }
@@ -119,13 +119,13 @@ type ServiceBusQueueProvider private (account : AzureServiceBusAccount) =
             qd.SupportOrdering <- true
             qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
             qd.UserMetadata <- Type.prettyPrint<'T>
-            do! account.NamespaceManager.CreateQueueAsync qd
+            let! result = account.NamespaceManager.CreateQueueAsync qd |> Async.AwaitTaskCorrect
             return new ServiceBusQueue<'T>(queueId, account) :> CloudQueue<'T>
         }
 
         member __.GetQueueById<'T> (queueId : string) : Async<CloudQueue<'T>> = async {
             Validate.queueName queueId
-            let! (qd : QueueDescription) = account.NamespaceManager.GetQueueAsync queueId
+            let! (qd : QueueDescription) = account.NamespaceManager.GetQueueAsync queueId |> Async.AwaitTaskCorrect
             if qd.UserMetadata = Type.prettyPrint<'T> then
                 return new ServiceBusQueue<'T>(queueId, account) :> CloudQueue<'T>
             else

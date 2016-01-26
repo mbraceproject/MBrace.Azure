@@ -293,7 +293,8 @@ type TableSystemLogManager (clusterId : ClusterId) =
                 async {
                     let batchOp = new TableBatchOperation()
                     do for e in chunk do batchOp.Delete e
-                    do! table.ExecuteBatchAsync batchOp
+                    let! _result = table.ExecuteBatchAsync batchOp |> Async.AwaitTaskCorrect
+                    return ()
                 })
             |> Async.Parallel
             |> Async.Ignore

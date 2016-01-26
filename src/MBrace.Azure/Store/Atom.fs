@@ -142,5 +142,6 @@ type TableAtomProvider private (account : AzureStorageAccount, defaultTable : st
         }
 
         member this.DisposeContainer(table : string) = async {
-            do! account.TableClient.GetTableReference(table).DeleteIfExistsAsync()
+            let! _result = account.TableClient.GetTableReference(table).DeleteIfExistsAsync() |> Async.AwaitTaskCorrect
+            return ()
         }

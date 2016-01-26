@@ -53,13 +53,13 @@ type CloudTable with
     /// CreatesIfNotExistAsync that protects from 409 conflict errors with supplied retry policy
     member table.CreateIfNotExistsAsyncSafe(?retryInterval : int, ?maxRetries : int) =
         retryAsync (mkStoreConflictRetryPolicy maxRetries retryInterval) 
-                    (async { let! _ = table.CreateIfNotExistsAsync() in return () })
+                    (async { let! _ = table.CreateIfNotExistsAsync() |> Async.AwaitTaskCorrect in return () })
 
 type CloudBlobContainer with
     /// CreatesIfNotExistAsync that protects from 409 conflict errors with supplied retry policy
     member container.CreateIfNotExistsAsyncSafe(?retryInterval : int, ?maxRetries : int) =
         retryAsync (mkStoreConflictRetryPolicy maxRetries retryInterval) 
-                    (async { let! _ = container.CreateIfNotExistsAsync() in return () })
+                    (async { let! _ = container.CreateIfNotExistsAsync() |> Async.AwaitTaskCorrect in return () })
 
 type BrokeredMessage with
     member message.TryGetProperty<'T>(id : string) =

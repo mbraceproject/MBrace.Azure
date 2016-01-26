@@ -170,7 +170,7 @@ type TableDictionaryProvider private (account : AzureStorageAccount) =
         member x.GetDictionaryById<'T>(tableName : string) : Async<CloudDictionary<'T>> = async {
             Validate.tableName tableName
             let tableRef = account.TableClient.GetTableReference(tableName)
-            let! exists = tableRef.ExistsAsync()
+            let! exists = tableRef.ExistsAsync() |> Async.AwaitTaskCorrect
             if exists then return new TableDictionary<'T>(tableName, account) :> CloudDictionary<'T>
             else
                 return invalidOp <| sprintf "Could not locate CloudDictionary table '%s' in storage account '%s'" tableName account.AccountName

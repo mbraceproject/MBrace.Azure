@@ -34,14 +34,14 @@ type BlobValue<'T> internal (account : AzureStorageAccount, container : string, 
     member __.GetSize() : Async<int64> = async {
         let container = account.BlobClient.GetContainerReference(container)
         let blob = container.GetBlockBlobReference(path)
-        do! blob.FetchAttributesAsync()
+        do! blob.FetchAttributesAsync() |> Async.AwaitTaskCorrect
         return blob.Properties.Length
     }
 
     /// Asynchronously gets the persisted value
     member __.GetValue() : Async<'T> = async { 
         let container = account.BlobClient.GetContainerReference(container)
-        use! s = container.GetBlockBlobReference(path).OpenReadAsync()
+        use! s = container.GetBlockBlobReference(path).OpenReadAsync() |> Async.AwaitTaskCorrect
         return ProcessConfiguration.BinarySerializer.Deserialize<'T>(s) 
     }
 
@@ -50,9 +50,9 @@ type BlobValue<'T> internal (account : AzureStorageAccount, container : string, 
         let container = account.BlobClient.GetContainerReference(container)
         let! _ = container.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         let b = container.GetBlockBlobReference(path)
-        let! exists = b.ExistsAsync()
+        let! exists = b.ExistsAsync() |> Async.AwaitTaskCorrect
         if exists then
-            use! s = b.OpenReadAsync()
+            use! s = b.OpenReadAsync() |> Async.AwaitTaskCorrect
             let value = ProcessConfiguration.BinarySerializer.Deserialize<'T>(s)
             return Some value
         else
@@ -64,14 +64,14 @@ type BlobValue<'T> internal (account : AzureStorageAccount, container : string, 
         let c = account.BlobClient.GetContainerReference(container)
         do! c.CreateIfNotExistsAsyncSafe(maxRetries = 3)
         let b = c.GetBlockBlobReference(path)
-        return! b.ExistsAsync()
+        return! b.ExistsAsync() |> Async.AwaitTaskCorrect
     }
 
     /// Asynchronously deletes the blob
     member __.Delete() = async {
         let c = account.BlobClient.GetContainerReference(container)
         let b = c.GetBlockBlobReference(path)
-        let! _ = b.DeleteIfExistsAsync()
+        let! _ = b.DeleteIfExistsAsync() |> Async.AwaitTaskCorrect
         return ()
     }        
 
@@ -83,12 +83,12 @@ type BlobValue<'T> internal (account : AzureStorageAccount, container : string, 
 
         let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
         do! async {
-            use! stream = b.OpenWriteAsync(null, options, OperationContext(), Async.DefaultCancellationToken)
+            use! stream = b.OpenWriteAsync(null, options, OperationContext(), Async.DefaultCancellationToken) |> Async.AwaitTaskCorrect
             ProcessConfiguration.BinarySerializer.Serialize<'T>(stream, value)
         }
 
         // For some reason large client uploads, fail to upload but do not throw exception...
-        let! exists = b.ExistsAsync()
+        let! exists = b.ExistsAsync() |> Async.AwaitTaskCorrect
         if not exists then 
             raise <| new System.IO.IOException(sprintf "Failed to upload %A" path)
     }

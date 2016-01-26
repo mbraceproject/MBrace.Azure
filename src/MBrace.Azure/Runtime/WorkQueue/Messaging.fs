@@ -17,7 +17,7 @@ open MBrace.Azure.Runtime.Utilities
 type internal MessagingClient =
     /// Generic work item lease token dequeue method
     static member TryDequeue (clusterId : ClusterId, logger : ISystemLogger, localWorkerId : IWorkerId, dequeueF : unit -> Task<BrokeredMessage>) : Async<ICloudWorkItemLeaseToken option> = async { 
-        let! (message : BrokeredMessage) = dequeueF()
+        let! (message : BrokeredMessage) = dequeueF() |> Async.AwaitTaskCorrect
         if message = null then 
             return None
         else 
@@ -99,7 +99,7 @@ type internal MessagingClient =
         msg.Properties.[ServiceBusSettings.WorkItemIdProperty] <- workItem.Id
         msg.Properties.[ServiceBusSettings.ParentTaskIdProperty] <- workItem.Process.Id
         workItem.TargetWorker |> Option.iter (fun t -> msg.Properties.[ServiceBusSettings.AffinityProperty] <- t.Id)
-        do! sendF msg
+        do! sendF msg |> Async.AwaitTaskCorrect
 
         logger.Logf LogLevel.Debug "workItem:%O : enqueue completed, size %s" workItem.Id (getHumanReadableByteSize size)
     }
@@ -141,7 +141,7 @@ type internal MessagingClient =
             msg
 
         let messages = jobs |> Array.mapi mkWorkItemMessage
-        do! sendF messages
+        do! sendF messages |> Async.AwaitTaskCorrect
         logger.Logf LogLevel.Info "Enqueued batched jobs of %d items for task %s, total size %s." jobs.Length headJob.Process.Id (getHumanReadableByteSize size)
     }
     
@@ -171,7 +171,7 @@ type internal Subscription (clusterId : ClusterId, targetWorkerId : IWorkerId, l
     member this.TargetWorkerId = targetWorkerId
 
     member this.GetMessageCountAsync() = async {
-        let! (descr : SubscriptionDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetSubscriptionAsync(clusterId.WorkItemTopic, targetWorkerId.Id)
+        let! (descr : SubscriptionDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetSubscriptionAsync(clusterId.WorkItemTopic, targetWorkerId.Id) |> Async.AwaitTaskCorrect
         return descr.MessageCount
     }
 
@@ -182,7 +182,7 @@ type internal Subscription (clusterId : ClusterId, targetWorkerId : IWorkerId, l
         let! mc = this.GetMessageCountAsync()
         if mc < 1L then return [||]
         else
-            let! messages = subscription.ReceiveBatchAsync(int mc) 
+            let! messages = subscription.ReceiveBatchAsync(int mc) |> Async.AwaitTaskCorrect
             return Seq.toArray messages
     }
 
@@ -192,7 +192,7 @@ type internal Topic (clusterId : ClusterId, logger : ISystemLogger) =
     let topic = clusterId.ServiceBusAccount.CreateTopicClient(clusterId.WorkItemTopic)
 
     member this.GetMessageCountAsync() = async {
-        let! (td : TopicDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetTopicAsync(clusterId.WorkItemTopic)
+        let! (td : TopicDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetTopicAsync(clusterId.WorkItemTopic) |> Async.AwaitTaskCorrect
         return td.MessageCountDetails.ActiveMessageCount
     }
 
@@ -205,7 +205,7 @@ type internal Topic (clusterId : ClusterId, logger : ISystemLogger) =
         MessagingClient.Enqueue(clusterId, logger, workItem, allowNewSifts, topic.SendAsync)
 
     static member Create(config, logger : ISystemLogger) = async { 
-        let! exists = config.ServiceBusAccount.NamespaceManager.TopicExistsAsync(config.WorkItemTopic)
+        let! exists = config.ServiceBusAccount.NamespaceManager.TopicExistsAsync(config.WorkItemTopic) |> Async.AwaitTaskCorrect
         if not exists then 
             logger.Logf LogLevel.Info "Creating new ServiceBus topic %A" config.WorkItemTopic
             let metadata = Metadata.Create config
@@ -214,7 +214,8 @@ type internal Topic (clusterId : ClusterId, logger : ISystemLogger) =
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- ServiceBusSettings.MaxTTL
             qd.UserMetadata <- Metadata.ToJson metadata
-            do! config.ServiceBusAccount.NamespaceManager.CreateTopicAsync(qd)
+            let! result = config.ServiceBusAccount.NamespaceManager.CreateTopicAsync(qd) |> Async.AwaitTaskCorrect
+            ()
         else
             logger.Logf  LogLevel.Info "Topic %A already exists." config.WorkItemTopic
         return new Topic(config, logger)
@@ -226,7 +227,7 @@ type internal Queue (clusterId : ClusterId, logger : ISystemLogger) =
     let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.WorkItemQueue, ReceiveMode.PeekLock)
 
     member this.GetMessageCountAsync() = async {
-        let! (qd : QueueDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetQueueAsync(clusterId.WorkItemQueue)
+        let! (qd : QueueDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetQueueAsync(clusterId.WorkItemQueue) |> Async.AwaitTaskCorrect
         return qd.MessageCount
     }
 
@@ -239,11 +240,11 @@ type internal Queue (clusterId : ClusterId, logger : ISystemLogger) =
     member this.TryDequeue(workerId : IWorkerId) : Async<ICloudWorkItemLeaseToken option> = 
         MessagingClient.TryDequeue(clusterId, logger, workerId, fun () -> queue.ReceiveAsync(ServiceBusSettings.ServerWaitTime))
 
-    member this.EnqueueMessagesBatch(messages : seq<BrokeredMessage>) = async { return! queue.SendBatchAsync messages }
+    member this.EnqueueMessagesBatch(messages : seq<BrokeredMessage>) = async { return! queue.SendBatchAsync messages |> Async.AwaitTaskCorrect }
         
     static member Create(clusterId : ClusterId, logger : ISystemLogger) = async { 
         let ns = clusterId.ServiceBusAccount.NamespaceManager
-        let! exists = ns.QueueExistsAsync(clusterId.WorkItemQueue)
+        let! exists = ns.QueueExistsAsync(clusterId.WorkItemQueue) |> Async.AwaitTaskCorrect
         if not exists then 
             logger.Logf LogLevel.Info "Creating new ServiceBus queue %A" clusterId.WorkItemQueue
             let metadata = Metadata.Create clusterId
@@ -254,7 +255,8 @@ type internal Queue (clusterId : ClusterId, logger : ISystemLogger) =
             qd.MaxDeliveryCount <- ServiceBusSettings.MaxDeliveryCount
             qd.LockDuration <- ServiceBusSettings.MaxLockDuration
             qd.UserMetadata <- Metadata.ToJson metadata
-            do! ns.CreateQueueAsync(qd)
+            let! result = ns.CreateQueueAsync(qd) |> Async.AwaitTaskCorrect
+            ()
         else
             logger.Logf LogLevel.Info "Queue %A already exists." clusterId.WorkItemQueue
         return new Queue(clusterId, logger)

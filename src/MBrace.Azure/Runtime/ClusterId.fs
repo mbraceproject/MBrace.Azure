@@ -61,12 +61,12 @@ type ClusterId =
     member this.Hash = FsPickler.ComputeHash(this).Hash |> Convert.ToBase64String
 
     member private this.DeleteTable(tableName : string) = async {
-        let! _ = this.StorageAccount.TableClient.GetTableReference(tableName).DeleteIfExistsAsync()
+        let! _ = this.StorageAccount.TableClient.GetTableReference(tableName).DeleteIfExistsAsync() |> Async.AwaitTaskCorrect
         return ()
     }
 
     member private this.DeleteContainer(containerName : string) = async {
-        let! _ = this.StorageAccount.BlobClient.GetContainerReference(containerName).DeleteIfExistsAsync()
+        let! _ = this.StorageAccount.BlobClient.GetContainerReference(containerName).DeleteIfExistsAsync() |> Async.AwaitTaskCorrect
         return ()
     }
 
