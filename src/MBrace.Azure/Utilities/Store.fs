@@ -2,6 +2,7 @@
 module MBrace.Azure.Runtime.Utilities.StoreUtils
 
 open System
+open System.Net
 
 open MBrace.Core.Internals
 open MBrace.Runtime.Utils.Retry
@@ -26,6 +27,22 @@ module StoreException =
     let PreconditionFailed (e : exn) = checkExn 412 e
     let Conflict (e : exn) = checkExn 409 e
     let NotFound (e : exn) = checkExn 404 e
+
+
+module Queue =
+        
+    let private queueCreateConflictRetryPolicy =
+        Policy(fun retries exn ->
+            match exn with
+            | :? MessagingException as me when me.Message.Contains "409" && retries < 5 -> Some (TimeSpan.FromSeconds 1.)
+            | _ -> None)
+    
+    let createQueueSafe (createF : Async<unit>) =
+        retryAsync queueCreateConflictRetryPolicy <|
+            async {
+                try return! createF
+                with :? MessagingEntityAlreadyExistsException -> return ()
+            }
 
 
 let private mkStoreConflictRetryPolicy maxRetries interval =

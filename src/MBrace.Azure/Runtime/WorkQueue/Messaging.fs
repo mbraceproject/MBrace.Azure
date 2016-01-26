@@ -214,10 +214,9 @@ type internal Topic (clusterId : ClusterId, logger : ISystemLogger) =
             qd.EnablePartitioning <- true
             qd.DefaultMessageTimeToLive <- ServiceBusSettings.MaxTTL
             qd.UserMetadata <- Metadata.ToJson metadata
-            let! result = config.ServiceBusAccount.NamespaceManager.CreateTopicAsync(qd) |> Async.AwaitTaskCorrect
-            ()
+            do! Queue.createQueueSafe (config.ServiceBusAccount.NamespaceManager.CreateTopicAsync(qd) |> Async.AwaitTaskCorrect |> Async.Ignore)
         else
-            logger.Logf  LogLevel.Info "Topic %A already exists." config.WorkItemTopic
+            logger.Logf LogLevel.Info "Topic %A already exists." config.WorkItemTopic
         return new Topic(config, logger)
     }
 
@@ -255,8 +254,7 @@ type internal Queue (clusterId : ClusterId, logger : ISystemLogger) =
             qd.MaxDeliveryCount <- ServiceBusSettings.MaxDeliveryCount
             qd.LockDuration <- ServiceBusSettings.MaxLockDuration
             qd.UserMetadata <- Metadata.ToJson metadata
-            let! result = ns.CreateQueueAsync(qd) |> Async.AwaitTaskCorrect
-            ()
+            do! Queue.createQueueSafe (ns.CreateQueueAsync(qd) |> Async.AwaitTaskCorrect |> Async.Ignore)
         else
             logger.Logf LogLevel.Info "Queue %A already exists." clusterId.WorkItemQueue
         return new Queue(clusterId, logger)

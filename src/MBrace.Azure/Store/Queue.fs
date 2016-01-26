@@ -10,6 +10,7 @@ open Microsoft.ServiceBus.Messaging
 open MBrace.Core
 open MBrace.Core.Internals
 open MBrace.Runtime
+open MBrace.Runtime.Utils.Retry
 open MBrace.Runtime.Utils.PrettyPrinters
 
 open MBrace.Azure.Runtime
@@ -119,7 +120,7 @@ type ServiceBusQueueProvider private (account : AzureServiceBusAccount) =
             qd.SupportOrdering <- true
             qd.DefaultMessageTimeToLive <- TimeSpan.MaxValue
             qd.UserMetadata <- Type.prettyPrint<'T>
-            let! result = account.NamespaceManager.CreateQueueAsync qd |> Async.AwaitTaskCorrect
+            do! account.NamespaceManager.CreateQueueAsync qd |> Async.AwaitTaskCorrect |> Async.Ignore |> Queue.createQueueSafe
             return new ServiceBusQueue<'T>(queueId, account) :> CloudQueue<'T>
         }
 
