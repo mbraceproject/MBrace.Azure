@@ -34,7 +34,7 @@ module Queue =
     let private queueCreateConflictRetryPolicy =
         Policy(fun retries exn ->
             match exn with
-            | :? MessagingException as me when me.Message.Contains "409" && retries < 5 -> Some (TimeSpan.FromSeconds 1.)
+            | :? MessagingException as me when me.Message.Contains "409" && retries < 10 -> Some (TimeSpan.FromSeconds 1.)
             | _ -> None)
     
     let createQueueSafe (createF : Async<unit>) =

@@ -305,7 +305,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 let! blob = getBlobReference account path
                 do! blob.DeleteAsync() |> Async.AwaitTaskCorrect
             with e when StoreException.NotFound e ->
-                return raise <| new FileNotFoundException(path, e)
+                return ()
         }
 
         member this.DirectoryExists(container: string) : Async<bool> = async {
