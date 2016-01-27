@@ -160,7 +160,7 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
                         do! f.ForceAsync true
                         do! Cloud.Sleep 20000
                         return! Cloud.TryGetFaultData()
-                    })
+                    }, faultPolicy = FaultPolicy.WithMaxRetries 1)
 
             while not f.Value do Thread.Sleep 1000
             session.Chaos()
@@ -178,10 +178,10 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
                 return i
             }
 
-            let cloudProcess =
-                [for i in 1 .. localWorkers -> task i]
-                |> Cloud.ProtectedParallel
-                |> cluster.CreateProcess
+            let cloudProcess = 
+                cluster.CreateProcess(
+                    [for i in 1 .. localWorkers -> task i]
+                    |> Cloud.ProtectedParallel, faultPolicy = FaultPolicy.WithMaxRetries 1)
 
             while f.Value < localWorkers do Thread.Sleep 1000
             session.Chaos()
