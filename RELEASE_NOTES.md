@@ -1,3 +1,6 @@
+### 1.1.20
+* Bugfixes.
+
 ### 1.1.19
 * Fix packaging issues.
 

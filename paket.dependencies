@@ -3,8 +3,8 @@ source https://www.nuget.org/api/v2
 
 nuget FAKE
 nuget FSharp.Core ~> 4.0.0.0
-nuget MBrace.Core ~> 1.0.15
-nuget MBrace.Runtime ~> 1.0.15
+nuget MBrace.Core ~> 1.0.17
+nuget MBrace.Runtime ~> 1.0.17
 nuget MBrace.Flow
 nuget MBrace.Tests
 nuget MBrace.CSharp

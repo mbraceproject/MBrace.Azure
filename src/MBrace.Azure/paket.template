@@ -1,4 +1,4 @@
-﻿type project
+type project
 id MBrace.Azure
 description
     MBrace on Windows Azure.
@@ -12,6 +12,7 @@ summary
 licenseurl https://github.com/mbraceproject/MBrace.Azure/blob/master/LICENSE.md
 projecturl http://www.mbrace.io/
 iconurl https://avatars2.githubusercontent.com/u/9674757
+include-pdbs true
 tags
 	F#, cloud, mapreduce, distributed, azure, windowsazure
 references
