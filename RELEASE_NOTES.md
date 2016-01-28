@@ -1,3 +1,6 @@
+### 1.1.21
+* Update MBrace.Core version.
+
 ### 1.1.20
 * Bugfixes.
 
