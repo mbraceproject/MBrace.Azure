@@ -13,18 +13,29 @@ open MBrace.Runtime.Utils
 /// for messages assigned to inactive workers. If found, it will push the messages back to the main
 /// Queue, to be further processed by a different worker for fault handling.
 [<Sealed; AutoSerializable(false)>]
-type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue : Queue, logger : ISystemLogger) =
-    let random =
-        let seed = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj())
-        new Random(seed)
+type TopicMonitor private (workerManager : WorkerManager, currentWorker : IWorkerId option, topic : Topic, queue : Queue, logger : ISystemLogger) =
 
-    // keeps a rough track of the current active cluster size
-    let clusterSize = 
-        let getter = async { try let! ws = workerManager.GetAvailableWorkers() in return ws.Length with _ -> return 2 }
-        CacheAtom.Create(getter, intervalMilliseconds = 10000)
+    // generates a pair of numbers indicating a position of the current worker in the cluster
+    // used to organize a roundrobin topic monitoring sequence between workers.
+    let getWorkerPosition () = async { 
+        try 
+            let! ws = workerManager.GetAvailableWorkers()
+            let i = 
+                match currentWorker with
+                | None -> 0
+                | Some cw ->
+                    ws 
+                    |> Seq.sortBy (fun w -> w.Id)
+                    |> Seq.tryFindIndex (fun w -> w.Id = cw)
+                    |> fun r -> defaultArg r 0
+
+            return int64 i, int64 ws.Length
+
+        with _ -> return 0L, 2L
+    }
 
     let cleanupWorkerQueue (worker : IWorkerId) = async {
-        let subscription = topic.GetSubscription(worker)
+        let! subscription = topic.GetSubscription(worker)
         let! allMessages = subscription.DequeueAllMessagesBatch()
         if not <| Array.isEmpty allMessages then
             logger.LogInfof "TopicMonitor : Perfoming worker queue maintance for %A." worker.Id
@@ -48,9 +59,10 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
     }
 
     // WorkItem queue maintenance : periodically check for non-responsive workers and cleanup their queue
-    let rec loop () = async {
+    let rec loop (count : int64) = async {
         do! Async.Sleep 10000
-        if random.Next(0, min clusterSize.Value 4) = 0 then return! loop() else
+        let! i,n = getWorkerPosition()
+        if count % n <> i then return! loop (count + 1L) else
 
         logger.LogInfo "TopicMonitor : starting topic maintenance."
 
@@ -63,18 +75,18 @@ type TopicMonitor private (workerManager : WorkerManager, topic : Topic, queue :
         | Choice1Of2 () -> logger.LogInfo "TopicMonitor : maintenance complete."
         | Choice2Of2 ex -> logger.Logf LogLevel.Error "TopicMonitor : maintenance error:  %A" ex
 
-        return! loop ()   
+        return! loop (count + 1L)   
     }
 
     let cts = new CancellationTokenSource()
-    do Async.Start(loop(), cts.Token)
+    do Async.Start(loop 0L, cts.Token)
 
     interface IDisposable with
         member __.Dispose() = cts.Cancel()
 
-    static member Create(clusterId : ClusterId, workerManager : WorkerManager, logger : ISystemLogger) = async {
+    static member Create(clusterId : ClusterId, workerManager : WorkerManager, logger : ISystemLogger, ?currentWorker: IWorkerId) = async {
         let! queueT = Queue.Create(clusterId, logger) |> Async.StartChild
         let! topic = Topic.Create(clusterId, logger)
         let! queue = queueT
-        return new TopicMonitor(workerManager, topic, queue, logger)
+        return new TopicMonitor(workerManager, currentWorker, topic, queue, logger)
     }

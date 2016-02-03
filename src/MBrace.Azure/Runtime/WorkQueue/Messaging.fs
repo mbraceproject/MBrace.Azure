@@ -2,6 +2,7 @@
 
 open System
 open System.IO
+open System.Collections.Concurrent
 open System.Threading.Tasks
 
 open Microsoft.ServiceBus.Messaging
@@ -148,23 +149,7 @@ type internal MessagingClient =
 
 /// Topic subscription client
 [<Sealed; AutoSerializable(false)>]
-type internal Subscription (clusterId : ClusterId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
-    do 
-        let nsClient = clusterId.ServiceBusAccount.NamespaceManager
-        let topic = clusterId.WorkItemTopic
-        let affinity = targetWorkerId.Id
-        if not <| nsClient.SubscriptionExists(topic, affinity) then 
-            logger.Logf LogLevel.Info "Creating new subscription for %A" affinity
-            let sd = new SubscriptionDescription(topic, affinity)
-            sd.DefaultMessageTimeToLive <- ServiceBusSettings.MaxTTL
-            sd.LockDuration <- ServiceBusSettings.MaxLockDuration
-            sd.AutoDeleteOnIdle <- ServiceBusSettings.SubscriptionAutoDeleteInterval
-            let filter = new SqlFilter(sprintf "%s = '%s'" ServiceBusSettings.AffinityProperty affinity)
-            let _description = 
-                retry (RetryPolicy.ExponentialDelay(3, 1.<sec>)) 
-                      (fun () -> nsClient.CreateSubscription(sd, filter))
-            ()
-            
+type internal Subscription private (clusterId : ClusterId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
 
     let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.WorkItemTopic, targetWorkerId.Id)
 
@@ -186,17 +171,45 @@ type internal Subscription (clusterId : ClusterId, targetWorkerId : IWorkerId, l
             return Seq.toArray messages
     }
 
+    static member Init (clusterId : ClusterId, targetWorkerId : IWorkerId, logger : ISystemLogger) = async {
+        let nsClient = clusterId.ServiceBusAccount.NamespaceManager
+        let topic = clusterId.WorkItemTopic
+        let affinity = targetWorkerId.Id
+        let! exists = nsClient.SubscriptionExistsAsync(topic, affinity) |> Async.AwaitTaskCorrect
+        if not exists then 
+            logger.Logf LogLevel.Info "Creating new subscription for %A" affinity
+            let sd = new SubscriptionDescription(topic, affinity)
+            sd.DefaultMessageTimeToLive <- ServiceBusSettings.MaxTTL
+            sd.LockDuration <- ServiceBusSettings.MaxLockDuration
+            sd.AutoDeleteOnIdle <- ServiceBusSettings.SubscriptionAutoDeleteInterval
+            let filter = new SqlFilter(sprintf "%s = '%s'" ServiceBusSettings.AffinityProperty affinity)
+            let! _description = 
+                retryAsync (RetryPolicy.ExponentialDelay(3, 1.<sec>)) <|
+                    async { return! nsClient.CreateSubscriptionAsync(sd, filter) |> Async.AwaitTaskCorrect }
+
+            ()
+
+        return new Subscription(clusterId, targetWorkerId, logger)
+    }
+
 /// Topic client implementation
 [<Sealed; AutoSerializable(false)>]
-type internal Topic (clusterId : ClusterId, logger : ISystemLogger) = 
+type internal Topic private (clusterId : ClusterId, logger : ISystemLogger) = 
     let topic = clusterId.ServiceBusAccount.CreateTopicClient(clusterId.WorkItemTopic)
+    let subscriptions = new ConcurrentDictionary<IWorkerId, Subscription> ()
 
     member this.GetMessageCountAsync() = async {
         let! (td : TopicDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetTopicAsync(clusterId.WorkItemTopic) |> Async.AwaitTaskCorrect
         return td.MessageCountDetails.ActiveMessageCount
     }
 
-    member this.GetSubscription(subscriptionId : IWorkerId) : Subscription = new Subscription(clusterId, subscriptionId, logger)
+    member this.GetSubscription(subscriptionId : IWorkerId) : Async<Subscription> = async { 
+        let ok, found = subscriptions.TryGetValue subscriptionId
+        if ok then return found
+        else
+            let! sub = Subscription.Init(clusterId, subscriptionId, logger)
+            return subscriptions.GetOrAdd(subscriptionId, sub)
+    }
     
     member this.EnqueueBatch(jobs : CloudWorkItem []) : Async<unit> = 
         MessagingClient.EnqueueBatch(clusterId, logger, jobs, topic.SendBatchAsync)

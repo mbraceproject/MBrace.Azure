@@ -72,7 +72,7 @@ module WorkerSubscription =
                     LocalWorkItemEvaluator.Create(runtimeManager, workerId) :> ICloudWorkItemEvaluator
 
             logger.LogInfo "Creating topic monitor agent"
-            let! topicMonitorDisposer = clusterManager.InitTopicMonitor()
+            let! topicMonitorDisposer = clusterManager.InitTopicMonitor(workerId)
             logger.LogInfo "Creating worker agent"
             let! agent = WorkerAgent.Create(runtimeManager, workerId, jobEvaluator, maxConcurrentWorkItems, submitPerformanceMetrics = true, 
                                                 heartbeatInterval = heartbeatInterval, heartbeatThreshold = heartbeatThreshold)
