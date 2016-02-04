@@ -149,7 +149,7 @@ type internal MessagingClient =
 
 /// Topic subscription client
 [<Sealed; AutoSerializable(false)>]
-type internal Subscription private (clusterId : ClusterId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
+type internal Subscription (clusterId : ClusterId, targetWorkerId : IWorkerId, logger : ISystemLogger) = 
 
     let subscription = clusterId.ServiceBusAccount.CreateSubscriptionClient(clusterId.WorkItemTopic, targetWorkerId.Id)
 
@@ -163,7 +163,7 @@ type internal Subscription private (clusterId : ClusterId, targetWorkerId : IWor
         return Seq.toArray messages
     }
 
-    static member Init (clusterId : ClusterId, targetWorkerId : IWorkerId, logger : ISystemLogger) = async {
+    member this.EnsureSubsriptionExists() = async {
         let nsClient = clusterId.ServiceBusAccount.NamespaceManager
         let topic = clusterId.WorkItemTopic
         let affinity = targetWorkerId.Id
@@ -180,23 +180,15 @@ type internal Subscription private (clusterId : ClusterId, targetWorkerId : IWor
                     async { return! nsClient.CreateSubscriptionAsync(sd, filter) |> Async.AwaitTaskCorrect }
 
             ()
-
-        return new Subscription(clusterId, targetWorkerId, logger)
     }
 
 /// Topic client implementation
 [<Sealed; AutoSerializable(false)>]
 type internal Topic private (clusterId : ClusterId, logger : ISystemLogger) = 
     let topic = clusterId.ServiceBusAccount.CreateTopicClient(clusterId.WorkItemTopic)
-    let subscriptions = new ConcurrentDictionary<IWorkerId, Subscription> ()
 
-    member this.GetSubscription(subscriptionId : IWorkerId) : Async<Subscription> = async { 
-        let ok, found = subscriptions.TryGetValue subscriptionId
-        if ok then return found
-        else
-            let! sub = Subscription.Init(clusterId, subscriptionId, logger)
-            return subscriptions.GetOrAdd(subscriptionId, sub)
-    }
+    member this.GetSubscription(subscriptionId : IWorkerId) : Subscription =
+        new Subscription(clusterId, subscriptionId, logger)
     
     member this.EnqueueBatch(jobs : CloudWorkItem []) : Async<unit> = 
         MessagingClient.EnqueueBatch(clusterId, logger, jobs, topic.SendBatchAsync)

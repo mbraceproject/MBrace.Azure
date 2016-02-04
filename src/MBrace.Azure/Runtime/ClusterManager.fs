@@ -50,7 +50,7 @@ type ClusterManager =
         member r.LocalSystemLogManager    = r.LocalLoggerManager
 
     /// Initializes a topic maintenance agent in the local process
-    member r.InitTopicMonitor(?currentWorker : IWorkerId) = TopicMonitor.Create(r.ClusterId, r.WorkerManager, r.Logger, ?currentWorker = currentWorker)
+    member r.InitTopicMonitor(?currentWorker : IWorkerId) = TopicMonitor.Create(r.WorkerManager, r.WorkQueue, r.Logger, ?currentWorker = currentWorker)
 
     /// Resets the cluster store state with supplied parameters
     member r.ResetCluster(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteUserData : bool, 

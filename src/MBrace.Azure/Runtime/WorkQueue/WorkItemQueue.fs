@@ -13,9 +13,17 @@ open MBrace.Azure.Runtime.Utilities
 [<AutoSerializable(false); Sealed>]  
 type WorkItemQueue private (queue : Queue, topic : Topic) =
 
+    member internal __.Queue = queue
+    member internal __.Topic = topic
+
+    member __.InitSubscription(workerId : IWorkerId) = async {
+        let subscription = topic.GetSubscription workerId
+        do! subscription.EnsureSubsriptionExists()
+    }
+
     interface ICloudWorkItemQueue with
         member this.TryDequeue(id: IWorkerId): Async<ICloudWorkItemLeaseToken option> = async {
-            let! subscription = topic.GetSubscription(id)
+            let subscription = topic.GetSubscription(id)
 
             // first attempt dequeueing from topic, before attempting queue
             let! leaseToken = subscription.TryDequeue(id)

@@ -71,6 +71,7 @@ module WorkerSubscription =
                     logger.LogInfo "Initializing local workItem evaluator"
                     LocalWorkItemEvaluator.Create(runtimeManager, workerId) :> ICloudWorkItemEvaluator
 
+            do! clusterManager.WorkQueue.InitSubscription(workerId)
             logger.LogInfo "Creating topic monitor agent"
             let! topicMonitorDisposer = clusterManager.InitTopicMonitor(workerId)
             logger.LogInfo "Creating worker agent"

@@ -38,27 +38,31 @@ type TopicMonitor private (workerManager : WorkerManager, currentWorker : IWorke
         CacheAtom.Create(getPos, intervalMilliseconds = 30000)
 
     let cleanupWorkerQueue (worker : IWorkerId) = async {
-        let! subscription = topic.GetSubscription(worker)
-        let! allMessages = subscription.DequeueAllMessagesBatch()
-        if not <| Array.isEmpty allMessages then
-            logger.LogInfof "TopicMonitor : Perfoming worker queue maintance for %A." worker.Id
-            let cloneMsg (m : BrokeredMessage) =
-                let m' = m.Clone()
-                // keep the current delivery count as a separate property
-                // as the message is reposted in the main queue
-                m'.Properties.[ServiceBusSettings.TopicDeliveryCount] <- m.DeliveryCount - 1
-                m'
+        try
+            let subscription = topic.GetSubscription(worker)
+            let! allMessages = subscription.DequeueAllMessagesBatch()
+            if not <| Array.isEmpty allMessages then
+                logger.LogInfof "TopicMonitor : Perfoming worker queue maintance for %A." worker.Id
+                let cloneMsg (m : BrokeredMessage) =
+                    let m' = m.Clone()
+                    // keep the current delivery count as a separate property
+                    // as the message is reposted in the main queue
+                    m'.Properties.[ServiceBusSettings.TopicDeliveryCount] <- m.DeliveryCount - 1
+                    m'
 
-            // clone messages and re-enqueue to main work item queue
-            let newMessages = allMessages |> Array.map cloneMsg
-            do! queue.EnqueueMessagesBatch(newMessages)
+                // clone messages and re-enqueue to main work item queue
+                let newMessages = allMessages |> Array.map cloneMsg
+                do! queue.EnqueueMessagesBatch(newMessages)
 
-            // now that enqueue is complete, complete topic messages
-            do! 
-                allMessages 
-                |> Seq.map (fun m -> m.CompleteAsync() |> Async.AwaitTaskCorrect)
-                |> Async.Parallel 
-                |> Async.Ignore
+                // now that enqueue is complete, complete topic messages
+                do! 
+                    allMessages 
+                    |> Seq.map (fun m -> m.CompleteAsync() |> Async.AwaitTaskCorrect)
+                    |> Async.Parallel 
+                    |> Async.Ignore
+
+        with e ->
+            logger.Logf LogLevel.Error "Error cleaning up subscription '%s': %O" worker.Id e
     }
 
     // WorkItem queue maintenance : periodically check for non-responsive workers and cleanup their queue
@@ -87,9 +91,6 @@ type TopicMonitor private (workerManager : WorkerManager, currentWorker : IWorke
     interface IDisposable with
         member __.Dispose() = cts.Cancel()
 
-    static member Create(clusterId : ClusterId, workerManager : WorkerManager, logger : ISystemLogger, ?currentWorker: IWorkerId) = async {
-        let! queueT = Queue.Create(clusterId, logger) |> Async.StartChild
-        let! topic = Topic.Create(clusterId, logger)
-        let! queue = queueT
-        return new TopicMonitor(workerManager, currentWorker, topic, queue, logger)
+    static member Create(workerManager : WorkerManager, workQueue : WorkItemQueue, logger : ISystemLogger, ?currentWorker: IWorkerId) = async {
+        return new TopicMonitor(workerManager, currentWorker, workQueue.Topic, workQueue.Queue, logger)
     }

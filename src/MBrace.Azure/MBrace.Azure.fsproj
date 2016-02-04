@@ -111,8 +111,8 @@
     <Compile Include="Runtime\WorkQueue\ServiceBusSettings.fs" />
     <Compile Include="Runtime\WorkQueue\WorkItemLeaseToken.fs" />
     <Compile Include="Runtime\WorkQueue\Messaging.fs" />
-    <Compile Include="Runtime\WorkQueue\TopicMonitor.fs" />
     <Compile Include="Runtime\WorkQueue\WorkItemQueue.fs" />
+    <Compile Include="Runtime\WorkQueue\TopicMonitor.fs" />
     <Compile Include="Runtime\ClusterManager.fs" />
     <Compile Include="Runtime\Subscription.fs" />
     <Compile Include="Runtime\Service.fs" />
