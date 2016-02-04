@@ -1,3 +1,6 @@
+### 1.1.23
+* minimize amount of calls to ServiceBus subscription management API.
+
 ### 1.1.22
 * minimize amount of calls to ServiceBus subscription management API.
 
