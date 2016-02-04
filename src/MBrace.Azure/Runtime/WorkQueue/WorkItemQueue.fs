@@ -13,11 +13,6 @@ open MBrace.Azure.Runtime.Utilities
 [<AutoSerializable(false); Sealed>]  
 type WorkItemQueue private (queue : Queue, topic : Topic) =
 
-    member this.WorkerQueueMessageCount(id : IWorkerId) = async {
-        let! subscription = topic.GetSubscription(id)
-        return! subscription.GetMessageCountAsync()
-    }
-
     interface ICloudWorkItemQueue with
         member this.TryDequeue(id: IWorkerId): Async<ICloudWorkItemLeaseToken option> = async {
             let! subscription = topic.GetSubscription(id)

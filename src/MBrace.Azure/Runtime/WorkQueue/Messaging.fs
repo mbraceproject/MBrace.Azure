@@ -155,20 +155,12 @@ type internal Subscription private (clusterId : ClusterId, targetWorkerId : IWor
 
     member this.TargetWorkerId = targetWorkerId
 
-    member this.GetMessageCountAsync() = async {
-        let! (descr : SubscriptionDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetSubscriptionAsync(clusterId.WorkItemTopic, targetWorkerId.Id) |> Async.AwaitTaskCorrect
-        return descr.MessageCount
-    }
-
     member this.TryDequeue(currentWorker : IWorkerId) : Async<ICloudWorkItemLeaseToken option> = 
         MessagingClient.TryDequeue(clusterId, logger, currentWorker, fun () -> subscription.ReceiveAsync(ServiceBusSettings.ServerWaitTime))
 
     member this.DequeueAllMessagesBatch() = async { 
-        let! mc = this.GetMessageCountAsync()
-        if mc < 1L then return [||]
-        else
-            let! messages = subscription.ReceiveBatchAsync(int mc) |> Async.AwaitTaskCorrect
-            return Seq.toArray messages
+        let! messages = subscription.ReceiveBatchAsync(Int32.MaxValue, TimeSpan.FromMilliseconds 100.) |> Async.AwaitTaskCorrect
+        return Seq.toArray messages
     }
 
     static member Init (clusterId : ClusterId, targetWorkerId : IWorkerId, logger : ISystemLogger) = async {
@@ -197,11 +189,6 @@ type internal Subscription private (clusterId : ClusterId, targetWorkerId : IWor
 type internal Topic private (clusterId : ClusterId, logger : ISystemLogger) = 
     let topic = clusterId.ServiceBusAccount.CreateTopicClient(clusterId.WorkItemTopic)
     let subscriptions = new ConcurrentDictionary<IWorkerId, Subscription> ()
-
-    member this.GetMessageCountAsync() = async {
-        let! (td : TopicDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetTopicAsync(clusterId.WorkItemTopic) |> Async.AwaitTaskCorrect
-        return td.MessageCountDetails.ActiveMessageCount
-    }
 
     member this.GetSubscription(subscriptionId : IWorkerId) : Async<Subscription> = async { 
         let ok, found = subscriptions.TryGetValue subscriptionId
@@ -237,11 +224,6 @@ type internal Topic private (clusterId : ClusterId, logger : ISystemLogger) =
 [<Sealed; AutoSerializable(false)>]
 type internal Queue (clusterId : ClusterId, logger : ISystemLogger) = 
     let queue = clusterId.ServiceBusAccount.CreateQueueClient(clusterId.WorkItemQueue, ReceiveMode.PeekLock)
-
-    member this.GetMessageCountAsync() = async {
-        let! (qd : QueueDescription) = clusterId.ServiceBusAccount.NamespaceManager.GetQueueAsync(clusterId.WorkItemQueue) |> Async.AwaitTaskCorrect
-        return qd.MessageCount
-    }
 
     member this.EnqueueBatch(jobs : CloudWorkItem []) = 
         MessagingClient.EnqueueBatch(clusterId, logger, jobs, queue.SendBatchAsync)

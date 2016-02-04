@@ -17,22 +17,25 @@ type TopicMonitor private (workerManager : WorkerManager, currentWorker : IWorke
 
     // generates a pair of numbers indicating a position of the current worker in the cluster
     // used to organize a roundrobin topic monitoring sequence between workers.
-    let getWorkerPosition () = async { 
-        try 
-            let! ws = workerManager.GetAvailableWorkers()
-            let i = 
-                match currentWorker with
-                | None -> 0
-                | Some cw ->
-                    ws 
-                    |> Seq.sortBy (fun w -> w.Id)
-                    |> Seq.tryFindIndex (fun w -> w.Id = cw)
-                    |> fun r -> defaultArg r 0
+    let workerPosition = 
+        let getPos = async { 
+            try 
+                let! ws = workerManager.GetAvailableWorkers()
+                let i = 
+                    match currentWorker with
+                    | None -> 0
+                    | Some cw ->
+                        ws 
+                        |> Seq.sortBy (fun w -> w.Id)
+                        |> Seq.tryFindIndex (fun w -> w.Id = cw)
+                        |> fun r -> defaultArg r 0
 
-            return int64 i, int64 ws.Length
+                return int64 i, int64 ws.Length
 
-        with _ -> return 0L, 2L
-    }
+            with _ -> return 0L, 2L
+        }
+
+        CacheAtom.Create(getPos, intervalMilliseconds = 30000)
 
     let cleanupWorkerQueue (worker : IWorkerId) = async {
         let! subscription = topic.GetSubscription(worker)
@@ -60,11 +63,11 @@ type TopicMonitor private (workerManager : WorkerManager, currentWorker : IWorke
 
     // WorkItem queue maintenance : periodically check for non-responsive workers and cleanup their queue
     let rec loop (count : int64) = async {
-        do! Async.Sleep 10000
-        let! i,n = getWorkerPosition()
+        do! Async.Sleep 5000
+        let! i,n = workerPosition.GetValueAsync()
         if count % n <> i then return! loop (count + 1L) else
 
-        logger.LogInfo "TopicMonitor : starting topic maintenance."
+        logger.LogInfo "TopicMonitor : starting periodic topic maintenance."
 
         let! result = Async.Catch <| async {
             let! workersToCheck = workerManager.GetInactiveWorkers()
