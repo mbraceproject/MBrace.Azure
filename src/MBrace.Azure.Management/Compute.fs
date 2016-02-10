@@ -43,7 +43,7 @@ module internal Compute =
                 Field.create "Region" Left (fun d -> d.Region)
                 Field.create "VM size" Left (fun d -> match d.VMInstances with [||] -> "N/A" | ns -> ns.[0].VMSize.Id)
                 Field.create "#Instances" Left (fun d -> if Array.isEmpty d.VMInstances then "N/A" else string d.VMInstances.Length)
-                Field.create "Deployment Status" Left (fun d -> d.DeploymentState)
+                Field.create "Deployment Status" Left (fun d -> match d.DeploymentState with | NoDeployment | Unknown | Provisioning 0. -> d.DeploymentRequestDetails | _ -> d.DeploymentState.ToString() )
                 Field.create "Storage Accnt" Left (fun d -> d.StorageAccount.AccountName)
                 Field.create "ServiceBus Accnt" Left (fun d -> d.ServiceBusAccount.AccountName)
                 Field.create "Last Modified" Left (fun d -> d.LastModified.LocalDateTime) 
@@ -135,6 +135,8 @@ module internal Compute =
             let! deployment = deploymentT
             let storageAccount = properties.ExtendedProperties.["StorageConnectionString"] |> StorageAccount.FromConnectionString
             let serviceBusAccount = properties.ExtendedProperties.["ServiceBusConnectionString"] |> ServiceBusAccount.FromConnectionString
+            let deploymentRequestId = properties.ExtendedProperties.["DeploymentRequestId"]
+            let! lastStatus = client.Compute.GetOperationStatusAsync(deploymentRequestId) |> Async.AwaitTaskCorrect
             let nodes =
                 match deployment with
                 | Choice2Of2 _ -> [||]
@@ -158,6 +160,7 @@ module internal Compute =
                     ServiceBusAccount = serviceBusAccount
                     VMInstances = nodes 
                     Region = Region.Define properties.Location
+                    DeploymentRequestDetails = sprintf "%O %s" lastStatus.Status (match lastStatus.Error with | null -> "" | error -> sprintf "(%s)" error.Message)
                 }
 
             return Some info
@@ -210,18 +213,9 @@ module internal Compute =
             logger.Logf LogLevel.Info "uploading cloud service package package %A" packagePath
             do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open) |> Async.AwaitTaskCorrect
 
-        let extendedProperties =
-            dict [
-                yield! Common.defaultExtendedProperties |> Seq.map (fun kv -> kv.Key, kv.Value)
-                yield ("StorageAccountName", storageAccount.AccountName)
-                yield ("StorageConnectionString", storageAccount.ConnectionString)
-                yield ("ServiceBusName", serviceBusAccount.AccountName)
-                yield ("ServiceBusConnectionString", serviceBusAccount.ConnectionString)
-            ]
-
         let config = buildMBraceConfig serviceName instanceCount enableDiagnostics storageAccount serviceBusAccount
         logger.Logf LogLevel.Info "creating cloud service %A" serviceName
-        let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName, ExtendedProperties = extendedProperties)) |> Async.AwaitTaskCorrect
+        let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName)) |> Async.AwaitTaskCorrect
         let deployParams = 
             DeploymentCreateParameters(
                 Name = serviceName,
@@ -234,9 +228,19 @@ module internal Compute =
         let slot = if useStaging then DeploymentSlot.Staging else DeploymentSlot.Production
         logger.Logf LogLevel.Info "starting deployment %A using slot %A with package %A" deployParams.Name (string slot) (string deployParams.PackageUri)
         let! createOp = client.Compute.Deployments.BeginCreatingAsync(deployParams.Name, slot, deployParams) |> Async.AwaitTaskCorrect
+        let extendedProperties =
+            dict [
+                yield! Common.defaultExtendedProperties |> Seq.map (fun kv -> kv.Key, kv.Value)
+                yield ("StorageAccountName", storageAccount.AccountName)
+                yield ("StorageConnectionString", storageAccount.ConnectionString)
+                yield ("ServiceBusName", serviceBusAccount.AccountName)
+                yield ("ServiceBusConnectionString", serviceBusAccount.ConnectionString)
+                yield ("DeploymentRequestId", createOp.RequestId)
+            ]
+
+        let! _ = client.Compute.HostedServices.UpdateAsync(serviceName, HostedServiceUpdateParameters(ExtendedProperties = extendedProperties)) |> Async.AwaitTaskCorrect
         if createOp.StatusCode <> Net.HttpStatusCode.Accepted then 
             return invalidOp <| sprintf "error: HTTP request for creation operation %A was not accepted (status code: %O)" deployParams.Name createOp.StatusCode
-
     }
 
     let resizeDeployment (logger : ISystemLogger) (serviceName : string) (newCount : int) (client : SubscriptionClient) = async {

@@ -221,8 +221,10 @@ type DeploymentInfo =
         ServiceStatus : string
         /// Service deployment label
         Label : string
-        /// Deployment status
+        /// The overall deployment status
         DeploymentState : DeploymentStatus
+        /// Detailed information of the request to create the deployment
+        DeploymentRequestDetails : string
         /// Azure Storage account used by MBrace deployment
         StorageAccount : StorageAccount
         /// Azure Service Bus account by MBrace deployment
