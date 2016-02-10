@@ -160,7 +160,9 @@ module internal Compute =
                     ServiceBusAccount = serviceBusAccount
                     VMInstances = nodes 
                     Region = Region.Define properties.Location
-                    DeploymentRequestDetails = sprintf "%O %s" lastStatus.Status (match lastStatus.Error with | null -> "" | error -> sprintf "(%s)" error.Message)
+                    DeploymentRequestDetails =
+                        let header, error = match lastStatus.Error with | null -> "Validating", "" | error -> "", sprintf "(%s)" error.Message
+                        sprintf "%s%O %s" header lastStatus.Status error
                 }
 
             return Some info

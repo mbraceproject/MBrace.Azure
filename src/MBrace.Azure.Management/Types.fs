@@ -201,8 +201,8 @@ type DeploymentStatus =
         | NoDeployment -> "None"
         | Provisioning pct -> sprintf "Provisioning %2.1f%%" (pct * 100.)
         | Ready -> "Ready"
-        | RunningTransitioning -> "RunningTransitioning"
-        | SuspendedTransitioning -> "SuspendedTransitioning"
+        | RunningTransitioning -> "Transitioning"
+        | SuspendedTransitioning -> "Suspended Transitioning"
         | Suspending -> "Suspending"
         | Suspended -> "Suspended"
         | Deleting -> "Deleting"
