@@ -304,7 +304,7 @@ module internal Compute =
 
             use! _fs = attemptAquire()
             
-            if not <| File.Exists localPath then
+            if not <| File.Exists localPath || (FileInfo(localPath).Length = 0L) then
                 logger.Logf LogLevel.Info "downloading cloud service package from %A" uri
                 use wc = new System.Net.WebClient()
                 do! wc.DownloadFileTaskAsync(uri, localPath) |> Async.AwaitTaskCorrect
