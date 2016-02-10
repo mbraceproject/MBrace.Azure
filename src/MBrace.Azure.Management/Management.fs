@@ -89,26 +89,16 @@ type Deployment internal (client : SubscriptionClient, serviceName : string, log
     /// <param name="deleteStorageAccount">Delete the associated storage account. Defaults to false.</param>
     /// <param name="deleteServiceBusAccount">Delete the associated service bus account. Defaults to false.</param>
     member __.DeleteAsync([<O;D(null:obj)>]?deleteStorageAccount:bool, [<O;D(null:obj)>]?deleteServiceBusAccount:bool) = async {
-        let deleteStorageAccount = defaultArg deleteStorageAccount false
-        let deleteServiceBusAccount = defaultArg deleteServiceBusAccount false
-
-        // if deleting, retrieve account info for deployment
-        let! infoOpt = async {
-            if deleteStorageAccount || deleteServiceBusAccount then
-                let! info = deployment.GetValueAsync()
-                return Some info
-            else
-                return None
-        }
-
+        // retrieve account info for deployment
+        let! info = deployment.GetValueAsync()
         do! Compute.deleteMBraceDeployment logger serviceName client
 
+        let deleteStorageAccount = defaultArg deleteStorageAccount false
+        let deleteServiceBusAccount = defaultArg deleteServiceBusAccount (info.ServiceBusAccount.AccountName.StartsWith Common.resourcePrefix)
+
         // once the service has been deleted, delete accounts where applicable
-        match infoOpt with
-        | None -> ()
-        | Some info ->
-            if deleteStorageAccount then do! Storage.deleteStorageAccount logger info.StorageAccount.AccountName client
-            if deleteServiceBusAccount then do! ServiceBus.deleteServiceBusAccount logger info.ServiceBusAccount.AccountName client
+        if deleteStorageAccount then do! Storage.deleteStorageAccount logger info.StorageAccount.AccountName client
+        if deleteServiceBusAccount then do! ServiceBus.deleteServiceBusAccount logger info.ServiceBusAccount.AccountName client
     }
 
     /// <summary>
