@@ -79,6 +79,7 @@ let vmSizes =
       yield "Medium"; 
       yield "Large";
       yield "ExtraLarge";
+
       for i in 5 .. 11 -> "A" + string i; 
       for i in 1 .. 4 -> "Standard_D" + string i 
       for i in 11 .. 14 -> "Standard_D" + string i 

@@ -1,3 +1,6 @@
+### 1.1.24
+* Fix packaging issue.
+
 ### 1.1.23
 * minimize amount of calls to ServiceBus subscription management API.
 
