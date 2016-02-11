@@ -10,6 +10,7 @@ open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure
 open MBrace.Azure.Runtime
+open System.IO
 
 /// A system logger that writes entries to stdout
 type ConsoleLogger = MBrace.Runtime.ConsoleLogger
@@ -400,20 +401,24 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
         else
             logger.Logf LogLevel.Info "using custom cspkg"
 
-        let! pkgPath, pkgFileName, versionInfo = Compute.downloadServicePackage logger vmSize mbraceVersion cloudServicePackage
         logger.Logf LogLevel.Info "using cluster name %s" serviceName
 
         let! storageAccountT = Storage.getDeploymentStorageAccount logger reuseAccounts region storageAccount client |> Async.StartChild
         let! serviceBusAccount = ServiceBus.getDeploymentServiceBusAccount logger reuseAccounts region serviceBusAccount client
         let! storageAccount = storageAccountT
+        let packageDetails, customClusterLabel =
+            match cloudServicePackage with
+            | None ->
+                let mbraceVersion = (defaultArg mbraceVersion Common.defaultMBraceVersion)
+                Compute.Official(mbraceVersion, vmSize), (sprintf "mbrace-%s" mbraceVersion)
+            | Some uri ->
+                let uri = Uri uri
+                (if uri.IsFile then Compute.CustomLocal(FileInfo uri.LocalPath)
+                 else Compute.CustomRemote uri), "custom-cspkg"
 
-        let clusterLabel =
-            match clusterLabel, versionInfo with
-            | Some l, _ -> l
-            | None, Some v -> sprintf "mbrace-%s" v
-            | None, None -> sprintf "custom-cspkg"
+        let clusterLabel = defaultArg clusterLabel customClusterLabel        
 
-        do! Compute.createDeployment logger serviceName clusterLabel region pkgPath pkgFileName false enableDiagnostics vmCount storageAccount serviceBusAccount client
+        do! Compute.createDeployment logger serviceName clusterLabel region packageDetails false enableDiagnostics vmCount storageAccount serviceBusAccount client
         return new Deployment(client, serviceName, logger)
     }
 

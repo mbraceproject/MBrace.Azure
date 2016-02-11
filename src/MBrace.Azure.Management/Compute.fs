@@ -23,6 +23,8 @@ open MBrace.Azure
 open MBrace.Azure.Runtime
 
 module internal Compute =
+    open Microsoft.WindowsAzure.Storage.Blob
+    open System.Net
 
     type WADeploymentStatus = Microsoft.WindowsAzure.Management.Compute.Models.DeploymentStatus
 
@@ -161,7 +163,7 @@ module internal Compute =
                     VMInstances = nodes 
                     Region = Region.Define properties.Location
                     DeploymentRequestDetails =
-                        let header, error = match lastStatus.Error with | null -> "Validating", "" | error -> "", sprintf "(%s)" error.Message
+                        let header, error = match lastStatus.Error with | null -> "Validation ", "" | error -> "", sprintf "(%s)" error.Message
                         sprintf "%s%O %s" header lastStatus.Status error
                 }
 
@@ -201,20 +203,58 @@ module internal Compute =
     </Role>
 </ServiceConfiguration>""" serviceName instances storageAccount.ConnectionString serviceBusAccount.ConnectionString (if useDiagnostics then storageAccount.ConnectionString else "")
 
+    type PackageDetails = Official of mbraceVersion:string * VMSize | CustomRemote of Uri | CustomLocal of FileInfo
+    type PackageSource = Remote of Uri * Uri | Local of FileInfo
+
+    let deployPackage packageDetails destinationStorageAccount (logger:ISystemLogger) = async {
+        let! container = getDeploymentContainer destinationStorageAccount
+        let! packageSource =
+            async {
+                match packageDetails with
+                | Official (mbraceVersion, vmSize) ->
+                    // GitHub redirects to AWS for actual resources, so get the real uri of the file
+                    let originalUri = Common.getPackageUrl mbraceVersion vmSize |> Uri
+                    let webRequest = HttpWebRequest.CreateHttp originalUri
+                    webRequest.AllowAutoRedirect <- false
+                    let! response = webRequest.GetResponseAsync() |> Async.AwaitTaskCorrect
+                    return Remote(originalUri, response.Headers.["Location"] |> Uri)
+                | CustomRemote uri -> return Remote(uri, uri)
+                | CustomLocal fileInfo -> return (Local fileInfo)
+            }
+        
+        match packageSource with
+        | Remote (namedUri, resourceUri) ->       
+            let blobName =
+                let uriHash = getTextHash (namedUri.ToString())
+                sprintf "%s-%s" (Path.GetFileName namedUri.LocalPath) uriHash
+            let packageBlob = container.GetBlockBlobReference blobName
+            let! blobExists = packageBlob.ExistsAsync() |> Async.AwaitTaskCorrect
+            if not blobExists then
+                logger.Logf LogLevel.Info "deploying cloud service package package from %A to your storage account (%O)" namedUri packageBlob.Uri
+                do! packageBlob.StartCopyFromBlobAsync resourceUri |> Async.AwaitTaskCorrect |> Async.Ignore
+                while (packageBlob.CopyState.Status = CopyStatus.Pending) do
+                    do! Async.Sleep 1000
+                    do! packageBlob.FetchAttributesAsync() |> Async.AwaitTaskCorrect
+                if packageBlob.CopyState.Status <> CopyStatus.Success then
+                    return invalidOp <| sprintf "error: Unable to deploy MBrace Cloud Service package: %s" packageBlob.CopyState.StatusDescription
+            return packageBlob.Uri
+        | Local file -> 
+            let blobName =
+                let uriHash = getTextHash (file.Name)
+                sprintf "%s-%s" file.Name uriHash
+            let packageBlob = container.GetBlockBlobReference blobName
+            let! blobExists = packageBlob.ExistsAsync() |> Async.AwaitTaskCorrect
+            if not blobExists then
+                logger.Logf LogLevel.Info "uploading cloud service package package from %A to your storage account (%O)" file.FullName packageBlob.Uri
+                do! packageBlob.UploadFromFileAsync(file.FullName, FileMode.Open) |> Async.AwaitTaskCorrect
+            return packageBlob.Uri
+        }
+
     let createDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
-                            (region : Region) (packagePath : string) (packageFileName : string) (useStaging : bool) (enableDiagnostics : bool) (instanceCount : int)
+                            (region : Region) packageDetails (useStaging : bool) (enableDiagnostics : bool) (instanceCount : int)
                             (storageAccount : StorageAccount) (serviceBusAccount : ServiceBusAccount) 
                             (client:SubscriptionClient) = async {
-
-        let! container = getDeploymentContainer storageAccount
-        let packageBlobName = sprintf "%s-%s-%x" packageFileName (getFileHash packagePath) (FileInfo(packagePath).Length)
-        let packageBlob = container.GetBlockBlobReference packageBlobName
-
-        let! blobExists = packageBlob.ExistsAsync() |> Async.AwaitTaskCorrect
-        if not blobExists then
-            logger.Logf LogLevel.Info "uploading cloud service package package %A" packagePath
-            do! packageBlob.UploadFromFileAsync(packagePath, FileMode.Open) |> Async.AwaitTaskCorrect
-
+        let! destinationPackageUri = deployPackage packageDetails storageAccount logger
         let config = buildMBraceConfig serviceName instanceCount enableDiagnostics storageAccount serviceBusAccount
         logger.Logf LogLevel.Info "creating cloud service %A" serviceName
         let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName)) |> Async.AwaitTaskCorrect
@@ -222,7 +262,7 @@ module internal Compute =
             DeploymentCreateParameters(
                 Name = serviceName,
                 Label = clusterLabel,
-                PackageUri = packageBlob.Uri,
+                PackageUri = destinationPackageUri,
                 Configuration = config,
                 StartDeployment = Nullable true,
                 TreatWarningsAsError = Nullable true)
@@ -276,50 +316,7 @@ module internal Compute =
             logger.Logf LogLevel.Info "No MBrace cluster called %A found" serviceName
     }
 
-    let downloadServicePackage (logger : ISystemLogger) (vmSize : VMSize) (mbraceVersion : string option) (uri : string option) = async {
-        let uri, version =
-            match uri with
-            | Some u -> Uri u, None
-            | None ->
-                let mbraceVersion = defaultArg mbraceVersion Common.defaultMBraceVersion
-                Common.getPackageUrl mbraceVersion vmSize |> Uri, Some mbraceVersion
-
-        if uri.IsFile then
-            logger.Logf LogLevel.Info "using cloud service package from %A" uri.LocalPath 
-            return uri.LocalPath, Path.GetFileName uri.LocalPath, version
-        else
-            let directory = Path.Combine(Path.GetTempPath(), sprintf "mbrace-cspkg-%O" Common.defaultMBraceVersion)
-            let wd = WorkingDirectory.CreateWorkingDirectory(directory, cleanup = false)
-            let uriHash = getTextHash (uri.ToString())
-            let fileName = sprintf "%s-%s" (Path.GetFileName uri.LocalPath) uriHash
-            let localPath = Path.Combine(wd, fileName) |> Path.GetFullPath
-
-            // lock file ensuring that no other process downloads to the same path at the same time
-            let lockFile = localPath + ".lock"
-            let rec attemptAquire () = async {
-                let result = 
-                    try new FileStream(lockFile, FileMode.Create, FileAccess.Write, FileShare.None) |> Some
-                    with :? IOException -> None
-
-                match result with
-                | Some fs -> return fs
-                | None ->
-                    do! Async.Sleep 1000
-                    return! attemptAquire()
-            }
-
-            use! _fs = attemptAquire()
-            
-            if not <| File.Exists localPath || (FileInfo(localPath).Length = 0L) then
-                logger.Logf LogLevel.Info "downloading cloud service package from %A" uri
-                use wc = new System.Net.WebClient()
-                do! wc.DownloadFileTaskAsync(uri, localPath) |> Async.AwaitTaskCorrect
-
-            return localPath, Path.GetFileName uri.LocalPath, version
-    }
-
 module internal Infrastructure =
-
     let private requiredServices = [| "Compute" ; "Storage" |]
 
     /// fetches a list of all regions together with supported vm sizes
