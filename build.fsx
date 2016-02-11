@@ -74,8 +74,7 @@ let cspkgAfterCopy size = "bin" @@ "cspkg" @@ "MBrace.Azure.CloudService-" + siz
 
 // See https://azure.microsoft.com/en-gb/documentation/articles/cloud-services-sizes-specs/
 let vmSizes = 
-    [ yield "ExtraSmall"; 
-      yield "Small"; 
+    [ yield "Small"; 
       yield "Medium"; 
       yield "Large";
       yield "ExtraLarge";
