@@ -240,8 +240,8 @@ module internal Compute =
             return packageBlob.Uri
         | Local file -> 
             let blobName =
-                let uriHash = getTextHash (file.Name)
-                sprintf "%s-%s" file.Name uriHash
+                let fileHash = getFileHash (file.FullName)
+                sprintf "%s-%s-%d" file.Name fileHash file.Length
             let packageBlob = container.GetBlockBlobReference blobName
             let! blobExists = packageBlob.ExistsAsync() |> Async.AwaitTaskCorrect
             if not blobExists then
