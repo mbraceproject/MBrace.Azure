@@ -295,8 +295,8 @@ module internal Compute =
         | Some di ->
             let newConfiguration = buildMBraceConfig serviceName newCount true di.StorageAccount di.ServiceBusAccount
             let changeParams = new DeploymentChangeConfigurationParameters(Configuration = newConfiguration)
-            let! changeOp = client.Compute.Deployments.BeginChangingConfigurationByNameAsync(serviceName, serviceName, changeParams) |> Async.AwaitTaskCorrect
-            if changeOp.StatusCode <> Net.HttpStatusCode.Accepted then
+            let! changeOp = client.Compute.Deployments.ChangeConfigurationByNameAsync(serviceName, serviceName, changeParams) |> Async.AwaitTaskCorrect
+            if changeOp.StatusCode <> Net.HttpStatusCode.OK then
                 return invalidOp <| sprintf "error: HTTP request for change operation %A was not accepted (status code: %O)" serviceName changeOp.StatusCode
     }
 
