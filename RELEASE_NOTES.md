@@ -1,3 +1,7 @@
+### 1.1.25
+* Improve provisioning reliability
+* Better provisioning status reporting
+
 ### 1.1.24
 * Fix packaging issue.
 
