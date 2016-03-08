@@ -44,8 +44,12 @@ type internal MessagingClient =
                     match workInfo.TargetWorker with
                     | Some target when target <> localWorkerId.Id -> 
                         // a targeted work item that has been dequeued by a different worker is to be declared faulted
-                        newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
-                        return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
+                        if faultCount > 0 then
+                            newRecord.FaultInfo <- nullable(int FaultInfo.WorkerDeathWhileProcessingWorkItem)
+                            return WorkerDeathWhileProcessingWorkItem(faultCount, new WorkerId(target))
+                        else
+                            newRecord.FaultInfo <- nullable(int FaultInfo.IsTargetedWorkItemOfDeadWorker)
+                            return IsTargetedWorkItemOfDeadWorker(faultCount, new WorkerId(target))
 
                     | _ when faultCount = 0 -> return NoFault
                     | _ ->
