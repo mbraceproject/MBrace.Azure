@@ -1,3 +1,6 @@
+### 1.2
+* Move to MBrace.Core 1.1
+
 ### 1.1.25
 * Improve provisioning reliability
 * Better provisioning status reporting
