@@ -3,7 +3,7 @@
 open System
 open System.IO
 
-open Nessos.Argu
+open Argu
 
 open MBrace.Azure
 open MBrace.Azure.Runtime

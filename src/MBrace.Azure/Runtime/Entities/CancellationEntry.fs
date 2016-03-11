@@ -93,15 +93,15 @@ type internal TableCancellationEntry (clusterId : ClusterId, uuid : string) =
 [<Sealed>]
 type TableCancellationTokenFactory private (clusterId : ClusterId) =
     interface ICancellationEntryFactory with
-        member x.CreateCancellationEntry(): Async<ICancellationEntry> = async {
-            let record = new CancellationTokenSourceEntity(guid(), [||])
-            let! _record = Table.insert clusterId.StorageAccount clusterId.RuntimeTable record
-            return new TableCancellationEntry(clusterId, record.RowKey) :> ICancellationEntry
-        }
-        
-        member x.TryCreateLinkedCancellationEntry(parents: ICancellationEntry []): Async<ICancellationEntry option> = async {
+        member x.TryCreateCancellationEntry(parents: ICancellationEntry []): Async<ICancellationEntry option> = async {
             let uuid = guid()
             let record = new CancellationTokenSourceEntity(uuid, [||])
+
+            if parents.Length = 0 then
+                let! _record = Table.insert clusterId.StorageAccount clusterId.RuntimeTable record
+                let ce = new TableCancellationEntry(clusterId, record.RowKey)
+                return Some(ce :> _)
+            else
 
             let rec loop () = async {
                 let! parents = 
