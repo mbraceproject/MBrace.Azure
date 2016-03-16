@@ -175,7 +175,7 @@ Target "ReleaseDocs" (fun _ ->
 #load "paket-files/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
-Target "ReleaseGitHub" (fun _ ->
+Target "ReleaseGithub" (fun _ ->
     let remote =
         Git.CommandHelper.getGitResult "" "remote -v"
         |> Seq.filter (fun (s: string) -> s.EndsWith("(push)"))
@@ -232,7 +232,7 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "PrepareRelease"
   ==> "NuGet"
   ==> "ReleaseNuGet"
-  ==> "ReleaseGitHub"
+  ==> "ReleaseGithub"
   ==> "Release"
 
 //// start build
