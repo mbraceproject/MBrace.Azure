@@ -1,3 +1,6 @@
+### 1.2.1
+* Fix packaging issue.
+
 ### 1.2
 * Move to MBrace.Core 1.1
 
