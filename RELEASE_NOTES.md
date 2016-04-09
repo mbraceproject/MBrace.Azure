@@ -1,3 +1,6 @@
+### 1.2.2
+* Update package dependencies.
+
 ### 1.2.1
 * Fix packaging issue.
 
