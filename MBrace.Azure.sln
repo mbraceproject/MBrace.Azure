@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
-VisualStudioVersion = 14.0.24720.0
+VisualStudioVersion = 14.0.25123.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{8C962C9C-7DF5-430C-8CD4-7C2642F68409}"
 	ProjectSection(SolutionItems) = preProject
@@ -21,6 +21,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64
 		LICENSE.md = LICENSE.md
 		nuget\MBrace.Azure.fsx = nuget\MBrace.Azure.fsx
 		nuget\MBrace.Azure.Management.fsx = nuget\MBrace.Azure.Management.fsx
+		Octokit.fsx = Octokit.fsx
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
