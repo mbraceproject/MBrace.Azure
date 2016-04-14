@@ -1,3 +1,7 @@
+### 1.2.3
+* Update package dependencies.
+* Misc bugfixes and improvements.
+
 ### 1.2.2
 * Update package dependencies.
 
