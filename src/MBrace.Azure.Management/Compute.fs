@@ -116,10 +116,13 @@ module internal Compute =
         let! result = client.Compute.HostedServices.GetDetailedAsync serviceName |> Async.AwaitTaskCorrect |> Async.Catch
         match result with
         | Choice1Of2 service when service.Properties.ExtendedProperties |> Common.isMBraceAsset ->
-            let storageConnectionString = service.Properties.ExtendedProperties.["StorageConnectionString"]
-            let serviceBusConnectionString = service.Properties.ExtendedProperties.["ServiceBusConnectionString"]
-            let config = new Configuration(storageConnectionString, serviceBusConnectionString)
-            return Some config
+            try 
+                let storageConnectionString = service.Properties.ExtendedProperties.["StorageConnectionString"]
+                let serviceBusConnectionString = service.Properties.ExtendedProperties.["ServiceBusConnectionString"]
+                let config = new Configuration(storageConnectionString, serviceBusConnectionString)
+                return Some config
+
+            with :? KeyNotFoundException -> return None
         | _ ->
             return None
     }
@@ -135,9 +138,17 @@ module internal Compute =
 
         if properties.ExtendedProperties |> Common.isMBraceAsset then
             let! deployment = deploymentT
-            let storageAccount = properties.ExtendedProperties.["StorageConnectionString"] |> StorageAccount.FromConnectionString
-            let serviceBusAccount = properties.ExtendedProperties.["ServiceBusConnectionString"] |> ServiceBusAccount.FromConnectionString
-            let deploymentRequestId = properties.ExtendedProperties.["DeploymentRequestId"]
+            let result =
+                try(properties.ExtendedProperties.["StorageConnectionString"] |> StorageAccount.FromConnectionString,
+                    properties.ExtendedProperties.["ServiceBusConnectionString"] |> ServiceBusAccount.FromConnectionString,
+                    properties.ExtendedProperties.["DeploymentRequestId"])
+                    |> Some
+                with :? KeyNotFoundException -> None
+
+            match result with
+            | None -> return None
+            | Some (storageAccount, serviceBusAccount, deploymentRequestId) ->
+
             let! lastStatus = client.Compute.GetOperationStatusAsync(deploymentRequestId) |> Async.AwaitTaskCorrect
             let nodes =
                 match deployment with

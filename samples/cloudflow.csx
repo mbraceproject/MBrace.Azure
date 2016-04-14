@@ -39,8 +39,8 @@ using MBrace.Azure;
 using MBrace.Azure.Management;
 
 AzureWorker.LocalExecutable = "../../bin/mbrace.azureworker.exe";
-var pubSettings = "/Users/eirik/Desktop/eirik.publishsettings";
-var subscriptionId = "Visual Studio Premium with MSDN";
+var pubSettings = "Replace with path to your local .publishsettings file";
+var subscriptionId = "subscription name";
 var region = Region.North_Europe;
 var logger = (MBrace.Runtime.ISystemLogger)new MBrace.Runtime.ConsoleLogger();
 
@@ -90,11 +90,11 @@ var pworkflow =
 cluster.Run(pworkflow);
 
 // 3. CloudFlow.CSharp tests
-var url = "http://publicdata.landregistry.gov.uk/market-trend-data/price-paid-data/a/pp-2015.csv";
+var url = "http://prod.publicdata.landregistry.gov.uk.s3-website-eu-west-1.amazonaws.com/pp-2015.csv";
 
 string trim(string input) { return input.Trim(new char[] { '\"' }); }
 
-var cacheF = CloudFlow.OfHTTPFileByLine(url)
+var cacheF = CloudFlow.OfHttpFileByLine(url)
                     .Select(line => line.Split(','))
                     .Select(arr => new { TransactionId = Guid.Parse(trim(arr[0])), Price = Double.Parse(trim(arr[1])), City = trim(arr[12]) })
                     .Cache();
@@ -117,7 +117,7 @@ cluster.Run(top10London);
 var maxAverageCity =
     cachedFlow
         .GroupBy(trans => trans.City.ToLower())
-        .Select(gp => new { City = gp.Item1, Average = gp.Item2.Select(t => t.Price).Average() }) 
+        .Select(gp => new { City = gp.Key, Average = gp.Value.Select(t => t.Price).Average() }) 
         .MaxBy(city => city.Average);
 
 cluster.Run(maxAverageCity);
