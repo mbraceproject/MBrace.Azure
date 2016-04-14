@@ -26,7 +26,7 @@ let defaultRegion = Region.West_Europe
 
 /// gets the local Cloud Service package build; Please use visual studio to create the CloudService package before calling
 let getLocalCspkg () : string =
-    let path = __SOURCE_DIRECTORY__ + "/../../bin/cspkg/app.publish/MBrace.Azure.CloudService.cspkg" |> Path.GetFullPath
+    let path = __SOURCE_DIRECTORY__ + "/../bin/cspkg/app.publish/MBrace.Azure.CloudService.cspkg" |> Path.GetFullPath
     if not <| File.Exists path then failwith "Right click on the 'MBrace.Azure.CloudService' project and hit 'Package...'."
     path
 
