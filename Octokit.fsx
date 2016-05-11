@@ -94,7 +94,7 @@ let createClientWithToken token =
 let createGHEClient url user password =
     async {
         let credentials = Credentials(user, password)
-        let httpClient = new HttpClientWithTimeout(TimeSpan.FromMinutes 20.)
+        let httpClient = new HttpClientWithTimeout(TimeSpan.FromMinutes 60.)
         let connection = new Connection(new ProductHeaderValue("FAKE"), new Uri(url), new InMemoryCredentialStore(credentials), httpClient, new SimpleJsonSerializer())
         let github = new GitHubClient(connection)
         github.Credentials <- credentials
@@ -104,7 +104,7 @@ let createGHEClient url user password =
 let createGHEClientWithToken url token =
     async {
         let credentials = Credentials(token)
-        let httpClient = new HttpClientWithTimeout(TimeSpan.FromMinutes 20.)
+        let httpClient = new HttpClientWithTimeout(TimeSpan.FromMinutes 60.)
         let connection = new Connection(new ProductHeaderValue("FAKE"), new Uri(url), new InMemoryCredentialStore(credentials), httpClient, new SimpleJsonSerializer())
         let github = new GitHubClient(connection)
         github.Credentials <- credentials
