@@ -5,6 +5,7 @@ open System
 open Microsoft.WindowsAzure.Storage.Table
 
 open MBrace.Runtime
+open MBrace.Runtime.Utils
 open MBrace.Runtime.Utils.PerformanceMonitor
 open MBrace.Azure.Runtime.Utilities
 
@@ -49,6 +50,8 @@ type WorkerRecord(workerId : string) =
     member val NetworkDown          = Nullable<double>() with get, set
     member val HeartbeatInterval    = Nullable<int64>() with get, set
     member val HeartbeatThreshold   = Nullable<int64>() with get, set
+    member val Platform             = Unchecked.defaultof<string> with get, set
+    member val Runtime              = Unchecked.defaultof<string> with get, set
     member val Version              = Unchecked.defaultof<string> with get, set
     member val Status               = Unchecked.defaultof<string> with get, set
     
@@ -62,6 +65,8 @@ type WorkerRecord(workerId : string) =
             MemoryUsage = this.Memory
             NetworkUsageUp = this.NetworkUp
             NetworkUsageDown = this.NetworkDown
+            Platform = match this.Platform with null -> Nullable() | pf -> Nullable<_>(Enum.Parse(typeof<Platform>, pf) :?> Platform)
+            Runtime = match this.Runtime with null -> Nullable() | pf -> Nullable<_>(Enum.Parse(typeof<Runtime>, pf) :?> Runtime)
         }
 
     member this.UpdateCounters(counters : PerformanceInfo) =
@@ -72,6 +77,8 @@ type WorkerRecord(workerId : string) =
             this.NetworkDown <- counters.NetworkUsageDown
             this.MaxClockSpeed <- counters.MaxClockSpeed
             this.LastHeartbeat <- nullable DateTimeOffset.Now
+            this.Runtime <- if counters.Runtime.HasValue then counters.Runtime.Value.ToString() else null
+            this.Platform <- if counters.Platform.HasValue then counters.Platform.Value.ToString() else null
 
     member this.CloneDefault() =
         let p = new WorkerRecord()
