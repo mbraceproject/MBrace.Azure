@@ -18,4 +18,4 @@ exit_code=$?
 if [ $exit_code -ne 0 ]; then
 	exit $exit_code
 fi
-$RUN packages/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx 
+$RUN packages/build/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx 
