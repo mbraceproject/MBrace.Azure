@@ -242,7 +242,7 @@ module internal Compute =
             let! blobExists = packageBlob.ExistsAsync() |> Async.AwaitTaskCorrect
             if not blobExists then
                 logger.Logf LogLevel.Info "deploying cloud service package package from %A to your storage account (%O)" namedUri packageBlob.Uri
-                do! packageBlob.StartCopyFromBlobAsync resourceUri |> Async.AwaitTaskCorrect |> Async.Ignore
+                do! packageBlob.StartCopyAsync resourceUri |> Async.AwaitTaskCorrect |> Async.Ignore
                 while (packageBlob.CopyState.Status = CopyStatus.Pending) do
                     do! Async.Sleep 1000
                     do! packageBlob.FetchAttributesAsync() |> Async.AwaitTaskCorrect
@@ -251,13 +251,14 @@ module internal Compute =
             return packageBlob.Uri
         | Local file -> 
             let blobName =
-                let fileHash = getFileHash (file.FullName)
+                let fileHash = getFileHash file.FullName
                 sprintf "%s-%s-%d" file.Name fileHash file.Length
             let packageBlob = container.GetBlockBlobReference blobName
             let! blobExists = packageBlob.ExistsAsync() |> Async.AwaitTaskCorrect
             if not blobExists then
                 logger.Logf LogLevel.Info "uploading cloud service package package from %A to your storage account (%O)" file.FullName packageBlob.Uri
-                do! packageBlob.UploadFromFileAsync(file.FullName, FileMode.Open) |> Async.AwaitTaskCorrect
+                let! ct = Async.CancellationToken
+                do! packageBlob.UploadFromFileAsync(file.FullName, ct) |> Async.AwaitTaskCorrect
             return packageBlob.Uri
         }
 

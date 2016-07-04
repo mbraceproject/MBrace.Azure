@@ -3,4 +3,5 @@ MBrace.Runtime
 Newtonsoft.Json
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
+Microsoft.WindowsAzure.ConfigurationManager
 FSharp.Core

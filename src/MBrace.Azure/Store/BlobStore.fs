@@ -417,7 +417,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
             let target = normalizePath target
             let! blob = getBlobReference account target
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
-            do! blob.UploadFromFileAsync(source, FileMode.Open, null, options, OperationContext()) |> Async.AwaitTaskCorrect
+            do! blob.UploadFromFileAsync(source, null, options, OperationContext()) |> Async.AwaitTaskCorrect
         }
 
         member this.DownloadToLocalFile(source : string, target : string) : Async<unit> = async {
