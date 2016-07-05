@@ -12,11 +12,11 @@ nuget WindowsAzure.ServiceBus ~> 3.0
 nuget WindowsAzure.Storage ~> 7.0
 nuget NUnit ~> 2.6.4
 nuget NUnit.Runners ~> 2.6.4
-nuget FSharp.Compiler.Service
+nuget FSharp.Compiler.Service ~> 5.0
 nuget MathNet.Numerics ~> 3.7.0
 nuget MathNet.Numerics.FSharp
 nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
-nuget Argu ~> 2.0
+nuget Argu ~> 3.0
 nuget Microsoft.WindowsAzure.Management.Libraries ~> 2.0
 nuget Microsoft.WindowsAzure.Management.ServiceBus ~> 0.18 prerelease
 nuget Microsoft.WindowsAzure.ConfigurationManager

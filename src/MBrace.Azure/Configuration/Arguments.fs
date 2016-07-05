@@ -12,35 +12,35 @@ open MBrace.Runtime
 /// Argu configuration schema
 type private AzureArguments =
     // General-purpose arguments
-    | [<AltCommandLine("-w")>] Worker_Id of string
-    | [<AltCommandLine("-m")>] Max_Work_Items of int
-    | Heartbeat_Interval of float
-    | Heartbeat_Threshold of float
+    | [<AltCommandLine("-w")>] Worker_Id of id:string
+    | [<AltCommandLine("-m")>] Max_Work_Items of num:int
+    | Heartbeat_Interval of seconds:float
+    | Heartbeat_Threshold of seconds:float
     | [<AltCommandLine("-q")>] Quiet
-    | [<AltCommandLine("-L")>] Log_Level of int
-    | [<AltCommandLine("-l")>] Log_File of string
-    | Working_Directory of string
+    | [<AltCommandLine("-L")>] Log_Level of level:int
+    | [<AltCommandLine("-l")>] Log_File of path:string
+    | Working_Directory of path:string
     // Connection string parameters
-    | [<Mandatory>][<AltCommandLine("-s")>] Storage_Connection_String of string
-    | [<Mandatory>][<AltCommandLine("-b")>] Service_Bus_Connection_string of string
+    | [<Mandatory>][<AltCommandLine("-s")>] Storage_Connection_String of conn:string
+    | [<Mandatory>][<AltCommandLine("-b")>] Service_Bus_Connection_string of conn:string
     // Cluster configuration parameters
-    | Force_Version of string
-    | Suffix_Id of uint16
+    | Force_Version of version:string
+    | Suffix_Id of num:uint16
     | Use_Version_Suffix of bool
     | Use_Suffix_Id of bool
     | Optimize_Closure_Serialization of bool
     // ServiceBus
-    | Runtime_Queue of string
-    | Runtime_Topic of string
+    | Runtime_Queue of queue_name:string
+    | Runtime_Topic of topic_name:string
     // Blob Storage
-    | Runtime_Container of string
-    | User_Data_Container of string
-    | Assembly_Container of string
-    | Cloud_Value_Container of string
+    | Runtime_Container of container:string
+    | User_Data_Container of container:string
+    | Assembly_Container of container:string
+    | Cloud_Value_Container of container:string
     // Table Storage
-    | Runtime_Table of string
-    | Runtime_Logs_Table of string
-    | User_Data_Table of string
+    | Runtime_Table of table:string
+    | Runtime_Logs_Table of table:string
+    | User_Data_Table of table:string
 
     interface IArgParserTemplate with
         member arg.Usage =
@@ -71,7 +71,7 @@ type private AzureArguments =
             | User_Data_Table _ -> "Specifies the table name used for writing user logs."
 
 
-let private argParser = ArgumentParser.Create<AzureArguments>()
+let private argParser = ArgumentParser.Create<AzureArguments>(errorHandler = new ProcessExiter())
 
 /// Configuration object encoding command line parameters for an MBrace.Azure process
 type ArgumentConfiguration = 
@@ -137,11 +137,11 @@ type ArgumentConfiguration =
                 yield User_Data_Table config.UserDataTable
         ]
 
-        argParser.PrintCommandLineFlat args
+        argParser.PrintCommandLineArgumentsFlat args
 
     /// Parses command line arguments to a configuration object using Argu.
     static member FromCommandLineArguments(args : string []) =
-        let parseResult = argParser.Parse(args, errorHandler = new ProcessExiter())
+        let parseResult = argParser.Parse(args)
 
         let maxWorkItems = parseResult.TryPostProcessResult(<@ Max_Work_Items @>, fun i -> if i < 0 then failwith "must be positive." elif i > 1024 then failwith "exceeds 1024 limit." else i)
         let quiet = parseResult.Contains <@ Quiet @>
