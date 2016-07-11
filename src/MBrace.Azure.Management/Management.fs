@@ -384,7 +384,9 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
     /// <param name="reuseAccounts">Reuse existing inactive mbrace storage/service bus accounts. Defaults to true.</param>
     member __.ProvisionAsync(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize,  
                                 [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
-                                [<O;D(null:obj)>]?clusterLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool) : Async<Deployment> = async {
+                                [<O;D(null:obj)>]?clusterLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool,
+                                [<O;D(null:obj)>]?buildMBraceConfig : BuildMBraceConfig
+                                ) : Async<Deployment> = async {
 
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
         let enableDiagnostics = defaultArg enableDiagnostics false
@@ -417,8 +419,11 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
                  else Compute.CustomRemote uri), "custom-cspkg"
 
         let clusterLabel = defaultArg clusterLabel customClusterLabel        
-
-        do! Compute.createDeployment logger serviceName clusterLabel region packageDetails false enableDiagnostics vmCount storageAccount serviceBusAccount client
+        let buildMBraceConfig =
+          match buildMBraceConfig with
+          | Some buildMBraceConfig -> buildMBraceConfig
+          | None -> Compute.buildMBraceConfig
+        do! Compute.createDeployment logger serviceName clusterLabel region packageDetails false enableDiagnostics vmCount storageAccount serviceBusAccount client buildMBraceConfig
         return new Deployment(client, serviceName, logger)
     }
 

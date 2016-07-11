@@ -21,7 +21,10 @@ open MBrace.Runtime.Utils.String
 open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure
 open MBrace.Azure.Runtime
-
+type ServiceName = string
+type InstanceCount = int
+type UseDiagnostic = bool
+type BuildMBraceConfig = ServiceName -> InstanceCount -> UseDiagnostic -> StorageAccount -> ServiceBusAccount -> string
 module internal Compute =
     open Microsoft.WindowsAzure.Storage.Blob
     open System.Net
@@ -264,9 +267,11 @@ module internal Compute =
     let createDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
                             (region : Region) packageDetails (useStaging : bool) (enableDiagnostics : bool) (instanceCount : int)
                             (storageAccount : StorageAccount) (serviceBusAccount : ServiceBusAccount) 
-                            (client:SubscriptionClient) = async {
+                            (client:SubscriptionClient) 
+                            createMBraceConfig
+                            = async {
         let! destinationPackageUri = deployPackage packageDetails storageAccount logger
-        let config = buildMBraceConfig serviceName instanceCount enableDiagnostics storageAccount serviceBusAccount
+        let config = createMBraceConfig serviceName instanceCount enableDiagnostics storageAccount serviceBusAccount
         logger.Logf LogLevel.Info "creating cloud service %A" serviceName
         let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName)) |> Async.AwaitTaskCorrect
         let deployParams = 
