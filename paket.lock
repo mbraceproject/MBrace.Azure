@@ -125,7 +125,9 @@ NUGET
       Microsoft.Data.OData (>= 5.6.4)
       Microsoft.Data.Services.Client (>= 5.6.4)
       Newtonsoft.Json (>= 6.0.8)
-
+GITHUB
+  remote: isaacabraham/azure-fsharp-helpers
+    src/configuration.fs (750f353438da7c69fdc62935d30faeda2c42eac1)
 GROUP Build
 NUGET
   remote: https://www.nuget.org/api/v2
@@ -142,4 +144,4 @@ NUGET
 GITHUB
   remote: fsharp/FAKE
     modules/Octokit/Octokit.fsx (c56456abac6b744c3bb95b217687db19fd19b367)
-      Octokit (>= 0.20)
+      Octokit
