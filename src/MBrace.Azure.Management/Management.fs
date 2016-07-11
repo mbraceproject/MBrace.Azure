@@ -382,10 +382,11 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
     /// <param name="clusterLabel">User-supplied service label. Defaults to library generated label.</param>
     /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
     /// <param name="reuseAccounts">Reuse existing inactive mbrace storage/service bus accounts. Defaults to true.</param>
+    /// <param name="cloudServiceConfiguration">Member of CloudServiceConfigurationMaker which enables generating a custom Cloud Service configuration for the cluster. Defaults to CloudServiceConfigurationMaker.Default.</param>
     member __.ProvisionAsync(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize,  
                                 [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
                                 [<O;D(null:obj)>]?clusterLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool,
-                                [<O;D(null:obj)>]?buildMBraceConfig : BuildMBraceConfig
+                                [<O;D(null:obj)>]?cloudServiceConfiguration : CloudServiceConfigurationMaker
                                 ) : Async<Deployment> = async {
 
         if vmCount < 1 then invalidArg "vmCount" "must be positive value."
@@ -419,11 +420,11 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
                  else Compute.CustomRemote uri), "custom-cspkg"
 
         let clusterLabel = defaultArg clusterLabel customClusterLabel        
-        let buildMBraceConfig =
-          match buildMBraceConfig with
-          | Some buildMBraceConfig -> buildMBraceConfig
-          | None -> Compute.buildMBraceConfig
-        do! Compute.createDeployment logger serviceName clusterLabel region packageDetails false enableDiagnostics vmCount storageAccount serviceBusAccount client buildMBraceConfig
+        let cloudServiceConfiguration =
+          match cloudServiceConfiguration with
+          | Some cloudServiceConfiguration -> cloudServiceConfiguration
+          | None -> CloudServiceConfigurationMaker.Default
+        do! Compute.createDeployment logger serviceName clusterLabel region packageDetails false enableDiagnostics vmCount storageAccount serviceBusAccount client cloudServiceConfiguration
         return new Deployment(client, serviceName, logger)
     }
 
@@ -441,12 +442,16 @@ type SubscriptionManager private (client : SubscriptionClient, defaultRegion : R
     /// <param name="clusterLabel">User-supplied service label. Defaults to library generated label.</param>
     /// <param name="enableDiagnostics">Enable Azure diagnostics for deployment using storage account. Defaults to false.</param>
     /// <param name="reuseAccounts">Reuse existing inactive mbrace storage/service bus accounts. Defaults to true.</param>
+    /// <param name="cloudServiceConfiguration">Member of CloudServiceConfigurationMaker which enables generating a custom Cloud Service configuration for the cluster. Defaults to CloudServiceConfigurationMaker.Default.</param>
     member __.Provision(vmCount : int, [<O;D(null:obj)>]?serviceName : string, [<O;D(null:obj)>]?region : Region, [<O;D(null:obj)>]?vmSize : VMSize, 
                         [<O;D(null:obj)>]?mbraceVersion : string, [<O;D(null:obj)>]?storageAccount : string, [<O;D(null:obj)>]?serviceBusAccount : string, [<O;D(null:obj)>]?cloudServicePackage : string, 
-                        [<O;D(null:obj)>]?clusterLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool) =
+                        [<O;D(null:obj)>]?clusterLabel : string, [<O;D(null:obj)>]?enableDiagnostics : bool, [<O;D(null:obj)>]?reuseAccounts : bool,
+                        [<O;D(null:obj)>]?cloudServiceConfiguration : CloudServiceConfigurationMaker
+                        ) =
         __.ProvisionAsync(vmCount, ?serviceName = serviceName, ?region = region, ?mbraceVersion = mbraceVersion, ?vmSize = vmSize,
                                 ?storageAccount = storageAccount, ?serviceBusAccount = serviceBusAccount, ?cloudServicePackage = cloudServicePackage, 
-                                ?clusterLabel = clusterLabel, ?enableDiagnostics = enableDiagnostics, ?reuseAccounts = reuseAccounts)
+                                ?clusterLabel = clusterLabel, ?enableDiagnostics = enableDiagnostics, ?reuseAccounts = reuseAccounts,
+                                ?cloudServiceConfiguration = cloudServiceConfiguration)
         |> Async.RunSync
 
 
