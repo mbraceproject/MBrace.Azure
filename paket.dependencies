@@ -23,6 +23,7 @@ nuget Microsoft.WindowsAzure.ConfigurationManager
 nuget Microsoft.Bcl.Async ~> 1.0
 nuget System.Runtime.Loader
 nuget System.Reflection.Metadata
+github isaacabraham/azure-fsharp-helpers src/configuration.fs
 
 group Build
   source https://www.nuget.org/api/v2
