@@ -1,6 +1,8 @@
 ﻿namespace MBrace.Azure.Tests.Store
 
+open Swensen.Unquote.Assertions
 open NUnit.Framework
+
 open MBrace.Core
 open MBrace.Core.Tests
 open MBrace.Core.Internals
@@ -33,8 +35,8 @@ type ``Azure BlobStore Tests``(config : Configuration, localWorkers : int) =
             let subDir = fs.Path.Combine(dirName, "foo", "bar")
             let file = fs.Path.Combine(subDir, "test.txt")
             let cf = fs.File.WriteAllText(file, "lorem ipsum dolor sit amet")
-            fs.Directory.Enumerate(dirName).Length |> shouldEqual 1
-            fs.File.Enumerate(subDir).Length |> shouldEqual 1
+            test <@ fs.Directory.Enumerate(dirName).Length = 1 @>
+            test <@ fs.File.Enumerate(subDir).Length = 1 @>
         } |> session.Cluster.Run
     
     override __.FileStore = session.Cluster.GetResource<ICloudFileStore>()

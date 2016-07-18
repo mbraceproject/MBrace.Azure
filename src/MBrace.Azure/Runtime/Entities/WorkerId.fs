@@ -6,7 +6,6 @@ open Microsoft.WindowsAzure.Storage.Table
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils
-open MBrace.Runtime.Utils.PerformanceMonitor
 open MBrace.Azure.Runtime.Utilities
 
 [<AutoSerializable(true)>]

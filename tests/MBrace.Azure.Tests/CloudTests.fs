@@ -23,14 +23,13 @@ type ``Azure Cloud Tests`` (config : Configuration, localWorkers : int) =
 
     override __.Run (workflow : Cloud<'T>) = 
         session.Cluster.RunAsync (workflow)
-        |> Async.Catch
         |> Async.RunSync
 
     override __.Run (workflow : ICloudCancellationTokenSource -> #Cloud<'T>) = 
         async {
             let cluster = session.Cluster
             let cts = cluster.CreateCancellationTokenSource()
-            try return! cluster.RunAsync(workflow cts, cancellationToken = cts.Token) |> Async.Catch
+            try return! cluster.RunAsync(workflow cts, cancellationToken = cts.Token)
             finally cts.Cancel()
         } |> Async.RunSync
 

@@ -4,4 +4,4 @@ Newtonsoft.Json
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
 Microsoft.WindowsAzure.ConfigurationManager
-FSharp.Core
+FSharp.Core copy_local: true

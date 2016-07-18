@@ -127,7 +127,7 @@ type WorkerManager private (clusterId : ClusterId, logger : ISystemLogger) =
         
         member this.GetAvailableWorkers(): Async<WorkerState []> = this.GetAvailableWorkers()
         
-        member this.SubmitPerformanceMetrics(workerId: IWorkerId, perf: Utils.PerformanceMonitor.PerformanceInfo): Async<unit> = async {
+        member this.SubmitPerformanceMetrics(workerId: IWorkerId, perf: PerformanceInfo): Async<unit> = async {
             let record = new WorkerRecord(workerId.Id)
             record.ETag <- "*"
             record.UpdateCounters(perf)
