@@ -1,3 +1,6 @@
+### 1.4.1
+* Upgrade to latest MBrace.Core.
+
 ### 1.4.0
 * Upgrade to latest MBrace.Core.
 * Add support for Azure environment loading of Argu parameters in standalone workers.
