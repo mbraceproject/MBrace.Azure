@@ -11,7 +11,7 @@
 #r "tools/Microsoft.Data.OData.dll"
 #r "tools/Microsoft.Data.Services.Client.dll"
 #r "tools/Microsoft.ServiceBus.dll"
-#r "tools/Microsoft.WindowsAzure.Configuration.dll"
+#r "tools/Microsoft.Azure.KeyVault.Core.dll"
 #r "tools/Microsoft.WindowsAzure.Storage.dll"
 #r "tools/MBrace.Core.dll"
 #r "tools/MBrace.Runtime.dll"

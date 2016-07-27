@@ -37,6 +37,7 @@ files
 	../../bin/Microsoft.Data.OData.dll ==> tools
 	../../bin/Microsoft.Data.Services.Client.dll ==> tools
 	../../bin/Microsoft.ServiceBus.dll ==> tools
+	../../bin/Microsoft.WindowsAzure.KeyVault.Core.dll ==> tools
 	../../bin/Microsoft.WindowsAzure.Storage.dll ==> tools
     ../../bin/MBrace.Core.dll ==> tools
 	../../bin/MBrace.Core.pdb ==> tools
