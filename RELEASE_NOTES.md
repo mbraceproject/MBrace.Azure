@@ -1,3 +1,6 @@
+### 1.4.2
+* Fix nuget package issue.
+
 ### 1.4.1
 * Upgrade to latest MBrace.Core.
 
