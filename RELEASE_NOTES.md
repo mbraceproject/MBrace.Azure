@@ -1,3 +1,6 @@
+### 1.4.3
+* Fix nuget package issue.
+
 ### 1.4.2
 * Fix nuget package issue.
 
