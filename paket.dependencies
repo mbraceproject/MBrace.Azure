@@ -1,5 +1,5 @@
 framework: >= net45
-redirects: force
+redirects: on
 source https://www.nuget.org/api/v2
 
 nuget FSharp.Core ~> 4.0.0.0
