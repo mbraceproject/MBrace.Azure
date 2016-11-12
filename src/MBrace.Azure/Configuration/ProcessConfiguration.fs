@@ -4,8 +4,8 @@ open System
 open System.IO
 open System.Net
 
-open Nessos.FsPickler
-open Nessos.FsPickler.Json
+open MBrace.FsPickler
+open MBrace.FsPickler.Json
 
 open MBrace.Runtime
 open MBrace.Runtime.Utils

@@ -8,7 +8,7 @@ open System.Diagnostics
 open System.IO
 open System.Net
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core
 open MBrace.Core.Internals

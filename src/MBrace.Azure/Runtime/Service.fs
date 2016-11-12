@@ -5,7 +5,7 @@ open System.IO
 open System.Diagnostics
 open System.Threading
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core.Internals
 open MBrace.Runtime

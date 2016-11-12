@@ -5,7 +5,7 @@ open System.Runtime.Serialization
 
 open Microsoft.WindowsAzure.Storage.Table
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core
 open MBrace.Runtime

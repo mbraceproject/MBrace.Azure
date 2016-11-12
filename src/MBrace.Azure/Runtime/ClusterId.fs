@@ -9,7 +9,7 @@ open Microsoft.ServiceBus
 open Microsoft.ServiceBus.Messaging
 open Microsoft.WindowsAzure.Storage
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core.Internals
 open MBrace.Runtime

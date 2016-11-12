@@ -1,6 +1,6 @@
 ﻿namespace MBrace.Azure.Runtime
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core
 open MBrace.Core.Internals

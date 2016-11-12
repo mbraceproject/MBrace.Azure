@@ -3,7 +3,7 @@
 open System
 open System.Reflection
 
-open Nessos.FsPickler
+open MBrace.FsPickler
 
 open MBrace.Core.Internals
 open MBrace.Runtime

@@ -3,8 +3,8 @@ redirects: on
 source https://www.nuget.org/api/v2
 
 nuget FSharp.Core ~> 4.0.0.0
-nuget MBrace.Core ~> 1.3.0
-nuget MBrace.Runtime ~> 1.3.0
+nuget MBrace.Core ~> 1.4.0
+nuget MBrace.Runtime ~> 1.4.0
 nuget MBrace.Flow
 nuget MBrace.Tests
 nuget MBrace.CSharp
@@ -14,7 +14,7 @@ nuget NUnit ~> 2.6.4
 nuget NUnit.Runners ~> 2.6.4
 nuget FSharp.Compiler.Service ~> 5.0
 nuget MathNet.Numerics ~> 3.7.0
-nuget MathNet.Numerics.FSharp
+nuget MathNet.Numerics.FSharp ~> 3.7.0
 nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
 nuget Argu ~> 3.0
 nuget Unquote
