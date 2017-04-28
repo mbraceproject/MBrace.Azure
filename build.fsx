@@ -100,7 +100,7 @@ Target "Build" (fun _ ->
 )
 
 let filesForZip =
-    [ "Argu.dll"; (*"FSharp.Core.dll"; "FSharp.Core.optdata"; "FSharp.Core.sigdata"; "FSharp.Core.xml";*) "FsPickler.dll"; "FsPickler.Json.dll"; "MBrace.Azure.dll"; "MBrace.Azure.pdb"
+    [ "Argu.dll"; "FSharp.Core.dll"; "FSharp.Core.xml"; "FsPickler.dll"; "FsPickler.Json.dll"; "MBrace.Azure.dll"; "MBrace.Azure.pdb"
       "MBrace.Azure.XML"; "mbrace.azureworker.exe"; "mbrace.azureworker.exe.config"; "MBrace.Core.dll"; "MBrace.Core.pdb"; "MBrace.Core.xml"; "MBrace.Runtime.dll"; "MBrace.Runtime.pdb"
       "MBrace.Runtime.xml"; "Microsoft.Azure.KeyVault.Core.dll"; "Microsoft.Data.Edm.dll"; "Microsoft.Data.OData.dll"; "Microsoft.Data.Services.Client.dll"; "Microsoft.ServiceBus.dll"
       "Microsoft.WindowsAzure.Storage.dll"; "Mono.Cecil.dll"; "Newtonsoft.Json.dll"; "System.Collections.Immutable.dll"; "System.Reflection.Metadata.dll"; "System.Spatial.dll"
@@ -108,19 +108,19 @@ let filesForZip =
 
 // Build lots of packages for differet VM sizes
 Target "BuildPackages" (fun _ ->
-//    for size in vmSizes do
-//        csdefTemplate |> CopyFile (csdefForSize size)
-//        (csdefForSize size) |> ReplaceInFile (fun s -> s.Replace("vmsize=\"Large\"", "vmsize=\"" + size + "\"" ))
-//        { BaseDirectory = __SOURCE_DIRECTORY__
-//          Includes = [ "src" @@ "MBrace.Azure.CloudService" @@ "MBrace.Azure.CloudService.ccproj" ]
-//          Excludes = [] } 
-//        |> MSBuild "" "Publish" ["Configuration", configuration + "_AzureSDK"; "ServiceVMSize", size]
-//        |> Log "AppPackage-Output: "
-//        (cspkgAfterBuild configuration) |> CopyFile (cspkgAfterCopy size)
-    CreateDir "bin/jobs/continuous/MBraceWorker"
+    for size in vmSizes do
+        csdefTemplate |> CopyFile (csdefForSize size)
+        (csdefForSize size) |> ReplaceInFile (fun s -> s.Replace("vmsize=\"Large\"", "vmsize=\"" + size + "\"" ))
+        { BaseDirectory = __SOURCE_DIRECTORY__
+          Includes = [ "src" @@ "MBrace.Azure.CloudService" @@ "MBrace.Azure.CloudService.ccproj" ]
+          Excludes = [] } 
+        |> MSBuild "" "Publish" ["Configuration", configuration + "_AzureSDK"; "ServiceVMSize", size]
+        |> Log "AppPackage-Output: "
+        (cspkgAfterBuild configuration) |> CopyFile (cspkgAfterCopy size)
+    CreateDir "bin/app_data/jobs/continuous/MBraceWorker"
     filesForZip
-    |> List.iter (fun file -> CopyFile ("bin/jobs/continuous/MBraceWorker" @@ file) ("bin" @@ file))
-    ZipHelper.CreateZip "bin" webjobZip "" 0 false (filesForZip |> List.map ((@@) "bin/jobs/continuous/MBraceWorker"))
+    |> List.iter (fun file -> CopyFile ("bin/app_data/jobs/continuous/MBraceWorker" @@ file) ("bin" @@ file))
+    ZipHelper.CreateZip "bin" webjobZip "" 0 false (filesForZip |> List.map ((@@) "bin/app_data/jobs/continuous/MBraceWorker"))
     ZipHelper.CreateZip "bin" vmWorkerZip "" 0 false (filesForZip |> List.map ((@@) "bin"))
     azureDeployTemplate |> CopyFile generatedAzureDeploy
     generatedAzureDeploy |> ReplaceInFile (fun s -> s.Replace("<VERSION_NUMBER>", release.NugetVersion))
@@ -225,7 +225,7 @@ Target "ReleaseGithub" (fun _ ->
     client
     |> createDraft gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes 
     |> uploadFiles (Seq.map cspkgAfterCopy vmSizes)
-    |> uploadFiles (["deployment" @@ "azuredeploy.json"; "deployment" @@ "tiny-cluster.json"; "deployment" @@ "small-cluster.json"; "deployment" @@ "medium-cluster.json"; "deployment" @@ "large-cluster.json"; "bin" @@ vmWorkerZip; "bin" @@ webjobZip])
+    |> uploadFiles (["deployment" @@ "azuredeploy.json"; "deployment" @@ "tiny-cluster.json"; "deployment" @@ "small-cluster.json"; "deployment" @@ "medium-cluster.json"; "deployment" @@ "large-cluster.json"; vmWorkerZip; webjobZip])
     |> releaseDraft
     |> Async.RunSynchronously
 )
