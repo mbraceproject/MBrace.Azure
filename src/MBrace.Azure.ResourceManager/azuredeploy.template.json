@@ -131,7 +131,7 @@
                         "displayName": "webdeploy"
                     },
                     "properties": {
-                        "packageUri": "https://github.com/CompositionalIT/MBrace.Azure/releases/download/<VERSION_NUMBER>/MBrace.Azure.Worker.zip",
+                        "packageUri": "https://github.com/mbraceproject/MBrace.Azure/releases/download/<VERSION_NUMBER>/MBrace.Azure.Worker.zip",
                         "dbType": "None",
                         "connectionString": ""
                     }

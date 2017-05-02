@@ -23,7 +23,7 @@ let buildDate = DateTime.UtcNow
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
 let nugetVersion = release.NugetVersion
 
-let gitOwner = "CompositionalIT"
+let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
 let gitName = "MBrace.Azure"
 
@@ -73,7 +73,7 @@ let cspkgAfterBuild configuration = "bin" @@ "cspkg" @@ "app.publish" @@ "MBrace
 let cspkgAfterCopy size = "bin" @@ "cspkg" @@ "MBrace.Azure.CloudService-" + size + ".cspkg"
 let vmWorkerZip = "bin" @@ "MBrace.Azure.zip"
 let webjobZip = "bin" @@ "MBrace.Azure.Worker.zip"
-let azureDeployTemplate = "deployment" @@ "azuredeploy.template.json"
+let azureDeployTemplate = "src" @@ "MBrace.Azure.ResourceManager" @@ "azuredeploy.template.json"
 let generatedAzureDeploy = "deployment" @@ "azuredeploy.json"
 
 // See https://azure.microsoft.com/en-gb/documentation/articles/cloud-services-sizes-specs/
@@ -106,7 +106,7 @@ let filesForZip =
       "Microsoft.WindowsAzure.Storage.dll"; "Mono.Cecil.dll"; "Newtonsoft.Json.dll"; "System.Collections.Immutable.dll"; "System.Reflection.Metadata.dll"; "System.Spatial.dll"
       "Vagabond.AssemblyParser.dll"; "Vagabond.dll" ]
 
-// Build lots of packages for differet VM sizes
+// Build lots of packages for differet VM sizes and deployment methods
 Target "BuildPackages" (fun _ ->
     for size in vmSizes do
         csdefTemplate |> CopyFile (csdefForSize size)
@@ -117,6 +117,7 @@ Target "BuildPackages" (fun _ ->
         |> MSBuild "" "Publish" ["Configuration", configuration + "_AzureSDK"; "ServiceVMSize", size]
         |> Log "AppPackage-Output: "
         (cspkgAfterBuild configuration) |> CopyFile (cspkgAfterCopy size)
+    
     CreateDir "bin/app_data/jobs/continuous/MBraceWorker"
     filesForZip
     |> List.iter (fun file -> CopyFile ("bin/app_data/jobs/continuous/MBraceWorker" @@ file) ("bin" @@ file))
