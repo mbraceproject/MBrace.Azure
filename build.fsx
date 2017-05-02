@@ -100,11 +100,37 @@ Target "Build" (fun _ ->
 )
 
 let filesForZip =
-    [ "Argu.dll"; "FSharp.Core.dll"; "FSharp.Core.xml"; "FsPickler.dll"; "FsPickler.Json.dll"; "MBrace.Azure.dll"; "MBrace.Azure.pdb"
-      "MBrace.Azure.XML"; "mbrace.azureworker.exe"; "mbrace.azureworker.exe.config"; "MBrace.Core.dll"; "MBrace.Core.pdb"; "MBrace.Core.xml"; "MBrace.Runtime.dll"; "MBrace.Runtime.pdb"
-      "MBrace.Runtime.xml"; "Microsoft.Azure.KeyVault.Core.dll"; "Microsoft.Data.Edm.dll"; "Microsoft.Data.OData.dll"; "Microsoft.Data.Services.Client.dll"; "Microsoft.ServiceBus.dll"
-      "Microsoft.WindowsAzure.Storage.dll"; "Mono.Cecil.dll"; "Newtonsoft.Json.dll"; "System.Collections.Immutable.dll"; "System.Reflection.Metadata.dll"; "System.Spatial.dll"
-      "Vagabond.AssemblyParser.dll"; "Vagabond.dll" ]
+    [ 
+        "Argu.dll"
+        "FSharp.Core.dll"
+        "FSharp.Core.xml"
+        "FsPickler.dll"
+        "FsPickler.Json.dll"
+        "MBrace.Azure.dll"
+        "MBrace.Azure.pdb"
+        "MBrace.Azure.XML"
+        "mbrace.azureworker.exe"
+        "mbrace.azureworker.exe.config"
+        "MBrace.Core.dll"
+        "MBrace.Core.pdb"
+        "MBrace.Core.xml"
+        "MBrace.Runtime.dll"
+        "MBrace.Runtime.pdb"
+        "MBrace.Runtime.xml"
+        "Microsoft.Azure.KeyVault.Core.dll"
+        "Microsoft.Data.Edm.dll"
+        "Microsoft.Data.OData.dll"
+        "Microsoft.Data.Services.Client.dll"
+        "Microsoft.ServiceBus.dll"
+        "Microsoft.WindowsAzure.Storage.dll"
+        "Mono.Cecil.dll"
+        "Newtonsoft.Json.dll"
+        "System.Collections.Immutable.dll"
+        "System.Reflection.Metadata.dll"
+        "System.Spatial.dll"
+        "Vagabond.AssemblyParser.dll"
+        "Vagabond.dll"
+    ]
 
 // Build lots of packages for differet VM sizes and deployment methods
 Target "BuildPackages" (fun _ ->
