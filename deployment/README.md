@@ -1,5 +1,5 @@
-# mbrace-arm
-Experimental repository containing an ARM template for deploying MBrace clusters to Azure
+# MBrace Deployment with Azure Resource Manager
+Deploy an MBrace cluster to Azure as an App Service webjob along with all of the required additional Azure dependencies.
 
 ## How to use
 1. Open up a Powershell window.
