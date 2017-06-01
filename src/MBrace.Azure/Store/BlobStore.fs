@@ -14,25 +14,24 @@ open MBrace.Azure.Runtime.Utilities
 
 [<AutoOpen>]
 module private BlobUtils =
-    
-    let rootPath = "/"
-    let rootPathAlt = @"\"
-    let delims = [|'/'; '\\'|]
+    let containerDelimiter = '@'
 
-    let isPathRooted (path : string) =
-        path.StartsWith rootPath || path.StartsWith rootPathAlt
+    let isWasbPath (path:string) =
+        path
+        |> Seq.filter ((=) containerDelimiter)
+        |> Seq.length = 1
 
-    let normalizePath (path : string) =
-        let normalized = path.Split(delims, StringSplitOptions.RemoveEmptyEntries) |> String.concat "/"
-        "/" + normalized
-
-    let ensureRooted (path : string) =
-        if isPathRooted path then path else raise <| FormatException(sprintf "Invalid path %A. Paths should start with '/' or '\\'." path)
+    let splitPath =
+        let folderDelimiters = [| '@'; '/'; '\\'|]
+        fun (path : string) ->
+            if isWasbPath path then path.Split(folderDelimiters, 2, StringSplitOptions.RemoveEmptyEntries)
+            else [| path |]
 
     /// Azure blob container.
-    type Container =
-        | Root
-        | Container of string
+    type Container = Container of string override this.ToString() = this |> function | Container x -> x
+
+    type InvalidWasbPathException(path:string) =
+        inherit Exception(sprintf "Invalid store path '%s'. A valid store path should confirm to WASB standard e.g. container@folder/folder/file.txt" path)
     
     /// Represents a 'directory' in blob storage.
     type StoreDirectory =
@@ -42,22 +41,22 @@ module private BlobUtils =
         }
 
         static member Parse(path : string) =
-            let path = ensureRooted path    
-            let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
-            match xs with
-            | [||] -> { Container = Root; SubDirectory = None }
+            match splitPath path with
             | [|c|] -> 
                 Validate.containerName c
                 { Container = Container c ; SubDirectory = None }
-
             | [|c; x|] -> 
                 Validate.containerName c
                 { Container = Container c; SubDirectory = Some (x + "/") }
-
-            | _ -> raise <| new FormatException(sprintf "Invalid store path %A." path)
+            | _ -> raise <| InvalidWasbPathException path
 
         static member Validate(path : string) =
             ignore <| StoreDirectory.Parse path
+
+        override this.ToString() =
+            match this.SubDirectory with
+            | None -> string this.Container
+            | Some subDirectory -> sprintf "%O@%s" this.Container subDirectory
 
     /// Represents a full path to a blob.
     type StorePath =
@@ -70,30 +69,28 @@ module private BlobUtils =
             ignore <| StorePath.Parse path
 
         static member Parse(path : string) =
-            let path = ensureRooted path    
-            let xs = path.Split(delims, 2, StringSplitOptions.RemoveEmptyEntries)
-            match xs with
-            | [|x|] -> { Container = Root; BlobName = x }
+            match splitPath path with
             | [|c; x|] -> 
                 Validate.containerName c
                 { Container = Container c; BlobName = x }
+            | _ -> raise <| InvalidWasbPathException path
 
-            | _ -> raise <| new FormatException(sprintf "Invalid store path %A." path)
+        static member Create(container : string, path : string) =
+            Validate.containerName container
+            { Container = Container container; BlobName = path }
+
+        override this.ToString() = sprintf "%O@%s" this.Container this.BlobName
 
     /// <summary>
     ///     Creates a blob storage container reference given account and container name
     /// </summary>
     /// <param name="account">Storage account instance.</param>
     /// <param name="container">Container name</param>
-    let getContainerReference (account : AzureStorageAccount) (container : Container) = async {
+    let getContainerReference (account : AzureStorageAccount) (Container container) = async {
         let client = account.BlobClient
-        match container with
-        | Root -> 
-            let root = client.GetRootContainerReference()
-            do! root.CreateIfNotExistsAsyncSafe(maxRetries = 3)
-            return root
-        | Container c ->
-            return client.GetContainerReference c
+        let container = client.GetContainerReference container
+        do! container.CreateIfNotExistsAsyncSafe(maxRetries = 3)
+        return container
     }
 
     /// <summary>
@@ -104,10 +101,6 @@ module private BlobUtils =
     let getBlobReference account (fullPath : string) = async {
         let path = StorePath.Parse fullPath
         let! container = getContainerReference account path.Container
-        match path.Container with
-        | Container _ -> do! container.CreateIfNotExistsAsyncSafe(maxRetries = 3)
-        | Root -> ()
-
         return container.GetBlockBlobReference(path.BlobName)
     }
 
@@ -153,7 +146,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
     let account = account
 
     [<DataMember(Name = "DefaultContainer")>]
-    let defaultContainer = normalizePath defaultContainer
+    let defaultContainer = defaultContainer
 
     do StoreDirectory.Validate defaultContainer
 
@@ -176,14 +169,12 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
 
     interface ICloudFileStore with
         member this.BeginWrite(path: string): Async<Stream> = async {
-            let path = normalizePath path
             let! blob = getBlobReference account path
             let! stream = blob.OpenWriteAsync() |> Async.AwaitTaskCorrect
             return stream :> Stream
         }
         
         member this.ReadETag(path: string, etag: ETag): Async<Stream option> = async {
-            let path = normalizePath path
             let! blob = getBlobReference account path
             let! stream = blob.OpenReadAsync(AccessCondition.GenerateIfMatchCondition(etag), BlobRequestOptions(), null) |> Async.AwaitTaskCorrect |> Async.Catch
             match stream with
@@ -197,7 +188,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         }
 
         member this.TryGetETag(path: string): Async<ETag option> = async {
-            let path = normalizePath path
             let! blob = getBlobReference account path
             try
                 do! blob.FetchAttributesAsync() |> Async.AwaitTaskCorrect
@@ -215,24 +205,22 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
 
         member this.DefaultDirectory = defaultContainer
         member this.WithDefaultDirectory (newContainer : string) =
-            let newContainer = normalizePath newContainer
             new BlobStore(account, newContainer) :> _
 
-        member this.RootDirectory = rootPath
+        member this.RootDirectory = defaultContainer
         member this.IsCaseSensitiveFileSystem = false
 
-        member this.GetRandomDirectoryName() : string = normalizePath <| Guid.NewGuid().ToString()
+        member this.GetRandomDirectoryName() : string = Guid.NewGuid().ToString()
 
-        member this.IsPathRooted(path : string) = isPathRooted path
+        member this.IsPathRooted(path : string) = isWasbPath path
             
-        member this.GetDirectoryName(path : string) = normalizePath <| Path.GetDirectoryName path
+        member this.GetDirectoryName(path : string) = Path.GetDirectoryName path
 
         member this.GetFileName(path : string) = Path.GetFileName(path)
 
-        member this.Combine(paths : string []) : string = normalizePath <| Path.Combine paths
+        member this.Combine(paths : string []) : string = Path.Combine paths
 
         member this.GetFileSize(path: string) : Async<int64> = async {
-            let path = normalizePath path
             let! blob = getBlobReference account path
             let! result = Async.Catch <| Async.AwaitTaskCorrect(blob.FetchAttributesAsync())
             match result with
@@ -243,7 +231,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         }
 
         member this.GetLastModifiedTime (path: string, isDirectory : bool) : Async<DateTimeOffset> = async {
-            let path = normalizePath path
             if isDirectory then
                 let storeDir = StoreDirectory.Parse path
                 let! containerRef = getContainerReference account storeDir.Container
@@ -270,7 +257,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         }
 
         member this.FileExists(path: string) : Async<bool> = async {
-            let path = normalizePath path
             let storePath = StorePath.Parse path
             let! container = getContainerReference account storePath.Container
 
@@ -284,15 +270,13 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
 
         member this.EnumerateFiles(container : string) : Async<string []> = async {
             try
-                let container = normalizePath container
-                let path = StoreDirectory.Parse container
-                let! containerRef = getContainerReference account path.Container
-                let! listedBlobs = listBlobItemsAsync containerRef path.SubDirectory
+                let storeDirectory = StoreDirectory.Parse container
+                let! containerRef = getContainerReference account storeDirectory.Container
+                let! listedBlobs = listBlobItemsAsync containerRef storeDirectory.SubDirectory
                 return 
                     listedBlobs
                     |> Seq.choose (function :? ICloudBlob as cb -> Some cb.Name | _ -> None)
-                    |> Seq.map (fun b -> this.Combine(container, b))
-                    |> Seq.map normalizePath
+                    |> Seq.map (fun b -> StorePath.Create(container, b) |> string)
                     |> Seq.toArray
 
             with e when StoreException.NotFound e ->
@@ -301,7 +285,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         
         member this.DeleteFile(path: string) : Async<unit> = async {
             try
-                let path = normalizePath path
                 let! blob = getBlobReference account path
                 do! blob.DeleteAsync() |> Async.AwaitTaskCorrect
             with e when StoreException.NotFound e ->
@@ -309,33 +292,21 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         }
 
         member this.DirectoryExists(container: string) : Async<bool> = async {
-            let container = normalizePath container
             let path = StoreDirectory.Parse container
-            match path.Container with
-            | Container _ as c ->
-                let! container = getContainerReference account c
-                return! container.ExistsAsync() |> Async.AwaitTaskCorrect
-            | Root ->
-                return true
+            let! container = getContainerReference account path.Container
+            return! container.ExistsAsync() |> Async.AwaitTaskCorrect
         }
         
         member this.CreateDirectory(container: string) : Async<unit> = async {
-            let container = normalizePath container
             let path = StoreDirectory.Parse container
-            match path.Container with
-            | Container _ as c ->
-                let! container = getContainerReference account c
-                do! container.CreateIfNotExistsAsyncSafe(maxRetries = 3)
-                return ()
-            | Root -> 
-                return ()
+            let! container = getContainerReference account path.Container
+            do! container.CreateIfNotExistsAsyncSafe(maxRetries = 3)
+            return ()
         }
 
         member this.DeleteDirectory(container: string, _recursiveDelete : bool) : Async<unit> = async {
-            let container = normalizePath container
             let path = StoreDirectory.Parse container
             match path with
-            | { Container = Root; SubDirectory = _ } -> return invalidArg "container" "Cannot delete the root container."
             | { Container = c; SubDirectory = None } ->
                 let! container = getContainerReference account c
                 let! _ = container.DeleteIfExistsAsync() |> Async.AwaitTaskCorrect
@@ -346,7 +317,7 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
                 let! blobs = listSubdirBlobsAsync sub
                 do! blobs |> Seq.map (fun b -> async {
                         let p = b.Uri.Segments |> Array.last
-                        let! blob = getBlobReference account (normalizePath <| Path.Combine(container.Name,p))
+                        let! blob = getBlobReference account (Path.Combine(container.Name,p))
                         let! _ = blob.DeleteIfExistsAsync() |> Async.AwaitTaskCorrect
                         ()
                     })
@@ -356,28 +327,20 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         
         member this.EnumerateDirectories(directory : string) : Async<string []> = async {
             try
-                let directory = normalizePath directory
-                let path = StoreDirectory.Parse directory
-                match path with
-                | { Container = Root; SubDirectory = _ } ->
-                    let! containers = listContainersAsync account.BlobClient
-                    return containers |> Seq.map (fun c -> normalizePath c.Name) |> Seq.toArray
-
-                | { Container = (Container cnt as c) ; SubDirectory = subdir } -> 
-                    let! cref = getContainerReference account c
-                    let! listedEntries = listBlobItemsAsync cref subdir
-                    return
-                        listedEntries
-                        |> Seq.choose (function :? CloudBlobDirectory as d -> Some d | _ -> None)
-                        |> Seq.map (fun d -> normalizePath <| Path.Combine(cnt, d.Prefix))
-                        |> Seq.toArray
+                let ({ Container = (Container cnt as c) ; SubDirectory = subdir }) = StoreDirectory.Parse directory
+                let! cref = getContainerReference account c
+                let! listedEntries = listBlobItemsAsync cref subdir
+                return
+                    listedEntries
+                    |> Seq.choose (function :? CloudBlobDirectory as d -> Some d | _ -> None)
+                    |> Seq.map (fun d -> Path.Combine(cnt, d.Prefix))
+                    |> Seq.toArray
 
             with e when StoreException.NotFound e ->
                 return raise <| new DirectoryNotFoundException(directory, e)
         }
 
         member this.WriteETag(path: string, writer : Stream -> Async<'R>) : Async<ETag * 'R> = async {
-            let path = normalizePath path
             let! blob = getBlobReference account path
             // http://msdn.microsoft.com/en-us/library/azure/dd179431.aspx
             let! result = async {
@@ -390,7 +353,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         
         member this.BeginRead(path: string) : Async<Stream> = async {
             try
-                let path = normalizePath path
                 let! blob = getBlobReference account path
                 return! blob.OpenReadAsync() |> Async.AwaitTaskCorrect
             with e when StoreException.NotFound e ->
@@ -398,7 +360,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         }
 
         member this.UploadFromStream(path: string, source: Stream) : Async<unit> = async {
-            let path = normalizePath path
             let! blob = getBlobReference account path
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
             do! blob.UploadFromStreamAsync(source, null, options, OperationContext()).ContinueWith ignore |> Async.AwaitTaskCorrect
@@ -406,7 +367,6 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         
         member this.DownloadToStream(path: string, target: Stream) : Async<unit> = async {
             try
-                let path = normalizePath path
                 let! blob = getBlobReference account path
                 do! blob.DownloadToStreamAsync(target) |> Async.AwaitTaskCorrect
             with e when StoreException.NotFound e ->
@@ -414,14 +374,12 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
         }
 
         member this.UploadFromLocalFile(source : string, target : string) : Async<unit> = async {
-            let target = normalizePath target
             let! blob = getBlobReference account target
             let options = BlobRequestOptions(ServerTimeout = Nullable<_>(TimeSpan.FromMinutes(40.)))
             do! blob.UploadFromFileAsync(source, null, options, OperationContext()) |> Async.AwaitTaskCorrect
         }
 
         member this.DownloadToLocalFile(source : string, target : string) : Async<unit> = async {
-            let source = normalizePath source
             let! blob = getBlobReference account source
             let! exists = blob.ExistsAsync() |> Async.AwaitTaskCorrect
             if not exists then raise <| new FileNotFoundException(source)
