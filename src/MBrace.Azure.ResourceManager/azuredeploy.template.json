@@ -1,0 +1,152 @@
+﻿{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "alwaysOn": {
+            "type": "bool",
+            "defaultValue": true
+        },
+        "nodeSize": {
+            "type": "string",
+            "defaultValue": "F1",
+            "allowedValues": [
+                "F1",
+                "D1",
+                "B1",
+                "B2",
+                "B3",
+                "S1",
+                "S2",
+                "S3",
+                "P1",
+                "P2",
+                "P3",
+                "P4"
+            ],
+            "metadata": {
+                "description": "The size of each node. Check details at https://azure.microsoft.com/en-us/pricing/details/app-service/"
+            }
+        },
+        "clusterSize": {
+            "type": "int",
+            "defaultValue": 1,
+            "minValue": 1,
+            "metadata": {
+                "description": "The number of nodes in a cluster."
+            }
+        }
+    },
+    "variables": {
+        "farmName": "[concat('mbfarm-', uniqueString(resourceGroup().id))]",
+        "serverFarmId": "[concat('Microsoft.Web/serverfarms/', variables('farmName'))]",
+        "storageAccount": "[concat('mbstorage', uniqueString(resourceGroup().id))]",
+        "serviceBus": "[concat('mbmsg', uniqueString(resourceGroup().id))]",
+        "serviceBusAuthRule": "[resourceId('Microsoft.ServiceBus/namespaces/authorizationRules', variables('serviceBus'), 'RootManageSharedAccessKey')]",
+        "webappName": "[concat('mbapp-', uniqueString(resourceGroup().id))]"
+    },
+    "resources": [
+        {
+            "name": "[variables('storageAccount')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-06-15",
+            "dependsOn": [],
+            "tags": {
+                "displayName": "Storage Account"
+            },
+            "properties": {
+                "accountType": "Standard_LRS"
+            }
+        },
+        {
+            "name": "[variables('serviceBus')]",
+            "type": "Microsoft.ServiceBus/namespaces",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-08-01",
+            "dependsOn": [],
+            "properties": {}
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "name": "[variables('farmName')]",
+            "apiVersion": "2015-08-01",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "displayName": "Service Farm"
+            },
+            "sku": {
+                "name": "[parameters('nodeSize')]",
+                "capacity": "[parameters('clusterSize')]"
+            },
+            "properties": {
+                "name": "[variables('farmName')]"
+            }
+        },
+        {
+            "name": "[variables('webappName')]",
+            "type": "Microsoft.Web/sites",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2015-08-01",
+            "dependsOn": [
+                "[variables('serverFarmId')]",
+                "[concat('Microsoft.ServiceBus/namespaces/', variables('serviceBus'))]",
+                "[concat('Microsoft.Storage/storageAccounts/', variables('storageAccount'))]"
+            ],
+            "tags": {
+                "[concat('hidden-related:', resourceGroup().id, variables('serverFarmId'))]": "Resource",
+                "displayName": "MBraceWorker"
+            },
+            "properties": {
+                "name": "[variables('webappName')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms/', variables('farmName'))]",
+                "siteConfig": {
+                    "AlwaysOn": "[parameters('alwaysOn')]"
+                }
+            },
+            "resources": [
+                {
+                    "name": "appsettings",
+                    "apiVersion": "2015-08-01",
+                    "type": "config",
+                    "properties": {
+                        "storage connection string": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccount'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccount')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]",
+                        "service bus connection string": "[listkeys(variables('serviceBusAuthRule'), '2015-08-01').primaryConnectionString]"
+                    },
+                    "tags": {
+                        "displayName": "MBraceWorkerSettings"
+                    },
+                    "dependsOn": [
+                        "[concat('Microsoft.Web/sites/', variables('webappName'))]"
+                    ]
+                },
+                {
+                    "name": "MSDeploy",
+                    "type": "extensions",
+                    "location": "[resourceGroup().location]",
+                    "apiVersion": "2015-08-01",
+                    "dependsOn": [
+                        "[concat('Microsoft.Web/sites/', variables('webappName'))]"
+                    ],
+                    "tags": {
+                        "displayName": "webdeploy"
+                    },
+                    "properties": {
+                        "packageUri": "https://github.com/mbraceproject/MBrace.Azure/releases/download/<VERSION_NUMBER>/MBrace.Azure.Worker.zip",
+                        "dbType": "None",
+                        "connectionString": ""
+                    }
+                }
+            ]
+        }
+    ],
+    "outputs": {
+        "storageConnectionString": {
+            "type": "string",
+            "value": "[concat('DefaultEndpointsProtocol=https;AccountName=', variables('storageAccount'), ';AccountKey=', listKeys(resourceId('Microsoft.Storage/storageAccounts', variables('storageAccount')), providers('Microsoft.Storage', 'storageAccounts').apiVersions[0]).keys[0].value)]"
+        },
+        "serviceBusConnectionString": {
+            "type": "string",
+            "value": "[listkeys(variables('serviceBusAuthRule'), '2015-08-01').primaryConnectionString]"
+        }
+    }
+}

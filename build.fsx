@@ -74,6 +74,10 @@ let csdefTemplate = "src" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition.c
 let csdefForSize size = "src" @@ "MBrace.Azure.CloudService" @@ "ServiceDefinition" + size + ".csdef"
 let cspkgAfterBuild configuration = "bin" @@ "cspkg" @@ "app.publish" @@ "MBrace.Azure.CloudService.cspkg"
 let cspkgAfterCopy size = "bin" @@ "cspkg" @@ "MBrace.Azure.CloudService-" + size + ".cspkg"
+let vmWorkerZip = "bin" @@ "MBrace.Azure.zip"
+let webjobZip = "bin" @@ "MBrace.Azure.Worker.zip"
+let azureDeployTemplate = "src" @@ "MBrace.Azure.ResourceManager" @@ "azuredeploy.template.json"
+let generatedAzureDeploy = "deployment" @@ "azuredeploy.json"
 
 // See https://azure.microsoft.com/en-gb/documentation/articles/cloud-services-sizes-specs/
 let vmSizes = 
@@ -98,7 +102,40 @@ Target "Build" (fun _ ->
     |> Log "AppBuild-Output: "
 )
 
-// Build lots of packages for differet VM sizes
+let filesForZip =
+    [ 
+        "Argu.dll"
+        "FSharp.Core.dll"
+        "FSharp.Core.xml"
+        "FsPickler.dll"
+        "FsPickler.Json.dll"
+        "MBrace.Azure.dll"
+        "MBrace.Azure.pdb"
+        "MBrace.Azure.XML"
+        "mbrace.azureworker.exe"
+        "mbrace.azureworker.exe.config"
+        "MBrace.Core.dll"
+        "MBrace.Core.pdb"
+        "MBrace.Core.xml"
+        "MBrace.Runtime.dll"
+        "MBrace.Runtime.pdb"
+        "MBrace.Runtime.xml"
+        "Microsoft.Azure.KeyVault.Core.dll"
+        "Microsoft.Data.Edm.dll"
+        "Microsoft.Data.OData.dll"
+        "Microsoft.Data.Services.Client.dll"
+        "Microsoft.ServiceBus.dll"
+        "Microsoft.WindowsAzure.Storage.dll"
+        "Mono.Cecil.dll"
+        "Newtonsoft.Json.dll"
+        "System.Collections.Immutable.dll"
+        "System.Reflection.Metadata.dll"
+        "System.Spatial.dll"
+        "Vagabond.AssemblyParser.dll"
+        "Vagabond.dll"
+    ]
+
+// Build lots of packages for differet VM sizes and deployment methods
 Target "BuildPackages" (fun _ ->
     for size in vmSizes do
         csdefTemplate |> CopyFile (csdefForSize size)
@@ -109,7 +146,14 @@ Target "BuildPackages" (fun _ ->
         |> MSBuild "" "Publish" ["Configuration", configuration + "_AzureSDK"; "ServiceVMSize", size]
         |> Log "AppPackage-Output: "
         (cspkgAfterBuild configuration) |> CopyFile (cspkgAfterCopy size)
-
+    
+    CreateDir "bin/app_data/jobs/continuous/MBraceWorker"
+    filesForZip
+    |> List.iter (fun file -> CopyFile ("bin/app_data/jobs/continuous/MBraceWorker" @@ file) ("bin" @@ file))
+    ZipHelper.CreateZip "bin" webjobZip "" 0 false (filesForZip |> List.map ((@@) "bin/app_data/jobs/continuous/MBraceWorker"))
+    ZipHelper.CreateZip "bin" vmWorkerZip "" 0 false (filesForZip |> List.map ((@@) "bin"))
+    azureDeployTemplate |> CopyFile generatedAzureDeploy
+    generatedAzureDeploy |> ReplaceInFile (fun s -> s.Replace("<VERSION_NUMBER>", release.NugetVersion))
 )
 
 // --------------------------------------------------------------------------------------
@@ -211,6 +255,7 @@ Target "ReleaseGithub" (fun _ ->
     client
     |> createDraft gitOwner gitName release.NugetVersion (release.SemVer.PreRelease <> None) release.Notes 
     |> uploadFiles (Seq.map cspkgAfterCopy vmSizes)
+    |> uploadFiles (["deployment" @@ "azuredeploy.json"; "deployment" @@ "tiny-cluster.json"; "deployment" @@ "small-cluster.json"; "deployment" @@ "medium-cluster.json"; "deployment" @@ "large-cluster.json"; vmWorkerZip; webjobZip])
     |> releaseDraft
     |> Async.RunSynchronously
 )
