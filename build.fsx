@@ -10,6 +10,7 @@ open Fake.AppVeyor
 open Fake.Git
 open Fake.AssemblyInfoFile
 open Fake.ReleaseNotesHelper
+open Fake.SemVerHelper
 
 open System
 open System.IO
@@ -22,6 +23,7 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let gitHash = Information.getCurrentHash()
 let buildDate = DateTime.UtcNow
 let release = LoadReleaseNotes "RELEASE_NOTES.md"
+let nugetVersion = release.NugetVersion
 let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
 let isVersionTag tag = Version.TryParse tag |> fst
 let hasRepoVersionTag = isAppVeyorBuild && AppVeyorEnvironment.RepoTag && isVersionTag AppVeyorEnvironment.RepoTagName
@@ -30,6 +32,21 @@ let buildVersion =
     if hasRepoVersionTag then assemblyVersion
     else if isAppVeyorBuild then sprintf "%s-b%s" assemblyVersion AppVeyorEnvironment.BuildNumber
     else assemblyVersion
+let nugetDebugVersion =
+    let semVer = SemVerHelper.parse nugetVersion
+    let debugPatch, debugPreRelease =
+        match semVer.PreRelease with
+        | None -> semVer.Patch + 1, { Origin = "alpha001"; Name = "alpha"; Number = Some 1; Parts = [AlphaNumeric "alpha001"] }
+        | Some pre ->
+            let num = match pre.Number with Some i -> i + 1 | None -> 1
+            let name = pre.Name
+            let newOrigin = sprintf "%s%03d" name num
+            semVer.Patch, { Origin = newOrigin; Name = name; Number = Some num; Parts = [AlphaNumeric newOrigin] }
+    let debugVer =
+        { semVer with
+            Patch = debugPatch
+            PreRelease = Some debugPreRelease }
+    debugVer.ToString()
 
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
@@ -154,7 +171,7 @@ Target "NuGet" (fun _ ->
         { p with 
             ToolPath = ".paket/paket.exe" 
             OutputPath = "bin/"
-            Version = release.NugetVersion
+            Version = nugetDebugVersion
             ReleaseNotes = toLines release.Notes })
 )
 
@@ -180,7 +197,7 @@ Target "ReleaseDocs" (fun _ ->
 )
 
 
-#load "Octokit.fsx"
+#load "paket-files/build/fsharp/FAKE/modules/Octokit/Octokit.fsx"
 open Octokit
 
 Target "ReleaseGithub" (fun _ ->
