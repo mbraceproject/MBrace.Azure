@@ -4,8 +4,9 @@ MBrace.Core
 MBrace.Tests
 MBrace.Runtime
 Newtonsoft.Json
-NUnit
 Vagabond
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
-FSharp.Compiler.Service
+group Test
+  NUnit
+  FSharp.Compiler.Service
