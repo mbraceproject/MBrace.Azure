@@ -22,7 +22,6 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let gitHash = Information.getCurrentHash()
 let buildDate = DateTime.UtcNow
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
-let nugetVersion = release.NugetVersion
 let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
 let isVersionTag tag = Version.TryParse tag |> fst
 let hasRepoVersionTag = isAppVeyorBuild && AppVeyorEnvironment.RepoTag && isVersionTag AppVeyorEnvironment.RepoTagName
@@ -229,7 +228,6 @@ Target "ReleaseGithub" (fun _ ->
 // --------------------------------------------------------------------------------------
 // Run all targets by default. Invoke 'build <Target>' to override
 
-Target "All" DoNothing
 Target "Default" DoNothing
 Target "Release" DoNothing
 Target "PrepareRelease" DoNothing
