@@ -1,4 +1,5 @@
 FsPickler
+FSharp.Core
 MBrace.Core
 MBrace.Runtime
 Newtonsoft.Json
