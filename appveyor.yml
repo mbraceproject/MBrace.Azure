@@ -2,9 +2,6 @@ version: 0.0.1.{build}
 
 configuration: Release
 
-test:
-  assemblies:
-    - MBrace.Azure.Tests.dll
+build_script:
+  - cmd: build.cmd -ef IgnoreClusterTests
 
-  categories:
-    - AppVeyor
