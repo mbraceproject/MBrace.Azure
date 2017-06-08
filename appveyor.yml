@@ -5,3 +5,4 @@ configuration: Release
 build_script:
   - cmd: build.cmd -ef IgnoreClusterTests
 
+test: off
