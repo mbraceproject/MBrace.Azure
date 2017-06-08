@@ -6,6 +6,7 @@
 #r "packages/build/FAKE/tools/FakeLib.dll"
 
 open Fake
+open Fake.AppVeyor
 open Fake.Git
 open Fake.AssemblyInfoFile
 open Fake.ReleaseNotesHelper
@@ -21,14 +22,22 @@ Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let gitHash = Information.getCurrentHash()
 let buildDate = DateTime.UtcNow
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
-let nugetVersion = release.NugetVersion
 let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
+let isVersionTag tag = Version.TryParse tag |> fst
+let hasRepoVersionTag = isAppVeyorBuild && AppVeyorEnvironment.RepoTag && isVersionTag AppVeyorEnvironment.RepoTagName
+let assemblyVersion = if hasRepoVersionTag then AppVeyorEnvironment.RepoTagName else release.NugetVersion
+let buildVersion =
+    if hasRepoVersionTag then assemblyVersion
+    else if isAppVeyorBuild then sprintf "%s-b%s" assemblyVersion AppVeyorEnvironment.BuildNumber
+    else assemblyVersion
 
-printfn "isAppVeyorBuild = %A" isAppVeyorBuild
-printfn "buildServer = %A" buildServer
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
 let gitName = "MBrace.Azure"
+
+Target "BuildVersion" (fun _ ->
+    Shell.Exec("appveyor", sprintf "UpdateBuild -Version \"%s\"" buildVersion) |> ignore
+)
 
 // Generate assembly info files with the right version & up-to-date information
 Target "AssemblyInfo" (fun _ ->
@@ -40,11 +49,11 @@ Target "AssemblyInfo" (fun _ ->
             Attribute.Trademark "MBrace"
             Attribute.Metadata("Release Signature", 
                 sprintf "Version %s, Git Hash %s, Build Date %s" 
-                    release.AssemblyVersion
+                    assemblyVersion
                     gitHash 
                     (buildDate.ToString "ddMMyyyy HH:mm zzz"))
-            Attribute.Version release.AssemblyVersion
-            Attribute.FileVersion release.AssemblyVersion
+            Attribute.Version assemblyVersion
+            Attribute.FileVersion assemblyVersion
         |]
 
     !! "./src/**/AssemblyInfo.fs" |> Seq.iter (fun infoFile -> 
@@ -127,7 +136,7 @@ Target "RunTests" (fun _ ->
     ActivateFinalTarget "CloseTestRunner"
 
     testAssemblies
-    |> NUnit (fun p -> 
+    |> NUnitSequential.NUnit (fun p -> 
         { p with
             DisableShadowCopy = false
             ToolPath = nunitPath
@@ -225,6 +234,7 @@ Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
 "Clean"
+  =?> ("BuildVersion", isAppVeyorBuild)
   ==> "AssemblyInfo"
   ==> "Build"
   =?> ("RunTests", not isAppVeyorBuild) // testing not yet enabled on appveyor because Azure resource access is needed
