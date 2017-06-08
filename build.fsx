@@ -6,6 +6,7 @@
 #r "packages/build/FAKE/tools/FakeLib.dll"
 
 open Fake
+open Fake.AppVeyor
 open Fake.Git
 open Fake.AssemblyInfoFile
 open Fake.ReleaseNotesHelper
@@ -26,12 +27,12 @@ let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
 let isVersionTag tag = Version.TryParse tag |> fst
 let hasRepoVersionTag = isAppVeyorBuild && AppVeyorEnvironment.RepoTag && isVersionTag AppVeyorEnvironment.RepoTagName
 let assemblyVersion = if hasRepoVersionTag then AppVeyorEnvironment.RepoTagName else release.NugetVersion
-let buildDate = DateTime.UtcNow
 let buildVersion =
     if hasRepoVersionTag then assemblyVersion
     else if isAppVeyorBuild then sprintf "%s-b%s" assemblyVersion AppVeyorEnvironment.BuildNumber
     else assemblyVersion
 
+let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
 let gitName = "MBrace.Azure"
 
@@ -136,7 +137,7 @@ Target "RunTests" (fun _ ->
     ActivateFinalTarget "CloseTestRunner"
 
     testAssemblies
-    |> NUnit (fun p -> 
+    |> NUnitSequential.NUnit (fun p -> 
         { p with
             DisableShadowCopy = false
             ToolPath = nunitPath
