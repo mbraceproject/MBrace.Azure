@@ -131,16 +131,12 @@ let testAssemblies =
     ]
 
 Target "RunTests" (fun _ ->
-    let nunitVersion = GetPackageVersion "packages" "NUnit.Runners"
-    let nunitPath = "packages/NUnit.Runners/tools" 
     ActivateFinalTarget "CloseTestRunner"
 
     testAssemblies
     |> NUnitSequential.NUnit (fun p -> 
         { p with
             DisableShadowCopy = false
-            ToolPath = nunitPath
-            Framework = "4.5"
             IncludeCategory = "Standalone Cluster"
             TimeOut = TimeSpan.FromMinutes 60. })
 )

@@ -1,12 +1,12 @@
-FsCheck
 FsPickler
 MBrace.Core
-MBrace.Tests
 MBrace.Runtime
 Newtonsoft.Json
 Vagabond
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
 group Test
+  FsCheck
+  MBrace.Tests
   NUnit
   FSharp.Compiler.Service
