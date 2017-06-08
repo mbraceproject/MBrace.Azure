@@ -22,6 +22,7 @@ let gitHash = Information.getCurrentHash()
 let buildDate = DateTime.UtcNow
 let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
 let nugetVersion = release.NugetVersion
+let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
 
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
@@ -224,7 +225,7 @@ Target "Help" (fun _ -> PrintTargets() )
 "Clean"
   ==> "AssemblyInfo"
   ==> "Build"
-  ==> "RunTests"
+  =?> ("RunTests", not isAppVeyorBuild) // testing not yet enabled on appveyor because Azure resource access is needed
   ==> "Default"
 
 "Build"

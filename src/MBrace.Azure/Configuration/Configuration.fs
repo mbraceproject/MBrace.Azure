@@ -145,7 +145,7 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     static member EnvironmentStorageConnectionString
         with get () = 
             match getEnv storageEnv with
-            | null | "" -> invalidOp "unset Azure Storage connection string environment variable."
+            | null | "" -> invalidOp "the AzureStorageConnectionString environment variable has not been set."
             | conn -> conn
 
         and set conn =
@@ -157,7 +157,7 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     static member EnvironmentServiceBusConnectionString
         with get () = 
             match getEnv serviceBusEnv with
-            | null | "" -> invalidOp "unset Azure ServiceBus connection string environment variable."
+            | null | "" -> invalidOp "the AzureServiceBusConnectionString environment variable has not been set."
             | conn -> conn
 
         and set conn =
