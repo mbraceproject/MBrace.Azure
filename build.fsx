@@ -24,6 +24,8 @@ let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md")
 let nugetVersion = release.NugetVersion
 let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
 
+printfn "isAppVeyorBuild = %A" isAppVeyorBuild
+printfn "buildServer = %A" buildServer
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
 let gitName = "MBrace.Azure"
