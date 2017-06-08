@@ -21,7 +21,7 @@ let project = "MBrace.Azure"
 Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 let gitHash = Information.getCurrentHash()
 let buildDate = DateTime.UtcNow
-let release = parseReleaseNotes (IO.File.ReadAllLines "RELEASE_NOTES.md") 
+let release = LoadReleaseNotes "RELEASE_NOTES.md"
 let isAppVeyorBuild = buildServer = BuildServer.AppVeyor
 let isVersionTag tag = Version.TryParse tag |> fst
 let hasRepoVersionTag = isAppVeyorBuild && AppVeyorEnvironment.RepoTag && isVersionTag AppVeyorEnvironment.RepoTagName
@@ -131,16 +131,12 @@ let testAssemblies =
     ]
 
 Target "RunTests" (fun _ ->
-    let nunitVersion = GetPackageVersion "packages" "NUnit.Runners"
-    let nunitPath = "packages/NUnit.Runners/tools" 
     ActivateFinalTarget "CloseTestRunner"
 
     testAssemblies
     |> NUnitSequential.NUnit (fun p -> 
         { p with
             DisableShadowCopy = false
-            ToolPath = nunitPath
-            Framework = "4.5"
             IncludeCategory = "Standalone Cluster"
             TimeOut = TimeSpan.FromMinutes 60. })
 )
@@ -162,7 +158,7 @@ Target "NuGet" (fun _ ->
             ReleaseNotes = toLines release.Notes })
 )
 
-Target "ReleaseNuGet" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" }))
+Target "NuGetPush" (fun _ -> Paket.Push (fun p -> { p with WorkingDir = "bin/" }))
 
 // --------------------------------------------------------------------------------------
 // documentation
@@ -230,7 +226,6 @@ Target "ReleaseGithub" (fun _ ->
 
 Target "Default" DoNothing
 Target "Release" DoNothing
-Target "PrepareRelease" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
 "Clean"
@@ -242,9 +237,8 @@ Target "Help" (fun _ -> PrintTargets() )
 
 "Build"
   ==> "BuildPackages"
-  ==> "PrepareRelease"
   ==> "NuGet"
-  ==> "ReleaseNuGet"
+  ==> "NuGetPush"
   ==> "ReleaseGithub"
   ==> "Release"
 

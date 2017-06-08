@@ -3,9 +3,6 @@ FRAMEWORK: >= NET45
 NUGET
   remote: https://www.nuget.org/api/v2
     Argu (3.2)
-    FsCheck (2.9)
-      FSharp.Core (>= 4.1)
-    FSharp.Compiler.Service (5.0)
     FSharp.Core (4.1.17)
       System.ValueTuple (>= 4.3)
     FsPickler (3.2)
@@ -14,12 +11,6 @@ NUGET
       Newtonsoft.Json (>= 6.0.5)
     Hyak.Common (1.1.3)
       Newtonsoft.Json (>= 6.0.8)
-    MathNet.Numerics (3.7.1)
-    MathNet.Numerics.FSharp (3.7.1)
-      FSharp.Core (>= 3.1.2.1)
-      MathNet.Numerics (3.7.1)
-    MathNet.Numerics.MKL.Win-x64 (1.8)
-      MathNet.Numerics (>= 2.4)
     MBrace.Core (1.4)
     MBrace.CSharp (1.4.0-alpha)
       FSharp.Core (>= 3.0)
@@ -35,12 +26,6 @@ NUGET
       FsPickler.Json (>= 3.2 < 4.0)
       MBrace.Core (1.4)
       Vagabond (>= 0.14 < 0.15)
-    MBrace.Tests (1.4)
-      FsCheck (>= 2.0.1)
-      MBrace.Core (1.4)
-      MBrace.Flow (1.4)
-      NUnit (>= 2.6 < 3.0)
-      Unquote (>= 3.0 < 4.0)
     Microsoft.Azure.Common (2.1.4)
       Hyak.Common (>= 1.1.3)
     Microsoft.Azure.KeyVault.Core (2.0.4)
@@ -100,8 +85,6 @@ NUGET
       Microsoft.WindowsAzure.Common (>= 1.3 < 2.0)
     Mono.Cecil (0.9.6.4)
     Newtonsoft.Json (10.0.2)
-    NUnit (2.6.4)
-    NUnit.Runners (2.6.4)
     Streams (0.4.1)
     System.Collections.Immutable (1.3.1)
     System.Reflection.Metadata (1.4.2)
@@ -109,7 +92,6 @@ NUGET
     System.Runtime.Loader (4.3)
     System.Spatial (5.8.2)
     System.ValueTuple (4.3.1)
-    Unquote (3.1.2)
     Vagabond (0.14)
       FsPickler (>= 3.0 < 4.0)
       Mono.Cecil (>= 0.9.6.3 < 0.9.7)
@@ -123,19 +105,46 @@ GITHUB
   remote: isaacabraham/azure-fsharp-helpers
     src/configuration.fs (750f353438da7c69fdc62935d30faeda2c42eac1)
 GROUP Build
+REDIRECTS: ON
+FRAMEWORK: >= NET45
 NUGET
   remote: https://www.nuget.org/api/v2
     FAKE (4.61.3)
-    Microsoft.Bcl (1.1.10) - framework: net10, net11, net20, net30, net35, net40, net40-full
-      Microsoft.Bcl.Build (>= 1.0.14)
-    Microsoft.Bcl.Build (1.0.21) - import_targets: false, framework: net10, net11, net20, net30, net35, net40, net40-full
-    Microsoft.Net.Http (2.2.29) - framework: net10, net11, net20, net30, net35, net40, net40-full
-      Microsoft.Bcl (>= 1.1.10)
-      Microsoft.Bcl.Build (>= 1.0.14)
     NuGet.CommandLine (4.1)
     Octokit (0.24)
-      Microsoft.Net.Http  - framework: net10, net11, net20, net30, net35, net40, net40-full
 GITHUB
   remote: fsharp/FAKE
     modules/Octokit/Octokit.fsx (ad65548e62c35ad64ad1f9db6f5768330bc06594)
       Octokit (>= 0.20)
+GROUP Test
+REDIRECTS: ON
+FRAMEWORK: >= NET45
+NUGET
+  remote: https://www.nuget.org/api/v2
+    FsCheck (2.9)
+      FSharp.Core (>= 4.1)
+    FSharp.Compiler.Service (5.0)
+    FSharp.Core (4.1.17)
+      System.ValueTuple (>= 4.3)
+    MathNet.Numerics (3.7.1)
+    MathNet.Numerics.FSharp (3.7.1)
+      FSharp.Core (>= 3.1.2.1)
+      MathNet.Numerics (3.7.1)
+    MathNet.Numerics.MKL.Win-x64 (1.8)
+      MathNet.Numerics (>= 2.4)
+    MBrace.Core (1.4)
+    MBrace.Flow (1.4)
+      FSharp.Core (>= 3.0)
+      MBrace.Core (1.4)
+      Streams (>= 0.4 < 0.5)
+    MBrace.Tests (1.4)
+      FsCheck (>= 2.0.1)
+      MBrace.Core (1.4)
+      MBrace.Flow (1.4)
+      NUnit (>= 2.6 < 3.0)
+      Unquote (>= 3.0 < 4.0)
+    NUnit (2.6.4)
+    NUnit.Runners (2.6.4)
+    Streams (0.4.1)
+    System.ValueTuple (4.3.1)
+    Unquote (3.2)
