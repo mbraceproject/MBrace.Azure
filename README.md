@@ -52,10 +52,6 @@ Tests found here are separated in 4 categories:
   3. `Standalone Cluster` run using local Azure worker processes and an Azure-hosted storage account.
   4. `Remote Cluster` run using Azure-hosted worker instances, which need to be initialized manually.
 
-### CI NuGet feed
-
-https://ci.appveyor.com/nuget/mbrace-azure-jglidppatqhw
-
 ## Contributing
 
 The MBrace project is happy to accept quality contributions from the .NET community.
