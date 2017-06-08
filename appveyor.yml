@@ -1,8 +1,12 @@
-version: 0.0.1.{build}
 
 configuration: Release
 
 build_script:
-  - cmd: build.cmd -ef IgnoreClusterTests
+  - cmd: build.cmd Nuget
 
 test: off
+
+version: '{build}'
+
+artifacts:
+  - path: bin\*.nupkg
