@@ -61,23 +61,22 @@ Target "AssemblyInfo" (fun _ ->
     let attributes =
         [| 
             Attribute.Product "MBrace.Azure"
-            Attribute.Company "Nessos Information Technologies"
-            Attribute.Copyright "\169 Nessos Information Technologies."
+            Attribute.Company "@mbraceproject"
+            Attribute.Copyright "\169 Nessos Information Technologies and other contributors."
             Attribute.Trademark "MBrace"
-            Attribute.Metadata("Release Signature", 
-                sprintf "Version %s, Git Hash %s, Build Date %s" 
-                    assemblyVersion
-                    gitHash 
-                    (buildDate.ToString "ddMMyyyy HH:mm zzz"))
+            Attribute.Metadata("Release Signature", sprintf "Version %s, Git Hash %s, Build Date %s" assemblyVersion gitHash (buildDate.ToString "ddMMyyyy HH:mm zzz"))
             Attribute.Version assemblyVersion
             Attribute.FileVersion assemblyVersion
         |]
 
     !! "./src/**/AssemblyInfo.fs" |> Seq.iter (fun infoFile -> 
-        CreateFSharpAssemblyInfo infoFile attributes
-        let infoFileText = File.ReadAllText infoFile
+        let tmp = (infoFile + ".tmp")
+        CreateFSharpAssemblyInfo tmp attributes
+        let infoFileText = File.ReadAllText tmp
         let infoFileText = infoFileText + "\r\n    let [<Literal>] ReleaseTag = \"" + release.NugetVersion + "\"\r\n" 
-        File.WriteAllText(infoFile,infoFileText))
+        if not (File.Exists infoFile) || infoFileText <> File.ReadAllText infoFile then
+            File.WriteAllText(infoFile,infoFileText)
+        File.Delete tmp)
 )
 
 
@@ -242,6 +241,7 @@ Target "ReleaseGithub" (fun _ ->
 // Run all targets by default. Invoke 'build <Target>' to override
 
 Target "Default" DoNothing
+Target "RunTestsAndBuildNuget" DoNothing
 Target "Release" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
@@ -250,14 +250,23 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "AssemblyInfo"
   ==> "Build"
   =?> ("RunTests", not isAppVeyorBuild) // testing not yet enabled on appveyor because Azure resource access is needed
-  ==> "Default"
+  ==> "RunTestsAndBuildNuget"
+
+"NuGet" 
+  ==> "RunTestsAndBuildNuget"
 
 "Build"
   ==> "BuildPackages"
   ==> "NuGet"
+
+"NuGet"
   ==> "NuGetPush"
   ==> "ReleaseGithub"
   ==> "Release"
+
+"RunTestsAndBuildNuget"
+  ==> "Default"
+
 
 //// start build
 RunTargetOrDefault "Default"
