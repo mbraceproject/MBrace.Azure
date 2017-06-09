@@ -53,13 +53,11 @@ type ClusterManager =
     member r.InitTopicMonitor(?currentWorker : IWorkerId) = TopicMonitor.Create(r.WorkerManager, r.WorkQueue, r.Logger, ?currentWorker = currentWorker)
 
     /// Resets the cluster store state with supplied parameters
-    member r.ResetCluster(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteUserData : bool, 
-                                ?deleteAssemblyData : bool, ?force : bool, ?reactivate : bool) = async {
+    member r.ResetCluster(?deleteQueues : bool, ?deleteRuntimeState : bool, ?deleteLogs : bool, ?deleteAssemblyData : bool, ?force : bool, ?reactivate : bool) = async {
 
         let deleteQueues = defaultArg deleteQueues true
         let deleteRuntimeState = defaultArg deleteRuntimeState true
         let deleteLogs = defaultArg deleteLogs true
-        let deleteUserData = defaultArg deleteUserData false
         let deleteAssemblyData = defaultArg deleteAssemblyData false
         let force = defaultArg force false
         let reactivate = defaultArg reactivate true
@@ -85,10 +83,6 @@ type ClusterManager =
         if deleteLogs then 
             logger.LogWarningf "Deleting system log Table %A." clusterId.RuntimeLogsTable
             do! clusterId.ClearRuntimeLogs()
-
-        if deleteUserData then 
-            logger.LogWarningf "Deleting UserData Container %A and Table %A." clusterId.UserDataContainer clusterId.UserDataTable
-            do! clusterId.ClearUserData()
 
         if deleteAssemblyData then
             logger.LogWarningf "Deleting Vagabond Container %A." clusterId.VagabondContainer
@@ -121,7 +115,7 @@ type ClusterManager =
         do! clusterId.InitializeAllStoreResources(maxRetries = 20, retryInterval = 3000)
 
         logger.LogInfof "Creating MBrace storage primitives"
-        let fileStore = BlobStore.Create(clusterId.StorageAccount, defaultContainer = clusterId.UserDataContainer)
+        let fileStore = BlobStore.Create(clusterId.StorageAccount)
         let atomProvider = TableAtomProvider.Create(clusterId.StorageAccount, defaultTable = clusterId.UserDataTable)
         let dictionaryProvider = TableDictionaryProvider.Create(clusterId.StorageAccount)
         let queueProvider = ServiceBusQueueProvider.Create(clusterId.ServiceBusAccount)

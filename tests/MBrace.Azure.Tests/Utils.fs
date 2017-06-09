@@ -40,7 +40,7 @@ type ClusterSession(config : MBrace.Azure.Configuration, localWorkerCount : int,
             | None -> 
                 let cluster = AzureCluster.Connect(config, logger = ConsoleLogger(), logLevel = LogLevel.Debug)
                 if localWorkerCount > 0 then 
-                    cluster.Reset(force = false, deleteUserData = true, deleteAssemblyData = true, reactivate = true)
+                    cluster.Reset(force = false, deleteAssemblyData = true, reactivate = true)
                     attachWorkers cluster
 
                 while cluster.Workers.Length < localWorkerCount do Thread.Sleep 100
@@ -53,7 +53,7 @@ type ClusterSession(config : MBrace.Azure.Configuration, localWorkerCount : int,
             | Some r -> 
                 if localWorkerCount > 0 then 
                     r.KillAllLocalWorkers()
-                    r.Reset(deleteUserData = true, deleteAssemblyData = true, force = true, reactivate = false)
+                    r.Reset(deleteAssemblyData = true, force = true, reactivate = false)
 
                 state <- None)
 

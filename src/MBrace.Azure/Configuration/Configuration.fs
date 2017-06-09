@@ -44,7 +44,6 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
 
     // Default Blob Storage Containers
     let mutable runtimeContainer    = "mbraceruntimedata"
-    let mutable userDataContainer   = "mbraceuserdata"
     let mutable cloudValueContainer = "mbracecloudvalue"
     let mutable assemblyContainer   = "mbraceassemblies"
 
@@ -108,11 +107,6 @@ type Configuration(storageConnectionString : string, serviceBusConnectionString 
     member __.RuntimeContainer
         with get () = runtimeContainer
         and set rc = Validate.containerName rc ; runtimeContainer <- rc
-
-    /// Azure Storage container used for user data.
-    member __.UserDataContainer
-        with get () = userDataContainer
-        and set udc = Validate.containerName udc ; userDataContainer <- udc
 
     /// Azure Storage container used for Vagabond assembly dependencies.
     member __.AssemblyContainer

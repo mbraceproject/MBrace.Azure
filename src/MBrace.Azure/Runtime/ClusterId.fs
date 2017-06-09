@@ -36,8 +36,6 @@ type ClusterId =
 
         /// Runtime blob container.
         RuntimeContainer : string
-        /// User data container.
-        UserDataContainer : string
         /// Vagabond Assembly Container.
         VagabondContainer : string
         /// CloudValue Persist Container.
@@ -74,7 +72,6 @@ type ClusterId =
         do!
             [|
                 this.DeleteTable this.UserDataTable
-                this.DeleteContainer this.UserDataContainer
                 this.DeleteContainer this.CloudValueContainer
             |]
             |> Async.Parallel
@@ -124,7 +121,6 @@ type ClusterId =
                 createTable this.RuntimeLogsTable
 
                 createContainer this.RuntimeContainer
-                createContainer this.UserDataContainer
                 createContainer this.CloudValueContainer
                 createContainer this.VagabondContainer
             |]
@@ -160,7 +156,6 @@ type ClusterId =
             RuntimeContainer                = appendVersionAndSuffixId configuration.RuntimeContainer
             VagabondContainer               = configuration.AssemblyContainer
             CloudValueContainer             = appendVersionAndSuffixId configuration.CloudValueContainer
-            UserDataContainer               = appendSuffixId configuration.UserDataContainer
 
             RuntimeTable                    = appendVersionAndSuffixId configuration.RuntimeTable
             RuntimeLogsTable                = appendVersionAndSuffixId configuration.RuntimeLogsTable

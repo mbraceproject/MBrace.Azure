@@ -34,7 +34,6 @@ type private AzureArguments =
     | Runtime_Topic of topic_name:string
     // Blob Storage
     | Runtime_Container of container:string
-    | User_Data_Container of container:string
     | Assembly_Container of container:string
     | Cloud_Value_Container of container:string
     // Table Storage
@@ -63,7 +62,6 @@ type private AzureArguments =
             | Runtime_Queue _ -> "Specifies the work item queue name in the ServiceBus."
             | Runtime_Topic _ -> "Specifies the work item topic name in the ServiceBus."
             | Runtime_Container _ -> "Specifies the blob container name used for persisting MBrace cluster data."
-            | User_Data_Container _ -> "Specifies the blob container name used for persisting MBrace user data."
             | Assembly_Container _ -> "Specifies the blob container name used for persisting Assembly dependencies."
             | Cloud_Value_Container _ -> "Specifies the blob container name used for persisting CloudValue dependencies."
             | Runtime_Table _ -> "Specifies the table name used for writing MBrace cluster entries."
@@ -128,7 +126,6 @@ type ArgumentConfiguration =
                 yield Runtime_Topic config.WorkItemTopic
 
                 yield Runtime_Container config.RuntimeContainer
-                yield User_Data_Container config.UserDataContainer
                 yield Assembly_Container config.AssemblyContainer
                 yield Cloud_Value_Container config.CloudValueContainer
 
@@ -166,7 +163,6 @@ type ArgumentConfiguration =
         parseResult.IterResult(<@ Runtime_Topic @>, fun t -> config.WorkItemTopic <- t)
 
         parseResult.IterResult(<@ Runtime_Container @>, fun c -> config.RuntimeContainer <- c)
-        parseResult.IterResult(<@ User_Data_Container @>, fun c -> config.UserDataContainer <- c)
         parseResult.IterResult(<@ Assembly_Container @>, fun c -> config.AssemblyContainer <- c)
         parseResult.IterResult(<@ Cloud_Value_Container @>, fun c -> config.CloudValueContainer <- c)
 

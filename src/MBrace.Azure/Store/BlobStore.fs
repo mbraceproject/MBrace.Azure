@@ -219,15 +219,21 @@ type BlobStore private (account : AzureStorageAccount, defaultContainer : string
 
         member this.GetRandomDirectoryName() : string = Guid.NewGuid().ToString()
 
-        member this.IsPathRooted(path : string) = isWasbPath path || (not(Path.HasExtension path) && not (path.Contains "/"))
+        member this.IsPathRooted(path : string) = isWasbPath path
             
         member this.GetDirectoryName(path : string) = Path.GetDirectoryName path
 
         member this.GetFileName(path : string) = Path.GetFileName(path)
 
         member this.Combine(paths : string []) : string =
-            StorePath.Parse (Path.Combine paths.[1..]) (Some paths.[0])
-            |> string
+            let (|ContainerPath|FullPath|) paths =
+                match paths with
+                | [| ""; folder |] -> ContainerPath folder
+                | _ -> FullPath (paths.[0], paths.[1..])
+            
+            match paths with
+            | ContainerPath folder -> StoreDirectory.Parse folder |> string
+            | FullPath (container, blob) -> StorePath.Parse (Path.Combine blob) (Some container) |> string
 
         member this.GetFileSize(path: string) : Async<int64> = async {
             let! blob = getBlobReference account path
