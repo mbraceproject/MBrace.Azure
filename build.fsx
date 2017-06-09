@@ -70,13 +70,10 @@ Target "AssemblyInfo" (fun _ ->
         |]
 
     !! "./src/**/AssemblyInfo.fs" |> Seq.iter (fun infoFile -> 
-        let tmp = (infoFile + ".tmp")
-        CreateFSharpAssemblyInfo tmp attributes
-        let infoFileText = File.ReadAllText tmp
+        CreateFSharpAssemblyInfo infoFile attributes
+        let infoFileText = File.ReadAllText infoFile
         let infoFileText = infoFileText + "\r\n    let [<Literal>] ReleaseTag = \"" + release.NugetVersion + "\"\r\n" 
-        if not (File.Exists infoFile) || infoFileText <> File.ReadAllText infoFile then
-            File.WriteAllText(infoFile,infoFileText)
-        File.Delete tmp)
+        File.WriteAllText(infoFile,infoFileText))
 )
 
 
