@@ -19,10 +19,10 @@ references
 	MBrace.Azure.dll
 files
 	../../nuget/MBrace.Azure.fsx ==>
-	../../packages/FSharp.Core/lib/net40/FSharp.Core.dll ==> tools
-	../../packages/FSharp.Core/lib/net40/FSharp.Core.sigdata ==> tools
-	../../packages/FSharp.Core/lib/net40/FSharp.Core.optdata ==> tools
-	../../packages/FSharp.Core/lib/net40/FSharp.Core.xml ==> tools
+	../../packages/FSharp.Core/lib/net45/FSharp.Core.dll ==> tools
+	../../packages/FSharp.Core/lib/net45/FSharp.Core.sigdata ==> tools
+	../../packages/FSharp.Core/lib/net45/FSharp.Core.optdata ==> tools
+	../../packages/FSharp.Core/lib/net45/FSharp.Core.xml ==> tools
 	../../bin/Newtonsoft.Json.dll ==> tools
     ../../bin/FsPickler.dll ==> tools
     ../../bin/FsPickler.Json.dll ==> tools
