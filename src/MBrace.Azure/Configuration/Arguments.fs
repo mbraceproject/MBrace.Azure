@@ -19,6 +19,7 @@ type private AzureArguments =
     | [<AltCommandLine("-q")>] Quiet
     | [<AltCommandLine("-L")>] Log_Level of level:int
     | [<AltCommandLine("-l")>] Log_File of path:string
+    | [<AltCommandLine("-D")>] Detach
     | Working_Directory of path:string
     // Connection string parameters
     | [<Mandatory>][<AltCommandLine("-s")>] Storage_Connection_String of conn:string
@@ -53,6 +54,7 @@ type private AzureArguments =
             | Heartbeat_Threshold _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 300 seconds."
             | Working_Directory _ -> "Specify the working directory for the worker."
             | Worker_Id _ -> "Specify worker name identifier."
+            | Detach -> "Runs the worker in a detached child process. Automatically Restarts in event of death."
             | Storage_Connection_String _ -> "Azure Storage connection string."
             | Service_Bus_Connection_string _ -> "Azure ServiceBus connection string."
             | Optimize_Closure_Serialization _ -> "Specifies whether cluster should implement closure serialization optimizations. Defaults to true."
@@ -77,6 +79,7 @@ let private argParser = ArgumentParser.Create<AzureArguments>(errorHandler = new
 type ArgumentConfiguration = 
     {
         Quiet : bool
+        Detach : bool
         Configuration : Configuration option
         MaxWorkItems : int option
         WorkerId : string option
@@ -89,16 +92,17 @@ type ArgumentConfiguration =
 
     /// Creates a configuration object using supplied parameters.
     static member Create(?config : Configuration, ?quiet : bool, ?workingDirectory : string, ?maxWorkItems : int, ?workerId : string, ?logLevel : LogLevel, 
-                            ?logfile : string, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan) =
+                            ?logfile : string, ?heartbeatInterval : TimeSpan, ?heartbeatThreshold : TimeSpan, ?detach : bool) =
         maxWorkItems |> Option.iter (fun w -> if w < 0 then invalidArg "maxWorkItems" "must be positive." elif w > 1024 then invalidArg "maxWorkItems" "exceeds 1024 limit.")
         heartbeatInterval |> Option.iter (fun i -> if i < TimeSpan.FromSeconds 1. then invalidArg "heartbeatInterval" "must be at least one second.")
         heartbeatThreshold |> Option.iter (fun i -> if i < TimeSpan.FromSeconds 1. then invalidArg "heartbeatThreshold" "must be at least one second.")
         workerId |> Option.iter Validate.subscriptionName
         let workingDirectory = workingDirectory |> Option.map Path.GetFullPath
         let quiet = defaultArg quiet false
+        let detach = defaultArg detach false
         { Configuration = config ; MaxWorkItems = maxWorkItems ; WorkerId = workerId ; LogFile = logfile ;
             LogLevel = logLevel ; HeartbeatInterval = heartbeatInterval ; HeartbeatThreshold = heartbeatThreshold ;
-            WorkingDirectory = workingDirectory ; Quiet = quiet }
+            WorkingDirectory = workingDirectory ; Quiet = quiet ; Detach = detach }
 
     /// Converts a configuration object to a command line string.
     static member ToCommandLineArguments(cfg : ArgumentConfiguration) =
@@ -111,6 +115,9 @@ type ArgumentConfiguration =
             match cfg.HeartbeatThreshold with Some h -> yield Heartbeat_Threshold h.TotalSeconds | None -> ()
             match cfg.LogFile with Some l -> yield Log_File l | None -> ()
             match cfg.WorkingDirectory with Some w -> yield Working_Directory w | None -> ()
+
+            if cfg.Quiet then yield Quiet
+            if cfg.Detach then yield Detach
 
             match cfg.Configuration with
             | None -> ()
@@ -145,6 +152,7 @@ type ArgumentConfiguration =
 
         let maxWorkItems = parseResult.TryPostProcessResult(<@ Max_Work_Items @>, fun i -> if i < 0 then failwith "must be positive." elif i > 1024 then failwith "exceeds 1024 limit." else i)
         let quiet = parseResult.Contains <@ Quiet @>
+        let detach = parseResult.Contains <@ Detach @>
         let logLevel = parseResult.TryPostProcessResult(<@ Log_Level @>, enum<LogLevel>)
         let logFile = parseResult.TryPostProcessResult(<@ Log_File @>, fun f -> ignore <| Path.GetFullPath f ; f) // use GetFullPath to validate chars
         let workerName = parseResult.TryPostProcessResult(<@ Worker_Id @>, fun name -> Validate.subscriptionName name; name)
@@ -180,6 +188,7 @@ type ArgumentConfiguration =
             WorkerId = workerName
             WorkingDirectory = workingDirectory
             Quiet = quiet
+            Detach = detach
             LogLevel = logLevel
             LogFile = logFile
             HeartbeatInterval = heartbeatInterval

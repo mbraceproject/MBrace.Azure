@@ -6,7 +6,7 @@ open System.IO
 open NUnit.Framework
 
 open Microsoft.FSharp.Compiler.Interactive.Shell
-open Microsoft.FSharp.Compiler.SimpleSourceCodeServices
+open Microsoft.FSharp.Compiler.SourceCodeServices
 
 open MBrace.Core.Tests
 open MBrace.Azure
@@ -111,8 +111,8 @@ type ``Vagabond Azure Tests (FSI)``(config : Configuration, localWorkerCount : i
                 "MBrace.Azure.dll"
                 "MBrace.Azure.Tests.dll"
 
-                "../packages/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
-                "../packages/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
+                "../packages/test/MathNet.Numerics/lib/net40/MathNet.Numerics.dll"
+                "../packages/test/MathNet.Numerics.FSharp/lib/net40/MathNet.Numerics.FSharp.dll"
             ]
 
         fsi.EvalInteraction "open MBrace.Core"
@@ -300,7 +300,7 @@ type ``Vagabond Azure Tests (FSI)``(config : Configuration, localWorkerCount : i
 
             // register native dll's
 
-            let nativeDir = Path.Combine(__SOURCE_DIRECTORY__, "../../packages/MathNet.Numerics.MKL.Win-x64/content/") |> Path.GetFullPath
+            let nativeDir = Path.Combine(__SOURCE_DIRECTORY__, "../../packages/test/MathNet.Numerics.MKL.Win-x64/content/") |> Path.GetFullPath
             let libiomp5md = nativeDir + "libiomp5md.dll"
             let mkl = nativeDir + "MathNet.Numerics.MKL.dll"
 

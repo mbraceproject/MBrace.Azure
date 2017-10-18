@@ -86,17 +86,18 @@ type AzureWorker private () =
     /// <param name="workingDirectory">Local working directory for the worker process.</param>
     /// <param name="maxWorkItems">Maximum number of concurrent jobs per worker.</param>
     /// <param name="quiet">Suppress output to stdout by worker instance. Defaults to false.</param>
+    /// <param name="detach">Worker node will offload mbrace code execution in a detached child process. Defaults to false.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
     /// <param name="logFile">Specify local path to system logfile for worker process.</param>
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
     static member Spawn([<O;D(null:obj)>]?config : Configuration, [<O;D(null:obj)>]?workerId : string, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logLevel : LogLevel, 
-                            [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?logFile : string, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : Process =
+                            [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?detach : bool, [<O;D(null:obj)>]?logFile : string, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : Process =
         let background = defaultArg background false
         let quiet = defaultArg quiet ProcessConfiguration.IsUnix
         let exe = AzureWorker.LocalExecutable
-        let cli = ArgumentConfiguration.Create(?config = config, ?workingDirectory = workingDirectory, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, quiet = quiet,
+        let cli = ArgumentConfiguration.Create(?config = config, ?workingDirectory = workingDirectory, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, quiet = quiet, ?detach = detach,
                                                 ?logfile = logFile, ?workerId = workerId, ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold)
 
         let args = ArgumentConfiguration.ToCommandLineArguments(cli)
@@ -117,16 +118,17 @@ type AzureWorker private () =
     /// <param name="config">Azure runtime configuration.</param>
     /// <param name="maxWorkItems">Maximum number of concurrent jobs per worker.</param>
     /// <param name="quiet">Suppress output to stdout by worker instance. Defaults to false.</param>
+    /// <param name="detach">Worker node will offload mbrace code execution in a detached child process. Defaults to false.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
-    static member SpawnMultiple(workerCount : int, [<O;D(null:obj)>]?config : Configuration, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logLevel : LogLevel, 
-                                    [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : Process [] =
+    static member SpawnMultiple(workerCount : int, [<O;D(null:obj)>]?config : Configuration, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logLevel : LogLevel,
+                                    [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?detach : bool, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : Process [] =
 
         let _ = AzureWorker.LocalExecutable // force early exception
         if workerCount < 1 then invalidArg "workerCount" "must be positive."
-        let spawn _ = AzureWorker.Spawn(?config = config, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?quiet = quiet,
+        let spawn _ = AzureWorker.Spawn(?config = config, ?maxWorkItems = maxWorkItems, ?logLevel = logLevel, ?quiet = quiet, ?detach = detach,
                                             ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold, ?background = background)
 
         [|1 .. workerCount|] |> Array.Parallel.map spawn
@@ -236,12 +238,13 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="logFile">Specify local path to system logfile for worker process.</param>
     /// <param name="logLevel">Client and local worker logger verbosity level.</param>
     /// <param name="heartbeatInterval">Heartbeat send interval used by worker.</param>
+    /// <param name="detach">Worker node will offload mbrace code execution in a detached child process. Defaults to false.</param>
     /// <param name="heartbeatThreshold">Maximum heartbeat threshold after which a worker is to be declared dead.</param>
     /// <param name="background">Run as background instead of windowed process. Defaults to false.</param>
     member this.AttachLocalWorker([<O;D(null:obj)>]?workerId : string, [<O;D(null:obj)>]?workingDirectory : string, [<O;D(null:obj)>]?maxWorkItems : int, [<O;D(null:obj)>]?logFile : string, [<O;D(null:obj)>]?logLevel:LogLevel,
-                                    [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : unit =
+                                    [<O;D(null:obj)>]?quiet : bool, [<O;D(null:obj)>]?detach : bool, [<O;D(null:obj)>]?heartbeatInterval : TimeSpan, [<O;D(null:obj)>]?heartbeatThreshold : TimeSpan, [<O;D(null:obj)>]?background : bool) : unit =
         ignore <| AzureWorker.Spawn(manager.Configuration, ?workerId = workerId, ?workingDirectory = workingDirectory, ?maxWorkItems = maxWorkItems, ?logFile = logFile, 
-                            ?quiet = quiet, ?logLevel = logLevel, ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold, ?background = background)
+                            ?quiet = quiet, ?detach = detach, ?logLevel = logLevel, ?heartbeatInterval = heartbeatInterval, ?heartbeatThreshold = heartbeatThreshold, ?background = background)
 
     /// <summary>
     ///     Spawns worker instances in the local machine, subscribed to the current cluster configuration.

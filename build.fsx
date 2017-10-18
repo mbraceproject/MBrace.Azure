@@ -32,21 +32,6 @@ let buildVersion =
     if hasRepoVersionTag then assemblyVersion
     else if isAppVeyorBuild then sprintf "%s-b%s" assemblyVersion AppVeyorEnvironment.BuildNumber
     else assemblyVersion
-let nugetDebugVersion =
-    let semVer = SemVerHelper.parse nugetVersion
-    let debugPatch, debugPreRelease =
-        match semVer.PreRelease with
-        | None -> semVer.Patch + 1, { Origin = "alpha001"; Name = "alpha"; Number = Some 1; Parts = [AlphaNumeric "alpha001"] }
-        | Some pre ->
-            let num = match pre.Number with Some i -> i + 1 | None -> 1
-            let name = pre.Name
-            let newOrigin = sprintf "%s%03d" name num
-            semVer.Patch, { Origin = newOrigin; Name = name; Number = Some num; Parts = [AlphaNumeric newOrigin] }
-    let debugVer =
-        { semVer with
-            Patch = debugPatch
-            PreRelease = Some debugPreRelease }
-    debugVer.ToString()
 
 let gitOwner = "mbraceproject"
 let gitHome = "https://github.com/" + gitOwner
@@ -167,7 +152,7 @@ Target "NuGet" (fun _ ->
         { p with 
             ToolPath = ".paket/paket.exe" 
             OutputPath = "bin/"
-            Version = nugetDebugVersion
+            Version = nugetVersion
             ReleaseNotes = toLines release.Notes })
 )
 
@@ -238,7 +223,6 @@ Target "ReleaseGithub" (fun _ ->
 // Run all targets by default. Invoke 'build <Target>' to override
 
 Target "Default" DoNothing
-Target "RunTestsAndBuildNuget" DoNothing
 Target "Release" DoNothing
 Target "Help" (fun _ -> PrintTargets() )
 
@@ -247,23 +231,13 @@ Target "Help" (fun _ -> PrintTargets() )
   ==> "AssemblyInfo"
   ==> "Build"
   =?> ("RunTests", not isAppVeyorBuild) // testing not yet enabled on appveyor because Azure resource access is needed
-  ==> "RunTestsAndBuildNuget"
-
-"NuGet" 
-  ==> "RunTestsAndBuildNuget"
 
 "Build"
   ==> "BuildPackages"
   ==> "NuGet"
-
-"NuGet"
   ==> "NuGetPush"
   ==> "ReleaseGithub"
   ==> "Release"
-
-"RunTestsAndBuildNuget"
-  ==> "Default"
-
 
 //// start build
 RunTargetOrDefault "Default"

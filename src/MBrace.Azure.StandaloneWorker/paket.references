@@ -1,5 +1,4 @@
 FsPickler
-FSharp.Core
 MBrace.Core
 MBrace.Runtime
 Newtonsoft.Json
@@ -8,3 +7,5 @@ Vagabond
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
 File:configuration.fs
+group Test
+FSharp.Core

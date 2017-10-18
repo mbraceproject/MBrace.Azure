@@ -17,8 +17,8 @@ let getLocalCspkg () =
     if not <| File.Exists path then failwith "Right click on the 'MBrace.Azure.CloudService' project and hit 'Package...'."
     path
 
-let pubSettings = PublishSettings.ParseFile "/Users/eirik/Desktop/eirik.publishSettings"
-let subscription = pubSettings.GetSubscriptionById "Nessos Information Technologies SA"
+let pubSettings = PublishSettings.ParseFile "/Users/eirik.tsarpalis/Desktop/eirik.publishSettings"
+let subscription = pubSettings.GetSubscriptionById "Visual Studio Enterprise"
 let manager = SubscriptionManager.Create(subscription, Region.West_Europe, logger = ConsoleLogger())
 
 manager.ShowDeployments()
@@ -37,6 +37,8 @@ deployment.Resize(vmCount = 2) // resizes the vm count
 deployment.Delete(deleteStorageAccount = true, deleteServiceBusAccount = true) // *deletes* the Azure deployment
 
 manager.Storage.ShowAccounts() // show storage accounts
+
+let storage = manager.Storage.CreateAccount(accountName = "mbracetests", region = Region.East_US_2)
 
 // Completed, now test the cluster using MBrace
 

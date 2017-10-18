@@ -1,16 +1,16 @@
-framework: >= net45
+framework: net45
 redirects: on
 source https://www.nuget.org/api/v2
 
-nuget FSharp.Core
-nuget MBrace.Core ~> 1.4.0
-nuget MBrace.Runtime ~> 1.4.0
+nuget FSharp.Core ~> 4.0
+nuget MBrace.Core ~> 1.5.0
+nuget MBrace.Runtime ~> 1.5.0
 nuget MBrace.Flow
 nuget MBrace.CSharp
 nuget WindowsAzure.ServiceBus ~> 3.0
 nuget WindowsAzure.Storage ~> 7.0
-nuget Argu ~> 3.2.0
-nuget FsPickler ~> 3.2.0
+nuget Argu ~> 3.2
+nuget FsPickler ~> 4.0
 nuget Microsoft.WindowsAzure.Management.Libraries
 nuget Microsoft.WindowsAzure.Management.ServiceBus prerelease
 nuget Microsoft.WindowsAzure.ConfigurationManager
@@ -20,22 +20,23 @@ nuget System.Runtime.Loader
 github isaacabraham/azure-fsharp-helpers src/configuration.fs
 
 group Test
-  framework: >= net45
+  framework: net45
   redirects: on
   source https://www.nuget.org/api/v2
 
   nuget FsCheck
+  nuget FSharp.Core
   nuget MBrace.Tests
   nuget NUnit ~> 2.6.4
   nuget NUnit.Runners ~> 2.6.4
-  nuget FSharp.Compiler.Service ~> 5.0
+  nuget FSharp.Compiler.Service ~> 16.0
   nuget MathNet.Numerics ~> 3.7.0
   nuget MathNet.Numerics.FSharp ~> 3.7.0
   nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
 
 
 group Build
-  framework: >= net45
+  framework: net45
   redirects: on
   source https://www.nuget.org/api/v2
   
