@@ -10,7 +10,7 @@ nuget MBrace.CSharp
 nuget WindowsAzure.ServiceBus ~> 3.0
 nuget WindowsAzure.Storage ~> 7.0
 nuget Argu ~> 3.2
-nuget FsPickler ~> 4.0
+nuget FsPickler ~> 4.5
 nuget Microsoft.WindowsAzure.Management.Libraries
 nuget Microsoft.WindowsAzure.Management.ServiceBus prerelease
 nuget Microsoft.WindowsAzure.ConfigurationManager

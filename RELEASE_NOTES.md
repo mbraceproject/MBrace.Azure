@@ -1,3 +1,6 @@
+### 1.5.2
+* Upgrade FsPickler version.
+
 ### 1.5.1
 * Fix Azure.Management packaging issue.
 
