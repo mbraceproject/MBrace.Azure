@@ -71,7 +71,7 @@ type TopicMonitor private (workerManager : WorkerManager, currentWorker : IWorke
         let! i,n = workerPosition.GetValueAsync()
         if count % n <> i then return! loop (count + 1L) else
 
-        logger.LogInfo "TopicMonitor : starting periodic topic maintenance."
+        logger.Log LogLevel.Debug "TopicMonitor : starting periodic topic maintenance."
 
         let! result = Async.Catch <| async {
             let! workersToCheck = workerManager.GetInactiveWorkers()
@@ -79,7 +79,7 @@ type TopicMonitor private (workerManager : WorkerManager, currentWorker : IWorke
         }
 
         match result with
-        | Choice1Of2 () -> logger.LogInfo "TopicMonitor : maintenance complete."
+        | Choice1Of2 () -> logger.Logf LogLevel.Debug "TopicMonitor : maintenance complete."
         | Choice2Of2 ex -> logger.Logf LogLevel.Error "TopicMonitor : maintenance error:  %A" ex
 
         return! loop (count + 1L)   
