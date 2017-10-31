@@ -1,3 +1,6 @@
+### 1.5.5
+* Bugfix.
+
 ### 1.5.4
 * Changes in default loglevel.
 

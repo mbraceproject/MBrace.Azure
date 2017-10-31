@@ -6,9 +6,9 @@ open System.Reflection
 [<assembly: AssemblyCompanyAttribute("@mbraceproject")>]
 [<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies and other contributors.")>]
 [<assembly: AssemblyTrademarkAttribute("MBrace")>]
-[<assembly: AssemblyMetadataAttribute("Release Signature","Version 1.5.4, Git Hash f4f403, Build Date 31102017 11:36 -04:00")>]
-[<assembly: AssemblyVersionAttribute("1.5.4")>]
-[<assembly: AssemblyFileVersionAttribute("1.5.4")>]
+[<assembly: AssemblyMetadataAttribute("Release Signature","Version 1.5.5, Git Hash 710a23, Build Date 31102017 12:11 -04:00")>]
+[<assembly: AssemblyVersionAttribute("1.5.5")>]
+[<assembly: AssemblyFileVersionAttribute("1.5.5")>]
 do ()
 
 module internal AssemblyVersionInformation =
@@ -16,8 +16,8 @@ module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyCompany = "@mbraceproject"
     let [<Literal>] AssemblyCopyright = "© Nessos Information Technologies and other contributors."
     let [<Literal>] AssemblyTrademark = "MBrace"
-    let [<Literal>] AssemblyMetadata_Release_Signature = "Version 1.5.4, Git Hash f4f403, Build Date 31102017 11:36 -04:00"
-    let [<Literal>] AssemblyVersion = "1.5.4"
-    let [<Literal>] AssemblyFileVersion = "1.5.4"
+    let [<Literal>] AssemblyMetadata_Release_Signature = "Version 1.5.5, Git Hash 710a23, Build Date 31102017 12:11 -04:00"
+    let [<Literal>] AssemblyVersion = "1.5.5"
+    let [<Literal>] AssemblyFileVersion = "1.5.5"
 
-    let [<Literal>] ReleaseTag = "1.5.4"
+    let [<Literal>] ReleaseTag = "1.5.5"
