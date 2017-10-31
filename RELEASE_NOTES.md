@@ -1,3 +1,6 @@
+### 1.5.3
+* Changes in loglevels.
+
 ### 1.5.2
 * Upgrade FsPickler version.
 

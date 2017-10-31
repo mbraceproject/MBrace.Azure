@@ -185,3 +185,5 @@ paket-files/
 .paket/paket.exe
 .fake/
 temp/
+/.vs/MBrace.Azure/v15
+/packages/build
