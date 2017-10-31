@@ -17,7 +17,7 @@ type private AzureArguments =
     | Heartbeat_Interval of seconds:float
     | Heartbeat_Threshold of seconds:float
     | [<AltCommandLine("-q")>] Quiet
-    | [<AltCommandLine("-L")>] Log_Level of level:int
+    | [<AltCommandLine("-L")>] Log_Level of LogLevel
     | [<AltCommandLine("-l")>] Log_File of path:string
     | [<AltCommandLine("-D")>] Detach
     | Working_Directory of path:string
@@ -47,8 +47,8 @@ type private AzureArguments =
         member arg.Usage =
             match arg with
             | Quiet -> "Suppress logging to stdout by the worker."
-            | Log_Level _ -> "Log level for worker system logs. Critical = 1, Error = 2, Warning = 3, Info = 4, Debug = 5. Defaults to info."
-            | Log_File _ -> "Specify a log file to write worker system logs."
+            | Log_Level _ -> "Log level for worker system logs. Defaults to info."
+            | Log_File _ -> "Specify a log file to write worker system logs. No file logging if left unspecified."
             | Max_Work_Items _ -> "Specify maximum number of concurrent work items."
             | Heartbeat_Interval _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 1 second."
             | Heartbeat_Threshold _ -> "Specify the heartbeat interval for the worker in seconds. Defaults to 300 seconds."
@@ -110,7 +110,7 @@ type ArgumentConfiguration =
 
             match cfg.MaxWorkItems with Some w -> yield Max_Work_Items w | None -> ()
             match cfg.WorkerId with Some n -> yield Worker_Id n | None -> ()
-            match cfg.LogLevel with Some l -> yield Log_Level (int l) | None -> ()
+            match cfg.LogLevel with Some l -> yield Log_Level l | None -> ()
             match cfg.HeartbeatInterval with Some h -> yield Heartbeat_Interval h.TotalSeconds | None -> ()
             match cfg.HeartbeatThreshold with Some h -> yield Heartbeat_Threshold h.TotalSeconds | None -> ()
             match cfg.LogFile with Some l -> yield Log_File l | None -> ()
@@ -153,7 +153,7 @@ type ArgumentConfiguration =
         let maxWorkItems = parseResult.TryPostProcessResult(<@ Max_Work_Items @>, fun i -> if i < 0 then failwith "must be positive." elif i > 1024 then failwith "exceeds 1024 limit." else i)
         let quiet = parseResult.Contains <@ Quiet @>
         let detach = parseResult.Contains <@ Detach @>
-        let logLevel = parseResult.TryPostProcessResult(<@ Log_Level @>, enum<LogLevel>)
+        let logLevel = parseResult.TryGetResult <@ Log_Level @>
         let logFile = parseResult.TryPostProcessResult(<@ Log_File @>, fun f -> ignore <| Path.GetFullPath f ; f) // use GetFullPath to validate chars
         let workerName = parseResult.TryPostProcessResult(<@ Worker_Id @>, fun name -> Validate.subscriptionName name; name)
         let heartbeatInterval = parseResult.TryPostProcessResult(<@ Heartbeat_Interval @>, fun i -> let t = TimeSpan.FromSeconds i in if t < TimeSpan.FromSeconds 1. then failwith "must be positive" else t)

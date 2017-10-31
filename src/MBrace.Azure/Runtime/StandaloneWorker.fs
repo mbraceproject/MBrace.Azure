@@ -42,7 +42,7 @@ module StandaloneWorker =
                 cli.MaxWorkItems |> Option.iter (fun w -> svc.MaxConcurrentWorkItems <- w)
                 cli.HeartbeatInterval |> Option.iter (fun i -> svc.HeartbeatInterval <- i)
                 cli.HeartbeatThreshold |> Option.iter (fun i -> svc.HeartbeatThreshold <- i)
-                svc.LogFile <- defaultArg cli.LogFile "logs.txt"
+                cli.LogFile |> Option.iter (fun l -> svc.LogFile <- l)
                 cli.LogLevel |> Option.iter (fun l -> svc.LogLevel <- l)
 
                 Console.Title <- sprintf "%s(%d) : %s"  proc.ProcessName proc.Id svc.Id

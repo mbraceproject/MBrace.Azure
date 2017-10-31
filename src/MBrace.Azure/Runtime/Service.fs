@@ -36,7 +36,7 @@ type WorkerService (config : Configuration, workerId : string) =
     let mutable status                  = 0 // 0: stopped, 1: starting, 2: running, 3: stopping
     let mutable subscription            = None : WorkerSubscription.Subscription option
     let mutable cancellationTokenSource = None : CancellationTokenSource option
-    let attacheableLogger               = AttacheableLogger.Create(logLevel = LogLevel.Info, makeAsynchronous = true)
+    let attacheableLogger               = AttacheableLogger.Create(makeAsynchronous = true)
 
     let trySetStarting  () = Interlocked.CompareExchange(&status, 1, 0) = 0
     let trySetStopping  () = Interlocked.CompareExchange(&status, 3, 2) = 2

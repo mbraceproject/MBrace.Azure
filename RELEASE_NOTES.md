@@ -1,3 +1,6 @@
+### 1.5.4
+* Changes in default loglevel.
+
 ### 1.5.3
 * Changes in loglevels.
 
