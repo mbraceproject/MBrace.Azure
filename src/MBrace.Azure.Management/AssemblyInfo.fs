@@ -6,7 +6,7 @@ open System.Reflection
 [<assembly: AssemblyCompanyAttribute("@mbraceproject")>]
 [<assembly: AssemblyCopyrightAttribute("© Nessos Information Technologies and other contributors.")>]
 [<assembly: AssemblyTrademarkAttribute("MBrace")>]
-[<assembly: AssemblyMetadataAttribute("Release Signature","Version 1.5.3, Git Hash 3ad1b4, Build Date 31102017 03:51 -04:00")>]
+[<assembly: AssemblyMetadataAttribute("Release Signature","Version 1.5.3, Git Hash 08b0ac, Build Date 31102017 03:54 -04:00")>]
 [<assembly: AssemblyVersionAttribute("1.5.3")>]
 [<assembly: AssemblyFileVersionAttribute("1.5.3")>]
 do ()
@@ -16,7 +16,7 @@ module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyCompany = "@mbraceproject"
     let [<Literal>] AssemblyCopyright = "© Nessos Information Technologies and other contributors."
     let [<Literal>] AssemblyTrademark = "MBrace"
-    let [<Literal>] AssemblyMetadata_Release_Signature = "Version 1.5.3, Git Hash 3ad1b4, Build Date 31102017 03:51 -04:00"
+    let [<Literal>] AssemblyMetadata_Release_Signature = "Version 1.5.3, Git Hash 08b0ac, Build Date 31102017 03:54 -04:00"
     let [<Literal>] AssemblyVersion = "1.5.3"
     let [<Literal>] AssemblyFileVersion = "1.5.3"
 
