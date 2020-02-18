@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29813.275
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{8C962C9C-7DF5-430C-8CD4-7C2642F68409}"
 	ProjectSection(SolutionItems) = preProject
@@ -95,12 +95,14 @@ Global
 		{39871DC6-D95E-440C-A96C-4B3514155B41}.Release_AzureSDK|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
 		{39871DC6-D95E-440C-A96C-4B3514155B41}.Release_AzureSDK|Any CPU.Build.0 = Release_AzureSDK|Any CPU
 		{39871DC6-D95E-440C-A96C-4B3514155B41}.Release|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
-		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug_AzureSDK|Any CPU
-		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Debug_AzureSDK|Any CPU.Build.0 = Debug_AzureSDK|Any CPU
-		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Debug|Any CPU.ActiveCfg = Debug_AzureSDK|Any CPU
-		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release_AzureSDK|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
-		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release_AzureSDK|Any CPU.Build.0 = Release_AzureSDK|Any CPU
-		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release|Any CPU.ActiveCfg = Release_AzureSDK|Any CPU
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{636F24AB-5DF8-4691-A4DE-0EA15EED59D1}.Release|Any CPU.Build.0 = Release|Any CPU
 		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
 		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
 		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -134,5 +136,6 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
+		SolutionGuid = {A8A90BC8-A087-4019-A63E-EFBCEB89CDEC}
 	EndGlobalSection
 EndGlobal
