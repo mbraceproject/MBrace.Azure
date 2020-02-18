@@ -1,8 +1,0 @@
-﻿MBrace.Core
-MBrace.Runtime
-Newtonsoft.Json
-WindowsAzure.ServiceBus
-WindowsAzure.Storage
-Microsoft.WindowsAzure.ConfigurationManager
-group Test
-FSharp.Core copy_local: true
