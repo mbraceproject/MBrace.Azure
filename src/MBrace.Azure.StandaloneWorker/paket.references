@@ -1,11 +1,3 @@
-FsPickler
-MBrace.Core
-MBrace.Runtime
-Newtonsoft.Json
-System.Spatial
-Vagabond
-WindowsAzure.ServiceBus
-WindowsAzure.Storage
 File:configuration.fs
 group Test
 FSharp.Core

@@ -5,6 +5,5 @@ FsPickler
 FsPickler.Json
 Vagabond
 MBrace.Runtime
-System.Reflection.Metadata
 WindowsAzure.ServiceBus
 WindowsAzure.Storage

@@ -21,5 +21,8 @@
   <ItemGroup>
     <ProjectReference Include="..\MBrace.Azure\MBrace.Azure.fsproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.ServiceModel.Discovery" />
+  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

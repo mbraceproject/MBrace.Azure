@@ -1,38 +1,46 @@
 source https://api.nuget.org/v3/index.json
 framework: net472
+storage: none
+lowest_matching: true
 
-nuget FSharp.Core ~> 4.0
-nuget MBrace.Core ~> 1.5.0
-nuget MBrace.Runtime ~> 1.5.0
-nuget MBrace.Flow ~> 1.5.0
-nuget MBrace.CSharp ~> 1.5.0 prerelease
-nuget WindowsAzure.ServiceBus ~> 3.0
-nuget WindowsAzure.Storage ~> 7.0
+nuget FSharp.Core >= 4.3.2
+nuget MBrace.Core >= 1.5.4
+nuget MBrace.Runtime >= 1.5.4
+nuget MBrace.Flow >= 1.5.4
+nuget MBrace.CSharp >= 1.5.4 prerelease
+
 nuget Argu ~> 3.2
 nuget FsPickler ~> 4.5.0
 nuget Vagabond ~> 0.15.0
-nuget Microsoft.WindowsAzure.Management.Libraries
-nuget Microsoft.WindowsAzure.Management.ServiceBus prerelease
-nuget Microsoft.WindowsAzure.ConfigurationManager
-nuget Microsoft.Bcl.Async ~> 1.0
-nuget System.Reflection.Metadata
-nuget System.Runtime.Loader
+nuget WindowsAzure.ServiceBus >= 3.0
+nuget WindowsAzure.Storage >= 7.0
+
+# Management
+nuget Microsoft.WindowsAzure.Management.Libraries ~> 2.0.0
+nuget Microsoft.WindowsAzure.Management.ServiceBus 0.19.0-preview
+nuget Microsoft.WindowsAzure.ConfigurationManager ~> 3.2.3
 github isaacabraham/azure-fsharp-helpers src/configuration.fs
 
 group Test
   source https://api.nuget.org/v3/index.json
   framework: net472
+  storage: none
 
-  nuget FsCheck
-  nuget FSharp.Core
-  nuget MBrace.Tests
-  nuget NUnit ~> 2.6.4
-  nuget NUnit.Runners ~> 2.6.4
+  nuget FsCheck ~> 2.10
+  nuget FSharp.Core ~> 4.7
+  nuget MBrace.Tests ~> 1.5.0
+  nuget NUnit ~> 2.0
+  # nuget NUnit3TestAdapter ~> 2.0
+  nuget Microsoft.Net.Test.SDK ~> 16.4.0
   nuget FSharp.Compiler.Service ~> 16.0
+
+group Fsi
+  source https://api.nuget.org/v3/index.json
+  framework: net472
+
   nuget MathNet.Numerics ~> 3.7.0
   nuget MathNet.Numerics.FSharp ~> 3.7.0
   nuget MathNet.Numerics.MKL.Win-x64 ~> 1.8.0
-
 
 group Build
   source https://api.nuget.org/v3/index.json

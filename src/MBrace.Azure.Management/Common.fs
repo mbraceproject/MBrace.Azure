@@ -13,7 +13,7 @@ open Microsoft.WindowsAzure.Management.ServiceBus
 [<AutoOpen>]
 module internal Common =
 
-    let defaultMBraceVersion = System.AssemblyVersionInformation.ReleaseTag
+    let defaultMBraceVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version.ToString()
 
     let resourcePrefix = "mbrace"
     let generateResourceName() = resourcePrefix + Guid.NewGuid().ToString("N").[..7]

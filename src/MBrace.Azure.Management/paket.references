@@ -1,7 +1,6 @@
 ﻿FSharp.Core
 WindowsAzure.ServiceBus
 WindowsAzure.Storage
-Microsoft.Bcl.Async
 Microsoft.WindowsAzure.Management.Libraries
 Microsoft.WindowsAzure.Management.ServiceBus
 MBrace.Core

@@ -1,12 +1,8 @@
-FsPickler
-MBrace.Core
-MBrace.Runtime
-Newtonsoft.Json
-Vagabond
-WindowsAzure.ServiceBus
-WindowsAzure.Storage
 group Test
+  FSharp.Core
   FsCheck
   MBrace.Tests
   NUnit
+  # NUnit3TestAdapter
+  Microsoft.Net.Test.SDK
   FSharp.Compiler.Service
