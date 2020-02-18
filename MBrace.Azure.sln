@@ -6,7 +6,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{8C962C
 	ProjectSection(SolutionItems) = preProject
 		paket.dependencies = paket.dependencies
 		paket.lock = paket.lock
-		.paket\paket.targets = .paket\paket.targets
+		.paket\Paket.Restore.targets = .paket\Paket.Restore.targets
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1CCF30B5-03E2-423A-85A9-98278969CAAF}"
