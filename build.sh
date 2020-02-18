@@ -1,12 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 dotnet tool restore
-dotnet paket restore
 
-if [ "X$OS" = "XWindows_NT" ] ; then
-  # use .Net
-  packages/build/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx 
-else
-  # use mono
-  mono packages/build/FAKE/tools/FAKE.exe $@ --fsiargs -d:MONO build.fsx 
-fi
+#Use paket and not fake for restoring packages
+#c.f. https://github.com/fsharp/FAKE/issues/2181                                                                                                                                                                dotnet paket restore                                                                                                                                                                                               export PAKET_SKIP_RESTORE_TARGETS=true 
+dotnet paket restore
+export PAKET_SKIP_RESTORE_TARGETS=true
+
+dotnet fake run build.fsx "$@"

@@ -36,8 +36,12 @@ group Test
 
 group Build
   source https://api.nuget.org/v3/index.json
-  framework: net472
-  
-  nuget FAKE
-  nuget Nuget.CommandLine  
-  github fsharp/FAKE modules/Octokit/Octokit.fsx
+  storage: none
+
+  nuget Fake.Core.UserInput	    ~> 5.19.0
+  nuget Fake.Core.ReleaseNotes  ~> 5.19.0
+  nuget Fake.Core.Target        ~> 5.19.0
+  nuget Fake.IO.FileSystem      ~> 5.19.0
+  nuget Fake.DotNet.Cli         ~> 5.19.0
+  nuget Fake.Tools.Git          ~> 5.19.0
+  nuget Fake.Api.Github         ~> 5.19.0
