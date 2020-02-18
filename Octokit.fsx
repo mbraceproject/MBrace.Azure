@@ -1,6 +1,6 @@
 #nowarn "211"
 #I __SOURCE_DIRECTORY__
-#I @"packages/build/Octokit/lib/net45"
+#I @"packages/build/Octokit/lib/net472"
 #r "System.Net.Http"
 #r "Octokit.dll"
 

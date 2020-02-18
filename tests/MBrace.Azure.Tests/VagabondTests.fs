@@ -94,7 +94,7 @@ type ``Vagabond Azure Tests (FSI)``(config : Configuration, localWorkerCount : i
             let eval (e : Expr<'T>) = LeafExpressionConverter.EvaluateQuotation e :?> 'T
         """
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.InitFsiSession () =
         FsiSession.Start()
         let fsi = FsiSession.Value
@@ -126,7 +126,7 @@ type ``Vagabond Azure Tests (FSI)``(config : Configuration, localWorkerCount : i
         fsi.EvalInteraction "let cluster = session.Cluster"
 
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.StopFsiSession () =
         let fsi = FsiSession.Value
         fsi.Interrupt()

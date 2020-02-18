@@ -179,11 +179,9 @@ UpgradeLog*.htm
 *.bim.layout
 *.bim_*.settings
 
-# Microsoft Fakes
-FakesAssemblies/
 paket-files/
-.paket/paket.exe
 .fake/
 temp/
-/.vs/MBrace.Azure/v15
-/packages/build
+.vs/
+.ionide/
+packages/

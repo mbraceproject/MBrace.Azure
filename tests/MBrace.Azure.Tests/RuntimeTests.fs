@@ -30,10 +30,10 @@ type ``Azure Runtime Tests`` (config : Configuration, localWorkers : int) =
     let session = new ClusterSession(config, localWorkers)
     let run w = session.Cluster.Run(w)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
 
     [<Test>]

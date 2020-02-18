@@ -20,10 +20,10 @@ type ``Azure BlobStore Tests``(config : Configuration, localWorkers : int) =
     inherit ``CloudFileStore Tests``(parallelismFactor = 10)
     let session = new ClusterSession(config, localWorkers)
     
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init() = session.Start()
     
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini() = session.Stop()
 
     [<Test>]
@@ -66,10 +66,10 @@ type ``Azure CloudAtom Tests``(config : Configuration, localWorkers : int) =
     inherit ``CloudAtom Tests``(parallelismFactor = 5)
     let session = new ClusterSession(config, localWorkers)
     
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init() = session.Start()
     
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini() = session.Stop()
     
     override __.IsSupportedNamedLookup = true
@@ -99,10 +99,10 @@ type ``Azure CloudQueue Tests``(config : Configuration, localWorkers : int) =
     inherit ``CloudQueue Tests``(parallelismFactor = 10)
     let session = new ClusterSession(config, localWorkers)
     
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init() = session.Start()
     
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini() = session.Stop()
     
     override __.Run wf = session.Cluster.Run wf
@@ -126,10 +126,10 @@ type ``Azure CloudDictionary Tests``(config : Configuration, localWorkers : int)
     inherit ``CloudDictionary Tests``(parallelismFactor = 5)
     let session = new ClusterSession(config, localWorkers)
     
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init() = session.Start()
     
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini() = session.Stop()
     
     override __.Run wf = session.Cluster.Run wf
@@ -158,10 +158,10 @@ type ``Azure CloudValue Tests``(config : Configuration, localWorkers : int) =
     inherit ``CloudValue Tests``(parallelismFactor = 5)
     let session = new ClusterSession(config, localWorkers)
     
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init() = session.Start()
     
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini() = session.Stop()
     
     override __.Run wf = session.Cluster.Run wf

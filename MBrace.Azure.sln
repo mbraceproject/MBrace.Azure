@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1CCF30B5-03E
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64BD78-3886-4FC5-A6F9-2A71A99769B9}"
 	ProjectSection(SolutionItems) = preProject
+		.gitignore = .gitignore
 		appveyor.yml = appveyor.yml
 		build.cmd = build.cmd
 		build.fsx = build.fsx
@@ -27,7 +28,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Tests", "tests\MBrace.Azure.Tests\MBrace.Azure.Tests.fsproj", "{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.Tests", "tests\MBrace.Azure.Tests\MBrace.Azure.Tests.fsproj", "{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5F24F335-F43F-4266-B9DD-E5027835DAAB}"
 	ProjectSection(SolutionItems) = preProject
@@ -36,9 +37,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5F24
 		samples\sample.fsx = samples\sample.fsx
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.StandaloneWorker", "src\MBrace.Azure.StandaloneWorker\MBrace.Azure.StandaloneWorker.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.StandaloneWorker", "src\MBrace.Azure.StandaloneWorker\MBrace.Azure.StandaloneWorker.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure", "src\MBrace.Azure\MBrace.Azure.fsproj", "{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure", "src\MBrace.Azure\MBrace.Azure.fsproj", "{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "resource", "resource", "{744148AA-63A4-4E46-B782-7D9A9B7DC4A5}"
 	ProjectSection(SolutionItems) = preProject
@@ -46,9 +47,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "resource", "resource", "{74
 		resource\Mgrey.res = resource\Mgrey.res
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.Management", "src\MBrace.Azure.Management\MBrace.Azure.Management.fsproj", "{2F80E0B8-69D4-4492-A0EE-73B98C741A04}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.Management", "src\MBrace.Azure.Management\MBrace.Azure.Management.fsproj", "{2F80E0B8-69D4-4492-A0EE-73B98C741A04}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MBrace.Azure.StandaloneClient", "samples\MBrace.Azure.StandaloneClient\MBrace.Azure.StandaloneClient.fsproj", "{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.StandaloneClient", "samples\MBrace.Azure.StandaloneClient\MBrace.Azure.StandaloneClient.fsproj", "{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -111,7 +112,7 @@ Global
 		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net45+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
 		SolutionGuid = {A8A90BC8-A087-4019-A63E-EFBCEB89CDEC}
+		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net472+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
 	EndGlobalSection
 EndGlobal

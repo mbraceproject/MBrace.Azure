@@ -23,7 +23,7 @@
 #r "../../bin/MBrace.Azure.Management.dll"
 #r "../../bin/Streams.dll"
 #r "../../bin/MBrace.Flow.dll"
-#r "../../packages/MBrace.CSharp/lib/net45/MBrace.CSharp.dll"
+#r "../../packages/MBrace.CSharp/lib/net472/MBrace.CSharp.dll"
 
 // before running sample, don't forget to set binding redirects to FSharp.Core in InteractiveHost.exe
 

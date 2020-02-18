@@ -15,10 +15,10 @@ type ``Azure CloudFlow Tests`` (config : Configuration, localWorkers : int) =
     inherit ``CloudFlow tests`` ()
     let session = new ClusterSession(config, localWorkers)
 
-    [<TestFixtureSetUp>]
+    [<OneTimeSetUp>]
     member __.Init () = session.Start()
 
-    [<TestFixtureTearDown>]
+    [<OneTimeTearDown>]
     member __.Fini () = session.Stop()
 
     override __.IsSupportedStorageLevel _ = true
