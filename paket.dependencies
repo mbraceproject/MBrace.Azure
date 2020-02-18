@@ -12,8 +12,8 @@ nuget MBrace.CSharp >= 1.5.4 prerelease
 nuget Argu ~> 3.2
 nuget FsPickler ~> 4.5.0
 nuget Vagabond ~> 0.15.0
+nuget WindowsAzure.Storage >= 9.3.3
 nuget WindowsAzure.ServiceBus >= 3.0
-nuget WindowsAzure.Storage >= 7.0
 
 # Management
 nuget Microsoft.WindowsAzure.Management.Libraries ~> 2.0.0
