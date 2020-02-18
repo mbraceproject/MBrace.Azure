@@ -2,17 +2,29 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29813.275
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{8C962C9C-7DF5-430C-8CD4-7C2642F68409}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure", "src\MBrace.Azure\MBrace.Azure.fsproj", "{32102261-C9F3-447F-AD5D-2C81EA0A5DB9}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.StandaloneClient", "samples\MBrace.Azure.StandaloneClient\MBrace.Azure.StandaloneClient.fsproj", "{4C1C7ACB-F514-48BF-8E16-191007F87482}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.Management", "src\MBrace.Azure.Management\MBrace.Azure.Management.fsproj", "{37BE89CB-E194-4FEC-87EF-6FAB7BFDC22D}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.StandaloneWorker", "src\MBrace.Azure.StandaloneWorker\MBrace.Azure.StandaloneWorker.fsproj", "{742EDF6C-DFE1-44F4-840C-FD53C6D1CB91}"
+EndProject
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.Tests", "tests\MBrace.Azure.Tests\MBrace.Azure.Tests.fsproj", "{0AEE040E-9014-4EEF-B254-826102B57A1B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".config", ".config", "{213DCA17-A010-4B4D-B066-5ED9724EAC39}"
 	ProjectSection(SolutionItems) = preProject
-		paket.dependencies = paket.dependencies
-		paket.lock = paket.lock
+		.config\dotnet-tools.json = .config\dotnet-tools.json
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{F1E9C942-954C-44C5-A1D7-E22CC2D557A7}"
+	ProjectSection(SolutionItems) = preProject
 		.paket\Paket.Restore.targets = .paket\Paket.Restore.targets
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1CCF30B5-03E2-423A-85A9-98278969CAAF}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64BD78-3886-4FC5-A6F9-2A71A99769B9}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{94EB2D75-48AD-4566-BB0F-EC99B421611F}"
 	ProjectSection(SolutionItems) = preProject
+		.gitattributes = .gitattributes
 		.gitignore = .gitignore
 		appveyor.yml = appveyor.yml
 		build.cmd = build.cmd
@@ -20,100 +32,62 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "project", "project", "{BC64
 		build.sh = build.sh
 		Directory.Build.props = Directory.Build.props
 		LICENSE.md = LICENSE.md
-		nuget\MBrace.Azure.fsx = nuget\MBrace.Azure.fsx
-		nuget\MBrace.Azure.Management.fsx = nuget\MBrace.Azure.Management.fsx
 		Octokit.fsx = Octokit.fsx
+		paket.dependencies = paket.dependencies
+		paket.lock = paket.lock
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.Tests", "tests\MBrace.Azure.Tests\MBrace.Azure.Tests.fsproj", "{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5F24F335-F43F-4266-B9DD-E5027835DAAB}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{F85A8A70-6D23-414F-AD59-E02487B93151}"
 	ProjectSection(SolutionItems) = preProject
 		samples\cloudflow.csx = samples\cloudflow.csx
 		samples\provision.fsx = samples\provision.fsx
 		samples\sample.fsx = samples\sample.fsx
 	EndProjectSection
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.StandaloneWorker", "src\MBrace.Azure.StandaloneWorker\MBrace.Azure.StandaloneWorker.fsproj", "{09891260-7D4E-431B-B714-2A13C412FD78}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0DBB735C-4D50-445B-A9B9-AA29EFE6761F}"
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure", "src\MBrace.Azure\MBrace.Azure.fsproj", "{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "resource", "resource", "{744148AA-63A4-4E46-B782-7D9A9B7DC4A5}"
-	ProjectSection(SolutionItems) = preProject
-		resource\Mblue.res = resource\Mblue.res
-		resource\Mgrey.res = resource\Mgrey.res
-	EndProjectSection
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.Management", "src\MBrace.Azure.Management\MBrace.Azure.Management.fsproj", "{2F80E0B8-69D4-4492-A0EE-73B98C741A04}"
-EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MBrace.Azure.StandaloneClient", "samples\MBrace.Azure.StandaloneClient\MBrace.Azure.StandaloneClient.fsproj", "{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{758F85D9-24FC-413B-8718-D7D90EAC61F7}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug_AzureSDK|Any CPU = Debug_AzureSDK|Any CPU
 		Debug|Any CPU = Debug|Any CPU
-		Release_AzureSDK|Any CPU = Release_AzureSDK|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{09891260-7D4E-431B-B714-2A13C412FD78}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
-		{09891260-7D4E-431B-B714-2A13C412FD78}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
-		{09891260-7D4E-431B-B714-2A13C412FD78}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{09891260-7D4E-431B-B714-2A13C412FD78}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{09891260-7D4E-431B-B714-2A13C412FD78}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
-		{09891260-7D4E-431B-B714-2A13C412FD78}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
-		{09891260-7D4E-431B-B714-2A13C412FD78}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{09891260-7D4E-431B-B714-2A13C412FD78}.Release|Any CPU.Build.0 = Release|Any CPU
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Debug_AzureSDK|Any CPU.ActiveCfg = Debug|Any CPU
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Debug_AzureSDK|Any CPU.Build.0 = Debug|Any CPU
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Release_AzureSDK|Any CPU.ActiveCfg = Release|Any CPU
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Release_AzureSDK|Any CPU.Build.0 = Release|Any CPU
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672}.Release|Any CPU.Build.0 = Release|Any CPU
+		{32102261-C9F3-447F-AD5D-2C81EA0A5DB9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32102261-C9F3-447F-AD5D-2C81EA0A5DB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32102261-C9F3-447F-AD5D-2C81EA0A5DB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32102261-C9F3-447F-AD5D-2C81EA0A5DB9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4C1C7ACB-F514-48BF-8E16-191007F87482}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C1C7ACB-F514-48BF-8E16-191007F87482}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C1C7ACB-F514-48BF-8E16-191007F87482}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C1C7ACB-F514-48BF-8E16-191007F87482}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37BE89CB-E194-4FEC-87EF-6FAB7BFDC22D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37BE89CB-E194-4FEC-87EF-6FAB7BFDC22D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37BE89CB-E194-4FEC-87EF-6FAB7BFDC22D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37BE89CB-E194-4FEC-87EF-6FAB7BFDC22D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{742EDF6C-DFE1-44F4-840C-FD53C6D1CB91}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{742EDF6C-DFE1-44F4-840C-FD53C6D1CB91}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{742EDF6C-DFE1-44F4-840C-FD53C6D1CB91}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{742EDF6C-DFE1-44F4-840C-FD53C6D1CB91}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0AEE040E-9014-4EEF-B254-826102B57A1B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0AEE040E-9014-4EEF-B254-826102B57A1B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0AEE040E-9014-4EEF-B254-826102B57A1B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0AEE040E-9014-4EEF-B254-826102B57A1B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{BCFC51B3-CC42-47CE-9526-A2ABE1A1E2A5} = {3D29425B-F7B5-4AE0-9A28-5F0ADF808FE8}
-		{09891260-7D4E-431B-B714-2A13C412FD78} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
-		{5ED05EC2-A9A0-4247-BB66-4D4C866F43AD} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
-		{744148AA-63A4-4E46-B782-7D9A9B7DC4A5} = {BC64BD78-3886-4FC5-A6F9-2A71A99769B9}
-		{2F80E0B8-69D4-4492-A0EE-73B98C741A04} = {1CCF30B5-03E2-423A-85A9-98278969CAAF}
-		{C1F585DB-92AA-4CF2-AB64-CF1857A5B672} = {5F24F335-F43F-4266-B9DD-E5027835DAAB}
+		{32102261-C9F3-447F-AD5D-2C81EA0A5DB9} = {0DBB735C-4D50-445B-A9B9-AA29EFE6761F}
+		{4C1C7ACB-F514-48BF-8E16-191007F87482} = {F85A8A70-6D23-414F-AD59-E02487B93151}
+		{37BE89CB-E194-4FEC-87EF-6FAB7BFDC22D} = {0DBB735C-4D50-445B-A9B9-AA29EFE6761F}
+		{742EDF6C-DFE1-44F4-840C-FD53C6D1CB91} = {0DBB735C-4D50-445B-A9B9-AA29EFE6761F}
+		{0AEE040E-9014-4EEF-B254-826102B57A1B} = {758F85D9-24FC-413B-8718-D7D90EAC61F7}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {A8A90BC8-A087-4019-A63E-EFBCEB89CDEC}
-		EnterpriseLibraryConfigurationToolBinariesPathV6 = packages\EnterpriseLibrary.TransientFaultHandling.6.0.1304.0\lib\portable-net472+win+wp8;packages\EnterpriseLibrary.TransientFaultHandling.Data.6.0.1304.1\lib\NET45
+		SolutionGuid = {0B1B7E3F-CE6F-4B6F-89A6-70116F440B0C}
 	EndGlobalSection
 EndGlobal
