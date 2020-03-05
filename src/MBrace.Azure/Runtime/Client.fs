@@ -184,11 +184,10 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="force">Ignore active workers. Defaults to false.</param>
     /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
     [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.ResetAsync([<O;D(null:obj)>]?deleteQueues : bool, [<O;D(null:obj)>]?deleteRuntimeState : bool, [<O;D(null:obj)>]?deleteLogs : bool, 
-                            [<O;D(null:obj)>]?deleteUserData : bool, [<O;D(null:obj)>]?deleteAssemblyData : bool, [<O;D(null:obj)>]?force : bool, [<O;D(null:obj)>]?reactivate : bool) : Async<unit> =
+    member this.ResetAsync([<O;D(null:obj)>]?deleteQueues : bool, [<O;D(null:obj)>]?deleteRuntimeState : bool, [<O;D(null:obj)>]?deleteLogs : bool, [<O;D(null:obj)>]?deleteAssemblyData : bool, [<O;D(null:obj)>]?force : bool, [<O;D(null:obj)>]?reactivate : bool) : Async<unit> =
 
         manager.ResetCluster(?deleteQueues = deleteQueues, ?deleteRuntimeState = deleteRuntimeState, ?deleteLogs = deleteLogs, 
-                                ?deleteUserData = deleteUserData, ?deleteAssemblyData = deleteAssemblyData, 
+                                ?deleteAssemblyData = deleteAssemblyData, 
                                 ?force = force, ?reactivate = reactivate)
 
     /// <summary>
@@ -204,11 +203,11 @@ type AzureCluster private (manager : ClusterManager, faultPolicy : FaultPolicy o
     /// <param name="force">Ignore active workers. Defaults to false.</param>
     /// <param name="reactivate">Reactivate configuration. Defaults to true.</param>
     [<CompilerMessage("Using 'Reset' may cause unexpected behavior in clients and workers.", 445)>]
-    member this.Reset([<O;D(null:obj)>]?deleteQueues : bool, [<O;D(null:obj)>]?deleteRuntimeState : bool, [<O;D(null:obj)>]?deleteLogs : bool, [<O;D(null:obj)>]?deleteUserData : bool, 
+    member this.Reset([<O;D(null:obj)>]?deleteQueues : bool, [<O;D(null:obj)>]?deleteRuntimeState : bool, [<O;D(null:obj)>]?deleteLogs : bool,
                         [<O;D(null:obj)>]?deleteAssemblyData : bool, [<O;D(null:obj)>]?force : bool, [<O;D(null:obj)>]?reactivate : bool) : unit =
 
         this.ResetAsync(?deleteQueues = deleteQueues, ?deleteRuntimeState = deleteRuntimeState, ?deleteLogs = deleteLogs, 
-                                ?deleteUserData = deleteUserData, ?deleteAssemblyData = deleteAssemblyData, 
+                                ?deleteAssemblyData = deleteAssemblyData, 
                                 ?force = force, ?reactivate = reactivate)
         |> Async.RunSync
 
