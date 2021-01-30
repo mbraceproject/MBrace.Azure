@@ -22,6 +22,20 @@ open MBrace.Runtime.Utils.PrettyPrinters
 open MBrace.Azure
 open MBrace.Azure.Runtime
 
+type ServiceName = string
+type InstanceCount = int
+type UseDiagnostics = bool
+
+[<RequireQualifiedAccess>]
+type CloudServiceConfigurationMaker = 
+    /// Use default Cloud Service configuration (.cscfg) that comes with MBrace.Azure.Management
+    | Default
+    /// Give a custom functor taking: service name (a string), instance count (an integer), use diagnostics (a boolean)
+    /// , StorageAccount instance and ServiceBusAccount instance to return a string containing the final xml matching
+    /// desired custom .cscfg file.
+    /// <remarks>One can look at implementation of MBrace.Azure.Management.Compute.buildMBraceConfig to see example of correct implementation.</remarks>
+    | Custom of (ServiceName -> InstanceCount -> UseDiagnostics -> StorageAccount -> ServiceBusAccount -> string)
+
 module internal Compute =
     open Microsoft.WindowsAzure.Storage.Blob
     open System.Net
@@ -265,9 +279,15 @@ module internal Compute =
     let createDeployment (logger : ISystemLogger) (serviceName : string) (clusterLabel : string) 
                             (region : Region) packageDetails (useStaging : bool) (enableDiagnostics : bool) (instanceCount : int)
                             (storageAccount : StorageAccount) (serviceBusAccount : ServiceBusAccount) 
-                            (client:SubscriptionClient) = async {
+                            (client:SubscriptionClient) (cloudServiceConfiguration: CloudServiceConfigurationMaker)
+                            = async {
         let! destinationPackageUri = deployPackage packageDetails storageAccount logger
-        let config = buildMBraceConfig serviceName instanceCount enableDiagnostics storageAccount serviceBusAccount
+        let config = 
+          let buildConfig = 
+            match cloudServiceConfiguration with
+            | CloudServiceConfigurationMaker.Default -> buildMBraceConfig
+            | CloudServiceConfigurationMaker.Custom buildConfigFunction -> buildConfigFunction 
+          buildConfig serviceName instanceCount enableDiagnostics storageAccount serviceBusAccount
         logger.Logf LogLevel.Info "creating cloud service %A" serviceName
         let! _ = client.Compute.HostedServices.CreateAsync(HostedServiceCreateParameters(Location = region.Id, ServiceName = serviceName)) |> Async.AwaitTaskCorrect
         let deployParams = 
